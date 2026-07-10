@@ -45,7 +45,8 @@ func newViewCmd() *cobra.Command {
 				return err
 			}
 
-			srv := &http.Server{Addr: ":" + strconv.Itoa(resolvedPort), Handler: handler}
+			// ローカル専用ビューア（§7）につき 127.0.0.1 のみで listen する（外部公開しない）。
+			srv := &http.Server{Addr: "127.0.0.1:" + strconv.Itoa(resolvedPort), Handler: handler}
 			fmt.Fprintf(cmd.OutOrStdout(), "pmem view: http://localhost:%d\n", resolvedPort)
 
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
