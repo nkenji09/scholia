@@ -28,6 +28,7 @@ func NewHandler(s *store.Store) (http.Handler, error) {
 	registerRulesRoute(mux, s)
 	registerDerivedRoutes(mux, s)
 	registerTraceabilityRoute(mux, s)
+	registerSearchRoute(mux, s)
 	mux.Handle("/", spaHandler{fs: distFS})
 	return mux, nil
 }
