@@ -42,6 +42,14 @@ func EffectiveTags(snap *store.Snapshot, t *model.Transition) []string {
 	return sortedKeys(closure)
 }
 
+// TagAncestors returns tagID itself plus every ancestor reachable via
+// Tag.ParentIDs (sorted, deduplicated, cycle-safe). Used by `pmem rules
+// --tag` (§3.8): a decision on an ancestor tag also governs its descendants.
+func TagAncestors(snap *store.Snapshot, tagID string) []string {
+	closure := ancestorClosure(tagIndex(snap.Tags), map[string]bool{tagID: true})
+	return sortedKeys(closure)
+}
+
 // ancestorClosure expands seeds along Tag.ParentIDs until fixpoint, tolerating
 // cycles and dangling parent references (those are surfaced by lint's tag-ref
 // rule, not here).

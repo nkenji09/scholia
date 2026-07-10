@@ -8,5 +8,6 @@ func newVocabCmd() *cobra.Command {
 		Short: "語彙（condition/action/effect）を操作する",
 	}
 	cmd.AddCommand(newVocabAddCmd())
+	cmd.AddCommand(newVocabTagCmd())
 	return cmd
 }

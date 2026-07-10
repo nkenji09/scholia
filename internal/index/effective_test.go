@@ -80,6 +80,35 @@ func TestEffectiveTags_ToleratesCyclicParentIDs(t *testing.T) {
 	}
 }
 
+func TestTagAncestors_SelfPlusAncestors(t *testing.T) {
+	snap := &store.Snapshot{
+		Tags: []model.Tag{
+			{ID: "subject.auth", Name: "auth"},
+			{ID: "req.auth", Name: "req-auth", ParentIDs: []string{"subject.auth"}},
+			{ID: "req.auth-happy-path", Name: "happy", ParentIDs: []string{"req.auth"}},
+		},
+	}
+	got := TagAncestors(snap, "req.auth-happy-path")
+	want := []string{"req.auth", "req.auth-happy-path", "subject.auth"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("TagAncestors = %v, want %v", got, want)
+	}
+}
+
+func TestTagAncestors_ToleratesCycles(t *testing.T) {
+	snap := &store.Snapshot{
+		Tags: []model.Tag{
+			{ID: "a", Name: "a", ParentIDs: []string{"b"}},
+			{ID: "b", Name: "b", ParentIDs: []string{"a"}},
+		},
+	}
+	got := TagAncestors(snap, "a")
+	want := []string{"a", "b"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("TagAncestors = %v, want %v", got, want)
+	}
+}
+
 func TestEffectiveTags_EmptyWhenNoTagsAnywhere(t *testing.T) {
 	snap := &store.Snapshot{}
 	tx := &model.Transition{ID: "T-1", Action: "act.a"}
