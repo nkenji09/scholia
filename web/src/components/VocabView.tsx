@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { api } from '../api';
+import { useLookups } from '../lookups';
 import { strings } from '../strings';
 import type { Transition, VocabEntry } from '../types';
+import { Markdown } from './Markdown';
 
 interface Props {
   onSelectTx: (id: string) => void;
@@ -20,13 +22,18 @@ function usedBy(v: VocabEntry, transitions: Transition[]): Transition[] {
 function VocabRow({ v, transitions, onSelectTx }: { v: VocabEntry; transitions: Transition[]; onSelectTx: (id: string) => void }) {
   const [open, setOpen] = useState(false);
   const uses = useMemo(() => usedBy(v, transitions), [v, transitions]);
+  const { transitionLabel } = useLookups();
 
   return (
     <li class="vocab-row">
       <div class="vocab-row-main">
-        <span class="vocab-id">{v.id}</span>
-        <span class="vocab-label">{v.label}</span>
-        {v.kind && <span class="vocab-kind-badge">{v.kind}</span>}
+        <div class="vocab-row-heading">
+          <span class="vocab-label">{v.label}</span>
+          {v.kind && <span class="vocab-kind-badge">{v.kind}</span>}
+          <span class="vocab-id dim" title="内部 id（リンクのキー。参照時のみ使用）">
+            {v.id}
+          </span>
+        </div>
         {v.owner && (
           <span class="vocab-owner dim">
             {strings.vocab.owner}: {v.owner}
@@ -38,15 +45,20 @@ function VocabRow({ v, transitions, onSelectTx }: { v: VocabEntry; transitions: 
             : strings.vocab.noUsage}
         </button>
       </div>
+      <Markdown text={v.description} class="vocab-description" />
       {open && uses.length > 0 && (
         <ul class="vocab-usage-list">
-          {uses.map((t) => (
-            <li key={t.id}>
-              <button type="button" class="tx-row" onClick={() => onSelectTx(t.id)}>
-                {t.id}
-              </button>
-            </li>
-          ))}
+          {uses.map((t) => {
+            const label = transitionLabel(t.id);
+            return (
+              <li key={t.id}>
+                <button type="button" class="tx-row" title={t.id} onClick={() => onSelectTx(t.id)}>
+                  {label.primary}
+                  {label.secondary && <span class="dim"> {label.secondary}</span>}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </li>

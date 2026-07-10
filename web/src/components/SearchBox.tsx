@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { api } from '../api';
+import { useLookups } from '../lookups';
 import type { SearchResult } from '../types';
 
 interface Props {
@@ -10,6 +11,7 @@ export function SearchBox({ onSelectTx }: Props) {
   const [query, setQuery] = useState('');
   const [result, setResult] = useState<SearchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { transitionLabel, describeMatch } = useLookups();
 
   useEffect(() => {
     const q = query.trim();
@@ -53,16 +55,22 @@ export function SearchBox({ onSelectTx }: Props) {
           {result && result.transitions.length === 0 && !error && <p class="dim">該当なし</p>}
           {result && result.transitions.length > 0 && (
             <ul>
-              {result.transitions.map((t) => (
-                <li key={t.id}>
-                  <button type="button" class="search-result-row" onClick={() => select(t.id)}>
-                    <span class="tx-id">{t.id}</span>
-                    {result.matchedOn[t.id] && (
-                      <span class="dim search-matched-on">{result.matchedOn[t.id].join(', ')}</span>
-                    )}
-                  </button>
-                </li>
-              ))}
+              {result.transitions.map((t) => {
+                const label = transitionLabel(t.id);
+                return (
+                  <li key={t.id}>
+                    <button type="button" class="search-result-row" title={t.id} onClick={() => select(t.id)}>
+                      <span class="search-result-primary">
+                        {label.primary}
+                        {label.secondary && <span class="dim"> {label.secondary}</span>}
+                      </span>
+                      {result.matchedOn[t.id] && (
+                        <span class="dim search-matched-on">{result.matchedOn[t.id].map(describeMatch).join('、')}</span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

@@ -1,4 +1,3 @@
-import { useState } from 'preact/hooks';
 import { isStaticMode } from './api';
 import { Sidebar } from './components/Sidebar';
 import { TransitionList } from './components/TransitionList';
@@ -11,36 +10,21 @@ import { VocabView } from './components/VocabView';
 import { SpecView } from './components/SpecView';
 import { TagsView } from './components/TagsView';
 import { strings } from './strings';
-
-type View = 'browse' | 'vocab' | 'spec' | 'tags' | 'traceability' | 'compare' | 'config';
+import { useHashRoute } from './router';
+import type { ViewName } from './router';
 
 export function App() {
-  const [view, setView] = useState<View>('browse');
-  const [selectedTagId, setSelectedTagId] = useState<string | undefined>(undefined);
-  const [selectedTxId, setSelectedTxId] = useState<string | undefined>(undefined);
-  const [specTagId, setSpecTagId] = useState<string | undefined>(undefined);
-  const [traceabilityKind, setTraceabilityKind] = useState<string | undefined>(undefined);
+  const [route, navigate] = useHashRoute();
+  const view = route.view;
 
-  const openTransition = (txId: string) => {
-    setView('browse');
-    setSelectedTxId(txId);
-  };
-
-  const openTagBrowse = (tagId: string) => {
-    setView('browse');
-    setSelectedTagId(tagId);
-    setSelectedTxId(undefined);
-  };
-
-  const openTagSpec = (tagId: string) => {
-    setView('spec');
-    setSpecTagId(tagId);
-  };
-
-  const openTagTraceability = (_tagId: string, kind: string) => {
-    setView('traceability');
-    setTraceabilityKind(kind);
-  };
+  // Cross-view links (Vocab/Traceability/Tags → Browse or Spec, etc.) all
+  // funnel through navigate() so each hop lands in browser history and
+  // Back/Forward step through them one at a time (v2 調整2).
+  const openTransition = (txId: string) => navigate({ view: 'browse', txId });
+  const openTagBrowse = (tagId: string) => navigate({ view: 'browse', tagId });
+  const openTagSpec = (tagId: string) => navigate({ view: 'spec', tagId });
+  const openTagTraceability = (_tagId: string, kind: string) => navigate({ view: 'traceability', kind });
+  const setView = (next: ViewName) => navigate({ view: next });
 
   return (
     <>
@@ -80,25 +64,32 @@ export function App() {
       {view === 'browse' && (
         <div class="layout">
           <Sidebar
-            selectedTagId={selectedTagId}
-            onSelectTag={(id) => {
-              setSelectedTagId(id);
-              setSelectedTxId(undefined);
-            }}
+            selectedTagId={route.tagId}
+            onSelectTag={(id) => navigate({ view: 'browse', tagId: id })}
           />
-          <TransitionList tagId={selectedTagId} selectedTxId={selectedTxId} onSelectTx={setSelectedTxId} />
-          <TransitionDetailPanel txId={selectedTxId} />
+          <TransitionList
+            tagId={route.tagId}
+            selectedTxId={route.txId}
+            onSelectTx={(id) => navigate({ view: 'browse', tagId: route.tagId, txId: id })}
+          />
+          <TransitionDetailPanel txId={route.txId} />
         </div>
       )}
       {view === 'vocab' && <VocabView onSelectTx={openTransition} />}
-      {view === 'spec' && <SpecView selectedTagId={specTagId} onSelectTag={setSpecTagId} onSelectTx={openTransition} />}
+      {view === 'spec' && (
+        <SpecView
+          selectedTagId={route.tagId}
+          onSelectTag={(id) => navigate({ view: 'spec', tagId: id })}
+          onSelectTx={openTransition}
+        />
+      )}
       {view === 'tags' && (
         <TagsView onBrowse={openTagBrowse} onSpec={openTagSpec} onTraceability={openTagTraceability} />
       )}
       {view === 'traceability' && (
         <div class="layout layout-two">
-          <TraceabilityView onSelectTx={openTransition} initialKind={traceabilityKind} />
-          <TransitionDetailPanel txId={selectedTxId} />
+          <TraceabilityView onSelectTx={openTransition} initialKind={route.kind} />
+          <TransitionDetailPanel txId={route.txId} />
         </div>
       )}
       {view === 'compare' && !isStaticMode && <CompareView />}

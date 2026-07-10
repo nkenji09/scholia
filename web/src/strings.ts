@@ -31,11 +31,15 @@ export const strings = {
     tagRules: 'このタグの決定（cross-cutting rules）',
     txRules: 'この遷移固有の決定',
     tests: 'tests',
-    given: 'GIVEN',
-    when: 'WHEN',
-    then: 'THEN',
     openInBrowse: 'Browse で開く',
     loading: 'loading…',
+  },
+  // WHEN/GIVEN/THEN の言い換え（調整4）。遷移カード全般（一覧・詳細・spec）で共通利用。
+  flow: {
+    trigger: 'きっかけ',
+    given: '前提',
+    result: '結果',
+    noResult: '（結果なし）',
   },
   tags: {
     heading: 'タグ階層',
@@ -45,6 +49,7 @@ export const strings = {
     browse: 'Browse',
     specLink: 'Spec',
     traceability: 'Traceability',
+    description: '説明',
     txCount: (n: number) => `${n} 件`,
     stats: (tags: number, depth: number) => `${tags} タグ・最大深さ ${depth}`,
     empty: '該当するタグはありません',

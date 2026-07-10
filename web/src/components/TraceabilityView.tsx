@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { api } from '../api';
+import { useLookups } from '../lookups';
 import type { TraceabilityResponse } from '../types';
 
 interface Props {
@@ -11,6 +12,7 @@ export function TraceabilityView({ onSelectTx, initialKind }: Props) {
   const [data, setData] = useState<TraceabilityResponse | null>(null);
   const [activeKind, setActiveKind] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const { transitionLabel } = useLookups();
 
   useEffect(() => {
     api
@@ -64,13 +66,16 @@ export function TraceabilityView({ onSelectTx, initialKind }: Props) {
             </div>
             {!e.gap && (
               <ul class="satisfied-tx-list">
-                {e.satisfiedBy.map((txId) => (
-                  <li key={txId}>
-                    <button type="button" class="tx-row" onClick={() => onSelectTx(txId)}>
-                      {txId}
-                    </button>
-                  </li>
-                ))}
+                {e.satisfiedBy.map((txId) => {
+                  const label = transitionLabel(txId);
+                  return (
+                    <li key={txId}>
+                      <button type="button" class="tx-row" title={txId} onClick={() => onSelectTx(txId)}>
+                        {label.primary}
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </li>

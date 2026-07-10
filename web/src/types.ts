@@ -14,6 +14,7 @@ export interface VocabEntry {
   kind?: string;
   owner?: string;
   tags?: string[];
+  description?: string;
 }
 
 export interface Tag {

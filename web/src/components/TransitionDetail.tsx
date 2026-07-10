@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
 import { api } from '../api';
+import { useLookups } from '../lookups';
 import type { TransitionDetail as TxDetail } from '../types';
+import { TransitionFlow } from './TransitionFlow';
 
 interface Props {
   txId?: string;
@@ -9,6 +11,7 @@ interface Props {
 export function TransitionDetailPanel({ txId }: Props) {
   const [detail, setDetail] = useState<TxDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { tagName } = useLookups();
 
   useEffect(() => {
     if (!txId) {
@@ -27,63 +30,51 @@ export function TransitionDetailPanel({ txId }: Props) {
 
   return (
     <aside class="detail">
-      <h2>{detail.id}</h2>
-      <p>
-        <strong>action:</strong> {detail.action}
-        {detail.actionLabel && ` (${detail.actionLabel})`}
-      </p>
-      <p>
-        <strong>given:</strong>
-      </p>
-      <ul>
-        {detail.given.map((g, i) => (
-          <li key={g}>
-            {g}
-            {detail.givenLabels?.[i] && ` (${detail.givenLabels[i]})`}
-          </li>
-        ))}
-      </ul>
-      <p>
-        <strong>then:</strong>
-      </p>
-      <ol>
-        {detail.then.map((e, i) => (
-          <li key={e}>
-            {e}
-            {detail.thenLabels?.[i] && ` (${detail.thenLabels[i]})`}
-          </li>
-        ))}
-      </ol>
+      <header class="detail-header">
+        <h2>{detail.actionLabel || detail.id}</h2>
+        <p class="detail-id dim" title="内部 id（リンクのキー。参照時のみ使用）">
+          {detail.id}
+        </p>
+      </header>
+
+      <TransitionFlow actionLabel={detail.actionLabel || detail.action} givenLabels={detail.givenLabels} thenLabels={detail.thenLabels} />
+
       {detail.effectiveTags && detail.effectiveTags.length > 0 && (
-        <>
-          <p>
-            <strong>effective tags:</strong>
-          </p>
-          <p>{detail.effectiveTags.join(', ')}</p>
-        </>
+        <section class="detail-section">
+          <h3>タグ</h3>
+          <div class="tx-row-tags">
+            {detail.effectiveTags.map((id) => (
+              <span key={id} class="tx-tag-chip">
+                {tagName(id)}
+              </span>
+            ))}
+          </div>
+        </section>
       )}
+
       {detail.tests && detail.tests.length > 0 && (
-        <>
-          <p>
-            <strong>tests:</strong>
-          </p>
-          <p>{detail.tests.join(', ')}</p>
-        </>
+        <section class="detail-section">
+          <h3>tests</h3>
+          <ul class="detail-tests">
+            {detail.tests.map((test) => (
+              <li key={test}>{test}</li>
+            ))}
+          </ul>
+        </section>
       )}
+
       {detail.rules && detail.rules.length > 0 && (
-        <>
-          <p>
-            <strong>rules:</strong>
-          </p>
-          <ul>
+        <section class="detail-section">
+          <h3>rules</h3>
+          <ul class="detail-rules">
             {detail.rules.map((r) => (
               <li key={r.id}>
                 {r.why}
-                {r.ref && ` (${r.ref})`}
+                {r.ref && <span class="dim"> ({r.ref})</span>}
               </li>
             ))}
           </ul>
-        </>
+        </section>
       )}
     </aside>
   );

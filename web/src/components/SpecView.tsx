@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 import { api } from '../api';
 import { strings } from '../strings';
 import type { Decision, SpecReport, Tag } from '../types';
+import { Markdown } from './Markdown';
+import { TransitionFlow } from './TransitionFlow';
 
 interface Props {
   selectedTagId?: string;
@@ -87,9 +89,10 @@ export function SpecView({ selectedTagId, onSelectTag, onSelectTx }: Props) {
             <button
               type="button"
               class={'tag-node' + (t.id === selectedTagId ? ' selected' : '')}
+              title={t.id}
               onClick={() => onSelectTag(t.id)}
             >
-              {t.name || t.id} <span class="dim">({t.id})</span>
+              {t.name || t.id}
             </button>
           </li>
         ))}
@@ -102,8 +105,10 @@ export function SpecView({ selectedTagId, onSelectTag, onSelectTx }: Props) {
         <section class="spec-report">
           <header class="spec-report-header">
             <h3>{report.tag.name || report.tag.id}</h3>
-            <p class="dim">{report.tag.id}</p>
-            {report.tag.description && <p>{report.tag.description}</p>}
+            <p class="dim" title="内部 id（リンクのキー。参照時のみ使用）">
+              {report.tag.id}
+            </p>
+            <Markdown text={report.tag.description} />
           </header>
 
           {tagRules.length > 0 && (
@@ -122,22 +127,13 @@ export function SpecView({ selectedTagId, onSelectTag, onSelectTx }: Props) {
                 <li key={e.transition.id} class="spec-entry">
                   <button
                     type="button"
-                    class="tx-row spec-entry-open"
-                    title={strings.spec.openInBrowse}
+                    class="spec-entry-open"
+                    title={`${strings.spec.openInBrowse} (${e.transition.id})`}
                     onClick={() => onSelectTx(e.transition.id)}
                   >
-                    {e.transition.id}
+                    {strings.spec.openInBrowse}
                   </button>
-                  <p class="spec-entry-line">
-                    <strong>{strings.spec.when}</strong> {e.actionLabel}
-                    {e.givenLabels && e.givenLabels.length > 0 && (
-                      <>
-                        {' '}
-                        <strong>{strings.spec.given}</strong> {e.givenLabels.join('、')}
-                      </>
-                    )}{' '}
-                    <strong>{strings.spec.then}</strong> {(e.thenLabels || []).join(' → ')}
-                  </p>
+                  <TransitionFlow actionLabel={e.actionLabel} givenLabels={e.givenLabels} thenLabels={e.thenLabels} />
                   {e.transition.tests && e.transition.tests.length > 0 && (
                     <p class="dim spec-entry-tests">
                       {strings.spec.tests}: {e.transition.tests.join(', ')}
