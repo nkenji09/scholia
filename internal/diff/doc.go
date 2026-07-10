@@ -1,2 +1,5 @@
-// Package diff computes semantic diffs between git refs / the working tree. Not implemented in Phase 0.
+// Package diff computes the semantic diff (§4) between the current working
+// tree's .pmem/ records and the same records at a git ref (default HEAD).
+// The ref side is read via `git ls-tree` / `git show` (os/exec) — no new
+// module dependency, and no requirement that the ref be checked out.
 package diff
