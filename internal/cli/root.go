@@ -21,6 +21,8 @@ func newRootCmd() *cobra.Command {
 	cmd.PersistentFlags().StringVar(&dirFlag, "dir", "", "プロジェクトルート（既定: .pmem を上方探索）")
 
 	cmd.AddCommand(newInitCmd())
+	cmd.AddCommand(newKindCmd())
+	cmd.AddCommand(newConfigCmd())
 	cmd.AddCommand(newVocabCmd())
 	cmd.AddCommand(newTagCmd())
 	cmd.AddCommand(newTxCmd())
