@@ -486,3 +486,276 @@ pre {
   background: var(--color-warning-weak);
   color: var(--color-warning);
 }
+
+/* ---- Vocab / Spec / Tags (記録ブラウザ) ---- */
+
+.vocab-view,
+.spec-view,
+.tags-view {
+  padding: var(--sp-4);
+  overflow-y: auto;
+  max-width: 920px;
+}
+
+.vocab-kind-group {
+  margin-top: var(--sp-4);
+}
+
+.vocab-kind-group h3 {
+  color: var(--color-text-strong);
+  margin-bottom: var(--sp-2);
+  text-transform: lowercase;
+}
+
+.vocab-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.vocab-row {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.vocab-row-main {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.vocab-id {
+  font-family: var(--font-mono);
+  color: var(--color-text-strong);
+}
+
+.vocab-label {
+  color: var(--color-text);
+}
+
+.vocab-kind-badge {
+  display: inline-block;
+  padding: 1px var(--sp-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-weak);
+  color: var(--color-primary-strong);
+  font-size: 0.8em;
+}
+
+.vocab-owner {
+  font-size: 0.85em;
+}
+
+.vocab-usage-toggle {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-1) var(--sp-2);
+  font-size: 0.85em;
+  transition: background-color 120ms ease;
+}
+
+.vocab-usage-toggle:hover {
+  background: var(--color-surface-muted);
+}
+
+.vocab-usage-list {
+  list-style: none;
+  margin: var(--sp-2) 0 0;
+  padding: var(--sp-2) 0 0;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+}
+
+.vocab-usage-list .tx-row {
+  width: auto;
+  border: 1px solid var(--color-border);
+}
+
+.spec-tag-filter {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  margin: var(--sp-2) 0;
+}
+
+.spec-tag-picker {
+  list-style: none;
+  margin: 0 0 var(--sp-4);
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  max-height: 160px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--sp-2);
+  background: var(--color-surface-muted);
+}
+
+.spec-tag-picker .tag-node {
+  width: auto;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+/* Same specificity as the base `.tag-node.selected` rule (two classes each),
+   so without this override the two-class `.spec-tag-picker .tag-node`
+   background above wins by source order and hides the (still white,
+   from `.tag-node.selected`) label text against a white background. */
+.spec-tag-picker .tag-node.selected {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.spec-report {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--sp-3);
+}
+
+.spec-report-header h3 {
+  margin-bottom: 0;
+  color: var(--color-text-strong);
+}
+
+.spec-tag-rules {
+  margin: var(--sp-3) 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-left: 3px solid var(--color-primary);
+  background: var(--color-primary-weak);
+  border-radius: var(--radius-sm);
+}
+
+.spec-tag-rules h4 {
+  margin-top: 0;
+}
+
+.spec-entry-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.spec-entry {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--sp-3);
+  background: var(--color-surface);
+}
+
+.spec-entry-open {
+  width: auto;
+  border: none;
+  padding: 0;
+  margin-bottom: var(--sp-1);
+}
+
+.spec-entry-line {
+  margin: var(--sp-1) 0;
+}
+
+.spec-entry-tests {
+  margin: var(--sp-1) 0;
+}
+
+.spec-decision-list {
+  list-style: disc;
+  margin: var(--sp-1) 0 0;
+  padding-left: var(--sp-4);
+  color: var(--color-text-muted);
+}
+
+.tags-view-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: var(--sp-2) 0 var(--sp-3);
+}
+
+.tags-view-toolbar button {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-1) var(--sp-2);
+  transition: background-color 120ms ease;
+}
+
+.tags-view-toolbar button:hover {
+  background: var(--color-surface-muted);
+}
+
+.tag-hier-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tag-hier-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tag-hier-toggle {
+  background: none;
+  border: none;
+  width: 1.5em;
+  flex: none;
+  color: var(--color-text-dim);
+}
+
+.tag-hier-toggle-spacer {
+  display: inline-block;
+  width: 1.5em;
+  flex: none;
+}
+
+.tag-hier-name {
+  color: var(--color-text-strong);
+}
+
+.tag-hier-id {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+
+.tag-hier-count {
+  font-size: 0.85em;
+}
+
+.tag-hier-actions {
+  margin-left: auto;
+  display: flex;
+  gap: var(--sp-1);
+  flex: none;
+}
+
+.tag-hier-actions button {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--sp-2);
+  font-size: 0.8em;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.tag-hier-actions button:hover {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border-color: var(--color-primary);
+}

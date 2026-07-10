@@ -4,9 +4,10 @@ import type { TraceabilityResponse } from '../types';
 
 interface Props {
   onSelectTx: (id: string) => void;
+  initialKind?: string;
 }
 
-export function TraceabilityView({ onSelectTx }: Props) {
+export function TraceabilityView({ onSelectTx, initialKind }: Props) {
   const [data, setData] = useState<TraceabilityResponse | null>(null);
   const [activeKind, setActiveKind] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -16,10 +17,11 @@ export function TraceabilityView({ onSelectTx }: Props) {
       .getTraceability()
       .then((res) => {
         setData(res);
-        if (res.kinds.length > 0) setActiveKind(res.kinds[0]);
+        if (initialKind && res.kinds.includes(initialKind)) setActiveKind(initialKind);
+        else if (res.kinds.length > 0) setActiveKind(res.kinds[0]);
       })
       .catch((err) => setError(String(err)));
-  }, []);
+  }, [initialKind]);
 
   if (error) return <main class="traceability error">{error}</main>;
   if (!data) return <main class="traceability dim">loading…</main>;

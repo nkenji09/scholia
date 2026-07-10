@@ -225,4 +225,6 @@ export interface PmemStaticData {
   searchCorpus: TransitionSearchDoc[];
   lint: LintResult;
   spec: Record<string, SpecReport>;
+  tags: Tag[];
+  vocab: VocabEntry[];
 }

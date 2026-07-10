@@ -111,10 +111,21 @@ export const api = {
 
   getFacets: () => (staticData ? Promise.resolve(staticData.facets) : request<FacetsResponse>('/api/facets')),
 
-  getTags: (kind?: string) => (staticData ? staticUnavailable('tag 一覧') : request<Tag[]>('/api/tags' + query({ kind }))),
+  getTags: (kind?: string) => {
+    if (staticData) {
+      const list = kind ? staticData.tags.filter((t) => t.kind === kind) : staticData.tags;
+      return Promise.resolve(list);
+    }
+    return request<Tag[]>('/api/tags' + query({ kind }));
+  },
 
-  getVocab: (category?: string) =>
-    staticData ? staticUnavailable('vocab 一覧') : request<VocabEntry[]>('/api/vocab' + query({ category })),
+  getVocab: (category?: string) => {
+    if (staticData) {
+      const list = category ? staticData.vocab.filter((v) => v.category === category) : staticData.vocab;
+      return Promise.resolve(list);
+    }
+    return request<VocabEntry[]>('/api/vocab' + query({ category }));
+  },
 
   getTransitions: (params: { facet?: string; tag?: string; kind?: string }) => {
     if (staticData) {
