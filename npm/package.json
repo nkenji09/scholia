@@ -1,0 +1,34 @@
+{
+  "name": "product-memory",
+  "version": "0.0.0-dev",
+  "description": "AI 向けコンテキスト保存支援 CLI (pmem) — zero-install launcher",
+  "homepage": "https://github.com/nkenji09/product-memory",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nkenji09/product-memory.git"
+  },
+  "bin": {
+    "pmem": "bin/pmem.js"
+  },
+  "files": [
+    "bin/pmem.js",
+    "install.js"
+  ],
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "dependencies": {}
+}
