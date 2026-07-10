@@ -1,0 +1,43 @@
+{
+  "pmemVersion": 1,
+  "kinds": {
+    "condition": [],
+    "action": [
+      "user",
+      "api",
+      "lifecycle",
+      "system",
+      "cron",
+      "webhook"
+    ],
+    "effect": [
+      "emit",
+      "state",
+      "http",
+      "storage",
+      "log"
+    ]
+  },
+  "tagKinds": [
+    "requirement",
+    "concern",
+    "subject"
+  ],
+  "facetKinds": [
+    "subject",
+    "requirement",
+    "concern"
+  ],
+  "traceabilityKinds": [
+    "requirement"
+  ],
+  "idPrefix": {
+    "condition": "cond.",
+    "action": "act.",
+    "effect": "eff."
+  },
+  "roots": [],
+  "viewer": {
+    "port": 4577
+  }
+}

@@ -5,3 +5,4 @@ _workspace/
 # local build artifacts
 /pmem
 /dist/
+.pmem/index.db
