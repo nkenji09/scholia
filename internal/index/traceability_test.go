@@ -100,6 +100,58 @@ func TestTraceability_FiltersByRequestedKindsOnly(t *testing.T) {
 	}
 }
 
+// TestTraceability_MultiParentTagIsDedupedByTagID guards against a review
+// finding (regression: "Traceability のサマリ件数が多親タグで水増しされる"):
+// FacetTree lists a multi-parent tag once per parent path, so walking it
+// naively would emit req.gap-multiparent twice and any summary over the
+// result (entry count, gap count) would double-count it. Traceability must
+// dedupe by tag.ID so distinct tag count == entries length and gap count
+// matches the true number of unsatisfied requirement tags.
+func TestTraceability_MultiParentTagIsDedupedByTagID(t *testing.T) {
+	snap := &store.Snapshot{
+		Tags: []model.Tag{
+			{ID: "req.auth", Name: "認証要件", Kind: "requirement"},
+			{ID: "req.vocab-tagged", Name: "vocab 経由", Kind: "requirement"},
+			// 2親（req.auth, req.vocab-tagged）を持つ gap タグ。FacetTree はこれを両方の親の下に
+			// それぞれ 1 回ずつ、計 2 回列挙する（§3.8 多重所属可）。
+			{ID: "req.gap-multiparent", Name: "多親 gap", Kind: "requirement",
+				ParentIDs: []string{"req.auth", "req.vocab-tagged"}},
+		},
+	}
+	ix := Build(snap)
+
+	entries := Traceability(ix, []string{"requirement"})
+
+	occurrences := 0
+	for _, e := range entries {
+		if e.Tag.ID == "req.gap-multiparent" {
+			occurrences++
+		}
+	}
+	if occurrences != 1 {
+		t.Fatalf("req.gap-multiparent appears %d times in entries, want exactly 1 (tag.ID dedup)", occurrences)
+	}
+
+	if len(entries) != 3 {
+		t.Fatalf("len(entries) = %d, want 3 (distinct tag count: req.auth, req.vocab-tagged, req.gap-multiparent)", len(entries))
+	}
+
+	byID := traceabilityByTagID(entries)
+	if !byID["req.gap-multiparent"].Gap {
+		t.Fatalf("req.gap-multiparent.Gap = false, want true (0 satisfying transitions)")
+	}
+
+	gapCount := 0
+	for _, e := range entries {
+		if e.Gap {
+			gapCount++
+		}
+	}
+	if gapCount != 3 {
+		t.Fatalf("gapCount = %d, want 3 (all three tags are unsatisfied; a summary computed over entries must not double-count req.gap-multiparent)", gapCount)
+	}
+}
+
 func traceabilityByTagID(entries []TraceabilityEntry) map[string]TraceabilityEntry {
 	out := make(map[string]TraceabilityEntry, len(entries))
 	for _, e := range entries {
