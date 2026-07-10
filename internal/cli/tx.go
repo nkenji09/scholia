@@ -8,6 +8,9 @@ func newTxCmd() *cobra.Command {
 		Short: "遷移（原子）を操作する",
 	}
 	cmd.AddCommand(newTxAddCmd())
+	cmd.AddCommand(newTxEditCmd())
+	cmd.AddCommand(newTxTagCmd())
 	cmd.AddCommand(newTxRenameCmd())
+	cmd.AddCommand(newTxRmCmd())
 	return cmd
 }
