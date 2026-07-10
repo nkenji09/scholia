@@ -40,6 +40,27 @@ type lintResponse struct {
 	InfoCount  int            `json:"infoCount"`
 }
 
+// buildLintResponse is shared by the live handler and the static export bake
+// (§7 pmem export --html).
+func buildLintResponse(snap store.Snapshot) lintResponse {
+	findings := lint.Run(snap)
+	if findings == nil {
+		findings = []lint.Finding{}
+	}
+	var errorCount, warnCount, infoCount int
+	for _, f := range findings {
+		switch f.Severity {
+		case lint.SeverityError:
+			errorCount++
+		case lint.SeverityWarn:
+			warnCount++
+		case lint.SeverityInfo:
+			infoCount++
+		}
+	}
+	return lintResponse{Findings: findings, ErrorCount: errorCount, WarnCount: warnCount, InfoCount: infoCount}
+}
+
 func getLintHandler(s *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		snap, _, err := loadIndexed(s)
@@ -47,24 +68,7 @@ func getLintHandler(s *store.Store) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		findings := lint.Run(snap)
-		if findings == nil {
-			findings = []lint.Finding{}
-		}
-		var errorCount, warnCount, infoCount int
-		for _, f := range findings {
-			switch f.Severity {
-			case lint.SeverityError:
-				errorCount++
-			case lint.SeverityWarn:
-				warnCount++
-			case lint.SeverityInfo:
-				infoCount++
-			}
-		}
-		writeJSON(w, http.StatusOK, lintResponse{
-			Findings: findings, ErrorCount: errorCount, WarnCount: warnCount, InfoCount: infoCount,
-		})
+		writeJSON(w, http.StatusOK, buildLintResponse(snap))
 	}
 }
 

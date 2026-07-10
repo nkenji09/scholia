@@ -3,6 +3,8 @@ package viewer
 import (
 	"net/http"
 	"testing"
+
+	"github.com/nkenji09/product-memory/internal/index"
 )
 
 func TestListTransitions_NoFilter(t *testing.T) {
@@ -63,7 +65,7 @@ func TestGetTransition_ResolvesLabelsAndRules(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
 	}
-	out := decodeJSON[txDetail](t, rec)
+	out := decodeJSON[index.TransitionDetail](t, rec)
 	if out.ActionLabel != "ログイン" {
 		t.Fatalf("ActionLabel = %q, want ログイン", out.ActionLabel)
 	}

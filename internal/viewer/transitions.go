@@ -21,6 +21,24 @@ type transitionsResponse struct {
 	Untagged    []model.Transition `json:"untagged,omitempty"`
 }
 
+// buildTransitionsResponse is shared by the live handler and the static
+// export bake (§7 pmem export --html); callers are responsible for
+// validating facet/tagID/kind beforehand (the live handler does this via
+// HTTP 400s, the export bake only ever passes ids it already knows exist).
+func buildTransitionsResponse(ix *index.Index, facet, tagID, kind string) transitionsResponse {
+	filtered := index.FilterTransitions(ix, ix.AllTransitions(), tagID, kind)
+
+	var out transitionsResponse
+	if facet != "" {
+		out.Facet = facet
+		out.Roots = index.BuildFacetNodes(ix, facet, filtered)
+		out.Untagged = index.UntaggedTransitions(ix, filtered, facet)
+	} else {
+		out.Transitions = filtered
+	}
+	return out
+}
+
 func listTransitionsHandler(s *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		snap, ix, err := loadIndexed(s)
@@ -45,30 +63,8 @@ func listTransitionsHandler(s *store.Store) http.HandlerFunc {
 			return
 		}
 
-		filtered := index.FilterTransitions(ix, ix.AllTransitions(), tagID, kind)
-
-		var out transitionsResponse
-		if facet != "" {
-			out.Facet = facet
-			out.Roots = index.BuildFacetNodes(ix, facet, filtered)
-			out.Untagged = index.UntaggedTransitions(ix, filtered, facet)
-		} else {
-			out.Transitions = filtered
-		}
-		writeJSON(w, http.StatusOK, out)
+		writeJSON(w, http.StatusOK, buildTransitionsResponse(ix, facet, tagID, kind))
 	}
-}
-
-// txDetail mirrors internal/cli/show_tx.go's --resolve output, plus
-// effective tags and the decisions that apply to this transition (rules),
-// for the detail panel (§7).
-type txDetail struct {
-	model.Transition
-	ActionLabel   string           `json:"actionLabel,omitempty"`
-	GivenLabels   []string         `json:"givenLabels,omitempty"`
-	ThenLabels    []string         `json:"thenLabels,omitempty"`
-	EffectiveTags []string         `json:"effectiveTags,omitempty"`
-	Rules         []model.Decision `json:"rules,omitempty"`
 }
 
 func getTransitionHandler(s *store.Store) http.HandlerFunc {
@@ -79,37 +75,15 @@ func getTransitionHandler(s *store.Store) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		t, ok := ix.TransitionByID[id]
-		if !ok {
-			writeError(w, http.StatusNotFound, fmt.Sprintf("transition %q が実在しません", id))
-			return
-		}
-
-		label := func(vocabID string) string {
-			if v, ok := ix.VocabByID[vocabID]; ok {
-				return v.Label
-			}
-			return "?"
-		}
-		detail := txDetail{
-			Transition:  t,
-			ActionLabel: label(t.Action),
-		}
-		for _, g := range t.Given {
-			detail.GivenLabels = append(detail.GivenLabels, label(g))
-		}
-		for _, e := range t.Then {
-			detail.ThenLabels = append(detail.ThenLabels, label(e))
-		}
-		detail.EffectiveTags = ix.EffectiveTags[id]
-
-		rules, err := sortedRulesFor(&snap, "", id, "")
+		detail, ok, err := index.BuildTransitionDetail(&snap, ix, id)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		detail.Rules = rules
-
+		if !ok {
+			writeError(w, http.StatusNotFound, fmt.Sprintf("transition %q が実在しません", id))
+			return
+		}
 		writeJSON(w, http.StatusOK, detail)
 	}
 }

@@ -2,7 +2,6 @@ package viewer
 
 import (
 	"net/http"
-	"sort"
 
 	"github.com/nkenji09/product-memory/internal/index"
 	"github.com/nkenji09/product-memory/internal/model"
@@ -39,24 +38,11 @@ func getRulesHandler(s *store.Store) http.HandlerFunc {
 			return
 		}
 
-		decisions, err := sortedRulesFor(&snap, tagID, txID, facet)
+		decisions, err := index.SortedRulesFor(&snap, tagID, txID, facet)
 		if err != nil {
 			writeError(w, http.StatusNotFound, err.Error())
 			return
 		}
 		writeJSON(w, http.StatusOK, rulesResponse{Decisions: decisions})
 	}
-}
-
-// sortedRulesFor wraps index.SelectRulesDecisions (the shared §3.8 rules
-// selector, also used by `pmem rules`) with the viewer's chronological
-// presentation order — a viewer-local formatting choice, not derived-view
-// logic, so it stays here rather than in internal/index.
-func sortedRulesFor(snap *store.Snapshot, tagID, txID, facet string) ([]model.Decision, error) {
-	decisions, err := index.SelectRulesDecisions(snap, tagID, txID, facet)
-	if err != nil {
-		return nil, err
-	}
-	sort.SliceStable(decisions, func(i, j int) bool { return decisions[i].At < decisions[j].At })
-	return decisions, nil
 }

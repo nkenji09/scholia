@@ -28,24 +28,13 @@ func Search(ix *Index, query string) SearchResult {
 
 	for _, t := range ix.AllTransitions() {
 		var fields []string
-
-		if strings.Contains(strings.ToLower(t.ID), q) {
-			fields = append(fields, "id")
-		}
-		for _, tagID := range ix.EffectiveTags[t.ID] {
-			tag := ix.TagByID[tagID]
-			if strings.Contains(strings.ToLower(tag.ID), q) || strings.Contains(strings.ToLower(tag.Name), q) {
-				fields = append(fields, "tag:"+tag.ID)
+		seen := make(map[string]bool)
+		for _, c := range searchCandidates(ix, t) {
+			if seen[c.Label] || !strings.Contains(c.Text, q) {
+				continue
 			}
-		}
-		for _, ref := range vocabRefs(t) {
-			v := ix.VocabByID[ref]
-			if strings.Contains(strings.ToLower(v.ID), q) || strings.Contains(strings.ToLower(v.Label), q) {
-				fields = append(fields, "vocab:"+v.ID)
-			}
-		}
-		if kind := ix.VocabByID[t.Action].Kind; kind != "" && strings.Contains(strings.ToLower(kind), q) {
-			fields = append(fields, "kind:"+kind)
+			seen[c.Label] = true
+			fields = append(fields, c.Label)
 		}
 
 		if len(fields) > 0 {
@@ -54,6 +43,61 @@ func Search(ix *Index, query string) SearchResult {
 		}
 	}
 	return result
+}
+
+// SearchCandidate is one substring-matchable (label, lowercased text) pair
+// Search() tests query against for a given transition.
+type SearchCandidate struct {
+	Label string `json:"label"`
+	Text  string `json:"text"`
+}
+
+// TransitionSearchDoc is a transition's full search corpus — every candidate
+// Search() would test a query against, precomputed. A static export bakes
+// this once (§7 pmem export --html) so a JS client can re-run the same
+// per-candidate substring test per query without re-deriving effective tags
+// or vocab labels — the derivation (this function) stays the single source
+// of truth; only the trivial substring test itself is re-run client-side.
+type TransitionSearchDoc struct {
+	TransitionID string            `json:"transitionId"`
+	Candidates   []SearchCandidate `json:"candidates"`
+}
+
+// SearchCorpus returns every transition's search candidates, unfiltered, in
+// the same order Search() iterates them (id-ascending via AllTransitions).
+func SearchCorpus(ix *Index) []TransitionSearchDoc {
+	all := ix.AllTransitions()
+	docs := make([]TransitionSearchDoc, 0, len(all))
+	for _, t := range all {
+		docs = append(docs, TransitionSearchDoc{TransitionID: t.ID, Candidates: searchCandidates(ix, t)})
+	}
+	return docs
+}
+
+// searchCandidates builds transition t's full candidate list (own id;
+// effective tag id/name; action/given/then vocab id/label; action's kind
+// name) — the shared basis for both live Search() and SearchCorpus().
+func searchCandidates(ix *Index, t model.Transition) []SearchCandidate {
+	var out []SearchCandidate
+	out = append(out, SearchCandidate{Label: "id", Text: strings.ToLower(t.ID)})
+	for _, tagID := range ix.EffectiveTags[t.ID] {
+		tag := ix.TagByID[tagID]
+		out = append(out,
+			SearchCandidate{Label: "tag:" + tag.ID, Text: strings.ToLower(tag.ID)},
+			SearchCandidate{Label: "tag:" + tag.ID, Text: strings.ToLower(tag.Name)},
+		)
+	}
+	for _, ref := range vocabRefs(t) {
+		v := ix.VocabByID[ref]
+		out = append(out,
+			SearchCandidate{Label: "vocab:" + v.ID, Text: strings.ToLower(v.ID)},
+			SearchCandidate{Label: "vocab:" + v.ID, Text: strings.ToLower(v.Label)},
+		)
+	}
+	if kind := ix.VocabByID[t.Action].Kind; kind != "" {
+		out = append(out, SearchCandidate{Label: "kind:" + kind, Text: strings.ToLower(kind)})
+	}
+	return out
 }
 
 // vocabRefs lists the vocab ids a transition references (action/given/then),

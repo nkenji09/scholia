@@ -16,17 +16,19 @@ func registerFacetRoutes(mux *http.ServeMux, s *store.Store) {
 	mux.HandleFunc("GET /api/vocab", getVocabHandler(s))
 }
 
-// facetTreeNode is the tag-tree shape for sidebar navigation (§3.8 faceted
-// hierarchy). Transitions are fetched separately via /api/transitions once a
-// tag is selected, so nodes here carry no transitions.
-type facetTreeNode struct {
-	Tag      model.Tag       `json:"tag"`
-	Children []facetTreeNode `json:"children,omitempty"`
+type facetsResponse struct {
+	FacetKinds []string                         `json:"facetKinds"`
+	Trees      map[string][]index.FacetTreeNode `json:"trees"`
 }
 
-type facetsResponse struct {
-	FacetKinds []string                   `json:"facetKinds"`
-	Trees      map[string][]facetTreeNode `json:"trees"`
+// buildFacetsResponse is shared by the live handler and the static export
+// bake (§7 pmem export --html) so both serialize the same derived tree.
+func buildFacetsResponse(snap store.Snapshot, ix *index.Index) facetsResponse {
+	trees := make(map[string][]index.FacetTreeNode, len(snap.Config.FacetKinds))
+	for _, kind := range snap.Config.FacetKinds {
+		trees[kind] = index.BuildFacetTreeNodes(ix.FacetTree(kind))
+	}
+	return facetsResponse{FacetKinds: snap.Config.FacetKinds, Trees: trees}
 }
 
 func getFacetsHandler(s *store.Store) http.HandlerFunc {
@@ -36,20 +38,8 @@ func getFacetsHandler(s *store.Store) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		trees := make(map[string][]facetTreeNode, len(snap.Config.FacetKinds))
-		for _, kind := range snap.Config.FacetKinds {
-			trees[kind] = buildFacetTreeNodes(ix.FacetTree(kind))
-		}
-		writeJSON(w, http.StatusOK, facetsResponse{FacetKinds: snap.Config.FacetKinds, Trees: trees})
+		writeJSON(w, http.StatusOK, buildFacetsResponse(snap, ix))
 	}
-}
-
-func buildFacetTreeNodes(nodes []*index.TagNode) []facetTreeNode {
-	out := make([]facetTreeNode, 0, len(nodes))
-	for _, n := range nodes {
-		out = append(out, facetTreeNode{Tag: n.Tag, Children: buildFacetTreeNodes(n.Children)})
-	}
-	return out
 }
 
 func getTagsHandler(s *store.Store) http.HandlerFunc {
