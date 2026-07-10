@@ -14,19 +14,10 @@ func registerTransitionRoutes(mux *http.ServeMux, s *store.Store) {
 	mux.HandleFunc("GET /api/transitions/{id}", getTransitionHandler(s))
 }
 
-// facetNode mirrors internal/cli/list.go's --facet output shape (that type
-// is unexported in package cli, so it's reproduced here) to keep the
-// grouping semantics identical to `pmem list --facet` (§7).
-type facetNode struct {
-	Tag         model.Tag          `json:"tag"`
-	Transitions []model.Transition `json:"transitions,omitempty"`
-	Children    []facetNode        `json:"children,omitempty"`
-}
-
 type transitionsResponse struct {
 	Transitions []model.Transition `json:"transitions,omitempty"`
 	Facet       string             `json:"facet,omitempty"`
-	Roots       []facetNode        `json:"roots,omitempty"`
+	Roots       []index.FacetNode  `json:"roots,omitempty"`
 	Untagged    []model.Transition `json:"untagged,omitempty"`
 }
 
@@ -54,75 +45,18 @@ func listTransitionsHandler(s *store.Store) http.HandlerFunc {
 			return
 		}
 
-		filtered := filterTransitions(ix, ix.AllTransitions(), tagID, kind)
+		filtered := index.FilterTransitions(ix, ix.AllTransitions(), tagID, kind)
 
 		var out transitionsResponse
 		if facet != "" {
 			out.Facet = facet
-			inSet := toTxSet(filtered)
-			for _, root := range ix.FacetTree(facet) {
-				out.Roots = append(out.Roots, buildFacetNode(ix, root, inSet))
-			}
-			out.Untagged = untaggedTransitions(ix, filtered, facet)
+			out.Roots = index.BuildFacetNodes(ix, facet, filtered)
+			out.Untagged = index.UntaggedTransitions(ix, filtered, facet)
 		} else {
 			out.Transitions = filtered
 		}
 		writeJSON(w, http.StatusOK, out)
 	}
-}
-
-// filterTransitions applies --tag/--kind as an AND filter, matching
-// internal/cli/list.go's filterTransitions (kind == the action's kind).
-func filterTransitions(ix *index.Index, all []model.Transition, tagID, kind string) []model.Transition {
-	out := make([]model.Transition, 0, len(all))
-	for _, t := range all {
-		if tagID != "" && !ix.HasEffectiveTag(t.ID, tagID) {
-			continue
-		}
-		if kind != "" && ix.VocabByID[t.Action].Kind != kind {
-			continue
-		}
-		out = append(out, t)
-	}
-	return out
-}
-
-func toTxSet(ts []model.Transition) map[string]bool {
-	set := make(map[string]bool, len(ts))
-	for _, t := range ts {
-		set[t.ID] = true
-	}
-	return set
-}
-
-func buildFacetNode(ix *index.Index, node *index.TagNode, inSet map[string]bool) facetNode {
-	fn := facetNode{Tag: node.Tag}
-	for _, t := range ix.TransitionsByTag(node.Tag.ID) {
-		if inSet[t.ID] {
-			fn.Transitions = append(fn.Transitions, t)
-		}
-	}
-	for _, c := range node.Children {
-		fn.Children = append(fn.Children, buildFacetNode(ix, c, inSet))
-	}
-	return fn
-}
-
-func untaggedTransitions(ix *index.Index, filtered []model.Transition, facet string) []model.Transition {
-	var out []model.Transition
-	for _, t := range filtered {
-		hasFacetTag := false
-		for _, tagID := range ix.EffectiveTags[t.ID] {
-			if ix.TagByID[tagID].Kind == facet {
-				hasFacetTag = true
-				break
-			}
-		}
-		if !hasFacetTag {
-			out = append(out, t)
-		}
-	}
-	return out
 }
 
 // txDetail mirrors internal/cli/show_tx.go's --resolve output, plus
@@ -168,7 +102,13 @@ func getTransitionHandler(s *store.Store) http.HandlerFunc {
 			detail.ThenLabels = append(detail.ThenLabels, label(e))
 		}
 		detail.EffectiveTags = ix.EffectiveTags[id]
-		detail.Rules = rulesForTransition(&snap, id, detail.EffectiveTags)
+
+		rules, err := sortedRulesFor(&snap, "", id, "")
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		detail.Rules = rules
 
 		writeJSON(w, http.StatusOK, detail)
 	}
