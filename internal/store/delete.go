@@ -5,6 +5,8 @@ import (
 	"os"
 	"sort"
 	"strings"
+
+	"github.com/nkenji09/product-memory/internal/model"
 )
 
 // RemoveVocabResult summarizes `pmem vocab rm` (§6).
@@ -43,6 +45,114 @@ func (s *Store) RemoveVocab(id string) (RemoveVocabResult, error) {
 	return RemoveVocabResult{ID: id}, nil
 }
 
+// TagRemoveResult summarizes `pmem tag rm` (§6).
+type TagRemoveResult struct {
+	ID                  string   `json:"id"`
+	Forced              bool     `json:"forced"`
+	DetachedTransitions []string `json:"detachedTransitions,omitempty"`
+	DetachedVocab       []string `json:"detachedVocab,omitempty"`
+	DetachedTags        []string `json:"detachedTags,omitempty"`
+}
+
+// RemoveTag deletes a tag. Without force it requires the tag to be
+// unreferenced (transition.tags / vocab.tags / other tag.parentIds — §6).
+// With force it detaches the tag from every referencing record first (§6
+// "detach cascade"), then deletes it. Either way, a tag that is the target
+// of a decision can never be removed: decisions are append-only, and
+// deleting the tag they point at would break the decision-target lint rule
+// (DESIGN に明記の無い実装判断・handoff 記載).
+func (s *Store) RemoveTag(id string, force bool) (TagRemoveResult, error) {
+	if !s.TagExists(id) {
+		return TagRemoveResult{}, fmt.Errorf("tag %q が見つかりません", id)
+	}
+	snap, err := s.LoadAll()
+	if err != nil {
+		return TagRemoveResult{}, err
+	}
+
+	var decisionRefs []string
+	for _, d := range snap.Decisions {
+		if d.Target.Type == model.DecisionTargetTag && d.Target.ID == id {
+			decisionRefs = append(decisionRefs, d.ID)
+		}
+	}
+	if len(decisionRefs) > 0 {
+		sort.Strings(decisionRefs)
+		return TagRemoveResult{}, fmt.Errorf(
+			"tag %q は %d 件の decision の対象です。decisions は append-only のため --force でも削除できません: %s",
+			id, len(decisionRefs), strings.Join(decisionRefs, ", "))
+	}
+
+	var txRefs, vocabRefs, tagRefs []string
+	for _, t := range snap.Transitions {
+		if containsID(t.Tags, id) {
+			txRefs = append(txRefs, t.ID)
+		}
+	}
+	for _, v := range snap.Vocab {
+		if containsID(v.Tags, id) {
+			vocabRefs = append(vocabRefs, v.ID)
+		}
+	}
+	for _, tg := range snap.Tags {
+		if tg.ID != id && containsID(tg.ParentIDs, id) {
+			tagRefs = append(tagRefs, tg.ID)
+		}
+	}
+	sort.Strings(txRefs)
+	sort.Strings(vocabRefs)
+	sort.Strings(tagRefs)
+	hasRefs := len(txRefs) > 0 || len(vocabRefs) > 0 || len(tagRefs) > 0
+
+	if hasRefs && !force {
+		return TagRemoveResult{}, fmt.Errorf(
+			"tag %q は参照されています（transition: %s / vocab: %s / tag parentIds: %s）。--force で detach cascade できます",
+			id, strings.Join(txRefs, ","), strings.Join(vocabRefs, ","), strings.Join(tagRefs, ","))
+	}
+
+	result := TagRemoveResult{ID: id, Forced: force}
+	if hasRefs {
+		for _, txID := range txRefs {
+			t, err := s.LoadTransition(txID)
+			if err != nil {
+				return TagRemoveResult{}, err
+			}
+			t.Tags = removeID(t.Tags, id)
+			if err := s.SaveTransition(t); err != nil {
+				return TagRemoveResult{}, err
+			}
+		}
+		result.DetachedTransitions = txRefs
+		for _, vID := range vocabRefs {
+			v, err := s.LoadVocab(vID)
+			if err != nil {
+				return TagRemoveResult{}, err
+			}
+			v.Tags = removeID(v.Tags, id)
+			if err := s.SaveVocab(v); err != nil {
+				return TagRemoveResult{}, err
+			}
+		}
+		result.DetachedVocab = vocabRefs
+		for _, tgID := range tagRefs {
+			tg, err := s.LoadTag(tgID)
+			if err != nil {
+				return TagRemoveResult{}, err
+			}
+			tg.ParentIDs = removeID(tg.ParentIDs, id)
+			if err := s.SaveTag(tg); err != nil {
+				return TagRemoveResult{}, err
+			}
+		}
+		result.DetachedTags = tagRefs
+	}
+
+	if err := os.Remove(s.tagPath(id)); err != nil {
+		return TagRemoveResult{}, err
+	}
+	return result, nil
+}
+
 func containsID(list []string, want string) bool {
 	for _, v := range list {
 		if v == want {
@@ -50,4 +160,19 @@ func containsID(list []string, want string) bool {
 		}
 	}
 	return false
+}
+
+// removeID returns list with want removed, or nil if the result would be
+// empty (keeps omitempty fields actually omitted — §3.1 normalization).
+func removeID(list []string, want string) []string {
+	out := make([]string, 0, len(list))
+	for _, v := range list {
+		if v != want {
+			out = append(out, v)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }

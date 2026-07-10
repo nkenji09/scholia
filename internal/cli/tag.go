@@ -8,5 +8,8 @@ func newTagCmd() *cobra.Command {
 		Short: "タグ（ネスト可能な横断分類）を操作する",
 	}
 	cmd.AddCommand(newTagCreateCmd())
+	cmd.AddCommand(newTagListCmd())
+	cmd.AddCommand(newTagEditCmd())
+	cmd.AddCommand(newTagRmCmd())
 	return cmd
 }
