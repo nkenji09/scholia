@@ -1,0 +1,31 @@
+{
+  "_comment": "Draft Scoop manifest. Once GoReleaser's `scoops:` publisher is wired up (DESIGN §10-2), it will regenerate this manifest per release and push it to the bucket repo, filling in the real url/hash per architecture. Every url/hash below is a PLACEHOLDER.",
+  "version": "0.0.0-dev",
+  "description": "AI 向けコンテキスト保存支援 CLI (product-memory)",
+  "homepage": "https://github.com/nkenji09/product-memory",
+  "license": "MIT",
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/nkenji09/product-memory/releases/download/v0.0.0-dev/pmem_windows_amd64.zip",
+      "hash": "PLACEHOLDER_SHA256_WINDOWS_AMD64"
+    },
+    "arm64": {
+      "url": "https://github.com/nkenji09/product-memory/releases/download/v0.0.0-dev/pmem_windows_arm64.zip",
+      "hash": "PLACEHOLDER_SHA256_WINDOWS_ARM64"
+    }
+  },
+  "bin": "pmem.exe",
+  "checkver": {
+    "github": "https://github.com/nkenji09/product-memory"
+  },
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/nkenji09/product-memory/releases/download/v$version/pmem_windows_amd64.zip"
+      },
+      "arm64": {
+        "url": "https://github.com/nkenji09/product-memory/releases/download/v$version/pmem_windows_arm64.zip"
+      }
+    }
+  }
+}
