@@ -1,0 +1,44 @@
+version: 2
+
+project_name: pmem
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: pmem
+    main: ./cmd/pmem
+    binary: pmem
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: pmem
+    ids:
+      - pmem
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Os }}_{{ .Arch }}
+
+checksum:
+  name_template: checksums.txt
+
+snapshot:
+  version_template: "{{ .Tag }}-next"
+
+release:
+  github:
+    owner: nkenji09
+    name: product-memory
+  draft: true
