@@ -33,6 +33,7 @@ func newRootCmd() *cobra.Command {
 	cmd.AddCommand(newListCmd())
 	cmd.AddCommand(newSpecCmd())
 	cmd.AddCommand(newDiffCmd())
+	cmd.AddCommand(newViewCmd())
 
 	return cmd
 }

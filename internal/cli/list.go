@@ -12,17 +12,10 @@ import (
 	"github.com/nkenji09/product-memory/internal/model"
 )
 
-// facetNode は --facet 出力の JSON 表現（index.TagNode に遷移を添えたもの）。
-type facetNode struct {
-	Tag         model.Tag          `json:"tag"`
-	Transitions []model.Transition `json:"transitions,omitempty"`
-	Children    []facetNode        `json:"children,omitempty"`
-}
-
 type listOutput struct {
 	Transitions []model.Transition `json:"transitions,omitempty"`
 	Facet       string             `json:"facet,omitempty"`
-	Roots       []facetNode        `json:"roots,omitempty"`
+	Roots       []index.FacetNode  `json:"roots,omitempty"`
 	Untagged    []model.Transition `json:"untagged,omitempty"`
 }
 
@@ -53,17 +46,13 @@ func newListCmd() *cobra.Command {
 			}
 
 			ix := index.Build(&snap)
-			filtered := filterTransitions(ix, ix.AllTransitions(), tagID, kind)
+			filtered := index.FilterTransitions(ix, ix.AllTransitions(), tagID, kind)
 
 			var out listOutput
 			if facet != "" {
 				out.Facet = facet
-				forest := ix.FacetTree(facet)
-				inSet := toTxSet(filtered)
-				for _, root := range forest {
-					out.Roots = append(out.Roots, buildFacetNode(ix, root, inSet))
-				}
-				out.Untagged = untaggedTransitions(ix, filtered, facet)
+				out.Roots = index.BuildFacetNodes(ix, facet, filtered)
+				out.Untagged = index.UntaggedTransitions(ix, filtered, facet)
 			} else {
 				out.Transitions = filtered
 			}
@@ -82,60 +71,6 @@ func newListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&kind, "kind", "", "action の kind で絞り込む")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "JSON で出力する")
 	return cmd
-}
-
-// filterTransitions は --tag / --kind を AND で適用する（--kind は action の kind と解釈する。実装判断: result.md 参照）。
-func filterTransitions(ix *index.Index, all []model.Transition, tagID, kind string) []model.Transition {
-	out := make([]model.Transition, 0, len(all))
-	for _, t := range all {
-		if tagID != "" && !ix.HasEffectiveTag(t.ID, tagID) {
-			continue
-		}
-		if kind != "" && ix.VocabByID[t.Action].Kind != kind {
-			continue
-		}
-		out = append(out, t)
-	}
-	return out
-}
-
-func toTxSet(ts []model.Transition) map[string]bool {
-	set := make(map[string]bool, len(ts))
-	for _, t := range ts {
-		set[t.ID] = true
-	}
-	return set
-}
-
-func buildFacetNode(ix *index.Index, node *index.TagNode, inSet map[string]bool) facetNode {
-	fn := facetNode{Tag: node.Tag}
-	for _, t := range ix.TransitionsByTag(node.Tag.ID) {
-		if inSet[t.ID] {
-			fn.Transitions = append(fn.Transitions, t)
-		}
-	}
-	for _, c := range node.Children {
-		fn.Children = append(fn.Children, buildFacetNode(ix, c, inSet))
-	}
-	return fn
-}
-
-// untaggedTransitions はどの kind==facet のタグにもヒットしない遷移（末尾グループ・§3.8）。
-func untaggedTransitions(ix *index.Index, filtered []model.Transition, facet string) []model.Transition {
-	var out []model.Transition
-	for _, t := range filtered {
-		hasFacetTag := false
-		for _, tagID := range ix.EffectiveTags[t.ID] {
-			if ix.TagByID[tagID].Kind == facet {
-				hasFacetTag = true
-				break
-			}
-		}
-		if !hasFacetTag {
-			out = append(out, t)
-		}
-	}
-	return out
 }
 
 func printList(cmd *cobra.Command, out listOutput) {
@@ -163,7 +98,7 @@ func printList(cmd *cobra.Command, out listOutput) {
 	}
 }
 
-func printFacetNode(w io.Writer, node facetNode, depth int) {
+func printFacetNode(w io.Writer, node index.FacetNode, depth int) {
 	indent := strings.Repeat("  ", depth)
 	name := node.Tag.Name
 	if name == "" {
