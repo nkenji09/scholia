@@ -1,0 +1,10 @@
+{
+  "id": "01KX6DGMYVCKZV6NG68GVEHJAD",
+  "target": {
+    "type": "tag",
+    "id": "req.git-native"
+  },
+  "why": "SQLite等のバイナリDBはgitに入れるとconflictを人が直せない。そこでgit自体をDBにする：1レコード=1テキストファイルとし、行を足す追記は衝突せず、行を直す修正は小さなテキスト衝突として人が解決できる形にした。先行例はgit-bug。",
+  "ref": "cc795e0e1e27f7aee0d71653a4606d29f01f1d32",
+  "at": "2026-07-10T16:24:33Z"
+}

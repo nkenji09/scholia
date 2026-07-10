@@ -1,0 +1,10 @@
+{
+  "id": "01KX6DGMZKQ76747WQ7WC74X0H",
+  "target": {
+    "type": "tag",
+    "id": "req.evaluate-change"
+  },
+  "why": "提案=gitブランチ、評価結果=decisionとして扱う。specファイルもproposalファイルも持たず、diff（複雑性差分）とrules（既存decisionとの照合）だけで変更評価を完結させる。却下も理由をdecisionとして残すことで、次回同じ提案が来ても即・既決にできる。",
+  "ref": "cc795e0e1e27f7aee0d71653a4606d29f01f1d32",
+  "at": "2026-07-10T16:24:33Z"
+}
