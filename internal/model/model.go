@@ -98,6 +98,15 @@ type Config struct {
 	IDPrefix          IDPrefix     `json:"idPrefix"`
 	Roots             []string     `json:"roots"`
 	Viewer            ViewerConfig `json:"viewer"`
+	// TagKindLabels is an additive, optional display-label map for
+	// TagKinds entries (2026-07-11 tweaks3 §2: "requirement" → "要件" etc).
+	// TagKinds itself stays the single source of truth for which kinds are
+	// declared/valid — this only carries how to *show* one. A kind absent
+	// here (including every kind in an older config.json predating this
+	// field, which decodes it to a nil map) falls back to its bare id;
+	// callers must resolve through that fallback rather than reading this
+	// map directly (see web/src/lookups.tsx's tagKindLabel()).
+	TagKindLabels map[string]string `json:"tagKindLabels"`
 }
 
 // DefaultConfig は `pmem init` が書き出す既定値（§3.6 の例そのまま）。
@@ -119,6 +128,11 @@ func DefaultConfig() Config {
 		},
 		Roots:  []string{},
 		Viewer: ViewerConfig{Port: 4577},
+		TagKindLabels: map[string]string{
+			"requirement": "要件",
+			"concern":     "関心事",
+			"subject":     "主題",
+		},
 	}
 }
 

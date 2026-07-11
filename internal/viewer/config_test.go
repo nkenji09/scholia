@@ -18,6 +18,50 @@ func TestGetConfig(t *testing.T) {
 	if cfg.Viewer.Port != 4577 {
 		t.Fatalf("Viewer.Port = %d, want 4577 (default)", cfg.Viewer.Port)
 	}
+	if cfg.TagKindLabels["requirement"] != "要件" {
+		t.Fatalf("TagKindLabels[requirement] = %q, want 要件 (default)", cfg.TagKindLabels["requirement"])
+	}
+}
+
+// TestPutConfig_TagKindLabels covers the additive tagKindLabels field
+// (2026-07-11 tweaks3 §2): it must round-trip through PUT/persist/GET like
+// every other configPatch field, unknown tagKind keys in the map aren't
+// rejected (a stale label for a removed kind is just orphaned, not an
+// error — same "no extra validation" posture store.go already has for the
+// rest of Config), and — since PUT replaces the whole editable object —
+// omitting the key entirely clears it, exactly like omitting roots/
+// facetKinds would.
+func TestPutConfig_TagKindLabels(t *testing.T) {
+	h, s := newTestHandler(t)
+	body := []byte(`{"tagKinds":["subject","requirement"],"facetKinds":["subject","requirement"],"traceabilityKinds":["requirement"],"roots":[],"viewer":{"port":4577},"tagKindLabels":{"requirement":"ようけん","subject":"しゅだい"}}`)
+	rec := doRequest(t, h, http.MethodPut, "/api/config", body)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	cfg := decodeJSON[model.Config](t, rec)
+	if cfg.TagKindLabels["requirement"] != "ようけん" || cfg.TagKindLabels["subject"] != "しゅだい" {
+		t.Fatalf("TagKindLabels = %+v, want requirement=ようけん subject=しゅだい", cfg.TagKindLabels)
+	}
+
+	persisted, err := s.LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if persisted.TagKindLabels["requirement"] != "ようけん" {
+		t.Fatalf("persisted TagKindLabels[requirement] = %q, want ようけん (PUT should persist)", persisted.TagKindLabels["requirement"])
+	}
+
+	// A PUT body omitting tagKindLabels clears it (full-replace semantics,
+	// same as every other configPatch field).
+	body2 := []byte(`{"tagKinds":["subject","requirement"],"facetKinds":["subject","requirement"],"traceabilityKinds":["requirement"],"roots":[],"viewer":{"port":4577}}`)
+	rec2 := doRequest(t, h, http.MethodPut, "/api/config", body2)
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec2.Code, rec2.Body.String())
+	}
+	cfg2 := decodeJSON[model.Config](t, rec2)
+	if len(cfg2.TagKindLabels) != 0 {
+		t.Fatalf("TagKindLabels after omitting the key = %+v, want empty", cfg2.TagKindLabels)
+	}
 }
 
 func TestPutConfig_Valid(t *testing.T) {

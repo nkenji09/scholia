@@ -1,3 +1,4 @@
+import { useLookups } from '../../lookups';
 import { strings } from '../../strings';
 import type { Decision, SpecReport, Tag } from '../../types';
 import { Markdown } from '../Markdown';
@@ -30,6 +31,7 @@ function dedupeDecisions(decisions: Decision[]): Decision[] {
 }
 
 export function TagCard({ tag, report, isGap, parents, children, cardRef, onFilterSelf, onSelectParent, onSelectChild, onSelectSpec }: Props) {
+  const { tagKindLabel } = useLookups();
   const entries = report?.entries || [];
   const tagDecisions = dedupeDecisions(entries.flatMap((e) => (e.decisions || []).filter((d) => d.target.type === 'tag')));
 
@@ -38,7 +40,7 @@ export function TagCard({ tag, report, isGap, parents, children, cardRef, onFilt
       <div class="tag-card-head">
         <div class="tag-card-badges">
           <Chip color={kindColor(tag.kind)} onClick={onFilterSelf}>
-            {tag.kind || '?'}
+            {tag.kind ? tagKindLabel(tag.kind) : '?'}
           </Chip>
           {parents.length > 0 && (
             <span class="tag-card-parents dim">

@@ -28,16 +28,21 @@ func getConfigHandler(s *store.Store) http.HandlerFunc {
 
 // configPatch is the editable subset of model.Config the viewer may write
 // (§7: "ビューアで書けるのは config だけ"). It mirrors the same key set
-// `pmem config set` accepts (internal/cli/config.go configKey* constants);
-// pmemVersion/kinds/idPrefix are excluded the same way. Unlike `config set`
-// (one key per call), PUT replaces the whole editable object at once to
-// match a single edit-form submission (implementation decision, result.md).
+// `pmem config set` accepts (internal/cli/config.go configKey* constants),
+// plus TagKindLabels (2026-07-11 tweaks3 §2, additive — see model.Config's
+// doc comment); pmemVersion/kinds/idPrefix are excluded the same way.
+// Unlike `config set` (one key per call), PUT replaces the whole editable
+// object at once to match a single edit-form submission (implementation
+// decision, result.md) — so a PUT body that omits tagKindLabels clears it,
+// same as any other field here; ConfigView.tsx always round-trips the full
+// draft it loaded, so a normal save never does this by accident.
 type configPatch struct {
-	TagKinds          []string        `json:"tagKinds"`
-	FacetKinds        []string        `json:"facetKinds"`
-	TraceabilityKinds []string        `json:"traceabilityKinds"`
-	Roots             []string        `json:"roots"`
-	Viewer            viewerPortPatch `json:"viewer"`
+	TagKinds          []string          `json:"tagKinds"`
+	FacetKinds        []string          `json:"facetKinds"`
+	TraceabilityKinds []string          `json:"traceabilityKinds"`
+	Roots             []string          `json:"roots"`
+	Viewer            viewerPortPatch   `json:"viewer"`
+	TagKindLabels     map[string]string `json:"tagKindLabels"`
 }
 
 type viewerPortPatch struct {
@@ -80,6 +85,7 @@ func putConfigHandler(s *store.Store) http.HandlerFunc {
 		cfg.TraceabilityKinds = patch.TraceabilityKinds
 		cfg.Roots = patch.Roots
 		cfg.Viewer.Port = patch.Viewer.Port
+		cfg.TagKindLabels = patch.TagKindLabels
 
 		if err := s.SaveConfig(cfg); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())

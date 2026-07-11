@@ -44,7 +44,7 @@ function buildTagOrder(facetsData: FacetsResponse, allTags: Tag[], kindFacet: st
 }
 
 export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToSpec }: Props) {
-  const { tagById: lookupTagById, vocabById } = useLookups();
+  const { tagById: lookupTagById, vocabById, tagKindLabel } = useLookups();
 
   const [config, setConfig] = useState<Config | null>(null);
   const [facetsData, setFacetsData] = useState<FacetsResponse | null>(null);
@@ -190,7 +190,7 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
   let body: preact.JSX.Element;
 
   if (facet === 'tags') {
-    kindOptions = config.tagKinds.map((k) => ({ key: k, label: k, count: tags.filter((t) => t.kind === k).length }));
+    kindOptions = config.tagKinds.map((k) => ({ key: k, label: tagKindLabel(k), count: tags.filter((t) => t.kind === k).length }));
     const order = buildTagOrder(facetsData, tags, kindFacet);
     const visible = order.filter(({ id }) => {
       const t = tagById.get(id);
@@ -257,7 +257,7 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
     const allKinds = Array.from(new Set(tags.map((t) => t.kind).filter((k): k is string => !!k)));
     kindOptions = allKinds.map((k) => ({
       key: k,
-      label: k,
+      label: tagKindLabel(k),
       count: Object.values(txDetails).filter((d) => (d.effectiveTags || []).some((id) => tagById.get(id)?.kind === k)).length,
     }));
 

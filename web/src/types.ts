@@ -66,6 +66,12 @@ export interface Config {
   idPrefix: IDPrefix;
   roots: string[];
   viewer: ViewerConfig;
+  /** Additive display-label map for tagKinds (2026-07-11 tweaks3 §2) —
+      tagKinds alone still decides which kinds are valid; this only carries
+      how to show one. May be null/undefined for a config predating this
+      field. Never read directly — resolve through useLookups().tagKindLabel
+      so the id-fallback lives in one place (lookups.tsx). */
+  tagKindLabels?: Record<string, string> | null;
 }
 
 export interface ConfigPatch {
@@ -74,6 +80,7 @@ export interface ConfigPatch {
   traceabilityKinds: string[];
   roots: string[];
   viewer: { port: number };
+  tagKindLabels: Record<string, string>;
 }
 
 export interface FacetTreeNode {

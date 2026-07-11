@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { api, isStaticMode } from '../../api';
 import type { Config } from '../../types';
 import { TokenSetField } from './TokenSetField';
+import { TagKindLabelsField } from './TagKindLabelsField';
 import { Icon } from '../shared/Icon';
 
 interface EditableConfig {
@@ -10,6 +11,7 @@ interface EditableConfig {
   traceabilityKinds: string[];
   roots: string[];
   port: string;
+  tagKindLabels: Record<string, string>;
 }
 
 function toEditable(cfg: Config): EditableConfig {
@@ -19,6 +21,7 @@ function toEditable(cfg: Config): EditableConfig {
     traceabilityKinds: [...cfg.traceabilityKinds],
     roots: [...cfg.roots],
     port: String(cfg.viewer.port),
+    tagKindLabels: { ...(cfg.tagKindLabels || {}) },
   };
 }
 
@@ -70,6 +73,7 @@ export function ConfigView() {
         traceabilityKinds: draft.traceabilityKinds,
         roots: draft.roots,
         viewer: { port: Number(portStr) },
+        tagKindLabels: draft.tagKindLabels,
       })
       .then((cfg) => {
         setRemote(cfg);
@@ -153,6 +157,12 @@ export function ConfigView() {
           editable={editable}
           onAdd={(v) => update({ tagKinds: addUnique(draft.tagKinds, v) })}
           onRemove={(v) => update({ tagKinds: draft.tagKinds.filter((x) => x !== v) })}
+        />
+        <TagKindLabelsField
+          tagKinds={draft.tagKinds}
+          labels={draft.tagKindLabels}
+          editable={editable}
+          onChange={(kind, label) => update({ tagKindLabels: { ...draft.tagKindLabels, [kind]: label } })}
         />
         <TokenSetField
           label="facet 軸"

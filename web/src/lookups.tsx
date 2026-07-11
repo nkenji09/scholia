@@ -4,6 +4,8 @@ import { useContext, useEffect, useState } from 'preact/hooks';
 import { api } from './api';
 import type { Tag, Transition, VocabEntry } from './types';
 
+const EMPTY_TAG_KIND_LABELS: Record<string, string> = {};
+
 // Internal record ids (T-mfa-verify, tag/vocab ids) are the join keys the
 // UI navigates by, but v2 feedback was explicit: people reading the viewer
 // should see names/labels, not ids (調整3). This module fetches vocab/tags/
@@ -23,6 +25,13 @@ interface Lookups {
   transitionLabel: (txId: string) => { primary: string; secondary?: string };
   /** Turns a raw `GET /api/search` matchedOn entry ("tag:x" / "vocab:x" / "kind:x" / "id") into Japanese prose instead of a bare id. */
   describeMatch: (matchedOn: string) => string;
+  /** config.tagKindLabels[kind], falling back to the bare kind id when
+      unset — the single place tagKind display labels get resolved
+      (2026-07-11 tweaks3 §2). Every kind badge/facet-label in the UI must
+      route through this rather than reading Config.tagKindLabels
+      directly, so a future design change to the fallback rule only
+      touches one function. */
+  tagKindLabel: (kind: string | undefined) => string;
 }
 
 const LookupsContext = createContext<Lookups | null>(null);
@@ -38,14 +47,16 @@ export function LookupsProvider({ children }: { children: ComponentChildren }) {
   const [vocabById, setVocabById] = useState<Map<string, VocabEntry>>(new Map());
   const [tagById, setTagById] = useState<Map<string, Tag>>(new Map());
   const [transitionById, setTransitionById] = useState<Map<string, Transition>>(new Map());
+  const [tagKindLabels, setTagKindLabels] = useState<Record<string, string>>(EMPTY_TAG_KIND_LABELS);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    Promise.all([api.getVocab(), api.getTags(), api.getTransitions({})])
-      .then(([vocab, tags, tx]) => {
+    Promise.all([api.getVocab(), api.getTags(), api.getTransitions({}), api.getConfig()])
+      .then(([vocab, tags, tx, config]) => {
         setVocabById(new Map(vocab.map((v) => [v.id, v])));
         setTagById(new Map(tags.map((t) => [t.id, t])));
         setTransitionById(new Map((tx.transitions || []).map((t) => [t.id, t])));
+        setTagKindLabels(config.tagKindLabels || EMPTY_TAG_KIND_LABELS);
         setReady(true);
       })
       .catch(() => {
@@ -60,6 +71,7 @@ export function LookupsProvider({ children }: { children: ComponentChildren }) {
   const vocabLabel = (id: string) => vocabById.get(id)?.label || id;
   const tagName = (id: string) => tagById.get(id)?.name || id;
   const transitionLabel = (txId: string) => composeTransitionLabel(transitionById.get(txId), txId, vocabLabel);
+  const tagKindLabel = (kind: string | undefined) => (kind && tagKindLabels[kind]) || kind || '';
 
   const describeMatch = (matchedOn: string) => {
     if (matchedOn === 'id') return '遷移 id';
@@ -71,7 +83,7 @@ export function LookupsProvider({ children }: { children: ComponentChildren }) {
     return matchedOn;
   };
 
-  const value: Lookups = { ready, vocabById, tagById, transitionById, vocabLabel, tagName, transitionLabel, describeMatch };
+  const value: Lookups = { ready, vocabById, tagById, transitionById, vocabLabel, tagName, transitionLabel, describeMatch, tagKindLabel };
   return <LookupsContext.Provider value={value}>{children}</LookupsContext.Provider>;
 }
 

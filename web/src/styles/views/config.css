@@ -284,6 +284,46 @@
   font-family: var(--lm-font-mono);
 }
 
+/* TagKindLabelsField (2026-07-11 tweaks3 §2) — one kind→label row per
+   declared tagKind, distinct from .config-field-chips' add/remove token set
+   since this edits a value per existing key rather than the key set itself. */
+.config-label-map {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.config-label-map-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.config-label-map-kind {
+  width: 140px;
+  flex-shrink: 0;
+}
+
+.config-label-map-input {
+  flex: 1;
+  height: 30px;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  color: var(--lm-text);
+  border-radius: var(--r-md);
+  font-size: var(--fs-xs);
+}
+
+.config-label-map-input::placeholder {
+  color: var(--lm-text-dim);
+}
+
+.config-label-map-readonly {
+  font-size: var(--fs-xs);
+  color: var(--lm-text-muted);
+}
+
 .config-field-warning {
   display: inline-flex;
   align-items: center;

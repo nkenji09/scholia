@@ -17,7 +17,7 @@ export function HomeView({ onGoTags, onSelectTag, onSelectTx }: Props) {
   const [traceability, setTraceability] = useState<TraceabilityResponse | null>(null);
   const [decisions, setDecisions] = useState<Decision[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { tagName, transitionLabel } = useLookups();
+  const { tagName, transitionLabel, tagKindLabel } = useLookups();
 
   useEffect(() => {
     Promise.all([api.getTags(), api.getConfig(), api.getTraceability(), api.getRules({})])
@@ -67,7 +67,7 @@ export function HomeView({ onGoTags, onSelectTag, onSelectTx }: Props) {
       <section class="home-kind-cards">
         {kindCounts.map(({ kind, count }) => (
           <button key={kind} type="button" class="home-kind-card" onClick={onGoTags}>
-            <span class="home-kind-card-label dim">{kind}</span>
+            <span class="home-kind-card-label dim">{tagKindLabel(kind)}</span>
             <span class="home-kind-card-count">{strings.home.tagCount(count)}</span>
           </button>
         ))}
