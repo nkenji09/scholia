@@ -12,6 +12,9 @@ interface EditableConfig {
   roots: string[];
   port: string;
   tagKindLabels: Record<string, string>;
+  productName: string;
+  tagline: string;
+  intro: string;
 }
 
 function toEditable(cfg: Config): EditableConfig {
@@ -22,6 +25,9 @@ function toEditable(cfg: Config): EditableConfig {
     roots: [...cfg.roots],
     port: String(cfg.viewer.port),
     tagKindLabels: { ...(cfg.tagKindLabels || {}) },
+    productName: cfg.display?.productName || '',
+    tagline: cfg.display?.tagline || '',
+    intro: cfg.display?.intro || '',
   };
 }
 
@@ -74,6 +80,7 @@ export function ConfigView() {
         roots: draft.roots,
         viewer: { port: Number(portStr) },
         tagKindLabels: draft.tagKindLabels,
+        display: { productName: draft.productName, tagline: draft.tagline, intro: draft.intro },
       })
       .then((cfg) => {
         setRemote(cfg);
@@ -238,6 +245,83 @@ export function ConfigView() {
             />
           ) : (
             <span class="config-port-readonly">{draft.port}</span>
+          )}
+        </div>
+      </section>
+
+      <section class="config-section">
+        <div class="config-section-head">
+          <span class="config-section-icon">
+            <Icon name="pencil" size={16} />
+          </span>
+          <span class="config-section-title">表示</span>
+          <span class="dim">ヘッダーの製品名と概要画面の見出し文。空欄は既定文言にフォールバックします。</span>
+        </div>
+        <div class="config-field">
+          <div class="config-field-head">
+            <span class="config-field-icon">
+              <Icon name="box" size={14} />
+            </span>
+            <span class="config-field-label">製品名</span>
+            <span class="config-field-mono">display.productName</span>
+          </div>
+          <p class="config-field-desc dim">
+            ヘッダー左上に表示する製品名。空欄なら既定の「pmem」を使います。
+          </p>
+          {editable ? (
+            <input
+              class="config-port-input config-wide-input"
+              value={draft.productName}
+              placeholder="pmem"
+              onInput={(e) => update({ productName: (e.target as HTMLInputElement).value })}
+            />
+          ) : (
+            <span class="config-port-readonly">{draft.productName || 'pmem'}</span>
+          )}
+        </div>
+        <div class="config-field">
+          <div class="config-field-head">
+            <span class="config-field-icon">
+              <Icon name="scroll-text" size={14} />
+            </span>
+            <span class="config-field-label">タグライン</span>
+            <span class="config-field-mono">display.tagline</span>
+          </div>
+          <p class="config-field-desc dim">
+            概要（HOME）画面の見出し。空欄なら既定文言を使います。
+          </p>
+          {editable ? (
+            <input
+              class="config-port-input config-wide-input"
+              value={draft.tagline}
+              placeholder="記録を、読みたくなる形で。"
+              onInput={(e) => update({ tagline: (e.target as HTMLInputElement).value })}
+            />
+          ) : (
+            <span class="config-port-readonly">{draft.tagline || '記録を、読みたくなる形で。'}</span>
+          )}
+        </div>
+        <div class="config-field">
+          <div class="config-field-head">
+            <span class="config-field-icon">
+              <Icon name="file-code-2" size={14} />
+            </span>
+            <span class="config-field-label">イントロ文</span>
+            <span class="config-field-mono">display.intro</span>
+          </div>
+          <p class="config-field-desc dim">
+            概要（HOME）画面の説明文。空欄なら既定文言を使います。
+          </p>
+          {editable ? (
+            <textarea
+              class="config-intro-textarea"
+              value={draft.intro}
+              rows={3}
+              placeholder="product-memory は、プロダクトの意思決定・要件・振る舞いを原子（遷移）として記録し、構造は派生（query）で見るためのツールです。"
+              onInput={(e) => update({ intro: (e.target as HTMLTextAreaElement).value })}
+            />
+          ) : (
+            <span class="config-port-readonly">{draft.intro}</span>
           )}
         </div>
       </section>

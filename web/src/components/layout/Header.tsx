@@ -6,6 +6,7 @@ import { useDrawer } from '../../drawer';
 import { Icon } from '../shared/Icon';
 import type { IconName } from '../shared/Icon';
 import { useComments } from '../comments/useComments';
+import { useLookups } from '../../lookups';
 
 interface Props {
   view: ViewName;
@@ -46,6 +47,7 @@ export function Header({ view, onSelectView }: Props) {
   const { settings, toggleTheme, incFont, decFont } = useViewerSettings();
   const { comments, panelOpen, openPanel } = useComments();
   const { isNarrow, toggleDrawer } = useDrawer();
+  const { productName, headerSubtitle } = useLookups();
   const headerRef = useRef<HTMLElement>(null);
 
   // Rail responsiveness (drawer's fixed `top`, sticky rail's `top`/height,
@@ -79,8 +81,8 @@ export function Header({ view, onSelectView }: Props) {
           <Icon name="box" size={19} />
         </span>
         <div class="topbar-logo-text">
-          <span class="topbar-logo-title">pmem</span>
-          <span class="topbar-logo-subtitle">product-memory</span>
+          <span class="topbar-logo-title">{productName}</span>
+          <span class="topbar-logo-subtitle">{headerSubtitle}</span>
         </div>
       </div>
 

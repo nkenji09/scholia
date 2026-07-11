@@ -57,6 +57,16 @@ export interface ViewerConfig {
   port: number;
 }
 
+/** Additive cosmetic display text (2026-07-11 tweaks5 §1/§2) — HOME's
+    tagline/intro and the header's product name. Empty/missing means "use
+    the built-in default"; never read directly — resolve through
+    useLookups() so the fallback rule lives in one place (lookups.tsx). */
+export interface DisplayConfig {
+  productName?: string;
+  tagline?: string;
+  intro?: string;
+}
+
 export interface Config {
   pmemVersion: number;
   kinds: Kinds;
@@ -72,6 +82,11 @@ export interface Config {
       field. Never read directly — resolve through useLookups().tagKindLabel
       so the id-fallback lives in one place (lookups.tsx). */
   tagKindLabels?: Record<string, string> | null;
+  display?: DisplayConfig | null;
+  /** Current git branch name — a live derived value computed server-side on
+      every GET/PUT (2026-07-11 tweaks5 §2), never persisted to config.json.
+      Empty/missing when the project isn't a git repo or HEAD is detached. */
+  branch?: string;
 }
 
 export interface ConfigPatch {
@@ -81,6 +96,7 @@ export interface ConfigPatch {
   roots: string[];
   viewer: { port: number };
   tagKindLabels: Record<string, string>;
+  display: DisplayConfig;
 }
 
 export interface FacetTreeNode {

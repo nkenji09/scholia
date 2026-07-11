@@ -17,7 +17,7 @@ export function HomeView({ onGoTags, onSelectTag, onSelectTx }: Props) {
   const [traceability, setTraceability] = useState<TraceabilityResponse | null>(null);
   const [decisions, setDecisions] = useState<Decision[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { tagName, transitionLabel, tagKindLabel } = useLookups();
+  const { tagName, transitionLabel, tagKindLabel, tagline, intro } = useLookups();
 
   useEffect(() => {
     Promise.all([api.getTags(), api.getConfig(), api.getTraceability(), api.getRules({})])
@@ -60,8 +60,8 @@ export function HomeView({ onGoTags, onSelectTag, onSelectTx }: Props) {
   return (
     <main class="home-view">
       <section class="home-hero">
-        <h1>{strings.home.tagline}</h1>
-        <p class="dim">{strings.home.intro}</p>
+        <h1>{tagline}</h1>
+        <p class="dim">{intro}</p>
       </section>
 
       <section class="home-kind-cards">

@@ -361,6 +361,28 @@
   border-radius: var(--r-md);
 }
 
+/* Display config text fields (2026-07-11 tweaks5 §1/§2) — same look as
+   .config-port-input but wider, since productName/tagline/intro hold free
+   text rather than a short numeric value. */
+.config-wide-input {
+  width: 100%;
+  max-width: 420px;
+}
+
+.config-intro-textarea {
+  align-self: stretch;
+  width: 100%;
+  max-width: 640px;
+  padding: var(--sp-3);
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  color: var(--lm-text);
+  border-radius: var(--r-md);
+  font-size: var(--fs-sm);
+  font-family: inherit;
+  resize: vertical;
+}
+
 .config-ro-row {
   display: flex;
   align-items: center;
