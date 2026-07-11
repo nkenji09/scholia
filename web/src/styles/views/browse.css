@@ -56,6 +56,63 @@
   font-size: var(--fs-sm);
 }
 
+/* Combobox dropdown (2026-07-11 tweaks3 §3) — free-text search stays a
+   plain input; this is an overlay suggestion list, not a native <select>. */
+.browse-rail-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 10;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--lm-border);
+  border-radius: var(--r-md);
+  background: var(--lm-s1);
+  box-shadow: var(--sh-md);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.browse-rail-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  border-radius: var(--r-sm);
+  padding: 7px 8px;
+  text-align: left;
+  color: var(--lm-text);
+  font-size: var(--fs-sm);
+}
+
+.browse-rail-suggestion.active {
+  background: var(--lm-primary-weak);
+}
+
+.browse-rail-suggestion-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-full);
+  flex-shrink: 0;
+}
+
+.browse-rail-suggestion-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browse-rail-suggestion-kind {
+  flex-shrink: 0;
+  font-size: var(--fs-3xs);
+}
+
 .browse-rail-section {
   display: flex;
   flex-direction: column;

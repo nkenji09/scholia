@@ -36,7 +36,7 @@ export function VocabCard({ entry, uses, cardRef, onFilterTag, onSelectTx }: Pro
       <div class="tag-card-head">
         <div class="tag-card-badges">
           <Chip color={kindColor(entry.category)}>
-            <Icon name={CATEGORY_ICON[entry.category]} size={12} /> {entry.category}
+            <Icon name={CATEGORY_ICON[entry.category]} size={12} /> {strings.vocab.categoryLabel(entry.category)}
           </Chip>
           {entry.kind && <span class="vocab-card-kind dim">{entry.kind}</span>}
           <span class="tag-card-spacer" />

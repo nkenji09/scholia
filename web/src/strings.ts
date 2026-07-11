@@ -4,6 +4,17 @@
 // swap in a translation table instead of hunting through components (data
 // values such as tag names / vocab labels / decision text stay untouched:
 // only chrome copy — headings, buttons, empty states — lives here).
+
+// action/condition/effect are a fixed 3-axis schema (not user-configurable
+// like tagKinds), so their display labels are plain frontend constants —
+// no config plumbing (2026-07-11 tweaks3 §1). Shared between flow.* (a
+// transition's きっかけ/前提/結果 sections) and vocab.categoryLabel (Vocab's
+// category facet/badges) so both read the same vocabulary rather than
+// drifting into two translations of the same three concepts.
+const FLOW_TRIGGER = 'きっかけ';
+const FLOW_GIVEN = '前提';
+const FLOW_RESULT = '結果';
+
 export const strings = {
   // レビュー差し戻し MAJOR-1: ナビは概要/タグ/仕様(デザイン正本 navItems)＋
   // 外挿1画面(語彙)＋設定、全て日本語ラベルに統一。'spec'（旧・独立タブ）は
@@ -42,18 +53,23 @@ export const strings = {
   },
   vocab: {
     heading: '語彙',
-    intro: 'condition・action・effect の一覧。タグ・仕様カードと同じ検索条件・+マークで絞り込めます。',
+    intro: 'きっかけ・前提・結果の一覧。タグ・仕様カードと同じ検索条件・+マークで絞り込めます。',
     owner: 'owner',
     usageCount: (n: number) => `${n} 件の遷移で使用`,
     noUsage: 'どの遷移からも参照されていません',
     empty: '該当する語彙はありません',
     loading: 'loading…',
+    // 2026-07-11 tweaks3 §1: 遷移の きっかけ/前提/結果 と同じ語彙に統一
+    // （grammar色 --t-act/--t-giv/--t-then とも対応）。VocabEntry.category は
+    // Go側では string（3軸固定の想定値だが型では絞られていない）なので、
+    // 未知の値は素の文字列にフォールバックする。
+    categoryLabel: (c: string): string => ({ action: FLOW_TRIGGER, condition: FLOW_GIVEN, effect: FLOW_RESULT } as Record<string, string>)[c] || c,
   },
   // WHEN/GIVEN/THEN の言い換え（調整4）。遷移カード全般（一覧・詳細・spec）で共通利用。
   flow: {
-    trigger: 'きっかけ',
-    given: '前提',
-    result: '結果',
+    trigger: FLOW_TRIGGER,
+    given: FLOW_GIVEN,
+    result: FLOW_RESULT,
     noResult: '（結果なし）',
   },
   // BROWSE(タグ/仕様) — 旧 Browse(3ペイン)/TagsView(ツリー)/SpecView を検索

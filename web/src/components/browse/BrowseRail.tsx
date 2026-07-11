@@ -1,3 +1,4 @@
+import { useState } from 'preact/hooks';
 import { strings } from '../../strings';
 import { Chip } from '../shared/Chip';
 import { Icon } from '../shared/Icon';
@@ -23,6 +24,21 @@ export interface IndexItem {
   onClick: () => void;
 }
 
+// A selectable tag/vocab candidate for the search box's combobox dropdown
+// (2026-07-11 tweaks3 §3). Callers build this list from data they already
+// have loaded (useLookups()/props already threaded into BrowseView/
+// VocabView) — BrowseRail only does substring matching against `query` on
+// whatever it's handed, no relationship lookups of its own.
+export interface SuggestionItem {
+  id: string;
+  label: string;
+  color: string;
+  /** Short kind tag shown beside the label ("タグ"/"語彙") to disambiguate
+      same-looking labels from different sources. */
+  kindLabel: string;
+  onSelect: () => void;
+}
+
 interface Props {
   query: string;
   onQueryChange: (q: string) => void;
@@ -32,9 +48,58 @@ interface Props {
   conditions: ConditionChip[];
   onClearConditions: () => void;
   indexItems: IndexItem[];
+  /** Tag/vocab candidates for the combobox dropdown. Omit (or pass []) on
+      screens that don't offer suggestions — the free-text filter behavior
+      is unaffected either way. */
+  suggestions?: SuggestionItem[];
 }
 
-export function BrowseRail({ query, onQueryChange, kindFacet, kindOptions, onKindFacetChange, conditions, onClearConditions, indexItems }: Props) {
+const MAX_SUGGESTIONS = 8;
+
+export function BrowseRail({
+  query,
+  onQueryChange,
+  kindFacet,
+  kindOptions,
+  onKindFacetChange,
+  conditions,
+  onClearConditions,
+  indexItems,
+  suggestions = [],
+}: Props) {
+  const [focused, setFocused] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const q = query.trim().toLowerCase();
+  const matches = focused && q ? suggestions.filter((s) => (s.id + ' ' + s.label).toLowerCase().includes(q)).slice(0, MAX_SUGGESTIONS) : [];
+  const open = matches.length > 0;
+  const idx = open ? Math.max(0, Math.min(activeIndex, matches.length - 1)) : -1;
+
+  const selectMatch = (m: SuggestionItem) => {
+    m.onSelect();
+    onQueryChange('');
+    setFocused(false);
+  };
+
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (!open) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex((i) => Math.min(i + 1, matches.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === 'Enter') {
+      const m = matches[idx];
+      if (m) {
+        e.preventDefault();
+        selectMatch(m);
+      }
+    } else if (e.key === 'Escape') {
+      setFocused(false);
+    }
+  };
+
   return (
     <aside class="browse-rail">
       <div class="browse-rail-head">
@@ -47,10 +112,40 @@ export function BrowseRail({ query, onQueryChange, kindFacet, kindOptions, onKin
         <input
           class="browse-rail-search"
           type="text"
+          role="combobox"
+          aria-expanded={open}
+          aria-controls="browse-rail-listbox"
+          aria-autocomplete="list"
+          autocomplete="off"
           placeholder={strings.browse.searchPlaceholder}
           value={query}
-          onInput={(e) => onQueryChange((e.target as HTMLInputElement).value)}
+          onInput={(e) => {
+            onQueryChange((e.target as HTMLInputElement).value);
+            setActiveIndex(0);
+          }}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          onKeyDown={onKeyDown}
         />
+        {open && (
+          <ul id="browse-rail-listbox" role="listbox" class="browse-rail-suggestions">
+            {matches.map((m, i) => (
+              <li key={m.kindLabel + m.id} role="option" aria-selected={i === idx}>
+                <button
+                  type="button"
+                  class={'browse-rail-suggestion' + (i === idx ? ' active' : '')}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onMouseEnter={() => setActiveIndex(i)}
+                  onClick={() => selectMatch(m)}
+                >
+                  <span class="browse-rail-suggestion-dot" style={{ background: m.color }} />
+                  <span class="browse-rail-suggestion-label">{m.label}</span>
+                  <span class="browse-rail-suggestion-kind dim">{m.kindLabel}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {kindOptions.length > 0 && (

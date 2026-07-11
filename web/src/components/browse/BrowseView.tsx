@@ -4,7 +4,7 @@ import { strings } from '../../strings';
 import { useLookups } from '../../lookups';
 import type { Config, FacetsResponse, SpecReport, Tag, TraceabilityResponse, Transition, TransitionDetail } from '../../types';
 import { BrowseRail } from './BrowseRail';
-import type { ConditionChip, IndexItem, KindOption } from './BrowseRail';
+import type { ConditionChip, IndexItem, KindOption, SuggestionItem } from './BrowseRail';
 import { TagCard } from './TagCard';
 import { SpecCard } from './SpecCard';
 import { parentsOf, childrenOf, tagMatchesFilters, specMatchesFilters } from './filters';
@@ -327,6 +327,26 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
     return { label: v?.label || f.id, color: kindColor(v?.category), onRemove: () => removeFilter(i) };
   });
 
+  // Combobox candidates (2026-07-11 tweaks3 §3): every tag/vocab entry
+  // already loaded (this view's own `tags` state, and the app-wide vocab
+  // lookup — both plain lists Go already returned, no relationship
+  // recomputation), minus whichever are already an active AND condition.
+  const activeFilterKeys = new Set(filters.map((f) => `${f.type}:${f.id}`));
+  const suggestions: SuggestionItem[] = [
+    ...tags
+      .filter((t) => !activeFilterKeys.has(`tag:${t.id}`))
+      .map((t) => ({ id: t.id, label: t.name || t.id, color: kindColor(t.kind), kindLabel: strings.nav.tags, onSelect: () => addFilter({ type: 'tag', id: t.id }) })),
+    ...Array.from(vocabById.values())
+      .filter((v) => !activeFilterKeys.has(`vocab:${v.id}`))
+      .map((v) => ({
+        id: v.id,
+        label: v.label || v.id,
+        color: kindColor(v.category),
+        kindLabel: strings.nav.vocab,
+        onSelect: () => addFilter({ type: 'vocab', id: v.id }),
+      })),
+  ];
+
   return (
     <div class="browse-view">
       <BrowseRail
@@ -338,6 +358,7 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
         conditions={conditions}
         onClearConditions={() => setFilters([])}
         indexItems={indexItems}
+        suggestions={suggestions}
       />
       <main class="browse-main">
         <div class="browse-main-head">

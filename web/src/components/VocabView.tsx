@@ -4,7 +4,7 @@ import { useLookups } from '../lookups';
 import { strings } from '../strings';
 import type { Transition, VocabEntry } from '../types';
 import { BrowseRail } from './browse/BrowseRail';
-import type { ConditionChip, IndexItem, KindOption } from './browse/BrowseRail';
+import type { ConditionChip, IndexItem, KindOption, SuggestionItem } from './browse/BrowseRail';
 import { VocabCard } from './browse/VocabCard';
 import { kindColor } from './shared/Chip';
 
@@ -12,7 +12,9 @@ interface Props {
   onSelectTx: (id: string) => void;
 }
 
-const CATEGORIES: VocabEntry['category'][] = ['condition', 'action', 'effect'];
+// Order/labels match the design's きっかけ→前提→結果 grammar (2026-07-11
+// tweaks3 §1), not the Go-side category name order.
+const CATEGORIES: VocabEntry['category'][] = ['action', 'condition', 'effect'];
 
 function usedBy(v: VocabEntry, transitions: Transition[]): Transition[] {
   return transitions.filter((t) => t.action === v.id || t.given.includes(v.id) || t.then.includes(v.id));
@@ -66,7 +68,11 @@ export function VocabView({ onSelectTx }: Props) {
   if (!vocab) return <div class="browse-view dim">{strings.vocab.loading}</div>;
 
   const q = query.trim().toLowerCase();
-  const kindOptions: KindOption[] = CATEGORIES.map((c) => ({ key: c, label: c, count: vocab.filter((v) => v.category === c).length }));
+  const kindOptions: KindOption[] = CATEGORIES.map((c) => ({
+    key: c,
+    label: strings.vocab.categoryLabel(c),
+    count: vocab.filter((v) => v.category === c).length,
+  }));
 
   const visible = vocab
     .filter((v) => categoryFacet === 'all' || v.category === categoryFacet)
@@ -90,6 +96,15 @@ export function VocabView({ onSelectTx }: Props) {
     return { label: t?.name || id, color: kindColor(t?.kind), onRemove: () => removeTagFilter(i) };
   });
 
+  // Combobox candidates (2026-07-11 tweaks3 §3): tags only, not other vocab
+  // entries — Vocab's own entries have no self-filter affordance (see
+  // VocabCard.tsx's onFilterSelf comment), so there's nothing meaningful a
+  // vocab suggestion would do here that clicking the card itself doesn't
+  // already do.
+  const suggestions: SuggestionItem[] = Array.from(tagById.values())
+    .filter((t) => !tagFilters.includes(t.id))
+    .map((t) => ({ id: t.id, label: t.name || t.id, color: kindColor(t.kind), kindLabel: strings.nav.tags, onSelect: () => addTagFilter(t.id) }));
+
   return (
     <div class="browse-view">
       <BrowseRail
@@ -101,6 +116,7 @@ export function VocabView({ onSelectTx }: Props) {
         conditions={conditions}
         onClearConditions={() => setTagFilters([])}
         indexItems={indexItems}
+        suggestions={suggestions}
       />
       <main class="browse-main">
         <div class="browse-main-head">
