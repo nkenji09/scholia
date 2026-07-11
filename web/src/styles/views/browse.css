@@ -250,6 +250,22 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  min-width: 0;
+}
+
+/* A long tag/vocab name would otherwise force .chip past the rail's width
+   (chip.css's .chip is nowrap, sized for short kind-badge text) — scoped to
+   condition chips specifically rather than changed globally, since badge
+   chips elsewhere (kind pills etc.) want to stay single-line (2026-07-11
+   tweaks5 §4). */
+.browse-rail-condition-chips .chip {
+  max-width: 100%;
+  height: auto;
+  min-height: 24px;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .browse-rail-index-count {

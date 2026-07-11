@@ -55,7 +55,7 @@ export const strings = {
   },
   vocab: {
     heading: '語彙',
-    intro: 'きっかけ・前提・結果の一覧。タグ・仕様カードと同じ検索条件・+マークで絞り込めます。',
+    intro: '仕様を形作る、言葉の定義',
     owner: 'owner',
     usageCount: (n: number) => `${n} 件の遷移で使用`,
     noUsage: 'どの遷移からも参照されていません',
@@ -77,7 +77,7 @@ export const strings = {
   // BROWSE(タグ/仕様) — 旧 Browse(3ペイン)/TagsView(ツリー)/SpecView を検索
   // レール＋カード一覧の1つの型に統合した画面（.concierge/decision.md A-2）。
   browse: {
-    searchPlaceholder: '名前・ID・本文で絞り込み',
+    searchPlaceholder: 'フリーワード・タグ検索',
     kindAll: 'すべて',
     conditionsHeading: '絞り込み条件',
     and: 'AND',
@@ -85,9 +85,9 @@ export const strings = {
     indexHeading: '見出し',
     indexEmpty: '該当なし',
     tagsTitle: 'タグ',
-    tagsSubtitle: '説明（markdown）と関連仕様・意思決定を読む',
+    tagsSubtitle: 'どの観点でまとめるか',
     specsTitle: '仕様',
-    specsSubtitle: 'きっかけ → 前提 → 結果。タグ・Vocab で絞り込み',
+    specsSubtitle: '意思決定の上にある、正しい動作の拠り所',
     empty: '条件に一致する項目がありません',
     loading: 'loading…',
     satisfiedSpecs: '関連仕様',
