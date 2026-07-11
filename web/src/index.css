@@ -239,11 +239,10 @@ pre {
 .tx-row {
   background: none;
   border: none;
-  padding: var(--sp-1) var(--sp-2);
+  padding: var(--sp-2);
   text-align: left;
   width: 100%;
   border-radius: var(--radius-sm);
-  font-family: var(--font-mono);
   transition: background-color 120ms ease;
 }
 
@@ -334,7 +333,6 @@ pre {
   padding: var(--sp-1) var(--sp-2);
   text-align: left;
   border-radius: var(--radius-sm);
-  font-family: var(--font-mono);
   transition: background-color 120ms ease;
 }
 
@@ -485,4 +483,537 @@ pre {
 .diff-badge-reorder {
   background: var(--color-warning-weak);
   color: var(--color-warning);
+}
+
+/* ---- Vocab / Spec / Tags (記録ブラウザ) ---- */
+
+.vocab-view,
+.spec-view,
+.tags-view {
+  padding: var(--sp-4);
+  overflow-y: auto;
+  max-width: 920px;
+}
+
+.vocab-kind-group {
+  margin-top: var(--sp-4);
+}
+
+.vocab-kind-group h3 {
+  color: var(--color-text-strong);
+  margin-bottom: var(--sp-2);
+  text-transform: lowercase;
+}
+
+.vocab-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.vocab-row {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.vocab-row-main {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.vocab-row-heading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.vocab-label {
+  color: var(--color-text-strong);
+  font-weight: 600;
+}
+
+.vocab-id {
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+}
+
+.vocab-kind-badge {
+  display: inline-block;
+  padding: 1px var(--sp-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-weak);
+  color: var(--color-primary-strong);
+  font-size: 0.8em;
+}
+
+.vocab-owner {
+  font-size: 0.85em;
+}
+
+.vocab-description {
+  margin-top: var(--sp-2);
+  font-size: 0.92em;
+}
+
+.vocab-usage-toggle {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-1) var(--sp-2);
+  font-size: 0.85em;
+  transition: background-color 120ms ease;
+}
+
+.vocab-usage-toggle:hover {
+  background: var(--color-surface-muted);
+}
+
+.vocab-usage-list {
+  list-style: none;
+  margin: var(--sp-2) 0 0;
+  padding: var(--sp-2) 0 0;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+}
+
+.vocab-usage-list .tx-row {
+  width: auto;
+  border: 1px solid var(--color-border);
+}
+
+.spec-tag-filter {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  margin: var(--sp-2) 0;
+}
+
+.spec-tag-picker {
+  list-style: none;
+  margin: 0 0 var(--sp-4);
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  max-height: 160px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--sp-2);
+  background: var(--color-surface-muted);
+}
+
+.spec-tag-picker .tag-node {
+  width: auto;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+/* Same specificity as the base `.tag-node.selected` rule (two classes each),
+   so without this override the two-class `.spec-tag-picker .tag-node`
+   background above wins by source order and hides the (still white,
+   from `.tag-node.selected`) label text against a white background. */
+.spec-tag-picker .tag-node.selected {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.spec-report {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--sp-3);
+}
+
+.spec-report-header h3 {
+  margin-bottom: 0;
+  color: var(--color-text-strong);
+}
+
+.spec-tag-rules {
+  margin: var(--sp-3) 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-left: 3px solid var(--color-primary);
+  background: var(--color-primary-weak);
+  border-radius: var(--radius-sm);
+}
+
+.spec-tag-rules h4 {
+  margin-top: 0;
+}
+
+.spec-entry-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.spec-entry {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--sp-3);
+  background: var(--color-surface);
+  transition: box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.spec-entry:hover {
+  box-shadow: var(--shadow-sm);
+  border-color: var(--color-border-strong);
+}
+
+.spec-entry-open {
+  display: inline-block;
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-1) var(--sp-2);
+  margin-bottom: var(--sp-2);
+  font-size: 0.85em;
+  color: var(--color-primary);
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.spec-entry-open:hover {
+  background: var(--color-primary-weak);
+  border-color: var(--color-primary);
+}
+
+.spec-entry-tests {
+  margin: var(--sp-2) 0 0;
+}
+
+.spec-decision-list {
+  list-style: disc;
+  margin: var(--sp-1) 0 0;
+  padding-left: var(--sp-4);
+  color: var(--color-text-muted);
+}
+
+.tags-view-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: var(--sp-2) 0 var(--sp-3);
+}
+
+.tags-view-toolbar button {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-1) var(--sp-2);
+  transition: background-color 120ms ease;
+}
+
+.tags-view-toolbar button:hover {
+  background: var(--color-surface-muted);
+}
+
+.tag-hier-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tag-hier-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tag-hier-toggle {
+  background: none;
+  border: none;
+  width: 1.5em;
+  flex: none;
+  color: var(--color-text-dim);
+}
+
+.tag-hier-toggle-spacer {
+  display: inline-block;
+  width: 1.5em;
+  flex: none;
+}
+
+.tag-hier-name {
+  color: var(--color-text-strong);
+  font-weight: 500;
+}
+
+.tag-hier-desc-toggle {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 1px var(--sp-2);
+  font-size: 0.78em;
+  color: var(--color-text-dim);
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.tag-hier-desc-toggle:hover {
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+}
+
+.tag-hier-desc {
+  padding: var(--sp-1) var(--sp-3) var(--sp-2);
+  font-size: 0.92em;
+}
+
+.tag-hier-count {
+  font-size: 0.85em;
+}
+
+.tag-hier-actions {
+  margin-left: auto;
+  display: flex;
+  gap: var(--sp-1);
+  flex: none;
+}
+
+.tag-hier-actions button {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--sp-2);
+  font-size: 0.8em;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.tag-hier-actions button:hover {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border-color: var(--color-primary);
+}
+
+/* ---- Markdown descriptions (Tag.Description / VocabEntry.Description) ---- */
+
+.markdown-body {
+  line-height: 1.65;
+  color: var(--color-text);
+}
+
+.markdown-body > *:first-child {
+  margin-top: 0;
+}
+
+.markdown-body > *:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body p {
+  margin: 0 0 var(--sp-2);
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  color: var(--color-text-strong);
+  margin: var(--sp-3) 0 var(--sp-1);
+  line-height: 1.3;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin: 0 0 var(--sp-2);
+  padding-left: var(--sp-5);
+}
+
+.markdown-body li {
+  margin: var(--sp-1) 0;
+}
+
+.markdown-body pre {
+  background: var(--color-surface-muted);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  margin: 0 0 var(--sp-2);
+}
+
+.markdown-body code {
+  background: var(--color-surface-muted);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.markdown-body pre code {
+  background: none;
+  padding: 0;
+}
+
+.markdown-body blockquote {
+  margin: 0 0 var(--sp-2);
+  padding: var(--sp-1) var(--sp-3);
+  border-left: 3px solid var(--color-border-strong);
+  color: var(--color-text-muted);
+}
+
+.markdown-body blockquote p {
+  margin: 0;
+}
+
+.markdown-body a {
+  color: var(--color-primary);
+}
+
+/* ---- TransitionFlow — きっかけ/前提/結果 (v2 調整4) ----
+   Color is the one structural signal here: it always names which of the
+   three grammatical slots (action/given/then) a row is, never decoration. */
+
+.tx-flow {
+  margin: var(--sp-2) 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.tx-flow-row {
+  display: grid;
+  grid-template-columns: 5.5em 1fr;
+  gap: var(--sp-3);
+  padding: var(--sp-1) 0 var(--sp-1) var(--sp-3);
+  border-left: 3px solid transparent;
+}
+
+.tx-flow-row dt {
+  font-size: 0.8em;
+  font-weight: 600;
+  color: var(--color-text-dim);
+  letter-spacing: 0.02em;
+}
+
+.tx-flow-row dd {
+  margin: 0;
+  color: var(--color-text);
+}
+
+.tx-flow-trigger {
+  border-left-color: var(--color-primary);
+}
+
+.tx-flow-trigger dt {
+  color: var(--color-primary-strong);
+}
+
+.tx-flow-given {
+  border-left-color: var(--color-warning);
+}
+
+.tx-flow-given dt {
+  color: var(--color-warning);
+}
+
+.tx-flow-result {
+  border-left-color: var(--color-success);
+}
+
+.tx-flow-result dt {
+  color: var(--color-success-strong);
+}
+
+.tx-flow-compact {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.tx-flow-compact-trigger {
+  color: var(--color-text-strong);
+  font-weight: 500;
+}
+
+.tx-flow-compact-result {
+  font-size: 0.9em;
+}
+
+/* ---- tag chips (declared/effective tags shown on a transition) ---- */
+
+.tx-row-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin-top: var(--sp-1);
+}
+
+.tx-tag-chip {
+  display: inline-block;
+  padding: 1px var(--sp-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: 0.78em;
+  border: 1px solid var(--color-border);
+}
+
+.tx-row.selected .tx-tag-chip {
+  background: color-mix(in srgb, var(--color-on-primary) 20%, transparent);
+  color: var(--color-on-primary);
+  border-color: transparent;
+}
+
+.tx-row.selected .tx-flow-compact-trigger,
+.tx-row.selected .tx-flow-compact-result {
+  color: var(--color-on-primary);
+}
+
+/* ---- transition detail panel ---- */
+
+.detail-header h2 {
+  margin: 0;
+  font-size: 1.15em;
+  color: var(--color-text-strong);
+}
+
+.detail-id {
+  margin: 2px 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.78em;
+}
+
+.detail-section {
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.detail-section h3 {
+  margin: 0 0 var(--sp-2);
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-dim);
+}
+
+.detail-tests,
+.detail-rules {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.detail-tests li,
+.detail-rules li {
+  font-size: 0.92em;
 }

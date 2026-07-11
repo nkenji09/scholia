@@ -22,12 +22,13 @@ func (t Transition) GetID() string { return t.ID }
 
 // VocabEntry は語彙（condition/action/effect）1 件（§3.3）。
 type VocabEntry struct {
-	ID       string   `json:"id"`
-	Category string   `json:"category"`
-	Label    string   `json:"label"`
-	Kind     string   `json:"kind,omitempty"`
-	Owner    string   `json:"owner,omitempty"` // effect のみ
-	Tags     []string `json:"tags,omitempty"`
+	ID          string   `json:"id"`
+	Category    string   `json:"category"`
+	Label       string   `json:"label"`
+	Kind        string   `json:"kind,omitempty"`
+	Owner       string   `json:"owner,omitempty"` // effect のみ
+	Tags        []string `json:"tags,omitempty"`
+	Description string   `json:"description,omitempty"` // markdown・任意
 }
 
 func (v VocabEntry) GetID() string { return v.ID }

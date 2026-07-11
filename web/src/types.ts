@@ -14,6 +14,7 @@ export interface VocabEntry {
   kind?: string;
   owner?: string;
   tags?: string[];
+  description?: string;
 }
 
 export interface Tag {
@@ -225,4 +226,6 @@ export interface PmemStaticData {
   searchCorpus: TransitionSearchDoc[];
   lint: LintResult;
   spec: Record<string, SpecReport>;
+  tags: Tag[];
+  vocab: VocabEntry[];
 }

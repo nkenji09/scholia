@@ -1,25 +1,29 @@
 import { useEffect, useState } from 'preact/hooks';
 import { api } from '../api';
+import { useLookups } from '../lookups';
 import type { TraceabilityResponse } from '../types';
 
 interface Props {
   onSelectTx: (id: string) => void;
+  initialKind?: string;
 }
 
-export function TraceabilityView({ onSelectTx }: Props) {
+export function TraceabilityView({ onSelectTx, initialKind }: Props) {
   const [data, setData] = useState<TraceabilityResponse | null>(null);
   const [activeKind, setActiveKind] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const { transitionLabel } = useLookups();
 
   useEffect(() => {
     api
       .getTraceability()
       .then((res) => {
         setData(res);
-        if (res.kinds.length > 0) setActiveKind(res.kinds[0]);
+        if (initialKind && res.kinds.includes(initialKind)) setActiveKind(initialKind);
+        else if (res.kinds.length > 0) setActiveKind(res.kinds[0]);
       })
       .catch((err) => setError(String(err)));
-  }, []);
+  }, [initialKind]);
 
   if (error) return <main class="traceability error">{error}</main>;
   if (!data) return <main class="traceability dim">loading…</main>;
@@ -62,13 +66,16 @@ export function TraceabilityView({ onSelectTx }: Props) {
             </div>
             {!e.gap && (
               <ul class="satisfied-tx-list">
-                {e.satisfiedBy.map((txId) => (
-                  <li key={txId}>
-                    <button type="button" class="tx-row" onClick={() => onSelectTx(txId)}>
-                      {txId}
-                    </button>
-                  </li>
-                ))}
+                {e.satisfiedBy.map((txId) => {
+                  const label = transitionLabel(txId);
+                  return (
+                    <li key={txId}>
+                      <button type="button" class="tx-row" title={txId} onClick={() => onSelectTx(txId)}>
+                        {label.primary}
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </li>

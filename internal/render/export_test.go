@@ -40,7 +40,10 @@ func seedExportStore(t *testing.T) *store.Store {
 			t.Fatalf("seed: %v", err)
 		}
 	}
-	must(s.SaveVocab(model.VocabEntry{ID: "act.user.login", Category: model.CategoryAction, Label: "ログイン", Kind: "user"}))
+	must(s.SaveVocab(model.VocabEntry{
+		ID: "act.user.login", Category: model.CategoryAction, Label: "ログイン", Kind: "user",
+		Description: "**ログイン**フォームの送信。",
+	}))
 	must(s.SaveVocab(model.VocabEntry{ID: "eff.session.issue", Category: model.CategoryEffect, Label: "セッション発行", Kind: "state"}))
 	must(s.SaveTag(model.Tag{ID: "subject.auth", Name: "認証", Kind: "subject"}))
 	must(s.SaveTag(model.Tag{ID: "req.auth-happy", Name: "正常系ログイン", Kind: "requirement", ParentIDs: []string{"subject.auth"}}))
@@ -150,6 +153,16 @@ func TestExportHTML_WritesSelfContainedIndexHTML(t *testing.T) {
 
 	if _, ok := data.Spec["subject.auth"]; !ok {
 		t.Fatal("baked spec missing subject.auth")
+	}
+
+	if len(data.Tags) != 2 {
+		t.Fatalf("baked tags = %+v, want 2 entries (subject.auth, req.auth-happy)", data.Tags)
+	}
+	if len(data.Vocab) != 2 {
+		t.Fatalf("baked vocab = %+v, want 2 entries (act.user.login, eff.session.issue)", data.Vocab)
+	}
+	if data.Vocab[0].ID != "act.user.login" || data.Vocab[0].Description == "" {
+		t.Fatalf("baked vocab[0] = %+v, want act.user.login with its markdown description", data.Vocab[0])
 	}
 }
 

@@ -16,6 +16,7 @@ export function TagTree({ nodes, selectedId, onSelect, depth = 0 }: Props) {
           <button
             type="button"
             class={'tag-node' + (node.tag.id === selectedId ? ' selected' : '')}
+            title={node.tag.id}
             onClick={() => onSelect(node.tag.id)}
           >
             {node.tag.name || node.tag.id}

@@ -10,7 +10,7 @@ import (
 )
 
 func newVocabAddCmd() *cobra.Command {
-	var label, kind, owner string
+	var label, kind, owner, description string
 	var asJSON bool
 	cmd := &cobra.Command{
 		Use:   "add <condition|action|effect> <id>",
@@ -44,7 +44,7 @@ func newVocabAddCmd() *cobra.Command {
 				return fmt.Errorf("kind %q は config.kinds.%s に未宣言です", kind, category)
 			}
 
-			v := model.VocabEntry{ID: id, Category: category, Label: label, Kind: kind, Owner: owner}
+			v := model.VocabEntry{ID: id, Category: category, Label: label, Kind: kind, Owner: owner, Description: description}
 			if err := s.SaveVocab(v); err != nil {
 				return err
 			}
@@ -61,6 +61,7 @@ func newVocabAddCmd() *cobra.Command {
 	cmd.Flags().StringVar(&label, "label", "", "表示ラベル（必須）")
 	cmd.Flags().StringVar(&kind, "kind", "", "kind（config.kinds の宣言集合に含まれる必要がある）")
 	cmd.Flags().StringVar(&owner, "owner", "", "効果を起こす主体（effect のみ）")
+	cmd.Flags().StringVar(&description, "description", "", "説明（markdown・任意）")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "作成したレコードを JSON で出力する")
 	return cmd
 }

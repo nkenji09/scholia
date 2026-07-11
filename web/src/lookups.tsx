@@ -1,0 +1,82 @@
+import { createContext } from 'preact';
+import type { ComponentChildren } from 'preact';
+import { useContext, useEffect, useState } from 'preact/hooks';
+import { api } from './api';
+import type { Tag, Transition, VocabEntry } from './types';
+
+// Internal record ids (T-mfa-verify, tag/vocab ids) are the join keys the
+// UI navigates by, but v2 feedback was explicit: people reading the viewer
+// should see names/labels, not ids (調整3). This module fetches vocab/tags/
+// transitions once at app startup and exposes id → human-readable-label
+// lookups so every view can resolve a label without re-fetching or
+// re-deriving the id → label mapping itself.
+interface Lookups {
+  ready: boolean;
+  vocabById: Map<string, VocabEntry>;
+  tagById: Map<string, Tag>;
+  transitionById: Map<string, Transition>;
+  /** VocabEntry.Label, falling back to the id when unknown/unresolved (見せる情報がラベルしかない場合のみ id を出す)。 */
+  vocabLabel: (id: string) => string;
+  /** Tag.Name, falling back to the id when unknown/unresolved. */
+  tagName: (id: string) => string;
+  /** A transition's human-readable headline: its action's label, plus a short "→ then…" summary. */
+  transitionLabel: (txId: string) => { primary: string; secondary?: string };
+  /** Turns a raw `GET /api/search` matchedOn entry ("tag:x" / "vocab:x" / "kind:x" / "id") into Japanese prose instead of a bare id. */
+  describeMatch: (matchedOn: string) => string;
+}
+
+const LookupsContext = createContext<Lookups | null>(null);
+
+function composeTransitionLabel(t: Transition | undefined, txId: string, vocabLabel: (id: string) => string) {
+  if (!t) return { primary: txId };
+  const primary = vocabLabel(t.action);
+  const secondary = t.then.length > 0 ? `→ ${t.then.map(vocabLabel).join('、')}` : undefined;
+  return { primary, secondary };
+}
+
+export function LookupsProvider({ children }: { children: ComponentChildren }) {
+  const [vocabById, setVocabById] = useState<Map<string, VocabEntry>>(new Map());
+  const [tagById, setTagById] = useState<Map<string, Tag>>(new Map());
+  const [transitionById, setTransitionById] = useState<Map<string, Transition>>(new Map());
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    Promise.all([api.getVocab(), api.getTags(), api.getTransitions({})])
+      .then(([vocab, tags, tx]) => {
+        setVocabById(new Map(vocab.map((v) => [v.id, v])));
+        setTagById(new Map(tags.map((t) => [t.id, t])));
+        setTransitionById(new Map((tx.transitions || []).map((t) => [t.id, t])));
+        setReady(true);
+      })
+      .catch(() => {
+        // Views that need this data surface their own fetch errors already
+        // (they call the same api.* functions); lookups degrade to
+        // id-fallback labels rather than blocking the whole app on a second
+        // failure of the same request.
+        setReady(true);
+      });
+  }, []);
+
+  const vocabLabel = (id: string) => vocabById.get(id)?.label || id;
+  const tagName = (id: string) => tagById.get(id)?.name || id;
+  const transitionLabel = (txId: string) => composeTransitionLabel(transitionById.get(txId), txId, vocabLabel);
+
+  const describeMatch = (matchedOn: string) => {
+    if (matchedOn === 'id') return '遷移 id';
+    const [prefix, ...rest] = matchedOn.split(':');
+    const id = rest.join(':');
+    if (prefix === 'tag') return `タグ: ${tagName(id)}`;
+    if (prefix === 'vocab') return `語彙: ${vocabLabel(id)}`;
+    if (prefix === 'kind') return `種別: ${id}`;
+    return matchedOn;
+  };
+
+  const value: Lookups = { ready, vocabById, tagById, transitionById, vocabLabel, tagName, transitionLabel, describeMatch };
+  return <LookupsContext.Provider value={value}>{children}</LookupsContext.Provider>;
+}
+
+export function useLookups(): Lookups {
+  const ctx = useContext(LookupsContext);
+  if (!ctx) throw new Error('useLookups() must be called within a LookupsProvider');
+  return ctx;
+}

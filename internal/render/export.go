@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/nkenji09/product-memory/internal/index"
@@ -32,6 +33,13 @@ type staticData struct {
 	SearchCorpus     []index.TransitionSearchDoc       `json:"searchCorpus"`
 	Lint             lintPayload                       `json:"lint"`
 	Spec             map[string]SpecReport             `json:"spec"`
+	// Tags / Vocab mirror GET /api/tags (no kind filter) and GET /api/vocab
+	// (no category filter) — the viewer views 語彙(vocab)/タグ階層 need the
+	// full unfiltered lists to filter/group client-side, the same way the
+	// live handlers already do (internal/viewer/facets.go), sorted by id for
+	// stable output.
+	Tags  []model.Tag        `json:"tags"`
+	Vocab []model.VocabEntry `json:"vocab"`
 }
 
 // facetsPayload / transitionsPayload / traceabilityPayload / lintPayload
@@ -143,6 +151,11 @@ func collectStaticData(s *store.Store) (staticData, error) {
 		spec[t.ID] = report
 	}
 
+	tags := append([]model.Tag{}, snap.Tags...)
+	sort.Slice(tags, func(i, j int) bool { return tags[i].ID < tags[j].ID })
+	vocab := append([]model.VocabEntry{}, snap.Vocab...)
+	sort.Slice(vocab, func(i, j int) bool { return vocab[i].ID < vocab[j].ID })
+
 	return staticData{
 		Config:           snap.Config,
 		Facets:           facets,
@@ -152,6 +165,8 @@ func collectStaticData(s *store.Store) (staticData, error) {
 		SearchCorpus:     index.SearchCorpus(ix),
 		Lint:             lintPayload{Findings: findings, ErrorCount: errorCount, WarnCount: warnCount, InfoCount: infoCount},
 		Spec:             spec,
+		Tags:             tags,
+		Vocab:            vocab,
 	}, nil
 }
 
