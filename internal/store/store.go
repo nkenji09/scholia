@@ -174,6 +174,11 @@ func (s *Store) TransitionExists(id string) bool {
 	return err == nil
 }
 
+func (s *Store) DecisionExists(id string) bool {
+	_, err := os.Stat(s.decisionPath(id))
+	return err == nil
+}
+
 // --- load / save ---
 
 func (s *Store) LoadConfig() (model.Config, error) {
@@ -242,6 +247,12 @@ func dedupeSorted(sorted []string) []string {
 
 func (s *Store) SaveDecision(d model.Decision) error {
 	return writeJSONAtomic(s.decisionPath(d.ID), d)
+}
+
+func (s *Store) LoadDecision(id string) (model.Decision, error) {
+	var d model.Decision
+	err := readJSON(s.decisionPath(id), &d)
+	return d, err
 }
 
 // --- snapshot (LoadAll) ---
