@@ -34,10 +34,16 @@ export function App() {
   // a different initial facet/focus.
   const openTransition = (txId: string) => navigate({ view: 'browse', txId });
   const openTagSpec = (tagId: string) => navigate({ view: 'spec', tagId });
+  const openVocabEntry = (vocabId: string) => navigate({ view: 'vocab', vocabId });
   const setView = (next: ViewName) => navigate({ view: next });
+  // recordId for a 'page' comment is the page it was left on (BrowseView's
+  // `facet` prop value, or 'vocab') — see CommentButton call sites in
+  // BrowseView.tsx/VocabView.tsx.
   const gotoComment = (c: CommentRecord) => {
     if (c.recordType === 'tag') openTagSpec(c.recordId);
-    else openTransition(c.recordId);
+    else if (c.recordType === 'transition') openTransition(c.recordId);
+    else if (c.recordType === 'vocab') openVocabEntry(c.recordId);
+    else if (c.recordType === 'page') setView(c.recordId === 'specs' ? 'browse' : (c.recordId as ViewName));
     closePanel();
   };
 
@@ -48,7 +54,7 @@ export function App() {
       {view === 'browse' && (
         <BrowseView facet="specs" initialFocusTagId={route.tagId} initialFocusTxId={route.txId} onGoToSpec={openTransition} />
       )}
-      {view === 'vocab' && <VocabView onSelectTx={openTransition} />}
+      {view === 'vocab' && <VocabView onSelectTx={openTransition} initialFocusId={route.vocabId} />}
       {view === 'spec' && <BrowseView facet="tags" initialFocusTagId={route.tagId} onGoToSpec={openTransition} />}
       {view === 'tags' && <BrowseView facet="tags" onGoToSpec={openTransition} />}
       {view === 'config' && <ConfigView />}

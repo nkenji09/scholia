@@ -7,10 +7,14 @@ import type { Transition, VocabEntry } from '../types';
 import { BrowseRail } from './browse/BrowseRail';
 import type { ConditionChip, IndexItem, KindOption, SuggestionItem } from './browse/BrowseRail';
 import { VocabCard } from './browse/VocabCard';
+import { CommentButton } from './comments/CommentButton';
 import { kindColor } from './shared/Chip';
 
 interface Props {
   onSelectTx: (id: string) => void;
+  /** Vocab entry to scroll to on mount (router's #/vocab/<id>) — used by the
+      comment panel's "位置へ移動" on vocab comments. */
+  initialFocusId?: string;
 }
 
 // Order/labels match the design's きっかけ→前提→結果 grammar (2026-07-11
@@ -30,7 +34,7 @@ function usedBy(v: VocabEntry, transitions: Transition[]): Transition[] {
 // facet-tree kind, membership in v.tags instead of tagMatchesFilters'
 // descendant-tree walk — don't fit that shared machinery), it just borrows
 // the same rail/card *presentation*.
-export function VocabView({ onSelectTx }: Props) {
+export function VocabView({ onSelectTx, initialFocusId }: Props) {
   const { tagById } = useLookups();
   const { closeDrawer } = useDrawer();
   const [vocab, setVocab] = useState<VocabEntry[] | null>(null);
@@ -42,7 +46,15 @@ export function VocabView({ onSelectTx }: Props) {
   const [tagFilters, setTagFilters] = useState<string[]>([]);
 
   const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
-  const scrollTarget = useRef<string | null>(null);
+  const scrollTarget = useRef<string | null>(initialFocusId || null);
+
+  // Re-arm the scroll target if a comment's "位置へ移動" jumps here while
+  // VocabView is already mounted (same pattern as BrowseView's per-facet
+  // reset effect for initialFocusTagId/initialFocusTxId).
+  useEffect(() => {
+    scrollTarget.current = initialFocusId || null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialFocusId]);
 
   useEffect(() => {
     Promise.all([api.getVocab(), api.getTransitions({})])
@@ -128,7 +140,10 @@ export function VocabView({ onSelectTx }: Props) {
       />
       <main class="browse-main">
         <div class="browse-main-head">
-          <h1>{strings.vocab.heading}</h1>
+          <h1>
+            {strings.vocab.heading}
+            <CommentButton recordType="page" recordId="vocab" recordTitle={strings.vocab.heading} anchor="page" anchorLabel="ページ全体" />
+          </h1>
           <span class="dim">{strings.vocab.intro}</span>
         </div>
         <div class="browse-card-list">

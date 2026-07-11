@@ -322,6 +322,9 @@
 }
 
 .browse-main-head h1 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
   font-size: var(--fs-2xl);
   font-weight: 700;

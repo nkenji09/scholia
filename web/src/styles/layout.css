@@ -182,7 +182,16 @@
 }
 
 /* .comment-header-btn composes with .topbar-icon-btn (Header.tsx) for its
-   box/hover/active styling; only the count badge is specific to it. */
+   box/hover/active styling. Sized a touch larger than its .topbar-icon-btn
+   siblings (theme/settings, both still 34px) — コメント拡張4件 item 4
+   ("少しだけ大きく", scoped to just the comment button rather than bumping
+   the whole shared icon-button size, which would shift theme/settings too
+   and drift from the design's own 34px value for those). */
+.comment-header-btn {
+  width: 36px;
+  height: 36px;
+}
+
 .comment-header-badge {
   position: absolute;
   top: -6px;

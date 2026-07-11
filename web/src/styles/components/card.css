@@ -56,12 +56,15 @@
   flex-wrap: wrap;
 }
 
+/* Sized to match the design's own commentBtnData (width:24,height:22) —
+   コメント拡張4件 item 4 ("少しだけ大きく"), so this is a design-alignment
+   fix, not a fresh design decision. */
 .comment-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 20px;
+  width: 24px;
+  height: 22px;
   border: none;
   border-radius: var(--r-sm);
   background: transparent;

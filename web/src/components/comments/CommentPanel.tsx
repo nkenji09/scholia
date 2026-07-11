@@ -1,4 +1,4 @@
-import { useComments } from './useComments';
+import { useComments, RECORD_TYPE_META } from './useComments';
 import type { CommentRecord } from './useComments';
 import { Icon } from '../shared/Icon';
 
@@ -14,8 +14,9 @@ function formatTime(ms: number): string {
 
 // Slide-over panel opened from the header's comment icon (or any per-section
 // CommentButton): a composer for the currently-targeted section plus a
-// summary list of every comment, each jumping back to its record via
-// onGoto (App.tsx's existing openTagSpec/openTransition routes).
+// summary list of every comment (each with its reply thread), each jumping
+// back to its record via onGoto (App.tsx's existing openTagSpec/
+// openTransition/openVocabEntry/setView routes).
 export function CommentPanel({ onGoto }: Props) {
   const {
     comments,
@@ -29,6 +30,10 @@ export function CommentPanel({ onGoto }: Props) {
     cancelComposer,
     deleteComment,
     editComment,
+    replyDrafts,
+    setReplyDraft,
+    addReply,
+    deleteReply,
     copyMsg,
     copyAll,
   } = useComments();
@@ -63,7 +68,7 @@ export function CommentPanel({ onGoto }: Props) {
           {composer && (
             <div class="comment-composer">
               <div class="comment-composer-target">
-                <span class="comment-composer-type">{composer.recordType === 'tag' ? 'タグ' : '仕様'}</span>
+                <span class="comment-composer-type">{RECORD_TYPE_META[composer.recordType].label}</span>
                 <span class="comment-composer-title">{composer.recordTitle}</span>
                 <span class="dim">›</span>
                 <span class="dim">{composer.anchorLabel}</span>
@@ -108,31 +113,72 @@ export function CommentPanel({ onGoto }: Props) {
             </div>
           )}
 
-          {sorted.map((c) => (
-            <div key={c.id} class="comment-item">
-              <div class="comment-item-head">
-                <span class="comment-item-type">{c.recordType === 'tag' ? 'タグ' : '仕様'}</span>
-                <span class="comment-item-title">{c.recordTitle}</span>
-                <span class="comment-item-location dim">
-                  <Icon name="crosshair" size={10} /> {c.anchorLabel}
-                </span>
+          {sorted.map((c) => {
+            const meta = RECORD_TYPE_META[c.recordType];
+            return (
+              <div key={c.id} class="comment-item">
+                <div class="comment-item-head">
+                  <span class="comment-item-type" style={{ color: meta.color }}>
+                    <Icon name={meta.icon} size={12} /> {meta.label}
+                  </span>
+                  <span class="comment-item-title">{c.recordTitle}</span>
+                  <span class="comment-item-location dim">
+                    <Icon name="crosshair" size={10} /> {c.anchorLabel}
+                  </span>
+                </div>
+                <p class="comment-item-text">{c.text}</p>
+
+                {c.replies.length > 0 && (
+                  <div class="comment-reply-list">
+                    {c.replies.map((r) => (
+                      <div key={r.id} class="comment-reply">
+                        <Icon name="corner-down-right" size={12} class="dim comment-reply-icon" />
+                        <div class="comment-reply-body">
+                          <span class="comment-reply-text">{r.text}</span>
+                          <span class="comment-reply-time dim">{formatTime(r.createdAt)}</span>
+                        </div>
+                        <button type="button" class="comment-reply-delete" aria-label="返信を削除" onClick={() => deleteReply(c.id, r.id)}>
+                          <Icon name="x" size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div class="comment-reply-composer">
+                  <input
+                    class="comment-reply-input"
+                    placeholder="返信を追加…"
+                    value={replyDrafts[c.id] || ''}
+                    onInput={(e) => setReplyDraft(c.id, (e.target as HTMLInputElement).value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        addReply(c.id);
+                      }
+                    }}
+                  />
+                  <button type="button" class="comment-reply-add" onClick={() => addReply(c.id)}>
+                    返信
+                  </button>
+                </div>
+
+                <div class="comment-item-actions">
+                  <button type="button" class="comment-btn-chip" onClick={() => onGoto(c)}>
+                    <Icon name="crosshair" size={13} /> 位置へ移動
+                  </button>
+                  <button type="button" class="comment-btn-chip" onClick={() => editComment(c)}>
+                    <Icon name="pencil" size={12} /> 編集
+                  </button>
+                  <span class="comment-panel-spacer" />
+                  <span class="comment-item-time dim">{formatTime(c.updatedAt)}</span>
+                  <button type="button" class="comment-btn-icon-danger" aria-label="削除" onClick={() => deleteComment(c.id)}>
+                    <Icon name="trash-2" size={13} />
+                  </button>
+                </div>
               </div>
-              <p class="comment-item-text">{c.text}</p>
-              <div class="comment-item-actions">
-                <button type="button" class="comment-btn-chip" onClick={() => onGoto(c)}>
-                  <Icon name="crosshair" size={13} /> 位置へ移動
-                </button>
-                <button type="button" class="comment-btn-chip" onClick={() => editComment(c)}>
-                  <Icon name="pencil" size={12} /> 編集
-                </button>
-                <span class="comment-panel-spacer" />
-                <span class="comment-item-time dim">{formatTime(c.updatedAt)}</span>
-                <button type="button" class="comment-btn-icon-danger" aria-label="削除" onClick={() => deleteComment(c.id)}>
-                  <Icon name="trash-2" size={13} />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </aside>
     </>

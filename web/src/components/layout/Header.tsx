@@ -114,7 +114,7 @@ export function Header({ view, onSelectView }: Props) {
         </button>
         {comments.length > 0 && (
           <button type="button" class={'topbar-icon-btn comment-header-btn' + (panelOpen ? ' active' : '')} aria-label="コメント一覧" onClick={openPanel}>
-            <Icon name="message-filled" size={17} />
+            <Icon name="message-filled" size={18} />
             <span class="comment-header-badge">{comments.length}</span>
           </button>
         )}

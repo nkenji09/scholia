@@ -3,6 +3,7 @@ import { strings } from '../../strings';
 import type { Transition, VocabEntry } from '../../types';
 import { Markdown } from '../Markdown';
 import { Chip, kindColor } from '../shared/Chip';
+import { CommentButton } from '../comments/CommentButton';
 import { Icon } from '../shared/Icon';
 import type { IconName } from '../shared/Icon';
 
@@ -40,6 +41,7 @@ export function VocabCard({ entry, uses, cardRef, onFilterTag, onSelectTx }: Pro
           </Chip>
           {entry.kind && <span class="vocab-card-kind dim">{entry.kind}</span>}
           <span class="tag-card-spacer" />
+          <CommentButton recordType="vocab" recordId={entry.id} recordTitle={entry.label} anchor="card" anchorLabel="カード全体" />
         </div>
         {/* Unlike TagCard's name (clicking narrows to a tag's subtree —
             meaningful because tags nest), a vocab entry has no hierarchy to

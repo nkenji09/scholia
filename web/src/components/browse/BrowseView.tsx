@@ -11,6 +11,7 @@ import { SpecCard } from './SpecCard';
 import { parentsOf, childrenOf, tagMatchesFilters, specMatchesFilters } from './filters';
 import type { FilterCondition } from './filters';
 import { kindColor } from '../shared/Chip';
+import { CommentButton } from '../comments/CommentButton';
 
 interface Props {
   facet: 'tags' | 'specs';
@@ -365,7 +366,10 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
       />
       <main class="browse-main">
         <div class="browse-main-head">
-          <h1>{title}</h1>
+          <h1>
+            {title}
+            <CommentButton recordType="page" recordId={facet} recordTitle={title} anchor="page" anchorLabel="ページ全体" />
+          </h1>
           <span class="dim">{subtitle}</span>
         </div>
         {failedCount > 0 && <div class="browse-fetch-warning">{failedCount} 件の読み込みに失敗しました（表示されているカードは正常です。再読み込みで再試行できます）</div>}

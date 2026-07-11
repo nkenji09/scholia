@@ -17,6 +17,10 @@ export interface Route {
   view: ViewName;
   tagId?: string;
   txId?: string;
+  /** Vocab entry to scroll to on mount (#/vocab/<id>) — same "focus on one
+      record within this view's route" pattern as spec's tagId, added for
+      comment-panel "位置へ移動" on vocab comments (2026-07-11 コメント拡張4件). */
+  vocabId?: string;
 }
 
 const VIEWS: ViewName[] = ['home', 'browse', 'vocab', 'spec', 'tags', 'config'];
@@ -50,6 +54,9 @@ export function parseRoute(hash: string): Route {
     case 'spec':
       if (parts[1]) route.tagId = parts[1];
       break;
+    case 'vocab':
+      if (parts[1]) route.vocabId = parts[1];
+      break;
   }
   return route;
 }
@@ -63,6 +70,9 @@ export function routeHash(route: Route): string {
       break;
     case 'spec':
       if (route.tagId) seg.push(encodeURIComponent(route.tagId));
+      break;
+    case 'vocab':
+      if (route.vocabId) seg.push(encodeURIComponent(route.vocabId));
       break;
   }
   return `#/${seg.join('/')}`;

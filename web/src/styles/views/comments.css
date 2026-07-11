@@ -246,6 +246,101 @@
   word-break: break-word;
 }
 
+/* Reply thread (2026-07-11 コメント拡張4件 item 1 — restored from an
+   earlier out-of-scope decision at explicit user request). Left border
+   accent + indent mirrors the design's reply-list treatment. */
+.comment-reply-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-left: 3px;
+  padding-left: 11px;
+  border-left: 2px solid var(--lm-primary-weak);
+}
+
+.comment-reply {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.comment-reply-icon {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.comment-reply-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.comment-reply-text {
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  color: var(--lm-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.comment-reply-time {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-3xs);
+}
+
+.comment-reply-delete {
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--lm-text-dim);
+  border-radius: var(--r-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.comment-reply-delete:hover {
+  background: var(--lm-s2);
+}
+
+.comment-reply-composer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 3px;
+  padding-left: 11px;
+  border-left: 2px solid var(--lm-primary-weak);
+}
+
+.comment-reply-input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  color: var(--lm-text);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-xs);
+  font-family: inherit;
+}
+
+.comment-reply-add {
+  height: 30px;
+  padding: 0 13px;
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  color: var(--lm-primary-strong);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
 .comment-item-actions {
   display: flex;
   align-items: center;

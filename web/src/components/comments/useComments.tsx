@@ -1,21 +1,34 @@
 import { createContext } from 'preact';
 import type { ComponentChildren } from 'preact';
 import { useContext, useEffect, useState } from 'preact/hooks';
+import type { IconName } from '../shared/Icon';
 
-// Comments (#18) — volatile, per-browser annotations on タグ/仕様 detail
-// cards. Deliberately NOT part of the .pmem record model: everything here
-// lives only in localStorage (never git, never the Go backend), exactly per
+// Comments (#18) — volatile, per-browser annotations. Deliberately NOT part
+// of the .pmem record model: everything here lives only in localStorage
+// (never git, never the Go backend), exactly per
 // claude-design-request-comments.md's "フロントエンド完結・localStorage の
-// み" constraint. This file is the one place that reads/writes that
-// storage — components never touch localStorage directly.
+// み" constraint — extending this file must never add a fetch/API call. This
+// file is the one place that reads/writes that storage — components never
+// touch localStorage directly.
 //
-// Scope note: the constraint brief's "保存されるデータ" section lists only
-// target/anchor/text (+ id/timestamps as an implementation detail) — no
-// threaded replies. The Claude Design mock added a reply thread per
-// comment; that's beyond the written requirement, so it's not implemented
-// here (see .concierge/result.md).
+// 2026-07-11 コメント拡張4件 (user-requested, beyond the original written
+// requirement): reply threads (design's replies/replyDrafts model, restored
+// after being out of scope in an earlier pass), a 'vocab' record type
+// (VocabCard, not in the design mock but explicitly requested), and a
+// 'page' record type for whole-page comments not tied to any one card
+// (target = {recordType:'page', recordId:<view>, anchor:'page'} — reuses
+// the existing recordId/anchor uniqueness key rather than adding new
+// schema, since a page is just "the one thing this view's title stands
+// for").
 
-export type RecordType = 'tag' | 'transition';
+export type RecordType = 'tag' | 'transition' | 'vocab' | 'page';
+
+export const RECORD_TYPE_META: Record<RecordType, { label: string; icon: IconName; color: string }> = {
+  tag: { label: 'タグ', icon: 'tags', color: 'var(--lm-primary-strong)' },
+  transition: { label: '仕様', icon: 'scroll-text', color: 'var(--t-act)' },
+  vocab: { label: '語彙', icon: 'book-open', color: 'var(--tag-teal)' },
+  page: { label: 'ページ', icon: 'layout-dashboard', color: 'var(--lm-text-dim)' },
+};
 
 export interface CommentTarget {
   recordType: RecordType;
@@ -25,11 +38,18 @@ export interface CommentTarget {
   anchorLabel: string;
 }
 
+export interface CommentReply {
+  id: string;
+  text: string;
+  createdAt: number;
+}
+
 export interface CommentRecord extends CommentTarget {
   id: string;
   text: string;
   createdAt: number;
   updatedAt: number;
+  replies: CommentReply[];
 }
 
 interface CommentsValue {
@@ -47,6 +67,10 @@ interface CommentsValue {
   saveComposer: () => void;
   cancelComposer: () => void;
   deleteComment: (id: string) => void;
+  replyDrafts: Record<string, string>;
+  setReplyDraft: (commentId: string, text: string) => void;
+  addReply: (commentId: string) => void;
+  deleteReply: (commentId: string, replyId: string) => void;
   copyMsg: boolean;
   copyAll: () => void;
 }
@@ -59,7 +83,11 @@ function load(): CommentRecord[] {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr : [];
+    if (!Array.isArray(arr)) return [];
+    // Additive migration: comments saved before replies existed decode with
+    // no `replies` key at all — normalize to [] so every consumer can just
+    // read c.replies.length without an `|| []` at every call site.
+    return arr.map((c) => ({ ...c, replies: Array.isArray(c.replies) ? c.replies : [] }));
   } catch {
     return [];
   }
@@ -73,20 +101,24 @@ function persist(arr: CommentRecord[]) {
   }
 }
 
-function newId(): string {
-  return 'c' + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
+function newId(prefix: string): string {
+  return prefix + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
 }
 
 function buildCopyText(comments: CommentRecord[]): string {
   const lines = [
     '# product-memory ビューア — レビューコメント',
-    `以下の ${comments.length} 件のコメントに基づき、該当レコード（.pmem のタグ / 仕様=transition）の該当箇所を修正してください。`,
+    `以下の ${comments.length} 件のコメントに基づき、該当箇所を修正してください（[ページ] は特定のカードに紐づかない、そのビュー全体への指摘です）。`,
     '',
   ];
   comments.forEach((c, i) => {
-    lines.push(`${i + 1}. [${c.recordType === 'tag' ? 'タグ' : '仕様'}] ${c.recordId} 「${c.recordTitle}」`);
+    lines.push(`${i + 1}. [${RECORD_TYPE_META[c.recordType].label}] ${c.recordId} 「${c.recordTitle}」`);
     lines.push(`   箇所: ${c.anchorLabel}`);
     lines.push(`   コメント: ${c.text}`);
+    if (c.replies.length > 0) {
+      lines.push('   返信スレッド:');
+      c.replies.forEach((r) => lines.push(`     - ${r.text}`));
+    }
     lines.push('');
   });
   return lines.join('\n');
@@ -114,6 +146,7 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
   const [panelOpen, setPanelOpen] = useState(false);
   const [composer, setComposer] = useState<CommentTarget | null>(null);
   const [composerText, setComposerTextState] = useState('');
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [copyMsg, setCopyMsg] = useState(false);
 
   useEffect(() => {
@@ -153,7 +186,7 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
       } else if (idx >= 0) {
         next = prev.map((c, i) => (i === idx ? { ...c, text, updatedAt: Date.now() } : c));
       } else {
-        next = [...prev, { ...composer, id: newId(), text, createdAt: Date.now(), updatedAt: Date.now() }];
+        next = [...prev, { ...composer, id: newId('c'), text, createdAt: Date.now(), updatedAt: Date.now(), replies: [] }];
       }
       persist(next);
       return next;
@@ -165,6 +198,39 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
   const deleteComment = (id: string) => {
     setComments((prev) => {
       const next = prev.filter((c) => c.id !== id);
+      persist(next);
+      return next;
+    });
+    setReplyDrafts((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  };
+
+  const setReplyDraft = (commentId: string, text: string) => setReplyDrafts((prev) => ({ ...prev, [commentId]: text }));
+
+  const addReply = (commentId: string) => {
+    const text = (replyDrafts[commentId] || '').trim();
+    if (!text) return;
+    setComments((prev) => {
+      const next = prev.map((c) =>
+        c.id === commentId ? { ...c, replies: [...c.replies, { id: newId('r'), text, createdAt: Date.now() }], updatedAt: Date.now() } : c,
+      );
+      persist(next);
+      return next;
+    });
+    setReplyDrafts((prev) => {
+      const next = { ...prev };
+      delete next[commentId];
+      return next;
+    });
+  };
+
+  const deleteReply = (commentId: string, replyId: string) => {
+    setComments((prev) => {
+      const next = prev.map((c) => (c.id === commentId ? { ...c, replies: c.replies.filter((r) => r.id !== replyId) } : c));
       persist(next);
       return next;
     });
@@ -211,6 +277,10 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
     saveComposer,
     cancelComposer,
     deleteComment,
+    replyDrafts,
+    setReplyDraft,
+    addReply,
+    deleteReply,
     copyMsg,
     copyAll,
   };
