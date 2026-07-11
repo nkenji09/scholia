@@ -122,11 +122,23 @@ export interface TransitionsResponse {
   untagged?: Transition[];
 }
 
+/** How a tag became effective on a transition (§3.7) — a tag can arrive via
+    more than one path at once (e.g. directly assigned AND an ancestor of
+    another effective tag), so EffectiveTag.sources is a set, not a single
+    winner. Computed backend-side only; never re-derive this client-side
+    (§9 single source of truth, gap G11). */
+export type TagSource = 'own' | 'vocab' | 'ancestor';
+
+export interface EffectiveTag {
+  id: string;
+  sources: TagSource[];
+}
+
 export interface TransitionDetail extends Transition {
   actionLabel?: string;
   givenLabels?: string[];
   thenLabels?: string[];
-  effectiveTags?: string[];
+  effectiveTags?: EffectiveTag[];
   rules?: Decision[];
 }
 

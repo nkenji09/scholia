@@ -117,3 +117,81 @@ func TestEffectiveTags_EmptyWhenNoTagsAnywhere(t *testing.T) {
 		t.Fatalf("expected no effective tags, got %v", got)
 	}
 }
+
+func sourcesOf(t *testing.T, got []EffectiveTag, id string) []TagSource {
+	t.Helper()
+	for _, et := range got {
+		if et.ID == id {
+			return et.Sources
+		}
+	}
+	t.Fatalf("tag %q not found in %+v", id, got)
+	return nil
+}
+
+func TestEffectiveTagsWithProvenance_OwnOnly(t *testing.T) {
+	snap := &store.Snapshot{Tags: []model.Tag{{ID: "req.happy", Name: "happy"}}}
+	tx := &model.Transition{ID: "T-1", Tags: []string{"req.happy"}}
+
+	got := EffectiveTagsWithProvenance(snap, tx)
+	if len(got) != 1 {
+		t.Fatalf("EffectiveTagsWithProvenance = %+v, want 1 entry", got)
+	}
+	if want := []TagSource{SourceOwn}; !reflect.DeepEqual(sourcesOf(t, got, "req.happy"), want) {
+		t.Fatalf("req.happy Sources = %v, want %v", sourcesOf(t, got, "req.happy"), want)
+	}
+}
+
+func TestEffectiveTagsWithProvenance_VocabOnly(t *testing.T) {
+	snap := &store.Snapshot{
+		Vocab: []model.VocabEntry{{ID: "act.a", Category: model.CategoryAction, Label: "a", Tags: []string{"subject.a"}}},
+		Tags:  []model.Tag{{ID: "subject.a", Name: "a"}},
+	}
+	tx := &model.Transition{ID: "T-1", Action: "act.a"}
+
+	got := EffectiveTagsWithProvenance(snap, tx)
+	if len(got) != 1 {
+		t.Fatalf("EffectiveTagsWithProvenance = %+v, want 1 entry", got)
+	}
+	if want := []TagSource{SourceVocab}; !reflect.DeepEqual(sourcesOf(t, got, "subject.a"), want) {
+		t.Fatalf("subject.a Sources = %v, want %v", sourcesOf(t, got, "subject.a"), want)
+	}
+}
+
+func TestEffectiveTagsWithProvenance_AncestorOnly(t *testing.T) {
+	snap := &store.Snapshot{
+		Tags: []model.Tag{
+			{ID: "req.auth", Name: "auth"},
+			{ID: "req.auth-happy-path", Name: "happy", ParentIDs: []string{"req.auth"}},
+		},
+	}
+	tx := &model.Transition{ID: "T-1", Tags: []string{"req.auth-happy-path"}}
+
+	got := EffectiveTagsWithProvenance(snap, tx)
+	if want := []TagSource{SourceOwn}; !reflect.DeepEqual(sourcesOf(t, got, "req.auth-happy-path"), want) {
+		t.Fatalf("req.auth-happy-path Sources = %v, want %v", sourcesOf(t, got, "req.auth-happy-path"), want)
+	}
+	if want := []TagSource{SourceAncestor}; !reflect.DeepEqual(sourcesOf(t, got, "req.auth"), want) {
+		t.Fatalf("req.auth Sources = %v, want %v", sourcesOf(t, got, "req.auth"), want)
+	}
+}
+
+// TestEffectiveTagsWithProvenance_MultiPath covers a tag reached through more
+// than one §3.7 path at once: subject.auth is both directly assigned (own)
+// AND the ancestor of another own-assigned tag (req.auth-happy-path) — both
+// sources must survive, not just one.
+func TestEffectiveTagsWithProvenance_MultiPath(t *testing.T) {
+	snap := &store.Snapshot{
+		Tags: []model.Tag{
+			{ID: "subject.auth", Name: "auth"},
+			{ID: "req.auth-happy-path", Name: "happy", ParentIDs: []string{"subject.auth"}},
+		},
+	}
+	tx := &model.Transition{ID: "T-1", Tags: []string{"subject.auth", "req.auth-happy-path"}}
+
+	got := EffectiveTagsWithProvenance(snap, tx)
+	want := []TagSource{SourceOwn, SourceAncestor}
+	if !reflect.DeepEqual(sourcesOf(t, got, "subject.auth"), want) {
+		t.Fatalf("subject.auth Sources = %v, want %v", sourcesOf(t, got, "subject.auth"), want)
+	}
+}

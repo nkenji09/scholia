@@ -74,11 +74,24 @@ func TestGetTransition_ResolvesLabelsAndRules(t *testing.T) {
 	}
 	wantTags := map[string]bool{"req.auth-happy": true, "subject.auth": true}
 	if len(out.EffectiveTags) != len(wantTags) {
-		t.Fatalf("EffectiveTags = %v, want %v", out.EffectiveTags, wantTags)
+		t.Fatalf("EffectiveTags = %+v, want %v", out.EffectiveTags, wantTags)
 	}
 	for _, tag := range out.EffectiveTags {
-		if !wantTags[tag] {
-			t.Fatalf("unexpected effective tag %q", tag)
+		if !wantTags[tag.ID] {
+			t.Fatalf("unexpected effective tag %q", tag.ID)
+		}
+	}
+	// req.auth-happy は own（T-login.tags に直接付与）、subject.auth はその祖先。
+	for _, tag := range out.EffectiveTags {
+		switch tag.ID {
+		case "req.auth-happy":
+			if len(tag.Sources) != 1 || tag.Sources[0] != index.SourceOwn {
+				t.Fatalf("req.auth-happy Sources = %v, want [own]", tag.Sources)
+			}
+		case "subject.auth":
+			if len(tag.Sources) != 1 || tag.Sources[0] != index.SourceAncestor {
+				t.Fatalf("subject.auth Sources = %v, want [ancestor]", tag.Sources)
+			}
 		}
 	}
 	// decision d1 targets tag subject.auth, which is in T-login's effective tags (cross-cutting rule surfaces here).

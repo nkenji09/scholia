@@ -43,3 +43,13 @@
 .chip-remove:hover {
   opacity: 1;
 }
+
+/* Effective-tag provenance badge (gap G11) — the vocab/ancestor label shown
+   inside a chip whose tag arrived via a path other than direct assignment
+   (or, for an own tag, via an *additional* path — the multi-path case). */
+.tag-provenance-badge {
+  font-size: 0.85em;
+  font-weight: 500;
+  opacity: 0.75;
+  white-space: nowrap;
+}

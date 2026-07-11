@@ -265,14 +265,14 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
     kindOptions = allKinds.map((k) => ({
       key: k,
       label: tagKindLabel(k),
-      count: Object.values(txDetails).filter((d) => (d.effectiveTags || []).some((id) => tagById.get(id)?.kind === k)).length,
+      count: Object.values(txDetails).filter((d) => (d.effectiveTags || []).some((et) => tagById.get(et.id)?.kind === k)).length,
     }));
 
     const list = txList || [];
     const visible = list.filter((tx) => {
       const detail = txDetails[tx.id];
       if (!detail) return false;
-      if (kindFacet !== 'all' && !(detail.effectiveTags || []).some((id) => tagById.get(id)?.kind === kindFacet)) return false;
+      if (kindFacet !== 'all' && !(detail.effectiveTags || []).some((et) => tagById.get(et.id)?.kind === kindFacet)) return false;
       if (q) {
         const hay = (
           tx.id +

@@ -44,10 +44,14 @@ func SortedRulesFor(snap *store.Snapshot, tagID, txID, facet string) ([]model.De
 // export bake.
 type TransitionDetail struct {
 	model.Transition
-	ActionLabel   string           `json:"actionLabel,omitempty"`
-	GivenLabels   []string         `json:"givenLabels,omitempty"`
-	ThenLabels    []string         `json:"thenLabels,omitempty"`
-	EffectiveTags []string         `json:"effectiveTags,omitempty"`
+	ActionLabel string   `json:"actionLabel,omitempty"`
+	GivenLabels []string `json:"givenLabels,omitempty"`
+	ThenLabels  []string `json:"thenLabels,omitempty"`
+	// EffectiveTags carries provenance (own/vocab/ancestor, §3.7) so the
+	// viewer can show *why* a tag is effective instead of a flat id set
+	// (gap G11) — computed once by EffectiveTagsWithProvenance, not
+	// re-derived client-side (§9 single source of truth).
+	EffectiveTags []EffectiveTag   `json:"effectiveTags,omitempty"`
 	Rules         []model.Decision `json:"rules,omitempty"`
 }
 
@@ -73,7 +77,7 @@ func BuildTransitionDetail(snap *store.Snapshot, ix *Index, id string) (detail T
 	for _, e := range t.Then {
 		detail.ThenLabels = append(detail.ThenLabels, label(e))
 	}
-	detail.EffectiveTags = ix.EffectiveTags[id]
+	detail.EffectiveTags = EffectiveTagsWithProvenance(snap, &t)
 
 	rules, err := SortedRulesFor(snap, "", id, "")
 	if err != nil {

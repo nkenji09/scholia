@@ -1,6 +1,6 @@
 import { useLookups } from '../../lookups';
 import { strings } from '../../strings';
-import type { TransitionDetail } from '../../types';
+import type { EffectiveTag, TransitionDetail } from '../../types';
 import { Chip, kindColor } from '../shared/Chip';
 import { CommentButton } from '../comments/CommentButton';
 import { Icon } from '../shared/Icon';
@@ -17,10 +17,18 @@ interface Props {
 export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab, onFilterTag }: Props) {
   const { tagById, vocabById } = useLookups();
 
-  const declared = detail.tags || [];
+  // own/derived split reads straight off backend-computed provenance (gap
+  // G11) — no re-derivation client-side (§9). "own" is any tag directly
+  // assigned (detail.tags), even if it's *also* reachable via vocab/ancestor
+  // (multi-path); the badge below surfaces that extra provenance.
   const effective = detail.effectiveTags || [];
-  const derived = effective.filter((id) => !declared.includes(id));
-  const hasTags = declared.length > 0 || derived.length > 0;
+  const own = effective.filter((et) => et.sources.includes('own'));
+  const derived = effective.filter((et) => !et.sources.includes('own'));
+  const hasTags = own.length > 0 || derived.length > 0;
+  const provenanceBadge = (et: EffectiveTag) => {
+    const extra = et.sources.filter((s) => s !== 'own');
+    return extra.length > 0 ? strings.browse.provenanceLabel(extra) : null;
+  };
   const hasDetail = (detail.tests && detail.tests.length > 0) || (detail.rules && detail.rules.length > 0);
 
   return (
@@ -89,9 +97,16 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
             <CommentButton recordType="transition" recordId={detail.id} recordTitle={detail.actionLabel || detail.action} anchor="tags" anchorLabel={strings.browse.tagsHeading} />
           </div>
           <div class="spec-card-chip-row">
-            {declared.map((id) => (
-              <Chip key={id} color={kindColor(tagById.get(id)?.kind)} onClick={() => onFilterTag(id)} filterable>
-                {tagById.get(id)?.name || id}
+            {own.map((et) => (
+              <Chip
+                key={et.id}
+                color={kindColor(tagById.get(et.id)?.kind)}
+                onClick={() => onFilterTag(et.id)}
+                filterable
+                title={strings.browse.provenanceLabel(et.sources)}
+              >
+                {tagById.get(et.id)?.name || et.id}
+                {provenanceBadge(et) && <span class="tag-provenance-badge">{provenanceBadge(et)}</span>}
               </Chip>
             ))}
           </div>
@@ -99,9 +114,16 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
             <div class="spec-card-derived">
               <span class="dim spec-card-derived-label">{strings.browse.derivedHeading}</span>
               <div class="spec-card-chip-row">
-                {derived.map((id) => (
-                  <Chip key={id} color={kindColor(tagById.get(id)?.kind)} onClick={() => onFilterTag(id)} filterable>
-                    {tagById.get(id)?.name || id}
+                {derived.map((et) => (
+                  <Chip
+                    key={et.id}
+                    color={kindColor(tagById.get(et.id)?.kind)}
+                    onClick={() => onFilterTag(et.id)}
+                    filterable
+                    title={strings.browse.provenanceLabel(et.sources)}
+                  >
+                    {tagById.get(et.id)?.name || et.id}
+                    <span class="tag-provenance-badge">{strings.browse.provenanceLabel(et.sources)}</span>
                   </Chip>
                 ))}
               </div>

@@ -1,3 +1,5 @@
+import type { TagSource } from './types';
+
 // Centralized UI copy for the views added in the "記録ブラウザ" unit
 // (Vocab / Spec / Tags). Kept in one file — rather than inline JSX strings
 // like the older views use — so a future i18n pass has a single place to
@@ -103,5 +105,11 @@ export const strings = {
     derivedHeading: '継承・祖先展開で効くタグ',
     derivedHint: 'vocab継承＋親タグ展開の実効タグ',
     clickToFilter: 'クリックで検索条件に追加',
+    // 実効タグの由来ラベル（gap G11）。own/vocab/ancestor は複数同時成立しうる
+    // ので順に連結する — バックエンドの EffectiveTag.sources をそのまま表示
+    // するだけで、フロントは由来を再計算しない（§9）。
+    provenanceSourceLabel: { own: '直接付与', vocab: 'vocab由来', ancestor: '祖先由来' } as Record<TagSource, string>,
+    provenanceLabel: (sources: TagSource[]): string =>
+      sources.map((s) => strings.browse.provenanceSourceLabel[s]).join(' + '),
   },
 } as const;

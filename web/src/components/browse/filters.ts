@@ -92,5 +92,7 @@ export function tagMatchesFilters(tag: Tag, filters: FilterCondition[], trees: R
 
 export function specMatchesFilters(detail: TransitionDetail, filters: FilterCondition[]): boolean {
   const vocabIds = [detail.action, ...(detail.given || []), ...(detail.then || [])];
-  return filters.every((f) => (f.type === 'tag' ? (detail.effectiveTags || []).includes(f.id) : vocabIds.includes(f.id)));
+  return filters.every((f) =>
+    f.type === 'tag' ? (detail.effectiveTags || []).some((et) => et.id === f.id) : vocabIds.includes(f.id),
+  );
 }
