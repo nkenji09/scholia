@@ -34,6 +34,7 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
         </div>
         <button type="button" class="spec-card-action" onClick={() => onFilterVocab(detail.action)} title={strings.browse.clickToFilter}>
           {detail.actionLabel || detail.action}
+          <Icon name="plus" size={13} class="filter-plus-icon" />
         </button>
       </div>
 
@@ -48,7 +49,8 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
         <div class="spec-card-given-list">
           {(detail.given || []).map((id, i) => (
             <button key={id} type="button" class="spec-card-cond-row" onClick={() => onFilterVocab(id)} title={strings.browse.clickToFilter}>
-              {(detail.givenLabels || [])[i] || id}
+              <span class="spec-card-cond-label">{(detail.givenLabels || [])[i] || id}</span>
+              <Icon name="plus" size={13} class="filter-plus-icon" />
             </button>
           ))}
         </div>
@@ -65,10 +67,11 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
           {(detail.then || []).map((id, i) => (
             <button key={id} type="button" class="spec-card-cond-row" onClick={() => onFilterVocab(id)} title={strings.browse.clickToFilter}>
               <span class="spec-card-then-n dim">{i + 1}</span>
-              <span>
+              <span class="spec-card-cond-label">
                 {(detail.thenLabels || [])[i] || id}
                 {vocabById.get(id)?.owner && <span class="spec-card-owner dim"> owner: {vocabById.get(id)?.owner}</span>}
               </span>
+              <Icon name="plus" size={13} class="filter-plus-icon" />
             </button>
           ))}
         </div>
@@ -79,13 +82,15 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
           <div class="card-section-heading-row">
             <span class="card-section-heading">
               <Icon name="tags" size={14} /> {strings.browse.tagsHeading}{' '}
-              <span class="spec-card-hint dim">{strings.browse.clickToFilter}</span>
+              <span class="spec-card-hint dim">
+                <Icon name="plus" size={11} class="filter-plus-icon" /> {strings.browse.clickToFilter}
+              </span>
             </span>
             <CommentButton recordType="transition" recordId={detail.id} recordTitle={detail.actionLabel || detail.action} anchor="tags" anchorLabel={strings.browse.tagsHeading} />
           </div>
           <div class="spec-card-chip-row">
             {declared.map((id) => (
-              <Chip key={id} color={kindColor(tagById.get(id)?.kind)} onClick={() => onFilterTag(id)}>
+              <Chip key={id} color={kindColor(tagById.get(id)?.kind)} onClick={() => onFilterTag(id)} filterable>
                 {tagById.get(id)?.name || id}
               </Chip>
             ))}
@@ -95,7 +100,7 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
               <span class="dim spec-card-derived-label">{strings.browse.derivedHeading}</span>
               <div class="spec-card-chip-row">
                 {derived.map((id) => (
-                  <Chip key={id} color={kindColor(tagById.get(id)?.kind)} onClick={() => onFilterTag(id)}>
+                  <Chip key={id} color={kindColor(tagById.get(id)?.kind)} onClick={() => onFilterTag(id)} filterable>
                     {tagById.get(id)?.name || id}
                   </Chip>
                 ))}

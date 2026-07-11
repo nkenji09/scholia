@@ -23,16 +23,21 @@ interface Props {
   color?: string;
   onClick?: () => void;
   onRemove?: () => void;
+  /** Design's + mark for chips whose click adds an AND search condition
+      (distinct from a chip that merely navigates, e.g. TagCard's kind
+      badge — the design reference doesn't mark those). */
+  filterable?: boolean;
   title?: string;
   children: ComponentChildren;
 }
 
-export function Chip({ color = 'var(--lm-text-dim)', onClick, onRemove, title, children }: Props) {
+export function Chip({ color = 'var(--lm-text-dim)', onClick, onRemove, filterable, title, children }: Props) {
   const style = { '--chip-color': color } as JSX.CSSProperties;
   if (onClick) {
     return (
       <button type="button" class="chip chip-clickable" style={style} onClick={onClick} title={title}>
         {children}
+        {filterable && <Icon name="plus" size={11} class="filter-plus-icon" />}
       </button>
     );
   }

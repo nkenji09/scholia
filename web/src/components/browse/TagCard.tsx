@@ -65,6 +65,7 @@ export function TagCard({ tag, report, isGap, parents, children, cardRef, onFilt
         </div>
         <button type="button" class="tag-card-name" onClick={onFilterSelf} title={strings.browse.clickToFilter}>
           {tag.name || tag.id}
+          <Icon name="plus" size={13} class="filter-plus-icon" />
         </button>
         <span class="tag-card-id dim">{tag.id}</span>
       </div>

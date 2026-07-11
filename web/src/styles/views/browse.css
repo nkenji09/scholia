@@ -282,10 +282,15 @@
 }
 
 .tag-card-name {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
   align-self: flex-start;
   border: none;
   background: transparent;
-  padding: 0;
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border-radius: var(--r-md);
   font-size: var(--fs-xl);
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -294,7 +299,7 @@
 }
 
 .tag-card-name:hover {
-  text-decoration: underline;
+  background: var(--lm-s2);
 }
 
 .tag-card-id {
@@ -402,10 +407,15 @@
 }
 
 .spec-card-action {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
   align-self: flex-start;
   border: none;
   background: transparent;
-  padding: 0;
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border-radius: var(--r-md);
   font-size: var(--fs-xl);
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -414,7 +424,7 @@
 }
 
 .spec-card-action:hover {
-  text-decoration: underline;
+  background: var(--lm-s2);
 }
 
 .spec-card-empty-given {
@@ -449,6 +459,11 @@
   background: var(--lm-s2);
 }
 
+.spec-card-cond-label {
+  flex: 1;
+  min-width: 0;
+}
+
 .spec-card-then-n {
   font-family: var(--lm-font-mono);
   font-size: var(--fs-3xs);
@@ -463,6 +478,9 @@
 }
 
 .spec-card-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   font-weight: 500;
   text-transform: none;
   letter-spacing: 0;

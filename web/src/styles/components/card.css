@@ -30,6 +30,15 @@
   color: var(--lm-text-dim);
 }
 
+/* Design's + mark on any element whose click adds an AND search condition
+   (TagCard's name, SpecCard's action/given/then/tag chips, VocabCard's
+   name/tag chips) — see .concierge/decision.md's tweaks2 handoff §2. */
+.filter-plus-icon {
+  color: var(--lm-primary-strong);
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
 .card-empty {
   border: 1px dashed var(--lm-border-strong);
   border-radius: var(--r-lg);
