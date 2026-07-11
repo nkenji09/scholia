@@ -1,6 +1,5 @@
 /* Selectable-row / pill patterns shared across 2+ views: facet tabs
-   (TraceabilityView, VocabView), transition rows (TransitionDetail,
-   VocabView's usage list, TraceabilityView's satisfied-tx list). */
+   (VocabView's category tabs), transition rows (VocabView's usage list). */
 
 .facet-tabs {
   display: flex;
@@ -27,12 +26,6 @@
   border-color: var(--lm-primary);
 }
 
-.detail ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
 .tx-row {
   background: none;
   border: none;
@@ -45,9 +38,4 @@
 
 .tx-row:hover {
   background: var(--lm-s1);
-}
-
-.tx-row.selected {
-  background: var(--lm-primary);
-  color: var(--lm-on-primary);
 }

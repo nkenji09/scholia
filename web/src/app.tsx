@@ -1,11 +1,7 @@
-import { isStaticMode } from './api';
 import { Header } from './components/layout/Header';
 import { HomeView } from './components/home/HomeView';
 import { BrowseView } from './components/browse/BrowseView';
-import { TransitionDetailPanel } from './components/TransitionDetail';
 import { ConfigView } from './components/config/ConfigView';
-import { TraceabilityView } from './components/TraceabilityView';
-import { CompareView } from './components/CompareView';
 import { VocabView } from './components/VocabView';
 import { CommentPanel } from './components/comments/CommentPanel';
 import { useComments } from './components/comments/useComments';
@@ -18,13 +14,13 @@ export function App() {
   const view = route.view;
   const { closePanel } = useComments();
 
-  // Cross-view links (Vocab/Traceability/Home → BrowseView, etc.) all funnel
-  // through navigate() so each hop lands in browser history and
-  // Back/Forward step through them one at a time (v2 調整2). 'browse'/
-  // 'tags'/'spec' are three distinct hash shapes kept for backward
-  // compatibility with pre-BROWSE-unification bookmarks (.concierge/
-  // decision.md's hash-compat minor decision) — all three now render the
-  // same BrowseView, just with a different initial facet/focus.
+  // Cross-view links (Vocab/Home → BrowseView, etc.) all funnel through
+  // navigate() so each hop lands in browser history and Back/Forward step
+  // through them one at a time (v2 調整2). 'browse'/'tags'/'spec' are three
+  // distinct hash shapes kept for backward compatibility with
+  // pre-BROWSE-unification bookmarks (.concierge/decision.md's hash-compat
+  // minor decision) — all three now render the same BrowseView, just with
+  // a different initial facet/focus.
   const openTransition = (txId: string) => navigate({ view: 'browse', txId });
   const openTagSpec = (tagId: string) => navigate({ view: 'spec', tagId });
   const setView = (next: ViewName) => navigate({ view: next });
@@ -37,27 +33,13 @@ export function App() {
   return (
     <>
       <Header view={view} onSelectView={setView} onSelectTx={openTransition} />
-      {view === 'home' && (
-        <HomeView
-          onGoTags={() => setView('tags')}
-          onGoTraceability={() => setView('traceability')}
-          onSelectTag={openTagSpec}
-          onSelectTx={openTransition}
-        />
-      )}
+      {view === 'home' && <HomeView onGoTags={() => setView('tags')} onSelectTag={openTagSpec} onSelectTx={openTransition} />}
       {view === 'browse' && (
         <BrowseView facet="specs" initialFocusTagId={route.tagId} initialFocusTxId={route.txId} onGoToSpec={openTransition} />
       )}
       {view === 'vocab' && <VocabView onSelectTx={openTransition} />}
       {view === 'spec' && <BrowseView facet="tags" initialFocusTagId={route.tagId} onGoToSpec={openTransition} />}
       {view === 'tags' && <BrowseView facet="tags" onGoToSpec={openTransition} />}
-      {view === 'traceability' && (
-        <div class="layout layout-two">
-          <TraceabilityView onSelectTx={openTransition} initialKind={route.kind} />
-          <TransitionDetailPanel txId={route.txId} />
-        </div>
-      )}
-      {view === 'compare' && !isStaticMode && <CompareView />}
       {view === 'config' && <ConfigView />}
       <CommentPanel onGoto={gotoComment} />
     </>

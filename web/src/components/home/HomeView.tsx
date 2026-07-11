@@ -7,12 +7,11 @@ import { Icon } from '../shared/Icon';
 
 interface Props {
   onGoTags: () => void;
-  onGoTraceability: () => void;
   onSelectTag: (tagId: string) => void;
   onSelectTx: (txId: string) => void;
 }
 
-export function HomeView({ onGoTags, onGoTraceability, onSelectTag, onSelectTx }: Props) {
+export function HomeView({ onGoTags, onSelectTag, onSelectTx }: Props) {
   const [tags, setTags] = useState<Tag[] | null>(null);
   const [config, setConfig] = useState<Config | null>(null);
   const [traceability, setTraceability] = useState<TraceabilityResponse | null>(null);
@@ -80,7 +79,7 @@ export function HomeView({ onGoTags, onGoTraceability, onSelectTag, onSelectTx }
             <span class="home-card-title">
               <Icon name="radar" size={15} /> {strings.home.traceabilityHeading}
             </span>
-            <button type="button" onClick={onGoTraceability}>
+            <button type="button" onClick={onGoTags}>
               {strings.home.goTraceability} <Icon name="arrow-right" size={14} />
             </button>
           </div>

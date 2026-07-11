@@ -1,7 +1,6 @@
 import type {
   Config,
   ConfigPatch,
-  DiffResult,
   FacetsResponse,
   LintResult,
   PmemStaticData,
@@ -167,8 +166,6 @@ export const api = {
   },
 
   getLint: () => (staticData ? Promise.resolve(staticData.lint) : request<LintResult>('/api/lint')),
-
-  getDiff: (ref?: string) => (staticData ? staticUnavailable('比較ビュー') : request<DiffResult>('/api/diff' + query({ ref }))),
 
   getTraceability: (kind?: string) =>
     staticData ? Promise.resolve(staticTraceability(staticData, kind)) : request<TraceabilityResponse>('/api/traceability' + query({ kind })),

@@ -7,16 +7,19 @@ import { useEffect, useState } from 'preact/hooks';
 // and pushes a browser history entry, with no server round-trip, which is
 // exactly the "static export with working Back/Forward" behavior this needs.
 
-export type ViewName = 'home' | 'browse' | 'vocab' | 'spec' | 'tags' | 'traceability' | 'compare' | 'config';
+// 'traceability'/'compare' removed (2026-07-11, user request): not covered
+// by the Claude Design mock and dropped from the nav for now — trivially
+// restorable from git history (internal/viewer's /api/traceability and
+// /api/diff endpoints are untouched; only this frontend surface is gone).
+export type ViewName = 'home' | 'browse' | 'vocab' | 'spec' | 'tags' | 'config';
 
 export interface Route {
   view: ViewName;
   tagId?: string;
   txId?: string;
-  kind?: string;
 }
 
-const VIEWS: ViewName[] = ['home', 'browse', 'vocab', 'spec', 'tags', 'traceability', 'compare', 'config'];
+const VIEWS: ViewName[] = ['home', 'browse', 'vocab', 'spec', 'tags', 'config'];
 // HOME is the new landing page (.concierge/decision.md G-2, resolved:
 // default route moves from 'browse' to 'home'). An empty/unknown hash still
 // falls back to DEFAULT_ROUTE below, so bookmarks of `#` or the bare page
@@ -47,9 +50,6 @@ export function parseRoute(hash: string): Route {
     case 'spec':
       if (parts[1]) route.tagId = parts[1];
       break;
-    case 'traceability':
-      if (parts[1]) route.kind = parts[1];
-      break;
   }
   return route;
 }
@@ -63,9 +63,6 @@ export function routeHash(route: Route): string {
       break;
     case 'spec':
       if (route.tagId) seg.push(encodeURIComponent(route.tagId));
-      break;
-    case 'traceability':
-      if (route.kind) seg.push(encodeURIComponent(route.kind));
       break;
   }
   return `#/${seg.join('/')}`;

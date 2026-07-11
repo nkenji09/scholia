@@ -205,29 +205,7 @@
   border: 2px solid var(--lm-s1);
 }
 
-/* Only Traceability's 2-pane (list + TransitionDetailPanel) layout uses this
-   now — BrowseView's タグ/仕様 cards replaced the old 3-pane Browse
-   (sidebar+list+detail), so there is no bare (non layout-two) consumer of
-   `.layout` left. Kept as its own class rather than folded into
-   `.layout-two` in case a future view needs the plain grid+flex shell
-   without the 2-column split. */
-.layout {
-  display: grid;
-  flex: 1;
-  min-height: 0;
-}
-
-.layout-two {
-  grid-template-columns: 1fr 320px;
-}
-
-.detail,
 .config-view {
   padding: var(--sp-4);
   overflow-y: auto;
-}
-
-.detail {
-  border-left: 1px solid var(--lm-border);
-  background: var(--lm-s2);
 }

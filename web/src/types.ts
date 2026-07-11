@@ -134,59 +134,6 @@ export interface LintResult {
   infoCount: number;
 }
 
-export interface Change<T> {
-  id: string;
-  before: T;
-  after: T;
-}
-
-export interface VocabDiff {
-  added?: VocabEntry[];
-  removed?: VocabEntry[];
-  changed?: Change<VocabEntry>[];
-}
-
-export interface TagDiff {
-  added?: Tag[];
-  removed?: Tag[];
-  changed?: Change<Tag>[];
-}
-
-export interface TransitionChange {
-  id: string;
-  before: Transition;
-  after: Transition;
-  actionChanged?: boolean;
-  givenAdded?: string[];
-  givenRemoved?: string[];
-  thenChanged?: boolean;
-  thenReordered?: boolean;
-  tagsAdded?: string[];
-  tagsRemoved?: string[];
-  testsAdded?: string[];
-  testsRemoved?: string[];
-}
-
-export interface TransitionDiff {
-  added?: Transition[];
-  removed?: Transition[];
-  changed?: TransitionChange[];
-}
-
-export interface DecisionDiff {
-  added?: Decision[];
-  removed?: Decision[];
-  changed?: Change<Decision>[];
-}
-
-export interface DiffResult {
-  ref: string;
-  vocab: VocabDiff;
-  tags: TagDiff;
-  transitions: TransitionDiff;
-  decisions: DecisionDiff;
-}
-
 export interface TraceabilityEntry {
   tag: Tag;
   satisfiedBy: string[];

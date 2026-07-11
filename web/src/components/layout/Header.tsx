@@ -1,4 +1,3 @@
-import { isStaticMode } from '../../api';
 import { strings } from '../../strings';
 import type { ViewName } from '../../router';
 import { ACCENTS, useViewerSettings } from '../../settings';
@@ -14,21 +13,22 @@ interface Props {
 }
 
 // Nav mirrors the design's segmented-pill control (概要/タグ/仕様 + icons),
-// extended with Vocab/Traceability/Compare — screens the design didn't
-// mock but which still need a reachable nav slot (.concierge/decision.md
-// §A-4). 'spec' (the legacy per-tag-report hash) is deliberately NOT a nav
-// entry: it renders the same BrowseView as 'tags' with a different initial
-// focus, so having both as separate buttons would just be two nav items
-// doing the same thing. Config is not here either — the design treats
-// settings as a standalone icon button, not a nav tab (see the header
-// switches cluster below).
+// extended with Vocab — a screen the design didn't mock but which still
+// needs a reachable nav slot (.concierge/decision.md §A-4). Traceability/
+// Compare were also in that "not mocked" set but were dropped from the nav
+// entirely per a later user request (2026-07-11) — not in the design, so
+// removed for now rather than left half-styled; git history has the prior
+// version if they come back. 'spec' (the legacy per-tag-report hash) is
+// deliberately NOT a nav entry: it renders the same BrowseView as 'tags'
+// with a different initial focus, so having both as separate buttons would
+// just be two nav items doing the same thing. Config is not here either —
+// the design treats settings as a standalone icon button, not a nav tab
+// (see the header switches cluster below).
 const NAV: Array<[ViewName, string, IconName]> = [
   ['home', strings.nav.home, 'layout-dashboard'],
   ['tags', strings.nav.tags, 'tags'],
   ['browse', strings.nav.specs, 'scroll-text'],
   ['vocab', strings.nav.vocab, 'book-open'],
-  ['traceability', strings.nav.traceability, 'radar'],
-  ['compare', strings.nav.compare, 'git-compare'],
 ];
 
 export function Header({ view, onSelectView, onSelectTx }: Props) {
@@ -48,7 +48,7 @@ export function Header({ view, onSelectView, onSelectTx }: Props) {
       </div>
 
       <nav class="topbar-nav">
-        {NAV.filter(([key]) => key !== 'compare' || !isStaticMode).map(([key, label, icon]) => {
+        {NAV.map(([key, label, icon]) => {
           // 'spec' (legacy per-tag hash, kept for bookmark compat) renders
           // the same BrowseView 'tags' facet does — highlight タグ for it
           // too rather than leaving no tab active.
