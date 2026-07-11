@@ -78,7 +78,9 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
               <span class="spec-card-then-n dim">{i + 1}</span>
               <span class="spec-card-cond-label">
                 {(detail.thenLabels || [])[i] || id}
-                {vocabById.get(id)?.owner && <span class="spec-card-owner dim"> owner: {vocabById.get(id)?.owner}</span>}
+                {vocabById.get(id)?.owner && (
+                  <span class="spec-card-owner dim"> {t.vocab.owner}: {vocabById.get(id)?.owner}</span>
+                )}
               </span>
               <Icon name="plus" size={13} class="filter-plus-icon" />
             </button>
