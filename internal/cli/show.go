@@ -8,5 +8,8 @@ func newShowCmd() *cobra.Command {
 		Short: "レコードを表示する",
 	}
 	cmd.AddCommand(newShowTxCmd())
+	cmd.AddCommand(newShowTagCmd())
+	cmd.AddCommand(newShowVocabCmd())
+	cmd.AddCommand(newShowDecisionCmd())
 	return cmd
 }
