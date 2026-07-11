@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/nkenji09/product-memory/internal/diff"
 	"github.com/nkenji09/product-memory/internal/index"
 	"github.com/nkenji09/product-memory/internal/lint"
 	"github.com/nkenji09/product-memory/internal/model"
@@ -40,6 +41,11 @@ type staticData struct {
 	// stable output.
 	Tags  []model.Tag        `json:"tags"`
 	Vocab []model.VocabEntry `json:"vocab"`
+	// Decisions mirrors GET /api/rules with no tag/tx/facet selector (§F of
+	// .concierge/decision.md): every decision in the project, chronological
+	// (index.SortedRulesFor's "no selector" case) — HOME's recent-decisions
+	// widget needs this in the static export too, not just `pmem view`.
+	Decisions []model.Decision `json:"decisions"`
 }
 
 // facetsPayload / transitionsPayload / traceabilityPayload / lintPayload
@@ -85,6 +91,10 @@ func collectStaticData(s *store.Store) (staticData, error) {
 	if err != nil {
 		return staticData{}, err
 	}
+	// Branch is live/derived (model.Config's doc comment), not part of
+	// config.json — LoadAll() won't have set it, so it's baked in here from
+	// whatever branch is checked out at export time (2026-07-11 tweaks5 §2).
+	snap.Config.Branch = diff.CurrentBranch(filepath.Dir(s.Dir))
 	ix := index.Build(&snap)
 
 	facets := facetsPayload{FacetKinds: snap.Config.FacetKinds, Trees: map[string][]index.FacetTreeNode{}}
@@ -156,6 +166,14 @@ func collectStaticData(s *store.Store) (staticData, error) {
 	vocab := append([]model.VocabEntry{}, snap.Vocab...)
 	sort.Slice(vocab, func(i, j int) bool { return vocab[i].ID < vocab[j].ID })
 
+	decisions, err := index.SortedRulesFor(&snap, "", "", "")
+	if err != nil {
+		return staticData{}, err
+	}
+	if decisions == nil {
+		decisions = []model.Decision{}
+	}
+
 	return staticData{
 		Config:           snap.Config,
 		Facets:           facets,
@@ -167,6 +185,7 @@ func collectStaticData(s *store.Store) (staticData, error) {
 		Spec:             spec,
 		Tags:             tags,
 		Vocab:            vocab,
+		Decisions:        decisions,
 	}, nil
 }
 

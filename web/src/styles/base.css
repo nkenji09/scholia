@@ -1,0 +1,71 @@
+/* Global reset and element defaults. No view-specific rules here. */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+}
+
+body {
+  font: var(--fs-base) / var(--lm-lh-base) var(--lm-font-sans);
+  color: var(--lm-text);
+  background: var(--lm-bg);
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+a {
+  color: var(--lm-primary);
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+code,
+pre {
+  font-family: var(--lm-font-mono);
+}
+
+/* Custom scrollbar styling (design's `*::-webkit-scrollbar*`) is deliberately
+   deferred to phase 2+ — this phase is a token/file-layout rename only and
+   must not add any new visible chrome (see .concierge/decision.md E-1's
+   "no visual regression" bar). */
+
+:where(button, a, input, textarea, select, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+/* Backdrop fade-in (design's `@keyframes lm-fade`) — used by the narrow-
+   viewport rail drawer's backdrop (styles/views/browse.css). */
+@keyframes lm-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.error {
+  color: var(--lm-error);
+}
+
+.dim {
+  color: var(--lm-text-dim);
+}

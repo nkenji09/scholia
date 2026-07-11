@@ -1,0 +1,215 @@
+/* Page chrome: header/nav and the pane grids views sit in. View-internal
+   content styling lives in styles/views/*.css instead. */
+
+/* Header — matches the design's actual markup (pmem-viewer.dc.html's
+   <header>): sticky, logo mark + wordmark, a segmented-pill nav with
+   icons, and a right-hand cluster of icon-only controls (font-size ±,
+   theme toggle, comments, settings). Extended with a Vocab nav slot the
+   design didn't mock (§A-4; Traceability/Compare were also extrapolated
+   at one point but were later removed entirely — not in the design, git
+   has the prior version). The header used to also carry a fulltext search
+   box and density/accent switcher UI (§G-5's "デザイン通り全部"); both were
+   removed per user visual feedback (2026-07-11 tweaks2) since neither
+   exists in the design mock either — accent is now a fixed token
+   (tokens.css) and density stays at its default scale. */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 10px var(--sp-5);
+  border-bottom: 1px solid var(--lm-border);
+  background: var(--lm-s1);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  flex-wrap: wrap;
+}
+
+/* Narrow-viewport-only drawer toggle (design line ~88), rendered before the
+   logo — same position as the design's markup — when the current screen has
+   a BrowseRail (Header.tsx's usesRail()). */
+.topbar-filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  color: var(--lm-text-muted);
+  border-radius: var(--r-md);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.topbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.topbar-logo-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-md);
+  background: var(--lm-primary-weak);
+  color: var(--lm-primary-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.topbar-logo-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.topbar-logo-title {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--lm-text-strong);
+}
+
+.topbar-logo-subtitle {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-3xs);
+  color: var(--lm-text-dim);
+}
+
+.topbar-nav {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: var(--lm-s2);
+  border: 1px solid var(--lm-border);
+  border-radius: var(--r-md);
+  flex-wrap: wrap;
+}
+
+.topbar-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border: none;
+  background: transparent;
+  color: var(--lm-text-muted);
+  border-radius: 6px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.topbar-nav-btn:hover:not(.active) {
+  color: var(--lm-text);
+}
+
+.topbar-nav-btn.active {
+  background: var(--lm-s1);
+  color: var(--lm-text-strong);
+  box-shadow: var(--sh-sm);
+}
+
+.topbar-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  color: var(--lm-text-muted);
+  border-radius: var(--r-md);
+}
+
+.topbar-icon-btn:hover,
+.topbar-icon-btn.active {
+  background: var(--lm-primary-weak);
+  color: var(--lm-primary-strong);
+  border-color: transparent;
+}
+
+/* Header switches (theme toggle + font-scale; density/accent switches were
+   removed per user feedback, 2026-07-11 tweaks2 — see git history) */
+
+.header-switches {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-left: auto;
+}
+
+.font-scale {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--lm-border);
+  border-radius: var(--r-md);
+  padding: 2px;
+  background: var(--lm-bg);
+}
+
+.font-scale button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--lm-text-muted);
+  border-radius: var(--r-sm);
+}
+
+.font-scale button:hover {
+  background: var(--lm-s2);
+}
+
+.font-scale-pct {
+  width: 38px;
+  text-align: center;
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--lm-text-muted);
+}
+
+/* .comment-header-btn composes with .topbar-icon-btn (Header.tsx) for its
+   box/hover/active styling. Sized a touch larger than its .topbar-icon-btn
+   siblings (theme/settings, both still 34px) — コメント拡張4件 item 4
+   ("少しだけ大きく", scoped to just the comment button rather than bumping
+   the whole shared icon-button size, which would shift theme/settings too
+   and drift from the design's own 34px value for those). */
+.comment-header-btn {
+  width: 36px;
+  height: 36px;
+}
+
+.comment-header-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--r-full);
+  background: var(--lm-primary);
+  color: var(--lm-on-primary);
+  font-size: 9px;
+  line-height: 16px;
+  font-weight: 700;
+  font-family: var(--lm-font-mono);
+  border: 2px solid var(--lm-s1);
+}
+
+.config-view {
+  padding: var(--sp-4);
+  overflow-y: auto;
+}

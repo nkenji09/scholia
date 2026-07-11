@@ -1,0 +1,30 @@
+/* Vocab — rebuilt (2026-07-11 tweaks2) to follow BrowseView's rail+card
+   pattern (.browse-view/.browse-rail/.browse-main/.card, shared/Chip)
+   rather than its own bespoke list layout, per user visual feedback ("他の
+   タグ画面の構成を踏襲して"). VocabCard reuses most of TagCard/SpecCard's
+   CSS classes directly (tag-card-head/-badges/-name/-id/-spec-list, etc.)
+   — only the handful of fields unique to a vocab entry (sub-kind, owner)
+   get rules of their own here. */
+
+/* Overrides .tag-card-name's button hover for the non-interactive heading
+   VocabCard uses it as (see VocabCard.tsx for why it isn't a filter
+   button). */
+.vocab-card-name:hover {
+  background: transparent;
+}
+
+.vocab-card-kind {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-2xs);
+}
+
+.vocab-card-owner {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--lm-text-dim);
+}
+
+.vocab-card-no-usage {
+  font-size: var(--fs-xs);
+  font-style: italic;
+}

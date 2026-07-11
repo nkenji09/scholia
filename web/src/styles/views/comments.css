@@ -1,0 +1,396 @@
+/* Comments (#18) — slide-over summary panel + composer. Volatile/local
+   info (localStorage only), so it's deliberately styled lighter than the
+   .pmem record cards it annotates (no elevated shadow, plain border). */
+
+.comment-backdrop {
+  position: fixed;
+  inset: 56px 0 0 0;
+  z-index: 75;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.comment-panel {
+  position: fixed;
+  top: 56px;
+  bottom: 0;
+  right: 0;
+  width: 92%;
+  max-width: 400px;
+  /* Explicit, not implicit `auto` (#20 drawerscroll fix — same root cause
+     as .browse-rail-narrow in browse.css): without this, the panel grows
+     to fit its content instead of being clipped to the viewport, leaving
+     .comment-panel-body's overflow-y:auto nothing to actually scroll. */
+  height: calc(100dvh - 56px);
+  z-index: 80;
+  background: var(--lm-bg);
+  border-left: 1px solid var(--lm-border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  box-shadow: var(--sh-lg);
+}
+
+.comment-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: var(--sp-4) var(--sp-4) var(--sp-3);
+  border-bottom: 1px solid var(--lm-border);
+}
+
+.comment-panel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--lm-text-dim);
+}
+
+.comment-panel-count {
+  font-family: var(--lm-font-mono);
+}
+
+.comment-panel-spacer {
+  flex: 1;
+}
+
+.comment-copy-msg {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-3xs);
+  font-weight: 600;
+  color: var(--lm-success);
+}
+
+.comment-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 11px;
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  color: var(--lm-text-muted);
+  border-radius: var(--r-md);
+  font-size: var(--fs-3xs);
+  font-weight: 600;
+}
+
+.comment-copy-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.comment-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: var(--lm-text-muted);
+  border-radius: var(--r-sm);
+}
+
+.comment-close-btn:hover {
+  background: var(--lm-s2);
+}
+
+.comment-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  /* Same rationale as .browse-rail in browse.css (#20 drawerscroll fix):
+     keeps this panel's own touch-scroll working while <body> is pinned via
+     useBodyScrollLock for the background lock. */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.comment-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: var(--sp-3);
+  background: var(--lm-s2);
+  border: 1px solid var(--lm-primary-ring);
+  border-radius: var(--r-md);
+}
+
+.comment-composer-target {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: var(--fs-3xs);
+  color: var(--lm-text-muted);
+}
+
+.comment-composer-type {
+  font-weight: 700;
+  color: var(--lm-primary-strong);
+}
+
+.comment-composer-title {
+  font-weight: 600;
+  color: var(--lm-text);
+}
+
+.comment-composer-input {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 66px;
+  padding: 9px 11px;
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  color: var(--lm-text);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-sm);
+  font-family: inherit;
+  line-height: 1.6;
+}
+
+.comment-composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.comment-btn-primary,
+.comment-btn-secondary,
+.comment-btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--r-md);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+
+.comment-btn-primary {
+  border: none;
+  background: var(--lm-primary);
+  color: var(--lm-on-primary);
+}
+
+.comment-btn-secondary {
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  color: var(--lm-text-muted);
+  font-weight: 600;
+}
+
+.comment-btn-danger {
+  border: none;
+  background: transparent;
+  color: var(--lm-error);
+  padding: 0 10px;
+}
+
+.comment-kbd-hint {
+  font-size: var(--fs-3xs);
+  font-family: var(--lm-font-mono);
+}
+
+.comment-empty {
+  padding: var(--sp-6) var(--sp-4);
+  text-align: center;
+  color: var(--lm-text-dim);
+  font-size: var(--fs-xs);
+  line-height: 1.8;
+}
+
+.comment-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: var(--sp-3);
+  background: var(--lm-s1);
+  border: 1px solid var(--lm-border);
+  border-radius: var(--r-md);
+}
+
+.comment-item-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.comment-item-type {
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  color: var(--lm-primary-strong);
+}
+
+.comment-item-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--lm-text);
+}
+
+.comment-item-location {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--fs-3xs);
+}
+
+.comment-item-text {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--lm-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Reply thread (2026-07-11 コメント拡張4件 item 1 — restored from an
+   earlier out-of-scope decision at explicit user request). Left border
+   accent + indent mirrors the design's reply-list treatment. */
+.comment-reply-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-left: 3px;
+  padding-left: 11px;
+  border-left: 2px solid var(--lm-primary-weak);
+}
+
+.comment-reply {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.comment-reply-icon {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.comment-reply-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.comment-reply-text {
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  color: var(--lm-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.comment-reply-time {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-3xs);
+}
+
+.comment-reply-delete {
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--lm-text-dim);
+  border-radius: var(--r-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.comment-reply-delete:hover {
+  background: var(--lm-s2);
+}
+
+.comment-reply-composer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 3px;
+  padding-left: 11px;
+  border-left: 2px solid var(--lm-primary-weak);
+}
+
+.comment-reply-input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  color: var(--lm-text);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-xs);
+  font-family: inherit;
+}
+
+.comment-reply-add {
+  height: 30px;
+  padding: 0 13px;
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  color: var(--lm-primary-strong);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.comment-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 7px;
+  border-top: 1px solid var(--lm-border);
+}
+
+.comment-btn-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  color: var(--lm-text-muted);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-3xs);
+  font-weight: 600;
+}
+
+.comment-item-time {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-3xs);
+}
+
+.comment-btn-icon-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  color: var(--lm-error);
+  border-radius: var(--r-sm);
+}

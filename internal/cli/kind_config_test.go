@@ -111,3 +111,29 @@ func TestCLI_ConfigSetRejectsRemovingInUseTagKind(t *testing.T) {
 	// 未使用の tagKind の削除は許可される。
 	mustRun(t, dir, "config", "set", "tagKinds", "requirement,concern,subject,extra")
 }
+
+// TestCLI_ConfigTagKindLabelsGetSetRoundTrip covers 2026-07-11 tweaks3 §2's
+// additive tagKindLabels — `pmem init` seeds Japanese defaults, `config
+// set` accepts the kind=label,kind=label convention, and the update
+// round-trips through `config get`.
+func TestCLI_ConfigTagKindLabelsGetSetRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	mustRun(t, dir, "init")
+
+	seeded := mustRun(t, dir, "config", "get", "tagKindLabels")
+	if !strings.Contains(seeded, "requirement=要件") {
+		t.Fatalf("expected pmem init to seed a Japanese default label for requirement, got:\n%s", seeded)
+	}
+
+	mustRun(t, dir, "config", "set", "tagKindLabels", "requirement=ようけん,concern=かんしんじ")
+	out := mustRun(t, dir, "config", "get", "tagKindLabels")
+	for _, want := range []string{"requirement=ようけん", "concern=かんしんじ"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("config get tagKindLabels missing %q, got:\n%s", want, out)
+		}
+	}
+
+	if _, err := run(t, dir, "config", "set", "tagKindLabels", "not-a-pair"); err == nil {
+		t.Fatalf("expected error for a tagKindLabels entry missing '='")
+	}
+}

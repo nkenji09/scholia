@@ -1,99 +1,64 @@
-import { isStaticMode } from './api';
-import { Sidebar } from './components/Sidebar';
-import { TransitionList } from './components/TransitionList';
-import { TransitionDetailPanel } from './components/TransitionDetail';
-import { ConfigView } from './components/ConfigView';
-import { TraceabilityView } from './components/TraceabilityView';
-import { SearchBox } from './components/SearchBox';
-import { CompareView } from './components/CompareView';
+import { useEffect } from 'preact/hooks';
+import { Header } from './components/layout/Header';
+import { HomeView } from './components/home/HomeView';
+import { BrowseView } from './components/browse/BrowseView';
+import { ConfigView } from './components/config/ConfigView';
 import { VocabView } from './components/VocabView';
-import { SpecView } from './components/SpecView';
-import { TagsView } from './components/TagsView';
-import { strings } from './strings';
+import { CommentPanel } from './components/comments/CommentPanel';
+import { useComments } from './components/comments/useComments';
+import type { CommentRecord } from './components/comments/useComments';
+import { useDrawer } from './drawer';
 import { useHashRoute } from './router';
 import type { ViewName } from './router';
 
 export function App() {
   const [route, navigate] = useHashRoute();
   const view = route.view;
+  const { closePanel } = useComments();
+  const { closeDrawer } = useDrawer();
 
-  // Cross-view links (Vocab/Traceability/Tags → Browse or Spec, etc.) all
-  // funnel through navigate() so each hop lands in browser history and
-  // Back/Forward step through them one at a time (v2 調整2).
+  // Design closes the off-canvas rail on every nav/view switch (its
+  // setView() sets drawerOpen:false alongside view). Cross-view jumps
+  // (openTransition/openTagSpec) go through navigate() same as setView, so
+  // watching route.view covers all of them in one place rather than
+  // repeating closeDrawer() at each call site below.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => closeDrawer(), [route.view]);
+
+  // Cross-view links (Vocab/Home → BrowseView, etc.) all funnel through
+  // navigate() so each hop lands in browser history and Back/Forward step
+  // through them one at a time (v2 調整2). 'browse'/'tags'/'spec' are three
+  // distinct hash shapes kept for backward compatibility with
+  // pre-BROWSE-unification bookmarks (.concierge/decision.md's hash-compat
+  // minor decision) — all three now render the same BrowseView, just with
+  // a different initial facet/focus.
   const openTransition = (txId: string) => navigate({ view: 'browse', txId });
-  const openTagBrowse = (tagId: string) => navigate({ view: 'browse', tagId });
   const openTagSpec = (tagId: string) => navigate({ view: 'spec', tagId });
-  const openTagTraceability = (_tagId: string, kind: string) => navigate({ view: 'traceability', kind });
+  const openVocabEntry = (vocabId: string) => navigate({ view: 'vocab', vocabId });
   const setView = (next: ViewName) => navigate({ view: next });
+  // recordId for a 'page' comment is the page it was left on (BrowseView's
+  // `facet` prop value, or 'vocab') — see CommentButton call sites in
+  // BrowseView.tsx/VocabView.tsx.
+  const gotoComment = (c: CommentRecord) => {
+    if (c.recordType === 'tag') openTagSpec(c.recordId);
+    else if (c.recordType === 'transition') openTransition(c.recordId);
+    else if (c.recordType === 'vocab') openVocabEntry(c.recordId);
+    else if (c.recordType === 'page') setView(c.recordId === 'specs' ? 'browse' : (c.recordId as ViewName));
+    closePanel();
+  };
 
   return (
     <>
-      <header class="topbar">
-        <h1>pmem view</h1>
-        <SearchBox onSelectTx={openTransition} />
-        <nav>
-          <button type="button" class={view === 'browse' ? 'active' : ''} onClick={() => setView('browse')}>
-            Browse
-          </button>
-          <button type="button" class={view === 'vocab' ? 'active' : ''} onClick={() => setView('vocab')}>
-            {strings.nav.vocab}
-          </button>
-          <button type="button" class={view === 'spec' ? 'active' : ''} onClick={() => setView('spec')}>
-            {strings.nav.spec}
-          </button>
-          <button type="button" class={view === 'tags' ? 'active' : ''} onClick={() => setView('tags')}>
-            {strings.nav.tags}
-          </button>
-          <button
-            type="button"
-            class={view === 'traceability' ? 'active' : ''}
-            onClick={() => setView('traceability')}
-          >
-            Traceability
-          </button>
-          {!isStaticMode && (
-            <button type="button" class={view === 'compare' ? 'active' : ''} onClick={() => setView('compare')}>
-              Compare
-            </button>
-          )}
-          <button type="button" class={view === 'config' ? 'active' : ''} onClick={() => setView('config')}>
-            Config
-          </button>
-        </nav>
-      </header>
+      <Header view={view} onSelectView={setView} />
+      {view === 'home' && <HomeView onGoTags={() => setView('tags')} onSelectTag={openTagSpec} onSelectTx={openTransition} />}
       {view === 'browse' && (
-        <div class="layout">
-          <Sidebar
-            selectedTagId={route.tagId}
-            onSelectTag={(id) => navigate({ view: 'browse', tagId: id })}
-          />
-          <TransitionList
-            tagId={route.tagId}
-            selectedTxId={route.txId}
-            onSelectTx={(id) => navigate({ view: 'browse', tagId: route.tagId, txId: id })}
-          />
-          <TransitionDetailPanel txId={route.txId} />
-        </div>
+        <BrowseView facet="specs" initialFocusTagId={route.tagId} initialFocusTxId={route.txId} onGoToSpec={openTransition} />
       )}
-      {view === 'vocab' && <VocabView onSelectTx={openTransition} />}
-      {view === 'spec' && (
-        <SpecView
-          selectedTagId={route.tagId}
-          onSelectTag={(id) => navigate({ view: 'spec', tagId: id })}
-          onSelectTx={openTransition}
-        />
-      )}
-      {view === 'tags' && (
-        <TagsView onBrowse={openTagBrowse} onSpec={openTagSpec} onTraceability={openTagTraceability} />
-      )}
-      {view === 'traceability' && (
-        <div class="layout layout-two">
-          <TraceabilityView onSelectTx={openTransition} initialKind={route.kind} />
-          <TransitionDetailPanel txId={route.txId} />
-        </div>
-      )}
-      {view === 'compare' && !isStaticMode && <CompareView />}
+      {view === 'vocab' && <VocabView onSelectTx={openTransition} initialFocusId={route.vocabId} />}
+      {view === 'spec' && <BrowseView facet="tags" initialFocusTagId={route.tagId} onGoToSpec={openTransition} />}
+      {view === 'tags' && <BrowseView facet="tags" onGoToSpec={openTransition} />}
       {view === 'config' && <ConfigView />}
+      <CommentPanel onGoto={gotoComment} />
     </>
   );
 }

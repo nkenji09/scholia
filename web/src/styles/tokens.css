@@ -1,0 +1,158 @@
+/* Design tokens (single source for every color/spacing/radius/type/shadow
+   value used by the viewer — see .concierge/decision.md §C). Components must
+   reference these vars only; no raw hex/px outside this file.
+
+   Values are adopted from the Claude Design return
+   (/tmp/pmem-design-reference/pmem-viewer.dc.html) with two deliberate
+   deviations, both to keep this phase visually identical to the pre-refactor
+   viewer (no visual regression):
+     - --fs-base stays 14px (design used 15px) — the old viewer's body text
+       was 14px and several rules size off it via `em`, so bumping the base
+       would cascade a ~7% resize everywhere.
+     - --lm-success-strong is a pmem-only addition (Compare's diff-added
+       needs a darker-than-flat success color; the design's success token
+       set only has a "weak" variant, not a "strong" one).
+   Dark theme is wired up here via [data-theme='dark'] on <html>/root — see
+   settings.ts. Accent is a fixed terracotta constant and density stays at
+   its --lm-dens: 1 default (both were switchable in an earlier phase; the
+   switcher UI was removed per user feedback, 2026-07-11 tweaks2 — see git
+   history for the [data-accent='...']/[data-density='...'] variant blocks
+   this file used to carry). --lm-fs still scales live via the header's
+   font-size ± control. */
+
+:root {
+  color-scheme: light;
+
+  /* Fixed accent = terracotta (user visual feedback, 2026-07-11 tweaks2):
+     the design mock never showed an accent switcher, so the value is a
+     plain constant here rather than resolved through a [data-accent]
+     attribute — see settings.ts for the removed switching state. */
+  --lm-accent: #c2410c;
+  --lm-primary: var(--lm-accent);
+  --lm-primary-strong: color-mix(in srgb, var(--lm-accent) 82%, #000);
+  --lm-primary-weak: color-mix(in srgb, var(--lm-accent) 12%, transparent);
+  --lm-primary-ring: color-mix(in srgb, var(--lm-accent) 42%, transparent);
+  --lm-on-primary: #ffffff;
+
+  --lm-bg: #fbfbfc;
+  --lm-s1: #ffffff;
+  --lm-s2: #f2f2f5;
+  --lm-s3: #e7e7ec;
+  --lm-border: #e2e2e8;
+  --lm-border-strong: #cbcbd4;
+
+  --lm-text: #1a1a20;
+  --lm-text-strong: #0b0b0f;
+  --lm-text-muted: #54545f;
+  --lm-text-dim: #6b6b76;
+
+  --lm-success: #16a34a;
+  --lm-success-strong: color-mix(in srgb, var(--lm-success) 78%, #000);
+  --lm-success-weak: rgba(22, 163, 74, 0.12);
+  --lm-warning: #b7770a;
+  --lm-warning-ic: #d97706;
+  --lm-warning-weak: rgba(217, 119, 6, 0.14);
+  --lm-error: #dc2626;
+  --lm-error-weak: rgba(220, 38, 38, 0.12);
+  --lm-info: #2563eb;
+  --lm-info-weak: rgba(37, 99, 235, 0.12);
+
+  /* tag-kind / vocab-category / grammar-slot semantic colors (used once
+     Browse/Home adopt the design's kind badges — unused by this phase's
+     unchanged markup, defined now so later phases don't touch tokens.css). */
+  --tag-slate: #64748b;
+  --tag-amber: #f59e0b;
+  --tag-green: #22c55e;
+  --tag-teal: #14b8a6;
+  --tag-blue: #3b82f6;
+  --tag-violet: #8b5cf6;
+  --k-req: var(--tag-blue);
+  --k-sub: var(--tag-slate);
+  --k-con: var(--tag-teal);
+  --t-act: var(--tag-violet);
+  --t-giv: var(--lm-warning-ic);
+  --t-then: var(--lm-success);
+
+  --lm-font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', sans-serif;
+  --lm-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --lm-lh-base: 1.5;
+
+  --lm-fs: 1;
+  --fs-3xs: calc(11px * var(--lm-fs));
+  --fs-2xs: calc(12px * var(--lm-fs));
+  --fs-xs: calc(13px * var(--lm-fs));
+  --fs-sm: calc(14px * var(--lm-fs));
+  --fs-base: calc(14px * var(--lm-fs));
+  --fs-md: calc(16px * var(--lm-fs));
+  --fs-lg: calc(18px * var(--lm-fs));
+  --fs-xl: calc(22px * var(--lm-fs));
+  --fs-2xl: calc(27px * var(--lm-fs));
+  --fs-3xl: calc(34px * var(--lm-fs));
+
+  --lm-dens: 1;
+  --sp-1: calc(4px * var(--lm-dens));
+  --sp-2: calc(8px * var(--lm-dens));
+  --sp-3: calc(12px * var(--lm-dens));
+  --sp-4: calc(16px * var(--lm-dens));
+  --sp-5: calc(20px * var(--lm-dens));
+  --sp-6: calc(24px * var(--lm-dens));
+  --sp-8: calc(32px * var(--lm-dens));
+
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-full: 999px;
+  --hit: 44px;
+
+  --sh-sm: 0 1px 2px rgba(16, 16, 24, 0.06);
+  --sh-md: 0 6px 18px rgba(16, 16, 24, 0.09);
+  --sh-lg: 0 16px 40px rgba(16, 16, 24, 0.16);
+  --sh-pop: 0 24px 60px rgba(16, 16, 24, 0.26);
+
+  --focus: 0 0 0 3px var(--lm-primary-ring);
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --lm-accent: #f9814f;
+  /* Dark backgrounds need --lm-primary-strong mixed toward white instead of
+     black (:root's formula below is light-theme-only) — this used to be
+     conditional on [data-accent] being present (always true, since the
+     switcher always set the attribute); now that the switcher is gone,
+     it's unconditional here instead. */
+  --lm-primary-strong: color-mix(in srgb, var(--lm-accent) 80%, #fff);
+  --lm-on-primary: #2a0f06;
+  --lm-bg: #0a0a0d;
+  --lm-s1: #141418;
+  --lm-s2: #1c1c22;
+  --lm-s3: #26262d;
+  --lm-border: #2b2b33;
+  --lm-border-strong: #3d3d47;
+  --lm-text: #f1f1f4;
+  --lm-text-strong: #ffffff;
+  --lm-text-muted: #a8a8b2;
+  --lm-text-dim: #8b8b96;
+  --lm-success: #2ec07a;
+  --lm-success-strong: color-mix(in srgb, var(--lm-success) 80%, #fff);
+  --lm-success-weak: rgba(46, 192, 122, 0.16);
+  --lm-warning: #e0a020;
+  --lm-warning-ic: #f0b429;
+  --lm-warning-weak: rgba(224, 160, 32, 0.16);
+  --lm-error: #f26d6d;
+  --lm-error-weak: rgba(242, 109, 109, 0.16);
+  --lm-info: #5b9bff;
+  --lm-info-weak: rgba(91, 155, 255, 0.16);
+  --tag-slate: #94a3b8;
+  --tag-amber: #fbbf24;
+  --tag-green: #4ade80;
+  --tag-teal: #2dd4bf;
+  --tag-blue: #60a5fa;
+  --tag-violet: #a78bfa;
+  --t-giv: var(--tag-amber);
+  --sh-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --sh-md: 0 6px 18px rgba(0, 0, 0, 0.5);
+  --sh-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
+  --sh-pop: 0 24px 60px rgba(0, 0, 0, 0.72);
+}
+

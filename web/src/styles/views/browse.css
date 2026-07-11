@@ -1,0 +1,693 @@
+/* BrowseView — the unified 検索レール＋タグ/仕様カード screen that replaced
+   the old 3-pane Browse + tree-based TagsView + per-tag SpecView
+   (.concierge/decision.md §A-2). Card-internal patterns (.tag-card-*,
+   .spec-card-*) are view-specific: they render Go-resolved fields
+   (SpecReport/TransitionDetail/FacetTreeNode) directly and never recompute
+   gap/satisfied/effective-tag data themselves (§7/§9). */
+
+.browse-view {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Responsive rail (2026-07-11 レスポンシブ対応, design lines ~178-179/
+   ~972-980): PC keeps the rail as a scroll-following sticky sidebar; narrow
+   viewports (<=860px, drawer.tsx's BREAKPOINT) turn it into an off-canvas
+   drawer instead — .browse-rail-narrow's fixed/transform rules override the
+   sticky defaults below. --header-h is set by Header.tsx from the header's
+   actual measured height (its `56px` fallback matches the design's own
+   hardcoded HEADER constant, used only before the first measurement). */
+.browse-rail {
+  width: 300px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  overflow-y: auto;
+  /* Keeps the rail's own touch-scroll working while the off-canvas drawer
+     variant is open and <body> is pinned via useBodyScrollLock (#20
+     drawerscroll fix) — without these, WebKit can fail to recognize this
+     as an independently touch-scrollable region once the background is
+     locked, killing scroll everywhere including inside the drawer itself. */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  position: sticky;
+  top: var(--header-h, 56px);
+  align-self: flex-start;
+  height: calc(100dvh - var(--header-h, 56px));
+}
+
+.browse-rail-narrow {
+  position: fixed;
+  top: var(--header-h, 56px);
+  bottom: 0;
+  left: 0;
+  width: 86%;
+  max-width: 340px;
+  /* Explicit, not `auto` (#20 drawerscroll fix): a `position:fixed` box
+     with `top`+`bottom` set and `height:auto` is *supposed* to resolve to
+     the space between them per CSS2.1 10.6.4, but this combination (with
+     a flex-column, overflow-y:auto box) was observed growing to fit its
+     content instead of being clipped — leaving nothing for overflow-y to
+     scroll, which only became visible as "dead scroll" once background
+     scroll got locked (tweaks5 §6) and could no longer paper over it. An
+     explicit height sidesteps that resolution entirely. */
+  height: calc(100dvh - var(--header-h, 56px));
+  z-index: 70;
+  transform: translateX(-100%);
+  transition: transform 0.22s ease;
+  box-shadow: none;
+}
+
+.browse-rail-narrow.browse-rail-open {
+  transform: none;
+  box-shadow: var(--sh-lg);
+}
+
+.browse-rail-backdrop {
+  position: fixed;
+  top: var(--header-h, 56px);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+  animation: lm-fade 0.15s ease-out;
+}
+
+.browse-rail-close {
+  margin-left: auto;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: var(--lm-text-muted);
+  border-radius: var(--r-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.browse-rail-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--lm-border);
+  margin: calc(var(--sp-4) * -1) calc(var(--sp-4) * -1) 0;
+  padding: var(--sp-4) var(--sp-4) var(--sp-3);
+}
+
+.browse-rail-search-wrap {
+  position: relative;
+}
+
+.browse-rail-search-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.browse-rail-search {
+  width: 100%;
+  height: 38px;
+  padding: 0 var(--sp-3) 0 33px;
+  border: 1px solid var(--lm-border);
+  border-radius: var(--r-md);
+  background: var(--lm-bg);
+  color: var(--lm-text);
+  font-size: var(--fs-sm);
+}
+
+/* Combobox dropdown (2026-07-11 tweaks3 §3) — free-text search stays a
+   plain input; this is an overlay suggestion list, not a native <select>. */
+.browse-rail-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 10;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--lm-border);
+  border-radius: var(--r-md);
+  background: var(--lm-s1);
+  box-shadow: var(--sh-md);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.browse-rail-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  border-radius: var(--r-sm);
+  padding: 7px 8px;
+  text-align: left;
+  color: var(--lm-text);
+  font-size: var(--fs-sm);
+}
+
+.browse-rail-suggestion.active {
+  background: var(--lm-primary-weak);
+}
+
+.browse-rail-suggestion-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-full);
+  flex-shrink: 0;
+}
+
+.browse-rail-suggestion-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browse-rail-suggestion-kind {
+  flex-shrink: 0;
+  font-size: var(--fs-3xs);
+}
+
+.browse-rail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.browse-rail-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.browse-rail-kinds {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.browse-rail-kind {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--lm-text-muted);
+  border-radius: var(--r-md);
+  padding: 9px var(--sp-3);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-align: left;
+}
+
+.browse-rail-kind:hover {
+  background: var(--lm-s2);
+}
+
+.browse-rail-kind.active {
+  border-color: color-mix(in srgb, var(--lm-primary) 40%, transparent);
+  background: color-mix(in srgb, var(--lm-primary) 12%, transparent);
+  color: var(--lm-text-strong);
+}
+
+.browse-rail-conditions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  background: var(--lm-s2);
+  border: 1px solid var(--lm-border);
+  border-radius: var(--r-md);
+}
+
+.browse-rail-conditions-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.browse-rail-and {
+  color: var(--lm-primary-strong);
+}
+
+.browse-rail-clear {
+  border: none;
+  background: transparent;
+  color: var(--lm-text-dim);
+  font-size: var(--fs-2xs);
+  text-decoration: underline;
+}
+
+.browse-rail-condition-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* A long tag/vocab name would otherwise force .chip past the rail's width
+   (chip.css's .chip is nowrap, sized for short kind-badge text) — scoped to
+   condition chips specifically rather than changed globally, since badge
+   chips elsewhere (kind pills etc.) want to stay single-line (2026-07-11
+   tweaks5 §4). */
+.browse-rail-condition-chips .chip {
+  max-width: 100%;
+  height: auto;
+  min-height: 24px;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.browse-rail-index-count {
+  font-family: var(--lm-font-mono);
+}
+
+.browse-rail-index-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.browse-rail-index-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 7px var(--sp-2);
+  border-radius: var(--r-sm);
+  color: var(--lm-text-muted);
+}
+
+.browse-rail-index-item:hover {
+  background: var(--lm-s2);
+}
+
+.browse-rail-index-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-full);
+  flex-shrink: 0;
+}
+
+.browse-rail-index-label {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browse-rail-index-gap {
+  display: inline-flex;
+  align-items: center;
+  color: var(--lm-warning-ic);
+}
+
+.browse-rail-index-empty {
+  padding: var(--sp-2);
+  font-size: var(--fs-xs);
+}
+
+.browse-main {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: var(--sp-6) var(--sp-6) var(--sp-8);
+}
+
+.browse-main-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-5);
+}
+
+.browse-main-head h1 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--lm-text-strong);
+}
+
+.browse-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  max-width: 820px;
+}
+
+/* ---- タグ card ---- */
+
+.tag-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tag-card-badges {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.tag-card-parents {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-2xs);
+}
+
+.tag-card-parent-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: var(--lm-primary-strong);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tag-card-spacer {
+  flex: 1;
+}
+
+.tag-card-gap-badge,
+.tag-card-sat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  padding: 3px var(--sp-3);
+  border-radius: var(--r-full);
+}
+
+.tag-card-gap-badge {
+  color: var(--lm-warning-ic);
+  background: var(--lm-warning-weak);
+}
+
+.tag-card-sat-badge {
+  color: var(--lm-success);
+  background: var(--lm-success-weak);
+}
+
+.tag-card-name {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border-radius: var(--r-md);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--lm-text-strong);
+  text-align: left;
+}
+
+.tag-card-name:hover {
+  background: var(--lm-s2);
+}
+
+.tag-card-body {
+  max-width: 66ch;
+}
+
+.tag-card-spec-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tag-card-spec-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  border-radius: var(--r-md);
+  padding: 9px var(--sp-3);
+  text-align: left;
+  color: var(--lm-text);
+}
+
+.tag-card-spec-row:hover {
+  border-color: var(--lm-border-strong);
+}
+
+.tag-card-spec-label {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-card-decision {
+  border-left: 3px solid var(--lm-primary);
+  background: color-mix(in srgb, var(--lm-primary) 5%, var(--lm-s1));
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tag-card-decision p {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.75;
+  color: var(--lm-text);
+}
+
+.tag-card-decision span {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-3xs);
+  color: var(--lm-text-dim);
+}
+
+.tag-card-children {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-card-child-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  border-radius: var(--r-full);
+  padding: 5px var(--sp-3);
+  font-size: var(--fs-xs);
+  color: var(--lm-text-muted);
+}
+
+/* ---- 仕様 card ---- */
+
+.spec-card-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.spec-card-slot-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.spec-card-action {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border-radius: var(--r-md);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--lm-text-strong);
+  text-align: left;
+}
+
+.spec-card-action:hover {
+  background: var(--lm-s2);
+}
+
+.spec-card-empty-given {
+  font-style: italic;
+  font-size: var(--fs-sm);
+}
+
+.spec-card-given-list,
+.spec-card-then-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 2px;
+}
+
+.spec-card-cond-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 5px var(--sp-2);
+  margin: 0 calc(var(--sp-2) * -1);
+  border-radius: var(--r-sm);
+  color: var(--lm-text);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.spec-card-cond-row:hover {
+  background: var(--lm-s2);
+}
+
+.spec-card-cond-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.spec-card-then-n {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-3xs);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.spec-card-owner {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-3xs);
+  margin-left: 6px;
+}
+
+.spec-card-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.spec-card-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.spec-card-derived {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding-top: 4px;
+}
+
+.spec-card-derived-label {
+  font-size: var(--fs-3xs);
+  font-weight: 600;
+}
+
+.spec-card-detail-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  color: var(--lm-primary-strong);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  padding: 0;
+}
+
+.spec-card-detail {
+  gap: var(--sp-4);
+}
+
+.spec-card-test {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--lm-text-muted);
+  background: var(--lm-s2);
+  border: 1px solid var(--lm-border);
+  border-radius: var(--r-sm);
+  padding: 4px var(--sp-3);
+  /* A long test name (often a single unbroken identifier, e.g.
+     TestFoo_Bar_Baz) has no whitespace for flex-wrap:wrap alone to break
+     on — .spec-card-chip-row's flex-wrap only wraps whole chips onto new
+     lines, but a flex item's default min-width:auto still keeps this one
+     chip as wide as its content, pushing past the card/rail width on
+     narrow screens (2026-07-11 tweaks6 §2). max-width+min-width:0 lets it
+     shrink to the row, overflow-wrap/word-break let long identifiers break
+     mid-word instead of overflowing. */
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Review MINOR-1: a settled-but-partial fetch surfaces here instead of
+   hanging on "loading…" forever. */
+.browse-fetch-warning {
+  margin-bottom: var(--sp-4);
+  padding: 10px var(--sp-4);
+  border: 1px solid color-mix(in srgb, var(--lm-warning-ic) 35%, transparent);
+  background: var(--lm-warning-weak);
+  color: var(--lm-warning-ic);
+  border-radius: var(--r-md);
+  font-size: var(--fs-xs);
+}

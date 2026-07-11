@@ -57,6 +57,16 @@ export interface ViewerConfig {
   port: number;
 }
 
+/** Additive cosmetic display text (2026-07-11 tweaks5 §1/§2) — HOME's
+    tagline/intro and the header's product name. Empty/missing means "use
+    the built-in default"; never read directly — resolve through
+    useLookups() so the fallback rule lives in one place (lookups.tsx). */
+export interface DisplayConfig {
+  productName?: string;
+  tagline?: string;
+  intro?: string;
+}
+
 export interface Config {
   pmemVersion: number;
   kinds: Kinds;
@@ -66,6 +76,17 @@ export interface Config {
   idPrefix: IDPrefix;
   roots: string[];
   viewer: ViewerConfig;
+  /** Additive display-label map for tagKinds (2026-07-11 tweaks3 §2) —
+      tagKinds alone still decides which kinds are valid; this only carries
+      how to show one. May be null/undefined for a config predating this
+      field. Never read directly — resolve through useLookups().tagKindLabel
+      so the id-fallback lives in one place (lookups.tsx). */
+  tagKindLabels?: Record<string, string> | null;
+  display?: DisplayConfig | null;
+  /** Current git branch name — a live derived value computed server-side on
+      every GET/PUT (2026-07-11 tweaks5 §2), never persisted to config.json.
+      Empty/missing when the project isn't a git repo or HEAD is detached. */
+  branch?: string;
 }
 
 export interface ConfigPatch {
@@ -74,6 +95,8 @@ export interface ConfigPatch {
   traceabilityKinds: string[];
   roots: string[];
   viewer: { port: number };
+  tagKindLabels: Record<string, string>;
+  display: DisplayConfig;
 }
 
 export interface FacetTreeNode {
@@ -134,59 +157,6 @@ export interface LintResult {
   infoCount: number;
 }
 
-export interface Change<T> {
-  id: string;
-  before: T;
-  after: T;
-}
-
-export interface VocabDiff {
-  added?: VocabEntry[];
-  removed?: VocabEntry[];
-  changed?: Change<VocabEntry>[];
-}
-
-export interface TagDiff {
-  added?: Tag[];
-  removed?: Tag[];
-  changed?: Change<Tag>[];
-}
-
-export interface TransitionChange {
-  id: string;
-  before: Transition;
-  after: Transition;
-  actionChanged?: boolean;
-  givenAdded?: string[];
-  givenRemoved?: string[];
-  thenChanged?: boolean;
-  thenReordered?: boolean;
-  tagsAdded?: string[];
-  tagsRemoved?: string[];
-  testsAdded?: string[];
-  testsRemoved?: string[];
-}
-
-export interface TransitionDiff {
-  added?: Transition[];
-  removed?: Transition[];
-  changed?: TransitionChange[];
-}
-
-export interface DecisionDiff {
-  added?: Decision[];
-  removed?: Decision[];
-  changed?: Change<Decision>[];
-}
-
-export interface DiffResult {
-  ref: string;
-  vocab: VocabDiff;
-  tags: TagDiff;
-  transitions: TransitionDiff;
-  decisions: DecisionDiff;
-}
-
 export interface TraceabilityEntry {
   tag: Tag;
   satisfiedBy: string[];
@@ -228,4 +198,5 @@ export interface PmemStaticData {
   spec: Record<string, SpecReport>;
   tags: Tag[];
   vocab: VocabEntry[];
+  decisions: Decision[];
 }

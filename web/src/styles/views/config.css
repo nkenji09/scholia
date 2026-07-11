@@ -1,0 +1,453 @@
+/* Config (#19) — chip/token fields, logical grouping (分類軸/トレーサビリティ/
+   ビューア/読み取り専用メタ), editable-vs-read-only visual separation, and
+   save feedback. See claude-design-request-settings.md. */
+
+.config-view {
+  max-width: 880px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.config-head-text h1 {
+  margin: 0 0 8px;
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--lm-text-strong);
+}
+
+.config-head-text p {
+  margin: 0;
+  max-width: 62ch;
+  font-size: var(--fs-sm);
+  line-height: 1.75;
+}
+
+.config-view code {
+  font-family: var(--lm-font-mono);
+  font-size: 0.9em;
+  background: var(--lm-s2);
+  padding: 1px 6px;
+  border-radius: 5px;
+  color: var(--lm-text);
+}
+
+.config-status-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding: 12px var(--sp-4);
+  border: 1px solid var(--lm-border);
+  background: var(--lm-s1);
+  border-radius: var(--r-lg);
+}
+
+.config-status-ok {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-xs);
+  color: var(--lm-text-muted);
+}
+
+.config-status-ok svg {
+  color: var(--lm-success);
+  flex-shrink: 0;
+}
+
+.config-status-ok code {
+  color: var(--lm-text);
+}
+
+.config-dirty-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--lm-warning-ic);
+  background: var(--lm-warning-weak);
+  padding: 3px 9px;
+  border-radius: var(--r-full);
+}
+
+.config-status-spacer {
+  flex: 1;
+}
+
+.config-btn-primary,
+.config-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 var(--sp-4);
+  border-radius: var(--r-md);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+
+.config-btn-primary {
+  border: none;
+  background: var(--lm-primary);
+  color: var(--lm-on-primary);
+}
+
+.config-btn-secondary {
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  color: var(--lm-text-muted);
+  font-weight: 600;
+}
+
+.config-readonly-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px var(--sp-4);
+  border: 1px solid var(--lm-border);
+  background: var(--lm-s2);
+  border-radius: var(--r-lg);
+}
+
+.config-readonly-banner-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.config-readonly-title {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--lm-text);
+}
+
+.config-readonly-banner .dim,
+.config-readonly-desc {
+  font-size: var(--fs-2xs);
+  line-height: 1.65;
+}
+
+.config-message-ok,
+.config-message-error {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 14px;
+  border-radius: var(--r-md);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.config-message-ok {
+  background: var(--lm-success-weak);
+  color: var(--lm-success);
+  border: 1px solid color-mix(in srgb, var(--lm-success) 35%, transparent);
+}
+
+.config-message-error {
+  background: var(--lm-error-weak);
+  color: var(--lm-error);
+  border: 1px solid color-mix(in srgb, var(--lm-error) 35%, transparent);
+}
+
+.config-section {
+  border: 1px solid var(--lm-border);
+  background: var(--lm-s1);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+.config-section-readonly {
+  background: var(--lm-s2);
+}
+
+.config-section-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  padding: 13px var(--sp-5);
+  background: var(--lm-bg);
+}
+
+.config-section-readonly .config-section-head {
+  background: none;
+  border-bottom: 1px solid var(--lm-border);
+}
+
+.config-section-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--lm-primary-strong);
+}
+
+.config-section-title {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--lm-text-strong);
+}
+
+.config-readonly-tag {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-3xs);
+  font-weight: 600;
+  color: var(--lm-text-dim);
+  background: var(--lm-s3);
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+}
+
+.config-readonly-desc {
+  padding: 0 var(--sp-5) var(--sp-3);
+}
+
+.config-field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: var(--sp-4) var(--sp-5);
+  border-top: 1px solid var(--lm-border);
+}
+
+.config-section > .config-field:first-of-type {
+  border-top: none;
+}
+
+.config-field-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.config-field-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--lm-text-dim);
+}
+
+.config-field-label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--lm-text);
+}
+
+.config-field-mono {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-3xs);
+  color: var(--lm-text-dim);
+  background: var(--lm-s2);
+  padding: 1px 7px;
+  border-radius: var(--r-full);
+}
+
+.config-field-subset {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-3xs);
+}
+
+.config-field-desc {
+  margin: 0;
+  font-size: var(--fs-2xs);
+  line-height: 1.65;
+}
+
+.config-field-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.config-field-empty {
+  font-size: var(--fs-2xs);
+  font-style: italic;
+}
+
+.config-field-input {
+  height: 28px;
+  width: 160px;
+  padding: 0 var(--sp-3);
+  border: 1px dashed var(--lm-border-strong);
+  background: var(--lm-bg);
+  color: var(--lm-text);
+  border-radius: var(--r-full);
+  font-size: var(--fs-2xs);
+  font-family: var(--lm-font-mono);
+}
+
+/* TagKindLabelsField (2026-07-11 tweaks3 §2) — one kind→label row per
+   declared tagKind, distinct from .config-field-chips' add/remove token set
+   since this edits a value per existing key rather than the key set itself. */
+.config-label-map {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.config-label-map-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.config-label-map-kind {
+  width: 140px;
+  flex-shrink: 0;
+}
+
+.config-label-map-input {
+  flex: 1;
+  height: 30px;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  color: var(--lm-text);
+  border-radius: var(--r-md);
+  font-size: var(--fs-xs);
+}
+
+.config-label-map-input::placeholder {
+  color: var(--lm-text-dim);
+}
+
+.config-label-map-readonly {
+  font-size: var(--fs-xs);
+  color: var(--lm-text-muted);
+}
+
+.config-field-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--lm-warning-ic);
+  background: var(--lm-warning-weak);
+  padding: 6px 11px;
+  border-radius: var(--r-md);
+}
+
+.config-port-input {
+  align-self: flex-start;
+  height: 34px;
+  width: 140px;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  color: var(--lm-text);
+  border-radius: var(--r-md);
+  font-size: var(--fs-sm);
+  font-family: var(--lm-font-mono);
+}
+
+.config-port-readonly {
+  align-self: flex-start;
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--lm-text-strong);
+  background: var(--lm-s2);
+  padding: 6px 12px;
+  border-radius: var(--r-md);
+}
+
+/* Display config text fields (2026-07-11 tweaks5 §1/§2) — same look as
+   .config-port-input but wider, since productName/tagline/intro hold free
+   text rather than a short numeric value. */
+.config-wide-input {
+  width: 100%;
+  max-width: 420px;
+}
+
+.config-intro-textarea {
+  align-self: stretch;
+  width: 100%;
+  max-width: 640px;
+  padding: var(--sp-3);
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  color: var(--lm-text);
+  border-radius: var(--r-md);
+  font-size: var(--fs-sm);
+  font-family: inherit;
+  resize: vertical;
+}
+
+.config-ro-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: var(--sp-4) var(--sp-5) 0;
+}
+
+.config-ro-label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--lm-text);
+  min-width: 120px;
+}
+
+.config-ro-value {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--lm-text-strong);
+}
+
+.config-ro-vocab {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: var(--sp-4) var(--sp-5);
+}
+
+.config-ro-vocab-title {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--lm-text);
+}
+
+.config-ro-vocab-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.config-ro-vocab-cat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 120px;
+  flex-shrink: 0;
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--lm-text);
+}
+
+.config-ro-vocab-prefix {
+  font-weight: 400;
+  color: var(--lm-primary-strong);
+}
+
+.config-ro-chip {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--lm-text-muted);
+  background: var(--lm-s1);
+  border: 1px solid var(--lm-border);
+  border-radius: var(--r-full);
+  padding: 2px 10px;
+}

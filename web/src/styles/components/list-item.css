@@ -1,0 +1,41 @@
+/* Selectable-row / pill patterns shared across 2+ views: facet tabs
+   (VocabView's category tabs), transition rows (VocabView's usage list). */
+
+.facet-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-2);
+}
+
+.facet-tab {
+  background: none;
+  border: 1px solid var(--lm-border);
+  border-radius: var(--r-sm);
+  padding: var(--sp-1) var(--sp-2);
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.facet-tab:hover {
+  background: var(--lm-s1);
+}
+
+.facet-tab.active {
+  background: var(--lm-primary);
+  color: var(--lm-on-primary);
+  border-color: var(--lm-primary);
+}
+
+.tx-row {
+  background: none;
+  border: none;
+  padding: var(--sp-2);
+  text-align: left;
+  width: 100%;
+  border-radius: var(--r-sm);
+  transition: background-color 120ms ease;
+}
+
+.tx-row:hover {
+  background: var(--lm-s1);
+}
