@@ -65,14 +65,14 @@ export function CompareView() {
 function VocabSection({ title, diff, labelOf }: { title: string; diff: VocabDiff; labelOf: (v: { id: string; label: string }) => string }) {
   if (isVocabTagEmpty(diff)) {
     return (
-      <section class="diff-section">
+      <section class="card diff-section">
         <h3>{title}</h3>
         <p class="dim diff-empty">変更なし</p>
       </section>
     );
   }
   return (
-    <section class="diff-section">
+    <section class="card diff-section">
       <h3>{title}</h3>
       <ul class="diff-list">
         {diff.added?.map((v) => (
@@ -98,14 +98,14 @@ function VocabSection({ title, diff, labelOf }: { title: string; diff: VocabDiff
 function TagSection({ title, diff }: { title: string; diff: TagDiff }) {
   if (isVocabTagEmpty(diff)) {
     return (
-      <section class="diff-section">
+      <section class="card diff-section">
         <h3>{title}</h3>
         <p class="dim diff-empty">変更なし</p>
       </section>
     );
   }
   return (
-    <section class="diff-section">
+    <section class="card diff-section">
       <h3>{title}</h3>
       <ul class="diff-list">
         {diff.added?.map((t) => (
@@ -131,14 +131,14 @@ function TagSection({ title, diff }: { title: string; diff: TagDiff }) {
 function TransitionSection({ diff }: { diff: TransitionDiff }) {
   if (isTransitionsEmpty(diff)) {
     return (
-      <section class="diff-section">
+      <section class="card diff-section">
         <h3>遷移</h3>
         <p class="dim diff-empty">変更なし</p>
       </section>
     );
   }
   return (
-    <section class="diff-section">
+    <section class="card diff-section">
       <h3>遷移</h3>
       <ul class="diff-list">
         {diff.added?.map((t) => (
@@ -198,7 +198,7 @@ function TransitionSection({ diff }: { diff: TransitionDiff }) {
 function DecisionSection({ diff }: { diff: DecisionDiff }) {
   if (isDecisionsEmpty(diff)) {
     return (
-      <section class="diff-section">
+      <section class="card diff-section">
         <h3>decisions</h3>
         <p class="dim diff-empty">変更なし</p>
       </section>
@@ -206,7 +206,7 @@ function DecisionSection({ diff }: { diff: DecisionDiff }) {
   }
   const violation = (diff.removed?.length || 0) > 0 || (diff.changed?.length || 0) > 0;
   return (
-    <section class="diff-section">
+    <section class="card diff-section">
       <h3>decisions</h3>
       {violation && <p class="error">append-only 違反を検出しました（decisions の削除／改変）</p>}
       <ul class="diff-list">

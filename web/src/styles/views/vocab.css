@@ -1,17 +1,35 @@
+/* Vocab — design-language extrapolation (.concierge/decision.md §A-3): no
+   dedicated mock exists for this screen, so it adopts BrowseView's card/chip
+   patterns (.card, shared/Chip) rather than staying in the pre-refactor
+   loom-era look. Information structure is unchanged. */
+
 .vocab-view {
-  padding: var(--sp-4);
+  padding: var(--sp-6) var(--sp-4) var(--sp-8);
   overflow-y: auto;
-  max-width: 920px;
+  max-width: 820px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.vocab-view h2 {
+  margin: 0 0 8px;
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--lm-text-strong);
 }
 
 .vocab-kind-group {
-  margin-top: var(--sp-4);
+  margin-top: var(--sp-6);
 }
 
 .vocab-kind-group h3 {
-  color: var(--lm-text-strong);
-  margin-bottom: var(--sp-2);
-  text-transform: lowercase;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--lm-text-dim);
+  margin: 0 0 var(--sp-3);
 }
 
 .vocab-list {
@@ -20,14 +38,11 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-1);
+  gap: var(--sp-3);
 }
 
 .vocab-row {
-  border: 1px solid var(--lm-border);
-  border-radius: var(--r-md);
-  background: var(--lm-s1);
-  padding: var(--sp-2) var(--sp-3);
+  gap: var(--sp-2);
 }
 
 .vocab-row-main {
@@ -46,30 +61,21 @@
 
 .vocab-label {
   color: var(--lm-text-strong);
-  font-weight: 600;
+  font-weight: 700;
+  font-size: var(--fs-md);
 }
 
 .vocab-id {
   font-family: var(--lm-font-mono);
-  font-size: 0.8em;
-}
-
-.vocab-kind-badge {
-  display: inline-block;
-  padding: 1px var(--sp-2);
-  border-radius: var(--r-sm);
-  background: var(--lm-primary-weak);
-  color: var(--lm-primary-strong);
-  font-size: 0.8em;
+  font-size: var(--fs-2xs);
 }
 
 .vocab-owner {
-  font-size: 0.85em;
+  font-size: var(--fs-xs);
 }
 
 .vocab-description {
-  margin-top: var(--sp-2);
-  font-size: 0.92em;
+  font-size: var(--fs-sm);
 }
 
 .vocab-usage-toggle {
@@ -78,7 +84,8 @@
   border: 1px solid var(--lm-border);
   border-radius: var(--r-sm);
   padding: var(--sp-1) var(--sp-2);
-  font-size: 0.85em;
+  font-size: var(--fs-xs);
+  color: var(--lm-text-muted);
   transition: background-color 120ms ease;
 }
 
@@ -88,7 +95,7 @@
 
 .vocab-usage-list {
   list-style: none;
-  margin: var(--sp-2) 0 0;
+  margin: 0;
   padding: var(--sp-2) 0 0;
   border-top: 1px solid var(--lm-border);
   display: flex;

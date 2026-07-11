@@ -54,14 +54,15 @@ export function TraceabilityView({ onSelectTx, initialKind }: Props) {
       {entries.length === 0 && <p class="dim">該当する要件タグはありません</p>}
       <ul class="traceability-list">
         {entries.map((e) => (
-          <li key={e.tag.id} class={'traceability-entry' + (e.gap ? ' gap' : '')}>
+          <li key={e.tag.id} class={'card traceability-entry' + (e.gap ? ' gap' : '')}>
             <div class="traceability-tag">
               <span class="tag-name">{e.tag.name || e.tag.id}</span>
               <span class="tag-id dim">{e.tag.id}</span>
+              <span class="traceability-spacer" />
               {e.gap ? (
-                <span class="gap-badge">gap（0 充足）</span>
+                <span class="tag-card-gap-badge">⚠ gap（0 充足）</span>
               ) : (
-                <span class="satisfied-count dim">{e.satisfiedBy.length} 件充足</span>
+                <span class="tag-card-sat-badge">✓ {e.satisfiedBy.length} 件充足</span>
               )}
             </div>
             {!e.gap && (

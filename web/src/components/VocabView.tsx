@@ -4,6 +4,7 @@ import { useLookups } from '../lookups';
 import { strings } from '../strings';
 import type { Transition, VocabEntry } from '../types';
 import { Markdown } from './Markdown';
+import { Chip, kindColor } from './shared/Chip';
 
 interface Props {
   onSelectTx: (id: string) => void;
@@ -25,11 +26,11 @@ function VocabRow({ v, transitions, onSelectTx }: { v: VocabEntry; transitions: 
   const { transitionLabel } = useLookups();
 
   return (
-    <li class="vocab-row">
+    <li class="card vocab-row">
       <div class="vocab-row-main">
         <div class="vocab-row-heading">
           <span class="vocab-label">{v.label}</span>
-          {v.kind && <span class="vocab-kind-badge">{v.kind}</span>}
+          {v.kind && <Chip color={kindColor(v.category)}>{v.kind}</Chip>}
           <span class="vocab-id dim" title="内部 id（リンクのキー。参照時のみ使用）">
             {v.id}
           </span>
