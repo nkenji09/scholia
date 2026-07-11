@@ -1,0 +1,18 @@
+{
+  "id": "T-decide-append",
+  "action": "act.user.decide",
+  "given": [
+    "cond.target-exists"
+  ],
+  "then": [
+    "eff.storage.append-decision"
+  ],
+  "tags": [
+    "req.record-decisions.transition",
+    "req.record-decisions.tag",
+    "subject.decision"
+  ],
+  "tests": [
+    "TestCLI_DecideThenRulesSurfacesTxAndTagDecisions"
+  ]
+}

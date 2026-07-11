@@ -1,0 +1,15 @@
+{
+  "id": "T-viewer-diff-request",
+  "action": "act.api.viewer-diff-request",
+  "given": [
+    "cond.index-built"
+  ],
+  "then": [
+    "eff.http.diff-response"
+  ],
+  "tags": [
+    "req.comfortable-viewer.compare-view",
+    "req.evaluate-change.diff",
+    "subject.viewer"
+  ]
+}

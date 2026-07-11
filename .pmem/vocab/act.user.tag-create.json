@@ -1,0 +1,6 @@
+{
+  "id": "act.user.tag-create",
+  "category": "action",
+  "label": "pmem tag create を実行",
+  "kind": "user"
+}

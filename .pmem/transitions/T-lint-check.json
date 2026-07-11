@@ -1,0 +1,17 @@
+{
+  "id": "T-lint-check",
+  "action": "act.user.lint-run",
+  "given": [
+    "cond.index-built"
+  ],
+  "then": [
+    "eff.log.lint-report"
+  ],
+  "tags": [
+    "req.self-consistency-lint",
+    "subject.lint"
+  ],
+  "tests": [
+    "TestCLI_LintFailsOnDanglingVocabRef"
+  ]
+}

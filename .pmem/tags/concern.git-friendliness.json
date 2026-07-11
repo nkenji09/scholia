@@ -1,0 +1,6 @@
+{
+  "id": "concern.git-friendliness",
+  "name": "git 親和性",
+  "kind": "concern",
+  "description": "追記が衝突せず、修正が小さな diff になる、という横断的な不変条件"
+}

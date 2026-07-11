@@ -1,0 +1,6 @@
+{
+  "id": "concern.traceability",
+  "name": "追跡可能性",
+  "kind": "concern",
+  "description": "要件↔実装（transition）の対応関係をいつでも逆引きできる、という横断的な不変条件"
+}

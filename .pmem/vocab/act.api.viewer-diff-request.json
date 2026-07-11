@@ -1,0 +1,6 @@
+{
+  "id": "act.api.viewer-diff-request",
+  "category": "action",
+  "label": "ビューアが /api/diff を呼ぶ",
+  "kind": "api"
+}

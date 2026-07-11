@@ -1,0 +1,6 @@
+{
+  "id": "act.user.lint-run",
+  "category": "action",
+  "label": "pmem lint を実行",
+  "kind": "user"
+}
