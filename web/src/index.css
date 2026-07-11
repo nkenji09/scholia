@@ -5,6 +5,7 @@
    <link rel="stylesheet">) — do not switch this to dynamic/lazy CSS
    imports, or split loading per route. */
 
+@import './styles/fonts.css';
 @import './styles/tokens.css';
 @import './styles/base.css';
 @import './styles/layout.css';

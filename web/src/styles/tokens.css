@@ -67,7 +67,7 @@
   --t-then: var(--lm-success);
 
   --lm-font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', sans-serif;
-  --lm-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --lm-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --lm-lh-base: 1.5;
 
   --lm-fs: 1;
