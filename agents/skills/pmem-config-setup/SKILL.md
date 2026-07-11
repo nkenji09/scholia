@@ -82,11 +82,13 @@ pmem init [--dir <path>]
 ```
 pmem config set tagKinds requirement,concern,subject[,追加分]
 pmem config set tagKindLabels requirement=要件,concern=関心事,subject=主題[,追加分=ラベル]
-pmem config set facetKinds subject,requirement,concern
-pmem config set traceabilityKinds requirement
+pmem config set facetKinds subject,requirement,concern[,追加分]
+pmem config set traceabilityKinds requirement[,追加分]
 pmem kind set action user,api,lifecycle,system,cron,webhook[,追加分]   # 任意
 pmem kind set effect emit,state,http,storage,log[,追加分]              # 任意
 ```
+
+facetKinds/traceabilityKinds に足す値は tagKinds に宣言済みの kind にする（CLI は部分集合を強制しないので注意）。
 
 ### 3. 初期 vocab を撒く
 
