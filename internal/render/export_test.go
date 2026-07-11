@@ -164,6 +164,10 @@ func TestExportHTML_WritesSelfContainedIndexHTML(t *testing.T) {
 	if data.Vocab[0].ID != "act.user.login" || data.Vocab[0].Description == "" {
 		t.Fatalf("baked vocab[0] = %+v, want act.user.login with its markdown description", data.Vocab[0])
 	}
+
+	if len(data.Decisions) != 1 || data.Decisions[0].ID != "d1" {
+		t.Fatalf("baked decisions = %+v, want [d1] (HOME's recent-decisions widget needs this in static exports too)", data.Decisions)
+	}
 }
 
 func TestExportHTML_CreatesTargetDir(t *testing.T) {

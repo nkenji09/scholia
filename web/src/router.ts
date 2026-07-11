@@ -7,7 +7,7 @@ import { useEffect, useState } from 'preact/hooks';
 // and pushes a browser history entry, with no server round-trip, which is
 // exactly the "static export with working Back/Forward" behavior this needs.
 
-export type ViewName = 'browse' | 'vocab' | 'spec' | 'tags' | 'traceability' | 'compare' | 'config';
+export type ViewName = 'home' | 'browse' | 'vocab' | 'spec' | 'tags' | 'traceability' | 'compare' | 'config';
 
 export interface Route {
   view: ViewName;
@@ -16,8 +16,14 @@ export interface Route {
   kind?: string;
 }
 
-const VIEWS: ViewName[] = ['browse', 'vocab', 'spec', 'tags', 'traceability', 'compare', 'config'];
-const DEFAULT_ROUTE: Route = { view: 'browse' };
+const VIEWS: ViewName[] = ['home', 'browse', 'vocab', 'spec', 'tags', 'traceability', 'compare', 'config'];
+// HOME is the new landing page (.concierge/decision.md G-2, resolved:
+// default route moves from 'browse' to 'home'). An empty/unknown hash still
+// falls back to DEFAULT_ROUTE below, so bookmarks of `#` or the bare page
+// URL land on HOME now instead of Browse — every other existing route
+// (#/browse/..., #/spec/..., etc.) is unaffected since parseRoute only
+// consults DEFAULT_ROUTE when the hash's view segment is absent or unknown.
+const DEFAULT_ROUTE: Route = { view: 'home' };
 
 function isViewName(s: string): s is ViewName {
   return (VIEWS as string[]).includes(s);

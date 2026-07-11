@@ -40,6 +40,11 @@ type staticData struct {
 	// stable output.
 	Tags  []model.Tag        `json:"tags"`
 	Vocab []model.VocabEntry `json:"vocab"`
+	// Decisions mirrors GET /api/rules with no tag/tx/facet selector (§F of
+	// .concierge/decision.md): every decision in the project, chronological
+	// (index.SortedRulesFor's "no selector" case) — HOME's recent-decisions
+	// widget needs this in the static export too, not just `pmem view`.
+	Decisions []model.Decision `json:"decisions"`
 }
 
 // facetsPayload / transitionsPayload / traceabilityPayload / lintPayload
@@ -156,6 +161,14 @@ func collectStaticData(s *store.Store) (staticData, error) {
 	vocab := append([]model.VocabEntry{}, snap.Vocab...)
 	sort.Slice(vocab, func(i, j int) bool { return vocab[i].ID < vocab[j].ID })
 
+	decisions, err := index.SortedRulesFor(&snap, "", "", "")
+	if err != nil {
+		return staticData{}, err
+	}
+	if decisions == nil {
+		decisions = []model.Decision{}
+	}
+
 	return staticData{
 		Config:           snap.Config,
 		Facets:           facets,
@@ -167,6 +180,7 @@ func collectStaticData(s *store.Store) (staticData, error) {
 		Spec:             spec,
 		Tags:             tags,
 		Vocab:            vocab,
+		Decisions:        decisions,
 	}, nil
 }
 

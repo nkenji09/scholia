@@ -153,8 +153,18 @@ export const api = {
     return request<SpecReport>(`/api/spec/${encodeURIComponent(tagId)}`);
   },
 
-  getRules: (params: { tx?: string; tag?: string; facet?: string }) =>
-    staticData ? staticUnavailable('rules') : request<{ decisions: Decision[] }>('/api/rules' + query(params)),
+  getRules: (params: { tx?: string; tag?: string; facet?: string }) => {
+    if (staticData) {
+      // Only the no-selector ("every decision, chronological") mode is
+      // baked for static exports — HOME's recent-decisions widget is the
+      // only current caller and never passes tag/tx/facet. Per-selector
+      // rules queries stay live-only (TransitionDetail/SpecView already get
+      // their decisions embedded directly in their own static payloads).
+      if (params.tag || params.tx || params.facet) return staticUnavailable('rules (tag/tx/facet 指定)');
+      return Promise.resolve({ decisions: staticData.decisions });
+    }
+    return request<{ decisions: Decision[] }>('/api/rules' + query(params));
+  },
 
   getLint: () => (staticData ? Promise.resolve(staticData.lint) : request<LintResult>('/api/lint')),
 

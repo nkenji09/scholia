@@ -5,6 +5,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
   padding: var(--sp-2) var(--sp-4);
   border-bottom: 1px solid var(--lm-border);
   background: var(--lm-s1);
@@ -33,6 +35,82 @@
   background: var(--lm-primary);
   color: var(--lm-on-primary);
   border-color: var(--lm-primary);
+}
+
+/* Header switches (theme/density/accent/font-scale, §G-5 "デザイン通り全部") */
+
+.header-switches {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-left: auto;
+}
+
+.font-scale {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--lm-border);
+  border-radius: var(--r-md);
+  padding: 2px;
+  background: var(--lm-bg);
+}
+
+.font-scale button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--lm-text-muted);
+  border-radius: var(--r-sm);
+}
+
+.font-scale button:hover {
+  background: var(--lm-s2);
+}
+
+.font-scale-pct {
+  width: 38px;
+  text-align: center;
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--lm-text-muted);
+}
+
+.header-select {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-2xs);
+}
+
+.header-select select {
+  height: 28px;
+  padding: 0 var(--sp-1);
+  border: 1px solid var(--lm-border);
+  border-radius: var(--r-sm);
+  background: var(--lm-bg);
+  color: var(--lm-text);
+  font-size: var(--fs-2xs);
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  color: var(--lm-text-muted);
+  border-radius: var(--r-md);
+}
+
+.theme-toggle:hover {
+  background: var(--lm-s2);
 }
 
 .layout {

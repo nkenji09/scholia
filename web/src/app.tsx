@@ -1,15 +1,15 @@
 import { isStaticMode } from './api';
+import { Header } from './components/layout/Header';
+import { HomeView } from './components/home/HomeView';
 import { Sidebar } from './components/Sidebar';
 import { TransitionList } from './components/TransitionList';
 import { TransitionDetailPanel } from './components/TransitionDetail';
 import { ConfigView } from './components/ConfigView';
 import { TraceabilityView } from './components/TraceabilityView';
-import { SearchBox } from './components/SearchBox';
 import { CompareView } from './components/CompareView';
 import { VocabView } from './components/VocabView';
 import { SpecView } from './components/SpecView';
 import { TagsView } from './components/TagsView';
-import { strings } from './strings';
 import { useHashRoute } from './router';
 import type { ViewName } from './router';
 
@@ -28,39 +28,15 @@ export function App() {
 
   return (
     <>
-      <header class="topbar">
-        <h1>pmem view</h1>
-        <SearchBox onSelectTx={openTransition} />
-        <nav>
-          <button type="button" class={view === 'browse' ? 'active' : ''} onClick={() => setView('browse')}>
-            Browse
-          </button>
-          <button type="button" class={view === 'vocab' ? 'active' : ''} onClick={() => setView('vocab')}>
-            {strings.nav.vocab}
-          </button>
-          <button type="button" class={view === 'spec' ? 'active' : ''} onClick={() => setView('spec')}>
-            {strings.nav.spec}
-          </button>
-          <button type="button" class={view === 'tags' ? 'active' : ''} onClick={() => setView('tags')}>
-            {strings.nav.tags}
-          </button>
-          <button
-            type="button"
-            class={view === 'traceability' ? 'active' : ''}
-            onClick={() => setView('traceability')}
-          >
-            Traceability
-          </button>
-          {!isStaticMode && (
-            <button type="button" class={view === 'compare' ? 'active' : ''} onClick={() => setView('compare')}>
-              Compare
-            </button>
-          )}
-          <button type="button" class={view === 'config' ? 'active' : ''} onClick={() => setView('config')}>
-            Config
-          </button>
-        </nav>
-      </header>
+      <Header view={view} onSelectView={setView} onSelectTx={openTransition} />
+      {view === 'home' && (
+        <HomeView
+          onGoTags={() => setView('tags')}
+          onGoTraceability={() => setView('traceability')}
+          onSelectTag={openTagSpec}
+          onSelectTx={openTransition}
+        />
+      )}
       {view === 'browse' && (
         <div class="layout">
           <Sidebar

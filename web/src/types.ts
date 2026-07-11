@@ -228,4 +228,5 @@ export interface PmemStaticData {
   spec: Record<string, SpecReport>;
   tags: Tag[];
   vocab: VocabEntry[];
+  decisions: Decision[];
 }

@@ -16,6 +16,14 @@ type rulesResponse struct {
 	Decisions []model.Decision `json:"decisions"`
 }
 
+// getRulesHandler serves GET /api/rules?tag=|tx=|facet=. Exactly one of the
+// three selectors may be given; with none given at all, index.SortedRulesFor
+// falls through to index.SelectRulesDecisions's "no selector" case and
+// returns every decision in the project, chronologically ascending (oldest
+// first) — this is the "全件モード" HomeView's recent-decisions widget uses
+// (it takes the tail of the list; see .concierge/decision.md §F). That mode
+// needed no new query-selection logic, only this doc comment plus
+// TestGetRules_NoSelector locking the behavior in with a test.
 func getRulesHandler(s *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
