@@ -188,6 +188,11 @@
   padding: 0 10px;
 }
 
+.comment-kbd-hint {
+  font-size: var(--fs-3xs);
+  font-family: var(--lm-font-mono);
+}
+
 .comment-empty {
   padding: var(--sp-6) var(--sp-4);
   text-align: center;

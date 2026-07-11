@@ -12,6 +12,18 @@ function formatTime(ms: number): string {
   return `${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
+// Comment/reply submission is Cmd+Enter (Mac) / Ctrl+Enter (Windows/Linux)
+// rather than plain Enter — a textarea needs Enter free for newlines, and
+// unifying the reply input onto the same shortcut (it used to submit on
+// plain Enter) makes the two composers behave the same way (2026-07-11
+// 追加調整2件 §2). e.isComposing guards against an IME's Enter-to-confirm
+// keystroke (e.g. finishing 変換) being misread as a submit.
+function isSubmitKey(e: KeyboardEvent): boolean {
+  return e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.isComposing;
+}
+
+const SUBMIT_HINT = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘+Enter で投稿' : 'Ctrl+Enter で投稿';
+
 // Slide-over panel opened from the header's comment icon (or any per-section
 // CommentButton): a composer for the currently-targeted section plus a
 // summary list of every comment (each with its reply thread), each jumping
@@ -79,6 +91,12 @@ export function CommentPanel({ onGoto }: Props) {
                 placeholder="コメントを入力…（このカードのこの箇所について）"
                 value={composerText}
                 onInput={(e) => setComposerText((e.target as HTMLTextAreaElement).value)}
+                onKeyDown={(e) => {
+                  if (isSubmitKey(e)) {
+                    e.preventDefault();
+                    saveComposer();
+                  }
+                }}
               />
               <div class="comment-composer-actions">
                 <button type="button" class="comment-btn-primary" onClick={saveComposer}>
@@ -87,6 +105,7 @@ export function CommentPanel({ onGoto }: Props) {
                 <button type="button" class="comment-btn-secondary" onClick={cancelComposer}>
                   キャンセル
                 </button>
+                <span class="comment-kbd-hint dim">{SUBMIT_HINT}</span>
                 <span class="comment-panel-spacer" />
                 {isEditingExisting && (
                   <button
@@ -149,10 +168,11 @@ export function CommentPanel({ onGoto }: Props) {
                   <input
                     class="comment-reply-input"
                     placeholder="返信を追加…"
+                    title={SUBMIT_HINT}
                     value={replyDrafts[c.id] || ''}
                     onInput={(e) => setReplyDraft(c.id, (e.target as HTMLInputElement).value)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
+                      if (isSubmitKey(e)) {
                         e.preventDefault();
                         addReply(c.id);
                       }
