@@ -1,3 +1,4 @@
+import { useEffect } from 'preact/hooks';
 import { Header } from './components/layout/Header';
 import { HomeView } from './components/home/HomeView';
 import { BrowseView } from './components/browse/BrowseView';
@@ -6,6 +7,7 @@ import { VocabView } from './components/VocabView';
 import { CommentPanel } from './components/comments/CommentPanel';
 import { useComments } from './components/comments/useComments';
 import type { CommentRecord } from './components/comments/useComments';
+import { useDrawer } from './drawer';
 import { useHashRoute } from './router';
 import type { ViewName } from './router';
 
@@ -13,6 +15,15 @@ export function App() {
   const [route, navigate] = useHashRoute();
   const view = route.view;
   const { closePanel } = useComments();
+  const { closeDrawer } = useDrawer();
+
+  // Design closes the off-canvas rail on every nav/view switch (its
+  // setView() sets drawerOpen:false alongside view). Cross-view jumps
+  // (openTransition/openTagSpec) go through navigate() same as setView, so
+  // watching route.view covers all of them in one place rather than
+  // repeating closeDrawer() at each call site below.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => closeDrawer(), [route.view]);
 
   // Cross-view links (Vocab/Home → BrowseView, etc.) all funnel through
   // navigate() so each hop lands in browser history and Back/Forward step

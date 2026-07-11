@@ -1,6 +1,8 @@
+import { useEffect, useRef } from 'preact/hooks';
 import { strings } from '../../strings';
 import type { ViewName } from '../../router';
 import { useViewerSettings } from '../../settings';
+import { useDrawer } from '../../drawer';
 import { Icon } from '../shared/Icon';
 import type { IconName } from '../shared/Icon';
 import { useComments } from '../comments/useComments';
@@ -30,12 +32,48 @@ const NAV: Array<[ViewName, string, IconName]> = [
   ['browse', strings.nav.specs, 'scroll-text'],
 ];
 
+// Every screen that renders a BrowseRail (the off-canvas drawer on narrow
+// viewports needs a toggle for these, and only these — design's own
+// `showFilterToggle: isNarrow && isBrowse` where isBrowse = view is
+// 'tags'/'specs'; ours additionally has 'browse'/'spec' as hash-compat
+// aliases for the same BrowseView, and 'vocab' since VocabView adopted the
+// same rail (2026-07-11 tweaks2 §4) after the design was written).
+function usesRail(view: ViewName): boolean {
+  return view === 'tags' || view === 'browse' || view === 'spec' || view === 'vocab';
+}
+
 export function Header({ view, onSelectView }: Props) {
   const { settings, toggleTheme, incFont, decFont } = useViewerSettings();
   const { comments, panelOpen, openPanel } = useComments();
+  const { isNarrow, toggleDrawer } = useDrawer();
+  const headerRef = useRef<HTMLElement>(null);
+
+  // Rail responsiveness (drawer's fixed `top`, sticky rail's `top`/height,
+  // backdrop's `inset`) all need the header's actual rendered height —
+  // design hardcodes a HEADER=56 constant, but our header can wrap onto a
+  // second line at narrow widths (flex-wrap on .topbar) where 56px would be
+  // wrong, so this measures the real value instead of assuming it.
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const apply = () => document.documentElement.style.setProperty('--header-h', `${el.offsetHeight}px`);
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const showFilterToggle = isNarrow && usesRail(view);
 
   return (
-    <header class="topbar">
+    <header class="topbar" ref={headerRef}>
+      {showFilterToggle && (
+        <button type="button" class="topbar-filter-toggle" aria-label={strings.header.filterToggle} onClick={toggleDrawer}>
+          <Icon name="sliders-horizontal" size={15} />
+          {strings.header.filterToggle}
+        </button>
+      )}
+
       <div class="topbar-logo">
         <span class="topbar-logo-mark">
           <Icon name="box" size={19} />

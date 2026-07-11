@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { api } from '../api';
 import { useLookups } from '../lookups';
+import { useDrawer } from '../drawer';
 import { strings } from '../strings';
 import type { Transition, VocabEntry } from '../types';
 import { BrowseRail } from './browse/BrowseRail';
@@ -31,6 +32,7 @@ function usedBy(v: VocabEntry, transitions: Transition[]): Transition[] {
 // the same rail/card *presentation*.
 export function VocabView({ onSelectTx }: Props) {
   const { tagById } = useLookups();
+  const { closeDrawer } = useDrawer();
   const [vocab, setVocab] = useState<VocabEntry[] | null>(null);
   const [transitions, setTransitions] = useState<Transition[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +63,12 @@ export function VocabView({ onSelectTx }: Props) {
     }
   });
 
-  const addTagFilter = (id: string) => setTagFilters((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  // Same close-on-select rule as BrowseView.tsx: addFilter/scroll-to close
+  // the narrow-viewport drawer, kindFacet/removeFilter/query don't.
+  const addTagFilter = (id: string) => {
+    setTagFilters((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    closeDrawer();
+  };
   const removeTagFilter = (i: number) => setTagFilters((prev) => prev.filter((_, idx) => idx !== i));
 
   if (error) return <div class="browse-view error">{error}</div>;
@@ -88,6 +95,7 @@ export function VocabView({ onSelectTx }: Props) {
     onClick: () => {
       scrollTarget.current = v.id;
       cardRefs.current.get(v.id)?.scrollIntoView({ block: 'start' });
+      closeDrawer();
     },
   }));
 

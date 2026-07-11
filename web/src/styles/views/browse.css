@@ -11,6 +11,13 @@
   min-height: 0;
 }
 
+/* Responsive rail (2026-07-11 レスポンシブ対応, design lines ~178-179/
+   ~972-980): PC keeps the rail as a scroll-following sticky sidebar; narrow
+   viewports (<=860px, drawer.tsx's BREAKPOINT) turn it into an off-canvas
+   drawer instead — .browse-rail-narrow's fixed/transform rules override the
+   sticky defaults below. --header-h is set by Header.tsx from the header's
+   actual measured height (its `56px` fallback matches the design's own
+   hardcoded HEADER constant, used only before the first measurement). */
 .browse-rail {
   width: 300px;
   flex-shrink: 0;
@@ -21,6 +28,55 @@
   flex-direction: column;
   gap: var(--sp-4);
   overflow-y: auto;
+  position: sticky;
+  top: var(--header-h, 56px);
+  align-self: flex-start;
+  height: calc(100dvh - var(--header-h, 56px));
+}
+
+.browse-rail-narrow {
+  position: fixed;
+  top: var(--header-h, 56px);
+  bottom: 0;
+  left: 0;
+  width: 86%;
+  max-width: 340px;
+  height: auto;
+  z-index: 70;
+  transform: translateX(-100%);
+  transition: transform 0.22s ease;
+  box-shadow: none;
+}
+
+.browse-rail-narrow.browse-rail-open {
+  transform: none;
+  box-shadow: var(--sh-lg);
+}
+
+.browse-rail-backdrop {
+  position: fixed;
+  top: var(--header-h, 56px);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+  animation: lm-fade 0.15s ease-out;
+}
+
+.browse-rail-close {
+  margin-left: auto;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: var(--lm-text-muted);
+  border-radius: var(--r-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .browse-rail-head {

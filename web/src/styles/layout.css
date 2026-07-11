@@ -26,6 +26,24 @@
   flex-wrap: wrap;
 }
 
+/* Narrow-viewport-only drawer toggle (design line ~88), rendered before the
+   logo — same position as the design's markup — when the current screen has
+   a BrowseRail (Header.tsx's usesRail()). */
+.topbar-filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  color: var(--lm-text-muted);
+  border-radius: var(--r-md);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
 .topbar-logo {
   display: flex;
   align-items: center;

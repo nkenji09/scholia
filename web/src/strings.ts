@@ -35,6 +35,8 @@ export const strings = {
     fontDec: '文字を小さく',
     fontInc: '文字を大きく',
     themeToggle: 'テーマ切替',
+    // narrow viewport only, on screens with a BrowseRail (2026-07-11 レスポンシブ対応)。
+    filterToggle: '絞り込み',
   },
   home: {
     tagline: '記録を、読みたくなる形で。',

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { api } from '../../api';
 import { strings } from '../../strings';
 import { useLookups } from '../../lookups';
+import { useDrawer } from '../../drawer';
 import type { Config, FacetsResponse, SpecReport, Tag, TraceabilityResponse, Transition, TransitionDetail } from '../../types';
 import { BrowseRail } from './BrowseRail';
 import type { ConditionChip, IndexItem, KindOption, SuggestionItem } from './BrowseRail';
@@ -45,6 +46,7 @@ function buildTagOrder(facetsData: FacetsResponse, allTags: Tag[], kindFacet: st
 
 export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToSpec }: Props) {
   const { tagById: lookupTagById, vocabById, tagKindLabel } = useLookups();
+  const { closeDrawer } = useDrawer();
 
   const [config, setConfig] = useState<Config | null>(null);
   const [facetsData, setFacetsData] = useState<FacetsResponse | null>(null);
@@ -171,9 +173,22 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
     }
   });
 
-  const addFilter = (f: FilterCondition) =>
+  // Design closes the narrow-viewport drawer on every selection that
+  // narrows/changes what's on screen — addFilter (self-filter, combobox
+  // suggestion, vocab/tag chip) and scrolling to a different card (index
+  // item, parent/child tag link) — but not on kindFacet select, removeFilter,
+  // or query typing (those you'd do *from* the drawer, so closing it would
+  // be self-defeating). No-op on wide viewports (drawer.tsx's closeDrawer).
+  const addFilter = (f: FilterCondition) => {
     setFilters((prev) => (prev.some((p) => p.type === f.type && p.id === f.id) ? prev : [...prev, f]));
+    closeDrawer();
+  };
   const removeFilter = (i: number) => setFilters((prev) => prev.filter((_, idx) => idx !== i));
+  const scrollToCard = (id: string) => {
+    scrollTarget.current = id;
+    cardRefs.current.get(id)?.scrollIntoView({ block: 'start' });
+    closeDrawer();
+  };
 
   const tagById = useMemo(() => new Map((tags || []).map((t) => [t.id, t])), [tags]);
   const gapByTagId = useMemo(() => new Map((traceability?.entries || []).map((e) => [e.tag.id, e])), [traceability]);
@@ -210,10 +225,7 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
         color: kindColor(t.kind),
         indent: depth,
         isGap: entry?.gap,
-        onClick: () => {
-          scrollTarget.current = id;
-          cardRefs.current.get(id)?.scrollIntoView({ block: 'start' });
-        },
+        onClick: () => scrollToCard(id),
       };
     });
 
@@ -239,14 +251,8 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
                 else cardRefs.current.delete(id);
               }}
               onFilterSelf={() => addFilter({ type: 'tag', id })}
-              onSelectParent={(pid) => {
-                scrollTarget.current = pid;
-                cardRefs.current.get(pid)?.scrollIntoView({ block: 'start' });
-              }}
-              onSelectChild={(cid) => {
-                scrollTarget.current = cid;
-                cardRefs.current.get(cid)?.scrollIntoView({ block: 'start' });
-              }}
+              onSelectParent={scrollToCard}
+              onSelectChild={scrollToCard}
               onSelectSpec={onGoToSpec}
             />
           );
@@ -288,10 +294,7 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
       label: txDetails[tx.id]?.actionLabel || tx.id,
       color: 'var(--t-act)',
       indent: 0,
-      onClick: () => {
-        scrollTarget.current = tx.id;
-        cardRefs.current.get(tx.id)?.scrollIntoView({ block: 'start' });
-      },
+      onClick: () => scrollToCard(tx.id),
     }));
 
     body = !specsReady ? (

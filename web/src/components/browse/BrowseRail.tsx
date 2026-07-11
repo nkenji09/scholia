@@ -1,5 +1,6 @@
 import { useState } from 'preact/hooks';
 import { strings } from '../../strings';
+import { useDrawer } from '../../drawer';
 import { Chip } from '../shared/Chip';
 import { Icon } from '../shared/Icon';
 
@@ -56,6 +57,16 @@ interface Props {
 
 const MAX_SUGGESTIONS = 8;
 
+// Off-canvas drawer on narrow viewports / sticky sidebar on wide ones
+// (design reference lines ~178-179 backdrop, ~972-980 railStyle — see
+// drawer.tsx for the shared isNarrow/drawerOpen state this reads). Actions
+// that narrow/change what's being browsed (kind facet, combobox select,
+// index-item scroll-to, filter chips) all close the drawer on select — that
+// close() call lives with each action's own handler (BrowseView.tsx/
+// VocabView.tsx's addFilter/addTagFilter, and the IndexItem.onClick they
+// build), not here, so this component doesn't need to know which actions
+// count as "a selection was made" versus rail-internal-only ones (kind
+// facet and remove-filter don't close it, matching the design).
 export function BrowseRail({
   query,
   onQueryChange,
@@ -69,6 +80,7 @@ export function BrowseRail({
 }: Props) {
   const [focused, setFocused] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const { isNarrow, drawerOpen, closeDrawer } = useDrawer();
 
   const q = query.trim().toLowerCase();
   const matches = focused && q ? suggestions.filter((s) => (s.id + ' ' + s.label).toLowerCase().includes(q)).slice(0, MAX_SUGGESTIONS) : [];
@@ -101,121 +113,129 @@ export function BrowseRail({
   };
 
   return (
-    <aside class="browse-rail">
-      <div class="browse-rail-head">
-        <Icon name="sliders-horizontal" size={14} class="dim" />
-        <span class="browse-rail-label dim">検索条件</span>
-      </div>
-
-      <div class="browse-rail-search-wrap">
-        <Icon name="search" size={15} class="browse-rail-search-icon dim" />
-        <input
-          class="browse-rail-search"
-          type="text"
-          role="combobox"
-          aria-expanded={open}
-          aria-controls="browse-rail-listbox"
-          aria-autocomplete="list"
-          autocomplete="off"
-          placeholder={strings.browse.searchPlaceholder}
-          value={query}
-          onInput={(e) => {
-            onQueryChange((e.target as HTMLInputElement).value);
-            setActiveIndex(0);
-          }}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          onKeyDown={onKeyDown}
-        />
-        {open && (
-          <ul id="browse-rail-listbox" role="listbox" class="browse-rail-suggestions">
-            {matches.map((m, i) => (
-              <li key={m.kindLabel + m.id} role="option" aria-selected={i === idx}>
-                <button
-                  type="button"
-                  class={'browse-rail-suggestion' + (i === idx ? ' active' : '')}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onMouseEnter={() => setActiveIndex(i)}
-                  onClick={() => selectMatch(m)}
-                >
-                  <span class="browse-rail-suggestion-dot" style={{ background: m.color }} />
-                  <span class="browse-rail-suggestion-label">{m.label}</span>
-                  <span class="browse-rail-suggestion-kind dim">{m.kindLabel}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {kindOptions.length > 0 && (
-        <div class="browse-rail-section">
-          <span class="browse-rail-label dim">種別</span>
-          <div class="browse-rail-kinds">
-            <button type="button" class={'browse-rail-kind' + (kindFacet === 'all' ? ' active' : '')} onClick={() => onKindFacetChange('all')}>
-              <span>{strings.browse.kindAll}</span>
-              <span class="dim">{kindOptions.reduce((sum, k) => sum + k.count, 0)}</span>
+    <>
+      {isNarrow && drawerOpen && <div class="browse-rail-backdrop" onClick={closeDrawer} />}
+      <aside class={'browse-rail' + (isNarrow ? ' browse-rail-narrow' : '') + (isNarrow && drawerOpen ? ' browse-rail-open' : '')}>
+        <div class="browse-rail-head">
+          <Icon name="sliders-horizontal" size={14} class="dim" />
+          <span class="browse-rail-label dim">検索条件</span>
+          {isNarrow && (
+            <button type="button" class="browse-rail-close" aria-label="閉じる" onClick={closeDrawer}>
+              <Icon name="x" size={17} />
             </button>
-            {kindOptions.map((k) => (
+          )}
+        </div>
+
+        <div class="browse-rail-search-wrap">
+          <Icon name="search" size={15} class="browse-rail-search-icon dim" />
+          <input
+            class="browse-rail-search"
+            type="text"
+            role="combobox"
+            aria-expanded={open}
+            aria-controls="browse-rail-listbox"
+            aria-autocomplete="list"
+            autocomplete="off"
+            placeholder={strings.browse.searchPlaceholder}
+            value={query}
+            onInput={(e) => {
+              onQueryChange((e.target as HTMLInputElement).value);
+              setActiveIndex(0);
+            }}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            onKeyDown={onKeyDown}
+          />
+          {open && (
+            <ul id="browse-rail-listbox" role="listbox" class="browse-rail-suggestions">
+              {matches.map((m, i) => (
+                <li key={m.kindLabel + m.id} role="option" aria-selected={i === idx}>
+                  <button
+                    type="button"
+                    class={'browse-rail-suggestion' + (i === idx ? ' active' : '')}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onMouseEnter={() => setActiveIndex(i)}
+                    onClick={() => selectMatch(m)}
+                  >
+                    <span class="browse-rail-suggestion-dot" style={{ background: m.color }} />
+                    <span class="browse-rail-suggestion-label">{m.label}</span>
+                    <span class="browse-rail-suggestion-kind dim">{m.kindLabel}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {kindOptions.length > 0 && (
+          <div class="browse-rail-section">
+            <span class="browse-rail-label dim">種別</span>
+            <div class="browse-rail-kinds">
+              <button type="button" class={'browse-rail-kind' + (kindFacet === 'all' ? ' active' : '')} onClick={() => onKindFacetChange('all')}>
+                <span>{strings.browse.kindAll}</span>
+                <span class="dim">{kindOptions.reduce((sum, k) => sum + k.count, 0)}</span>
+              </button>
+              {kindOptions.map((k) => (
+                <button
+                  key={k.key}
+                  type="button"
+                  class={'browse-rail-kind' + (kindFacet === k.key ? ' active' : '')}
+                  onClick={() => onKindFacetChange(k.key)}
+                >
+                  <span>{k.label}</span>
+                  <span class="dim">{k.count}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {conditions.length > 0 && (
+          <div class="browse-rail-conditions">
+            <div class="browse-rail-conditions-head">
+              <span class="browse-rail-label dim">
+                <Icon name="filter" size={13} /> {strings.browse.conditionsHeading} <span class="browse-rail-and">{strings.browse.and}</span>
+              </span>
+              <button type="button" class="browse-rail-clear" onClick={onClearConditions}>
+                {strings.browse.clear}
+              </button>
+            </div>
+            <div class="browse-rail-condition-chips">
+              {conditions.map((c, i) => (
+                <Chip key={i} color={c.color} onRemove={c.onRemove}>
+                  {c.label}
+                </Chip>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div class="browse-rail-section browse-rail-index">
+          <span class="browse-rail-label dim">
+            <Icon name="list" size={13} /> {strings.browse.indexHeading} <span class="browse-rail-index-count">{indexItems.length}</span>
+          </span>
+          <div class="browse-rail-index-list">
+            {indexItems.map((item) => (
               <button
-                key={k.key}
+                key={item.id}
                 type="button"
-                class={'browse-rail-kind' + (kindFacet === k.key ? ' active' : '')}
-                onClick={() => onKindFacetChange(k.key)}
+                class="browse-rail-index-item"
+                style={{ paddingLeft: `${8 + item.indent * 14}px` }}
+                onClick={item.onClick}
               >
-                <span>{k.label}</span>
-                <span class="dim">{k.count}</span>
+                <span class="browse-rail-index-dot" style={{ background: item.color }} />
+                <span class="browse-rail-index-label">{item.label}</span>
+                {item.isGap && (
+                  <span class="browse-rail-index-gap">
+                    <Icon name="triangle-alert" size={12} />
+                  </span>
+                )}
               </button>
             ))}
+            {indexItems.length === 0 && <span class="dim browse-rail-index-empty">{strings.browse.indexEmpty}</span>}
           </div>
         </div>
-      )}
-
-      {conditions.length > 0 && (
-        <div class="browse-rail-conditions">
-          <div class="browse-rail-conditions-head">
-            <span class="browse-rail-label dim">
-              <Icon name="filter" size={13} /> {strings.browse.conditionsHeading} <span class="browse-rail-and">{strings.browse.and}</span>
-            </span>
-            <button type="button" class="browse-rail-clear" onClick={onClearConditions}>
-              {strings.browse.clear}
-            </button>
-          </div>
-          <div class="browse-rail-condition-chips">
-            {conditions.map((c, i) => (
-              <Chip key={i} color={c.color} onRemove={c.onRemove}>
-                {c.label}
-              </Chip>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div class="browse-rail-section browse-rail-index">
-        <span class="browse-rail-label dim">
-          <Icon name="list" size={13} /> {strings.browse.indexHeading} <span class="browse-rail-index-count">{indexItems.length}</span>
-        </span>
-        <div class="browse-rail-index-list">
-          {indexItems.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              class="browse-rail-index-item"
-              style={{ paddingLeft: `${8 + item.indent * 14}px` }}
-              onClick={item.onClick}
-            >
-              <span class="browse-rail-index-dot" style={{ background: item.color }} />
-              <span class="browse-rail-index-label">{item.label}</span>
-              {item.isGap && (
-                <span class="browse-rail-index-gap">
-                  <Icon name="triangle-alert" size={12} />
-                </span>
-              )}
-            </button>
-          ))}
-          {indexItems.length === 0 && <span class="dim browse-rail-index-empty">{strings.browse.indexEmpty}</span>}
-        </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 }
