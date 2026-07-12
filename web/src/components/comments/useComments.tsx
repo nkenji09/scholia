@@ -428,7 +428,11 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
     ...visibleAiComments,
   ];
 
-  const hasComment = (recordId: string, anchor: string) => visibleComments.some((c) => c.recordId === recordId && c.anchor === anchor);
+  // AIDF minor-2: ローカルのみでなく AI レビューも合流した集合で判定する
+  // ——AI のみのコメントが付いたカードでも「済み」マーカー（塗りつぶし
+  // アイコン）が点くようにする（ドロワー/バッジは既に AI を含んでいた・
+  // カードマーカーだけ取り残されていた）。
+  const hasComment = (recordId: string, anchor: string) => mergedVisibleComments.some((c) => c.recordId === recordId && c.anchor === anchor);
 
   const openComposer = (target: CommentTarget) => {
     const existing = visibleComments.find((c) => c.recordId === target.recordId && c.anchor === target.anchor);
