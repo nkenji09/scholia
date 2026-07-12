@@ -52,6 +52,20 @@ export interface DecisionPostBody {
   commits: string[];
 }
 
+// POST /api/transition body（change-cockpit-design-v3.md §1 (Wp)/§8.8 P3・
+// 提案の手直し・G-1′ 承認済み）。action/given/then/tags は vocab-id/tag-id
+// のみ（自由記述の label/description フィールドは無い — 構造ガードは型その
+// ものが担う。internal/viewer/transition_write.go の transitionPostBody と
+// 1:1）。既存 transition の編集専用（新規作成は P5 スコープ外）。given/then/
+// tags は常にフル置換（tx add と同じ全体指定、tx edit の部分更新ではない）。
+export interface TransitionPostBody {
+  id: string;
+  action: string;
+  given: string[];
+  then: string[];
+  tags: string[];
+}
+
 export interface Kinds {
   condition: string[];
   action: string[];

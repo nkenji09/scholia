@@ -194,6 +194,17 @@ const ja = {
     adoptedBadge: '採用済み',
     adoptedWhyHeading: '採用された why（decision）',
     adoptedNote: 'この提案は decision として記録されました（commits[] は空）。commit 後は `pmem decision add-commit <id> <hash>` で結線してください。',
+    // #27 P3: 語彙ピッカー（change-cockpit-design-v3.md §3/§1 (Wp)・G-1′）。
+    // 既存 vocab/tag から選ぶだけ — 自由記述の入力欄は無い（構造ガード）。
+    pickerAddButton: '語彙を選ぶ',
+    pickerSearchPlaceholder: '語彙を検索…',
+    pickerEmpty: '候補がありません',
+    pickerRemoveTitle: '除去',
+    pickerMoveUpTitle: '上へ',
+    pickerMoveDownTitle: '下へ',
+    reflectButton: 'この手直しを提案に反映',
+    reflecting: '反映中…',
+    reflectError: (msg: string) => `反映できませんでした: ${msg}`,
   },
   // lookups.tsx の describeMatch()（検索結果の一致理由テキスト）。
   lookups: {
@@ -264,6 +275,7 @@ const ja = {
     diff: '差分（diff）',
     reviews: 'AI コメント',
     decisionAdopt: '採用（decision の記録）',
+    transitionEdit: '提案の手直し（語彙ピッカー）',
   },
 };
 
@@ -412,6 +424,15 @@ const en: Strings = {
     adoptedBadge: 'Adopted',
     adoptedWhyHeading: 'Adopted why (decision)',
     adoptedNote: 'This proposal was recorded as a decision (commits[] is empty). After committing, link it with `pmem decision add-commit <id> <hash>`.',
+    pickerAddButton: 'Add vocab',
+    pickerSearchPlaceholder: 'Search vocab…',
+    pickerEmpty: 'No matches',
+    pickerRemoveTitle: 'Remove',
+    pickerMoveUpTitle: 'Move up',
+    pickerMoveDownTitle: 'Move down',
+    reflectButton: 'Apply this edit to the proposal',
+    reflecting: 'Applying…',
+    reflectError: (msg) => `Could not apply the edit: ${msg}`,
   },
   lookups: {
     searchById: 'transition id',
@@ -481,6 +502,7 @@ const en: Strings = {
     diff: 'the diff',
     reviews: 'AI comments',
     decisionAdopt: 'adopting (recording a decision)',
+    transitionEdit: 'editing the proposal (vocab picker)',
   },
 };
 

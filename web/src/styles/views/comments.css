@@ -564,10 +564,6 @@
   color: var(--lm-text);
 }
 
-.proposal-atom-keep {
-  opacity: 0.65;
-}
-
 .proposal-atom-add {
   background: var(--lm-success-weak);
   color: var(--lm-success-strong);
@@ -594,6 +590,168 @@
 .comment-composer .proposal-card,
 .comment-item .proposal-card {
   margin-bottom: 0;
+}
+
+/* 語彙ピッカー（#27 P3・change-cockpit-design-v3.md §3/§1 (Wp)）— keep/add
+   atoms grow a trailing move/remove control cluster, and each slot row ends
+   with a "＋ 語彙を選ぶ" trigger that opens a small popover of existing
+   vocab/tag candidates only (no free-text input is ever submitted — see
+   VocabPicker.tsx). */
+.proposal-atom {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.proposal-atom-label {
+  white-space: nowrap;
+}
+
+/* Dim only the text, not the move/remove controls next to it — putting
+   opacity on the whole .proposal-atom-keep span (the original read-only
+   card's approach) made those controls nearly invisible (opacity stacks
+   multiplicatively with the buttons' own resting opacity below). */
+.proposal-atom-keep .proposal-atom-label {
+  opacity: 0.65;
+}
+
+.proposal-atom-remove,
+.proposal-atom-move {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border: none;
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--lm-text);
+  border-radius: var(--r-sm);
+}
+
+.proposal-atom-remove:hover,
+.proposal-atom-move:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.proposal-atom-move:disabled {
+  opacity: 0.35;
+}
+
+.vocab-picker {
+  position: relative;
+  display: inline-flex;
+}
+
+.vocab-picker-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px dashed var(--lm-border-strong);
+  background: transparent;
+  color: var(--lm-text-muted);
+  border-radius: var(--r-full);
+  font-size: var(--fs-3xs);
+  font-weight: 600;
+}
+
+.vocab-picker-trigger:hover {
+  color: var(--lm-primary);
+  border-color: var(--lm-primary);
+}
+
+.vocab-picker-popover {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  width: max-content;
+  min-width: 180px;
+  max-width: 260px;
+  max-height: 240px;
+  display: flex;
+  flex-direction: column;
+  background: var(--lm-s1);
+  border: 1px solid var(--lm-border);
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-pop);
+  overflow: hidden;
+}
+
+.vocab-picker-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  border: none;
+  border-bottom: 1px solid var(--lm-border);
+  background: transparent;
+  color: var(--lm-text);
+  font-size: var(--fs-3xs);
+  font-family: inherit;
+}
+
+.vocab-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+}
+
+.vocab-picker-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  color: var(--lm-text);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-3xs);
+}
+
+.vocab-picker-option:hover {
+  background: var(--lm-s2);
+}
+
+.vocab-picker-empty {
+  padding: 6px 8px;
+  font-size: var(--fs-3xs);
+}
+
+.proposal-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.proposal-card-error {
+  margin: 0;
+  font-size: var(--fs-3xs);
+  color: var(--lm-error);
+}
+
+.proposal-reflect-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--lm-primary);
+  background: var(--lm-primary-weak);
+  color: var(--lm-primary);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+}
+
+.proposal-reflect-btn:disabled {
+  opacity: 0.4;
+  border-color: var(--lm-border-strong);
+  background: transparent;
+  color: var(--lm-text-muted);
 }
 
 /* SpecCard clean-flag (#27 P2) — the *only* diff-related affordance on the

@@ -9,7 +9,9 @@ import type {
   SpecReport,
   Tag,
   TraceabilityResponse,
+  Transition,
   TransitionDetail,
+  TransitionPostBody,
   TransitionsResponse,
   VocabEntry,
   Decision,
@@ -190,11 +192,24 @@ export const api = {
   getReviews: () => (staticData ? staticUnavailable(DICTS[loadLang()].api.reviews) : request<Review[]>('/api/reviews')),
 
   // 採用（change-cockpit-design-v3.md §1/§8.5・G-1 承認済み）— viewer の書込は
-  // PUT /api/config とこれの2本だけ（§7 narrow rule）。static export は書込
-  // 不可なので常に非対応（putConfig と同じ流儀）。
+  // PUT /api/config・これ・putTransition（下）の3本のみ（§7 narrow rule）。
+  // static export は書込不可なので常に非対応（putConfig と同じ流儀）。
   postDecision: (body: DecisionPostBody) => {
     if (staticData) return staticUnavailable(DICTS[loadLang()].api.decisionAdopt);
     return request<Decision>('/api/decision', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  },
+
+  // 提案の手直し（change-cockpit-design-v3.md §1 (Wp)/§8.8 P3・G-1′ 承認済み）
+  // — 語彙ピッカーの「反映」1 回につき 1 本呼ぶ。viewer の書込は
+  // PUT /api/config・POST /api/decision・これの3本のみ（§7 narrow rule）。
+  // static export は書込不可なので常に非対応（putConfig/postDecision と同じ流儀）。
+  putTransition: (body: TransitionPostBody) => {
+    if (staticData) return staticUnavailable(DICTS[loadLang()].api.transitionEdit);
+    return request<Transition>('/api/transition', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
