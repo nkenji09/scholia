@@ -6,7 +6,8 @@ import type { Strings } from '../../i18n';
 import type { IconName } from '../shared/Icon';
 import { useReviews } from '../../reviews';
 import { useLookups } from '../../lookups';
-import type { Review } from '../../types';
+import { api } from '../../api';
+import type { Review, Decision } from '../../types';
 
 // Comments (#18) — volatile, per-browser annotations. Deliberately NOT part
 // of the .pmem record model: everything here lives only in localStorage
@@ -78,6 +79,9 @@ export interface CommentRecord extends CommentTarget {
   createdAt: number;
   updatedAt: number;
   replies: CommentReply[];
+  // 採用（change-cockpit-design-v3.md §8.5・P4）: この提案コメントが decision
+  // 化された時に結ぶ ulid。付いたら以後 text は表示上フリーズ（採用済み）。
+  decisionId?: string;
 }
 
 export interface Task {
@@ -143,6 +147,9 @@ interface CommentsValue {
   setReplyDraft: (commentId: string, text: string) => void;
   addReply: (commentId: string) => void;
   deleteReply: (commentId: string, replyId: string) => void;
+  adoptLocalComment: (commentId: string, decisionId: string, finalWhy: string) => void;
+  adoptReview: (reviewId: string, decisionId: string) => void;
+  getDecision: (decisionId: string) => Decision | undefined;
   copyMsg: boolean;
   copyAll: () => void;
   tasks: Task[];
@@ -302,6 +309,13 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
   const [creatingTask, setCreatingTask] = useState(false);
   const [taskDraftTitle, setTaskDraftTitle] = useState('');
   const [reviewBindings, setReviewBindings] = useState<ReviewBindings>({});
+  // 採用（§8.5・P4）: decisionId が付いたコメント/AI レビューの、確定 why を
+  // 表示するためのキャッシュ。decision 自体の正本は .pmem/decisions/ のまま
+  // （GET /api/rules?tx= 経由の read-only キャッシュ）— ここに保存はしない
+  // （reload 後は fetchedTxIds 経由で読み直す。§7.10「原子を保存し構造は
+  // derive」と同じ流儀）。
+  const [decisionCache, setDecisionCache] = useState<Record<string, Decision>>({});
+  const [fetchedTxIds, setFetchedTxIds] = useState<Set<string>>(new Set());
 
   const { reviews } = useReviews();
   const { transitionLabel, vocabLabel, tagName } = useLookups();
@@ -336,6 +350,35 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
     });
   }, [reviews, activeTaskId]);
 
+  // 採用済みコメント/AI レビュー（decisionId 付き）の why を復元する
+  // （reload 後の「採用済み」表示・P4）。decision の正本は .pmem/decisions/
+  // のみ・localStorage には複製しない。tx ごとに 1 回だけ GET /api/rules?tx=
+  // を叩き（既存 read-only エンドポイント・新規追加なし）、返ってきた
+  // decisions を id で引けるようキャッシュする。同じ tx を何度も叩かないよう
+  // fetchedTxIds で既試行を記録する（decision が見つからない/失敗した場合も
+  // 含め、無限リトライを避ける）。
+  useEffect(() => {
+    const pending = new Set<string>();
+    const consider = (recordType: RecordType, recordId: string, decisionId: string | undefined) => {
+      if (!decisionId || recordType !== 'transition') return;
+      if (decisionCache[decisionId] || fetchedTxIds.has(recordId)) return;
+      pending.add(recordId);
+    };
+    for (const c of comments) consider(c.recordType, c.recordId, c.decisionId);
+    for (const r of reviews) consider(r.recordRef.type, r.recordRef.id, reviewBindings[r.id]?.decisionId);
+    if (pending.size === 0) return;
+
+    setFetchedTxIds((prev) => new Set([...prev, ...pending]));
+    Promise.all(Array.from(pending).map((txId) => api.getRules({ tx: txId }).catch(() => ({ decisions: [] as Decision[] })))).then((results) => {
+      setDecisionCache((prev) => {
+        const next = { ...prev };
+        for (const res of results) for (const d of res.decisions) next[d.id] = d;
+        return next;
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comments, reviews, reviewBindings]);
+
   const visibleComments = comments.filter((c) => c.taskId === activeTaskId);
 
   const reviewRecordTitle = (r: Review): string => {
@@ -362,6 +405,7 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
       createdAt: Date.parse(r.createdAt) || 0,
       updatedAt: Date.parse(r.createdAt) || 0,
       replies: [],
+      decisionId: reviewBindings[r.id]?.decisionId,
       source: 'ai',
     }));
 
@@ -457,6 +501,32 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
     });
   };
 
+  // 採用（§8.5・P4）: 人の提案コメントを decision へ昇格したあとの結線。
+  // finalWhy は採用ダイアログで確定した why（§8.1「人の提案コメントはコメン
+  // ト編集がそのまま why 編集」— 昇格時に本文へも反映し、以後 comment.text と
+  // decision.why が食い違わないようにする）。decisionId が付いた以降、この
+  // コメントは表示上フリーズする（CommentPanel 側で編集/削除ボタンを隠す）。
+  const adoptLocalComment = (commentId: string, decisionId: string, finalWhy: string) => {
+    setComments((prev) => {
+      const next = prev.map((c) => (c.id === commentId ? { ...c, text: finalWhy, decisionId, updatedAt: Date.now() } : c));
+      persist(next);
+      return next;
+    });
+  };
+
+  // 採用（§8.5・P4）: AI 提案コメント（read-only サイドカー）の decision 結線
+  // は pmem-review-bindings-v1 側に置く（本文自体は AI が書いた
+  // .pmem/reviews/ のまま・viewer からは変更できない）。
+  const adoptReview = (reviewId: string, decisionId: string) => {
+    setReviewBindings((prev) => {
+      const next = { ...prev, [reviewId]: { ...prev[reviewId], decisionId } };
+      persistReviewBindings(next);
+      return next;
+    });
+  };
+
+  const getDecision = (decisionId: string): Decision | undefined => decisionCache[decisionId];
+
   const copyAll = () => {
     if (visibleComments.length === 0) return;
     const text = buildCopyText(t, visibleComments, activeTask?.title || '');
@@ -540,6 +610,9 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
     setReplyDraft,
     addReply,
     deleteReply,
+    adoptLocalComment,
+    adoptReview,
+    getDecision,
     copyMsg,
     copyAll,
     tasks,

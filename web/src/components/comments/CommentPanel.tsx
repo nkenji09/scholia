@@ -1,3 +1,4 @@
+import { useState } from 'preact/hooks';
 import { useComments, recordTypeMeta } from './useComments';
 import type { CommentRecord, DisplayComment } from './useComments';
 import { ProposalCard } from './ProposalCard';
@@ -6,6 +7,7 @@ import { useT } from '../../i18n';
 import type { Strings } from '../../i18n';
 import { Icon } from '../shared/Icon';
 import { useBodyScrollLock } from '../../scrollLock';
+import { api, isStaticMode, ApiError } from '../../api';
 
 interface Props {
   onGoto: (c: CommentRecord) => void;
@@ -54,6 +56,9 @@ export function CommentPanel({ onGoto }: Props) {
     setReplyDraft,
     addReply,
     deleteReply,
+    adoptLocalComment,
+    adoptReview,
+    getDecision,
     copyMsg,
     copyAll,
     tasks,
@@ -67,6 +72,42 @@ export function CommentPanel({ onGoto }: Props) {
     saveNewTask,
   } = useComments();
   const { changedTransitionIds } = usePendingDiff();
+
+  // 採用（change-cockpit-design-v3.md §8.5・P4）: どのコメントを採用中かの
+  // ローカル UI 状態。why の下書きは POST 成功まで確定しない（P-1: 未コミッ
+  // トの下書き合成）ので useComments 側の state ではなくここに置く。
+  const [adoptingId, setAdoptingId] = useState<string | null>(null);
+  const [adoptDraft, setAdoptDraft] = useState('');
+  const [adopting, setAdopting] = useState(false);
+  const [adoptError, setAdoptError] = useState<string | null>(null);
+
+  const startAdopt = (c: DisplayComment) => {
+    setAdoptingId(c.id);
+    setAdoptDraft(c.text);
+    setAdoptError(null);
+  };
+  const cancelAdopt = () => {
+    setAdoptingId(null);
+    setAdoptDraft('');
+    setAdoptError(null);
+  };
+  const confirmAdopt = async (c: DisplayComment) => {
+    const why = adoptDraft.trim();
+    if (!why) return;
+    setAdopting(true);
+    setAdoptError(null);
+    try {
+      const decision = await api.postDecision({ on: `${c.recordType}:${c.recordId}`, why, commits: [] });
+      if (c.source === 'ai') adoptReview(c.id, decision.id);
+      else adoptLocalComment(c.id, decision.id, why);
+      setAdoptingId(null);
+      setAdoptDraft('');
+    } catch (e) {
+      setAdoptError(e instanceof ApiError ? e.message : String(e));
+    } finally {
+      setAdopting(false);
+    }
+  };
 
   // Locks background scroll while the panel is open — unlike BrowseRail's
   // drawer, CommentPanel is a fixed slide-over at every viewport width (not
@@ -221,6 +262,9 @@ export function CommentPanel({ onGoto }: Props) {
           {sorted.map((c) => {
             const meta = recordTypeMeta(t, c.recordType);
             const isAi = c.source === 'ai';
+            const isProposal = isProposalComment(c);
+            const adopted = !!c.decisionId;
+            const decision = c.decisionId ? getDecision(c.decisionId) : undefined;
             return (
               <div key={c.id} class={'comment-item' + (isAi ? ' comment-item-ai' : '')}>
                 <div class="comment-item-head">
@@ -239,9 +283,60 @@ export function CommentPanel({ onGoto }: Props) {
                       {t.comments.aiBadge}
                     </span>
                   )}
+                  {adopted && (
+                    <span class="comment-adopted-badge" title={t.comments.adoptedNote}>
+                      <Icon name="check" size={11} /> {t.comments.adoptedBadge}
+                    </span>
+                  )}
                 </div>
-                {isProposalComment(c) && <ProposalCard txId={c.recordId} />}
+                {isProposal && <ProposalCard txId={c.recordId} />}
                 <p class="comment-item-text">{c.text}</p>
+
+                {adopted && (
+                  <div class="comment-decision-card">
+                    <div class="comment-decision-card-head">
+                      <Icon name="gavel" size={13} />
+                      <span class="comment-decision-card-title">{t.comments.adoptedWhyHeading}</span>
+                    </div>
+                    <p class="comment-decision-why">{decision?.why ?? c.text}</p>
+                    <p class="comment-decision-note">{t.comments.adoptedNote}</p>
+                  </div>
+                )}
+
+                {/* 採用（§8.5・P4）: 唯一の書込導線。static export は書込不可
+                    なので導線ごと隠す（handoff「static では非活性/非表示」）。 */}
+                {isProposal && !isStaticMode && !adopted && adoptingId !== c.id && (
+                  <button type="button" class="comment-adopt-btn" onClick={() => startAdopt(c)}>
+                    <Icon name="gavel" size={13} /> {t.comments.adoptButton}
+                  </button>
+                )}
+
+                {isProposal && adoptingId === c.id && (
+                  <div class="comment-adopt-form">
+                    <div class="comment-adopt-form-label">{t.comments.adoptWhyLabel}</div>
+                    <textarea
+                      class="comment-adopt-form-input"
+                      rows={3}
+                      value={adoptDraft}
+                      disabled={adopting}
+                      onInput={(e) => setAdoptDraft((e.target as HTMLTextAreaElement).value)}
+                    />
+                    {adoptError && <p class="comment-adopt-error">{adoptError}</p>}
+                    <div class="comment-adopt-form-actions">
+                      <button
+                        type="button"
+                        class="comment-btn-primary"
+                        onClick={() => confirmAdopt(c)}
+                        disabled={adopting || !adoptDraft.trim()}
+                      >
+                        <Icon name="check" size={14} /> {t.comments.adoptConfirm}
+                      </button>
+                      <button type="button" class="comment-btn-secondary" onClick={cancelAdopt} disabled={adopting}>
+                        {t.common.cancel}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {!isAi && c.replies.length > 0 && (
                   <div class="comment-reply-list">
@@ -285,14 +380,16 @@ export function CommentPanel({ onGoto }: Props) {
                   <button type="button" class="comment-btn-chip" onClick={() => onGoto(c)}>
                     <Icon name="crosshair" size={13} /> {t.comments.gotoLocation}
                   </button>
-                  {!isAi && (
+                  {/* 採用済み（decisionId 付き）の人コメントは以後 read-only
+                      （§8.5「採用後...本文 read-only」）— 編集/削除を隠す。 */}
+                  {!isAi && !adopted && (
                     <button type="button" class="comment-btn-chip" onClick={() => editComment(c)}>
                       <Icon name="pencil" size={12} /> {t.common.edit}
                     </button>
                   )}
                   <span class="comment-panel-spacer" />
                   <span class="comment-item-time dim">{formatTime(c.updatedAt)}</span>
-                  {!isAi && (
+                  {!isAi && !adopted && (
                     <button type="button" class="comment-btn-icon-danger" aria-label={t.common.delete} onClick={() => deleteComment(c.id)}>
                       <Icon name="trash-2" size={13} />
                     </button>

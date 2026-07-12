@@ -613,3 +613,118 @@
   padding: 3px 10px;
   margin-bottom: var(--sp-2);
 }
+
+/* 採用（change-cockpit-design-v3.md §8.5・P4）— 提案コメントの唯一の書込
+   導線。ボタン自体は control-scale の chip、確定フォームは composer と
+   同じ見た目を流用（.comment-btn-primary/.comment-btn-secondary 再利用）。 */
+.comment-adopt-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--lm-success-strong);
+  background: var(--lm-success-weak);
+  color: var(--lm-success-strong);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+}
+
+.comment-adopt-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: var(--sp-3);
+  background: var(--lm-s2);
+  border: 1px solid var(--lm-success-strong);
+  border-radius: var(--r-md);
+}
+
+.comment-adopt-form-label {
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  color: var(--lm-text-muted);
+}
+
+.comment-adopt-form-input {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 60px;
+  padding: 9px 11px;
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  color: var(--lm-text);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-sm);
+  font-family: inherit;
+  line-height: 1.6;
+}
+
+.comment-adopt-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.comment-adopt-error {
+  margin: 0;
+  font-size: var(--fs-3xs);
+  color: var(--lm-error);
+}
+
+/* 採用済み（decisionId が付いた提案コメント）— why の正本が decision へ
+   移った表示（§8.5「採用後...本文 read-only」）。 */
+.comment-adopted-badge {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--lm-success-strong);
+  border: 1px solid var(--lm-success-strong);
+  border-radius: var(--r-full);
+  padding: 1px 8px;
+}
+
+.comment-decision-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid var(--lm-success-strong);
+  border-radius: var(--r-md);
+  background: var(--lm-success-weak);
+  padding: var(--sp-3) var(--sp-4);
+}
+
+.comment-decision-card-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--lm-success-strong);
+}
+
+.comment-decision-card-title {
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.comment-decision-why {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--lm-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.comment-decision-note {
+  margin: 0;
+  font-size: var(--fs-3xs);
+  color: var(--lm-text-muted);
+}

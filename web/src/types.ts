@@ -38,6 +38,18 @@ export interface Decision {
   changed?: string;
   ref?: string;
   at: string;
+  commits?: string[];
+}
+
+// POST /api/decision body（change-cockpit-design-v3.md §1/§8.5・採用フロー）。
+// commits は採用時点では常に空 — 着地（人が commit）後に
+// `pmem decision add-commit` で追記される後工程（本 P4 の実装範囲外）。
+export interface DecisionPostBody {
+  on: string;
+  why: string;
+  changed?: string;
+  ref?: string;
+  commits: string[];
 }
 
 export interface Kinds {

@@ -186,6 +186,14 @@ const ja = {
     // した AI コメント（read-only・編集/削除/返信不可）。
     aiBadge: 'AI',
     aiReadonlyNote: 'AI が書いたコメントです（編集・削除・返信はできません）',
+    // 採用（change-cockpit-design-v3.md §8.5・P4）: 提案コメント→
+    // decision.why への昇格（POST /api/decision・server-mode 限定）。
+    adoptButton: '採用',
+    adoptWhyLabel: '確定する why（decision として記録されます）',
+    adoptConfirm: '採用を確定',
+    adoptedBadge: '採用済み',
+    adoptedWhyHeading: '採用された why（decision）',
+    adoptedNote: 'この提案は decision として記録されました（commits[] は空）。commit 後は `pmem decision add-commit <id> <hash>` で結線してください。',
   },
   // lookups.tsx の describeMatch()（検索結果の一致理由テキスト）。
   lookups: {
@@ -255,6 +263,7 @@ const ja = {
     rulesWithSelectors: 'rules (tag/tx/facet 指定)',
     diff: '差分（diff）',
     reviews: 'AI コメント',
+    decisionAdopt: '採用（decision の記録）',
   },
 };
 
@@ -397,6 +406,12 @@ const en: Strings = {
     proposalWhatLabel: 'the proposal diff view',
     aiBadge: 'AI',
     aiReadonlyNote: "Written by AI — can't be edited, deleted, or replied to.",
+    adoptButton: 'Adopt',
+    adoptWhyLabel: 'Final why (will be recorded as a decision)',
+    adoptConfirm: 'Confirm adoption',
+    adoptedBadge: 'Adopted',
+    adoptedWhyHeading: 'Adopted why (decision)',
+    adoptedNote: 'This proposal was recorded as a decision (commits[] is empty). After committing, link it with `pmem decision add-commit <id> <hash>`.',
   },
   lookups: {
     searchById: 'transition id',
@@ -465,6 +480,7 @@ const en: Strings = {
     rulesWithSelectors: 'rules (tag/tx/facet selectors)',
     diff: 'the diff',
     reviews: 'AI comments',
+    decisionAdopt: 'adopting (recording a decision)',
   },
 };
 
