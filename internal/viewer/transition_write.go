@@ -65,6 +65,13 @@ func postTransitionHandler(s *store.Store) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "id は必須です")
 			return
 		}
+		// P3 nit: store.SaveTransition は given のみソート＋重複排除する
+		// （§3.2）。then/tags は UI（VocabPicker）が重複追加を防いでいるが、
+		// API を生で叩けば重複 id を保存できてしまう保険的な二重ガード —
+		// CLI 経路（internal/cli/tx_add.go・tx_edit.go）の挙動を変えない
+		// ため store でなく viewer 側でのみ dedupe する。then は順序を保つ。
+		body.Then = dedupePreserveOrder(body.Then)
+		body.Tags = dedupePreserveOrder(body.Tags)
 		// id は SaveTransition/RemoveTransitionUnlinked 経由でそのまま
 		// ファイル名になる（store.transitionPath）。P5 前は既存 id への
 		// 上書きに限られていた（TransitionExists の事前検証が必須だっ
@@ -134,6 +141,21 @@ func postTransitionHandler(s *store.Store) http.HandlerFunc {
 		}
 		writeJSON(w, status, saved)
 	}
+}
+
+// dedupePreserveOrder removes duplicate ids while keeping the first
+// occurrence's position (unlike store.dedupeSorted, which sorts).
+func dedupePreserveOrder(ids []string) []string {
+	seen := make(map[string]bool, len(ids))
+	out := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
+	return out
 }
 
 // validTransitionID rejects ids that could escape .pmem/transitions/ once
