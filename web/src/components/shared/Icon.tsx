@@ -276,6 +276,16 @@ const ICONS = {
     { tag: 'path', d: 'M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7' },
     { tag: 'path', d: 'M7 3v4a1 1 0 0 0 1 1h7' },
   ],
+
+  // Header language toggle (i18n, #16).
+  languages: [
+    { tag: 'path', d: 'm5 8 6 6' },
+    { tag: 'path', d: 'm4 14 6-6 2-3' },
+    { tag: 'path', d: 'M2 5h12' },
+    { tag: 'path', d: 'M7 2h1' },
+    { tag: 'path', d: 'm22 22-5-10-5 10' },
+    { tag: 'path', d: 'M14 18h6' },
+  ],
 } satisfies Record<string, Shape[]>;
 
 export type IconName = keyof typeof ICONS;

@@ -1,5 +1,5 @@
 import { useLookups } from '../../lookups';
-import { strings } from '../../strings';
+import { useT } from '../../i18n';
 import type { EffectiveTag, TransitionDetail } from '../../types';
 import { Chip, kindColor } from '../shared/Chip';
 import { CommentButton } from '../comments/CommentButton';
@@ -15,6 +15,7 @@ interface Props {
 }
 
 export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab, onFilterTag }: Props) {
+  const t = useT();
   const { tagById, vocabById } = useLookups();
 
   // own/derived split reads straight off backend-computed provenance (gap
@@ -27,7 +28,7 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
   const hasTags = own.length > 0 || derived.length > 0;
   const provenanceBadge = (et: EffectiveTag) => {
     const extra = et.sources.filter((s) => s !== 'own');
-    return extra.length > 0 ? strings.browse.provenanceLabel(extra) : null;
+    return extra.length > 0 ? t.browse.provenanceLabel(extra) : null;
   };
   const hasDetail = (detail.tests && detail.tests.length > 0) || (detail.rules && detail.rules.length > 0);
 
@@ -36,11 +37,11 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
       <div class="spec-card-slot">
         <div class="card-section-heading-row">
           <span class="spec-card-slot-label" style={{ color: 'var(--t-act)' }}>
-            <Icon name="circle-play" size={13} /> {strings.flow.trigger}
+            <Icon name="circle-play" size={13} /> {t.flow.trigger}
           </span>
-          <CommentButton recordType="transition" recordId={detail.id} recordTitle={detail.actionLabel || detail.action} anchor="action" anchorLabel={strings.flow.trigger} />
+          <CommentButton recordType="transition" recordId={detail.id} recordTitle={detail.actionLabel || detail.action} anchor="action" anchorLabel={t.flow.trigger} />
         </div>
-        <button type="button" class="spec-card-action" onClick={() => onFilterVocab(detail.action)} title={strings.browse.clickToFilter}>
+        <button type="button" class="spec-card-action" onClick={() => onFilterVocab(detail.action)} title={t.browse.clickToFilter}>
           {detail.actionLabel || detail.action}
           <Icon name="plus" size={13} class="filter-plus-icon" />
         </button>
@@ -49,14 +50,14 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
       <div class="spec-card-slot">
         <div class="card-section-heading-row">
           <span class="spec-card-slot-label" style={{ color: 'var(--t-giv)' }}>
-            <Icon name="funnel" size={12} /> {strings.flow.given}
+            <Icon name="funnel" size={12} /> {t.flow.given}
           </span>
-          <CommentButton recordType="transition" recordId={detail.id} recordTitle={detail.actionLabel || detail.action} anchor="given" anchorLabel={strings.flow.given} />
+          <CommentButton recordType="transition" recordId={detail.id} recordTitle={detail.actionLabel || detail.action} anchor="given" anchorLabel={t.flow.given} />
         </div>
-        {(detail.given || []).length === 0 && <span class="dim spec-card-empty-given">無条件（前提なし）</span>}
+        {(detail.given || []).length === 0 && <span class="dim spec-card-empty-given">{t.flow.noGiven}</span>}
         <div class="spec-card-given-list">
           {(detail.given || []).map((id, i) => (
-            <button key={id} type="button" class="spec-card-cond-row" onClick={() => onFilterVocab(id)} title={strings.browse.clickToFilter}>
+            <button key={id} type="button" class="spec-card-cond-row" onClick={() => onFilterVocab(id)} title={t.browse.clickToFilter}>
               <span class="spec-card-cond-label">{(detail.givenLabels || [])[i] || id}</span>
               <Icon name="plus" size={13} class="filter-plus-icon" />
             </button>
@@ -67,17 +68,19 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
       <div class="spec-card-slot">
         <div class="card-section-heading-row">
           <span class="spec-card-slot-label" style={{ color: 'var(--t-then)' }}>
-            <Icon name="arrow-right-to-line" size={12} /> {strings.flow.result}
+            <Icon name="arrow-right-to-line" size={12} /> {t.flow.result}
           </span>
-          <CommentButton recordType="transition" recordId={detail.id} recordTitle={detail.actionLabel || detail.action} anchor="then" anchorLabel={strings.flow.result} />
+          <CommentButton recordType="transition" recordId={detail.id} recordTitle={detail.actionLabel || detail.action} anchor="then" anchorLabel={t.flow.result} />
         </div>
         <div class="spec-card-then-list">
           {(detail.then || []).map((id, i) => (
-            <button key={id} type="button" class="spec-card-cond-row" onClick={() => onFilterVocab(id)} title={strings.browse.clickToFilter}>
+            <button key={id} type="button" class="spec-card-cond-row" onClick={() => onFilterVocab(id)} title={t.browse.clickToFilter}>
               <span class="spec-card-then-n dim">{i + 1}</span>
               <span class="spec-card-cond-label">
                 {(detail.thenLabels || [])[i] || id}
-                {vocabById.get(id)?.owner && <span class="spec-card-owner dim"> owner: {vocabById.get(id)?.owner}</span>}
+                {vocabById.get(id)?.owner && (
+                  <span class="spec-card-owner dim"> {t.vocab.owner}: {vocabById.get(id)?.owner}</span>
+                )}
               </span>
               <Icon name="plus" size={13} class="filter-plus-icon" />
             </button>
@@ -89,12 +92,12 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
         <div class="card-section">
           <div class="card-section-heading-row">
             <span class="card-section-heading">
-              <Icon name="tags" size={14} /> {strings.browse.tagsHeading}{' '}
+              <Icon name="tags" size={14} /> {t.browse.tagsHeading}{' '}
               <span class="spec-card-hint dim">
-                <Icon name="plus" size={11} class="filter-plus-icon" /> {strings.browse.clickToFilter}
+                <Icon name="plus" size={11} class="filter-plus-icon" /> {t.browse.clickToFilter}
               </span>
             </span>
-            <CommentButton recordType="transition" recordId={detail.id} recordTitle={detail.actionLabel || detail.action} anchor="tags" anchorLabel={strings.browse.tagsHeading} />
+            <CommentButton recordType="transition" recordId={detail.id} recordTitle={detail.actionLabel || detail.action} anchor="tags" anchorLabel={t.browse.tagsHeading} />
           </div>
           <div class="spec-card-chip-row">
             {own.map((et) => (
@@ -103,7 +106,7 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
                 color={kindColor(tagById.get(et.id)?.kind)}
                 onClick={() => onFilterTag(et.id)}
                 filterable
-                title={strings.browse.provenanceLabel(et.sources)}
+                title={t.browse.provenanceLabel(et.sources)}
               >
                 {tagById.get(et.id)?.name || et.id}
                 {provenanceBadge(et) && <span class="tag-provenance-badge">{provenanceBadge(et)}</span>}
@@ -112,7 +115,7 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
           </div>
           {derived.length > 0 && (
             <div class="spec-card-derived">
-              <span class="dim spec-card-derived-label">{strings.browse.derivedHeading}</span>
+              <span class="dim spec-card-derived-label">{t.browse.derivedHeading}</span>
               <div class="spec-card-chip-row">
                 {derived.map((et) => (
                   <Chip
@@ -120,10 +123,10 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
                     color={kindColor(tagById.get(et.id)?.kind)}
                     onClick={() => onFilterTag(et.id)}
                     filterable
-                    title={strings.browse.provenanceLabel(et.sources)}
+                    title={t.browse.provenanceLabel(et.sources)}
                   >
                     {tagById.get(et.id)?.name || et.id}
-                    <span class="tag-provenance-badge">{strings.browse.provenanceLabel(et.sources)}</span>
+                    <span class="tag-provenance-badge">{t.browse.provenanceLabel(et.sources)}</span>
                   </Chip>
                 ))}
               </div>
@@ -134,7 +137,7 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
 
       {hasDetail && (
         <button type="button" class="spec-card-detail-toggle" onClick={onToggleOpen}>
-          <Icon name={isOpen ? 'chevron-up' : 'chevron-down'} size={15} /> {isOpen ? strings.browse.hideDetail : strings.browse.showDetail}
+          <Icon name={isOpen ? 'chevron-up' : 'chevron-down'} size={15} /> {isOpen ? t.browse.hideDetail : t.browse.showDetail}
         </button>
       )}
 
@@ -143,7 +146,7 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
           {detail.tests && detail.tests.length > 0 && (
             <div>
               <span class="card-section-heading">
-                <Icon name="flask-conical" size={14} /> {strings.browse.tests}
+                <Icon name="flask-conical" size={14} /> {t.browse.tests}
               </span>
               <div class="spec-card-chip-row">
                 {detail.tests.map((t) => (
@@ -157,7 +160,7 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
           {detail.rules && detail.rules.length > 0 && (
             <div>
               <span class="card-section-heading">
-                <Icon name="gavel" size={14} /> {strings.browse.rulesHeading}
+                <Icon name="gavel" size={14} /> {t.browse.rulesHeading}
               </span>
               {detail.rules.map((d) => (
                 <div key={d.id} class="tag-card-decision">

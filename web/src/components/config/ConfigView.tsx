@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { api, isStaticMode } from '../../api';
+import { useT } from '../../i18n';
 import type { Config } from '../../types';
 import { TokenSetField } from './TokenSetField';
 import { TagKindLabelsField } from './TagKindLabelsField';
@@ -36,6 +37,7 @@ function addUnique(arr: string[], value: string): string[] {
 }
 
 export function ConfigView() {
+  const t = useT();
   const [remote, setRemote] = useState<Config | null>(null);
   const [draft, setDraft] = useState<EditableConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +57,7 @@ export function ConfigView() {
   }, []);
 
   if (error) return <main class="config-view error">{error}</main>;
-  if (!remote || !draft) return <main class="config-view dim">loading…</main>;
+  if (!remote || !draft) return <main class="config-view dim">{t.config.loading}</main>;
 
   const editable = !isStaticMode;
   const dirty = editable && baseline.current !== null && JSON.stringify(draft) !== baseline.current;
@@ -69,7 +71,7 @@ export function ConfigView() {
   const onSave = () => {
     const portStr = draft.port.trim();
     if (!/^\d+$/.test(portStr) || Number(portStr) < 1 || Number(portStr) > 65535) {
-      setMessage({ kind: 'error', text: `ポートは 1〜65535 の整数で入力してください（現在: ${portStr || '空'}）` });
+      setMessage({ kind: 'error', text: t.config.portInvalid(portStr || t.config.portEmptyWord) });
       return;
     }
     api
@@ -87,7 +89,7 @@ export function ConfigView() {
         const ed = toEditable(cfg);
         baseline.current = JSON.stringify(ed);
         setDraft(ed);
-        setMessage({ kind: 'ok', text: '保存しました — .pmem/config.json に書き込みました' });
+        setMessage({ kind: 'ok', text: t.config.savedMessage });
       })
       .catch((err) => setMessage({ kind: 'error', text: String(err) }));
   };
@@ -102,10 +104,11 @@ export function ConfigView() {
     <main class="config-view">
       <div class="config-head">
         <div class="config-head-text">
-          <h1>設定</h1>
+          <h1>{t.config.heading}</h1>
           <p class="dim">
-            プロジェクト設定 <code>.pmem/config.json</code>。語彙とタグの分類軸・派生の定義です。変更頻度は低いですが、lint・要件トレーサビリティ・facet
-            ナビ全体に波及します。
+            {t.config.introBefore}
+            <code>.pmem/config.json</code>
+            {t.config.introAfter}
           </p>
         </div>
       </div>
@@ -114,28 +117,33 @@ export function ConfigView() {
         <div class="config-status-bar">
           <span class="config-status-ok">
             <Icon name="server" size={14} />
-            サーバモード — 変更は <code>config.json</code> に書き込まれます
+            {t.config.serverModeBefore}
+            <code>config.json</code>
+            {t.config.serverModeAfter}
           </span>
-          {dirty && <span class="config-dirty-badge">未保存の変更</span>}
+          {dirty && <span class="config-dirty-badge">{t.config.dirtyBadge}</span>}
           <span class="config-status-spacer" />
           {dirty && (
             <button type="button" class="config-btn-secondary" onClick={onReset}>
-              破棄
+              {t.config.discard}
             </button>
           )}
           <button type="button" class="config-btn-primary" onClick={onSave}>
             <Icon name="save" size={14} />
-            保存
+            {t.common.save}
           </button>
         </div>
       ) : (
         <div class="config-readonly-banner">
           <div class="config-readonly-banner-head">
             <Icon name="eye" size={15} class="dim" />
-            <span class="config-readonly-title">閲覧専用（静的版）</span>
+            <span class="config-readonly-title">{t.config.readonlyTitle}</span>
           </div>
           <span class="dim">
-            <code>pmem export --html</code> で書き出した1ファイル版です。編集・保存するには <code>pmem view</code> でサーバを起動してください。
+            <code>pmem export --html</code>
+            {t.config.readonlyBannerMid}
+            <code>pmem view</code>
+            {t.config.readonlyBannerSuffix}
           </span>
         </div>
       )}
@@ -152,14 +160,14 @@ export function ConfigView() {
           <span class="config-section-icon">
             <Icon name="git-fork" size={16} />
           </span>
-          <span class="config-section-title">分類軸</span>
-          <span class="dim">タグをどう分類し、どの軸で見せるか</span>
+          <span class="config-section-title">{t.config.sections.classification.title}</span>
+          <span class="dim">{t.config.sections.classification.desc}</span>
         </div>
         <TokenSetField
-          label="タグ種別"
+          label={t.config.fields.tagKinds.label}
           mono="tagKinds"
           icon="tags"
-          description="タグに付けられる分類の種類。タグの「役割」を定義します。"
+          description={t.config.fields.tagKinds.description}
           values={draft.tagKinds}
           editable={editable}
           onAdd={(v) => update({ tagKinds: addUnique(draft.tagKinds, v) })}
@@ -172,10 +180,10 @@ export function ConfigView() {
           onChange={(kind, label) => update({ tagKindLabels: { ...draft.tagKindLabels, [kind]: label } })}
         />
         <TokenSetField
-          label="facet 軸"
+          label={t.config.fields.facetKinds.label}
           mono="facetKinds"
           icon="panel-left"
-          description="Browse 画面のサイドバー facet ナビに出す種類。通常 tagKinds の部分集合です。"
+          description={t.config.fields.facetKinds.description}
           values={draft.facetKinds}
           editable={editable}
           subsetOf="tagKinds"
@@ -184,10 +192,10 @@ export function ConfigView() {
           onRemove={(v) => update({ facetKinds: draft.facetKinds.filter((x) => x !== v) })}
         />
         <TokenSetField
-          label="ルートタグ"
+          label={t.config.fields.roots.label}
           mono="roots"
           icon="list-tree"
-          description="タグ階層のルートに置くタグ。空でも構いません。"
+          description={t.config.fields.roots.description}
           values={draft.roots}
           editable={editable}
           onAdd={(v) => update({ roots: addUnique(draft.roots, v) })}
@@ -200,14 +208,14 @@ export function ConfigView() {
           <span class="config-section-icon">
             <Icon name="radar" size={16} />
           </span>
-          <span class="config-section-title">トレーサビリティ</span>
-          <span class="dim">要件↔実装（仕様）の対応を追跡する対象</span>
+          <span class="config-section-title">{t.config.sections.traceability.title}</span>
+          <span class="dim">{t.config.sections.traceability.desc}</span>
         </div>
         <TokenSetField
-          label="トレーサビリティ対象"
+          label={t.config.fields.traceabilityKinds.label}
           mono="traceabilityKinds"
           icon="radar"
-          description="要件トレーサビリティ（充足 gap 検出）の対象にする種類。通常 requirement のみ。"
+          description={t.config.fields.traceabilityKinds.description}
           values={draft.traceabilityKinds}
           editable={editable}
           subsetOf="tagKinds"
@@ -222,19 +230,21 @@ export function ConfigView() {
           <span class="config-section-icon">
             <Icon name="monitor" size={16} />
           </span>
-          <span class="config-section-title">ビューア</span>
-          <span class="dim">ローカルサーバの設定</span>
+          <span class="config-section-title">{t.config.sections.viewer.title}</span>
+          <span class="dim">{t.config.sections.viewer.desc}</span>
         </div>
         <div class="config-field">
           <div class="config-field-head">
             <span class="config-field-icon">
               <Icon name="plug" size={14} />
             </span>
-            <span class="config-field-label">待受ポート</span>
+            <span class="config-field-label">{t.config.fields.port.label}</span>
             <span class="config-field-mono">viewer.port</span>
           </div>
           <p class="config-field-desc dim">
-            ローカルサーバ（<code>pmem view</code>）が待ち受けるポート。1〜65535 の整数。
+            {t.config.fields.port.descriptionBefore}
+            <code>pmem view</code>
+            {t.config.fields.port.descriptionAfter}
           </p>
           {editable ? (
             <input
@@ -254,20 +264,18 @@ export function ConfigView() {
           <span class="config-section-icon">
             <Icon name="pencil" size={16} />
           </span>
-          <span class="config-section-title">表示</span>
-          <span class="dim">ヘッダーの製品名と概要画面の見出し文。空欄は既定文言にフォールバックします。</span>
+          <span class="config-section-title">{t.config.sections.display.title}</span>
+          <span class="dim">{t.config.sections.display.desc}</span>
         </div>
         <div class="config-field">
           <div class="config-field-head">
             <span class="config-field-icon">
               <Icon name="box" size={14} />
             </span>
-            <span class="config-field-label">製品名</span>
+            <span class="config-field-label">{t.config.fields.productName.label}</span>
             <span class="config-field-mono">display.productName</span>
           </div>
-          <p class="config-field-desc dim">
-            ヘッダー左上に表示する製品名。空欄なら既定の「pmem」を使います。
-          </p>
+          <p class="config-field-desc dim">{t.config.fields.productName.description}</p>
           {editable ? (
             <input
               class="config-port-input config-wide-input"
@@ -284,21 +292,19 @@ export function ConfigView() {
             <span class="config-field-icon">
               <Icon name="scroll-text" size={14} />
             </span>
-            <span class="config-field-label">タグライン</span>
+            <span class="config-field-label">{t.config.fields.tagline.label}</span>
             <span class="config-field-mono">display.tagline</span>
           </div>
-          <p class="config-field-desc dim">
-            概要（HOME）画面の見出し。空欄なら既定文言を使います。
-          </p>
+          <p class="config-field-desc dim">{t.config.fields.tagline.description}</p>
           {editable ? (
             <input
               class="config-port-input config-wide-input"
               value={draft.tagline}
-              placeholder="記録を、読みたくなる形で。"
+              placeholder={t.home.tagline}
               onInput={(e) => update({ tagline: (e.target as HTMLInputElement).value })}
             />
           ) : (
-            <span class="config-port-readonly">{draft.tagline || '記録を、読みたくなる形で。'}</span>
+            <span class="config-port-readonly">{draft.tagline || t.home.tagline}</span>
           )}
         </div>
         <div class="config-field">
@@ -306,18 +312,16 @@ export function ConfigView() {
             <span class="config-field-icon">
               <Icon name="file-code-2" size={14} />
             </span>
-            <span class="config-field-label">イントロ文</span>
+            <span class="config-field-label">{t.config.fields.intro.label}</span>
             <span class="config-field-mono">display.intro</span>
           </div>
-          <p class="config-field-desc dim">
-            概要（HOME）画面の説明文。空欄なら既定文言を使います。
-          </p>
+          <p class="config-field-desc dim">{t.config.fields.intro.description}</p>
           {editable ? (
             <textarea
               class="config-intro-textarea"
               value={draft.intro}
               rows={3}
-              placeholder="product-memory は、プロダクトの意思決定・要件・振る舞いを原子（遷移）として記録し、構造は派生（query）で見るためのツールです。"
+              placeholder={t.home.intro}
               onInput={(e) => update({ intro: (e.target as HTMLTextAreaElement).value })}
             />
           ) : (
@@ -331,20 +335,24 @@ export function ConfigView() {
           <span class="config-field-icon">
             <Icon name="lock" size={14} />
           </span>
-          <span class="config-section-title">読み取り専用メタ</span>
+          <span class="config-section-title">{t.config.sections.readonlyMeta.title}</span>
           <span class="config-readonly-tag">read-only</span>
         </div>
         <p class="dim config-readonly-desc">
-          語彙(vocab)の種別・接頭辞・スキーマ版。変更は CLI（<code>pmem config</code> / <code>pmem kind</code>）で行います。
+          {t.config.sections.readonlyMeta.descBefore}
+          <code>pmem config</code>
+          {t.config.sections.readonlyMeta.descMid}
+          <code>pmem kind</code>
+          {t.config.sections.readonlyMeta.descAfter}
         </p>
         <div class="config-ro-row">
-          <span class="config-ro-label">スキーマ版</span>
+          <span class="config-ro-label">{t.config.schemaVersionLabel}</span>
           <span class="config-field-mono">pmemVersion</span>
           <span class="config-ro-value">{remote.pmemVersion}</span>
         </div>
         <div class="config-ro-vocab">
           <span class="config-ro-vocab-title">
-            語彙の種別（category ごと） <span class="dim">· idPrefix</span>
+            {t.config.vocabKindsHeading} <span class="dim">· idPrefix</span>
           </span>
           {(['condition', 'action', 'effect'] as const).map((cat) => (
             <div key={cat} class="config-ro-vocab-row">
@@ -353,7 +361,7 @@ export function ConfigView() {
               </span>
               <div class="config-field-chips">
                 {remote.kinds[cat].length === 0 ? (
-                  <span class="dim">（未定義）</span>
+                  <span class="dim">{t.config.undefinedMarker}</span>
                 ) : (
                   remote.kinds[cat].map((v) => (
                     <span key={v} class="config-ro-chip">

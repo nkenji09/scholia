@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { api } from '../../api';
-import { strings } from '../../strings';
+import { useT } from '../../i18n';
 import { useLookups } from '../../lookups';
 import type { Config, Decision, Tag, TraceabilityResponse } from '../../types';
 import { Icon } from '../shared/Icon';
@@ -12,6 +12,7 @@ interface Props {
 }
 
 export function HomeView({ onGoTags, onSelectTag, onSelectTx }: Props) {
+  const t = useT();
   const [tags, setTags] = useState<Tag[] | null>(null);
   const [config, setConfig] = useState<Config | null>(null);
   const [traceability, setTraceability] = useState<TraceabilityResponse | null>(null);
@@ -31,7 +32,7 @@ export function HomeView({ onGoTags, onSelectTag, onSelectTx }: Props) {
   }, []);
 
   if (error) return <main class="home-view error">{error}</main>;
-  if (!tags || !config || !traceability || !decisions) return <main class="home-view dim">{strings.home.loading}</main>;
+  if (!tags || !config || !traceability || !decisions) return <main class="home-view dim">{t.home.loading}</main>;
 
   const kindCounts = config.tagKinds.map((kind) => ({
     kind,
@@ -68,7 +69,7 @@ export function HomeView({ onGoTags, onSelectTag, onSelectTx }: Props) {
         {kindCounts.map(({ kind, count }) => (
           <button key={kind} type="button" class="home-kind-card" onClick={onGoTags}>
             <span class="home-kind-card-label dim">{tagKindLabel(kind)}</span>
-            <span class="home-kind-card-count">{strings.home.tagCount(count)}</span>
+            <span class="home-kind-card-count">{t.home.tagCount(count)}</span>
           </button>
         ))}
       </section>
@@ -77,15 +78,15 @@ export function HomeView({ onGoTags, onSelectTag, onSelectTx }: Props) {
         <div class="home-card">
           <div class="home-card-header">
             <span class="home-card-title">
-              <Icon name="radar" size={15} /> {strings.home.traceabilityHeading}
+              <Icon name="radar" size={15} /> {t.home.traceabilityHeading}
             </span>
             <button type="button" onClick={onGoTags}>
-              {strings.home.goTraceability} <Icon name="arrow-right" size={14} />
+              {t.home.goTraceability} <Icon name="arrow-right" size={14} />
             </button>
           </div>
           <div class="home-traceability-stat">
-            <span class="home-traceability-ratio">{strings.home.satisfiedOf(satisfiedCount, totalEntries)}</span>
-            <span class="dim">{strings.home.satisfiedSuffix}</span>
+            <span class="home-traceability-ratio">{t.home.satisfiedOf(satisfiedCount, totalEntries)}</span>
+            <span class="dim">{t.home.satisfiedSuffix}</span>
           </div>
           <div class="home-traceability-bar">
             <span class="home-traceability-bar-fill" style={{ width: `${satisfiedPct}%` }} />
@@ -93,7 +94,7 @@ export function HomeView({ onGoTags, onSelectTag, onSelectTx }: Props) {
           {gapEntries.length > 0 ? (
             <div class="home-gap">
               <span class="home-gap-heading">
-                <Icon name="triangle-alert" size={14} /> {strings.home.gapHeading(gapEntries.length)}
+                <Icon name="triangle-alert" size={14} /> {t.home.gapHeading(gapEntries.length)}
               </span>
               <div class="home-gap-chips">
                 {gapEntries.map((e) => (
@@ -104,18 +105,18 @@ export function HomeView({ onGoTags, onSelectTag, onSelectTx }: Props) {
               </div>
             </div>
           ) : (
-            <p class="dim">{strings.home.noGap}</p>
+            <p class="dim">{t.home.noGap}</p>
           )}
         </div>
 
         <div class="home-card">
           <div class="home-card-header">
             <span class="home-card-title">
-              <Icon name="gavel" size={15} /> {strings.home.recentDecisionsHeading}
+              <Icon name="gavel" size={15} /> {t.home.recentDecisionsHeading}
             </span>
           </div>
           {recentDecisions.length === 0 ? (
-            <p class="dim">{strings.home.noDecisions}</p>
+            <p class="dim">{t.home.noDecisions}</p>
           ) : (
             <ul class="home-recent-list">
               {recentDecisions.map((d) => (

@@ -1,3 +1,4 @@
+import { useT } from '../../i18n';
 import { Chip } from '../shared/Chip';
 import { Icon } from '../shared/Icon';
 import type { IconName } from '../shared/Icon';
@@ -22,6 +23,7 @@ interface Props {
 // subset of another (facetKinds/traceabilityKinds ⊆ tagKinds), a gentle
 // non-blocking deviation hint rather than hard validation.
 export function TokenSetField({ label, mono, icon, description, values, editable, subsetOf, isSubsetMember, onAdd, onRemove }: Props) {
+  const t = useT();
   const deviates = subsetOf && isSubsetMember ? values.some((v) => !isSubsetMember(v)) : false;
 
   return (
@@ -36,7 +38,7 @@ export function TokenSetField({ label, mono, icon, description, values, editable
       </div>
       <p class="config-field-desc dim">{description}</p>
       <div class="config-field-chips">
-        {values.length === 0 && <span class="dim config-field-empty">（未設定）</span>}
+        {values.length === 0 && <span class="dim config-field-empty">{t.config.unsetPlaceholder}</span>}
         {values.map((v) => {
           const warn = subsetOf && isSubsetMember ? !isSubsetMember(v) : false;
           return (
@@ -48,7 +50,7 @@ export function TokenSetField({ label, mono, icon, description, values, editable
         {editable && onAdd && (
           <input
             class="config-field-input"
-            placeholder="追加して Enter"
+            placeholder={t.config.addPlaceholder}
             onKeyDown={(e) => {
               if (e.key !== 'Enter') return;
               e.preventDefault();
@@ -62,7 +64,9 @@ export function TokenSetField({ label, mono, icon, description, values, editable
       </div>
       {deviates && subsetOf && (
         <span class="config-field-warning">
-          一部が <span class="config-field-mono">{subsetOf}</span> に含まれていません（通常は部分集合として運用します）
+          {t.config.subsetWarningBefore}
+          <span class="config-field-mono">{subsetOf}</span>
+          {t.config.subsetWarningAfter}
         </span>
       )}
     </div>

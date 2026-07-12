@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'preact/hooks';
-import { strings } from '../../strings';
+import { useT, useLang } from '../../i18n';
 import type { ViewName } from '../../router';
 import { useViewerSettings } from '../../settings';
 import { useDrawer } from '../../drawer';
@@ -13,26 +13,6 @@ interface Props {
   onSelectView: (v: ViewName) => void;
 }
 
-// Nav mirrors the design's segmented-pill control (概要/タグ/仕様 + icons),
-// extended with Vocab — a screen the design didn't mock but which still
-// needs a reachable nav slot (.concierge/decision.md §A-4). Order is
-// 概要/語彙/タグ/仕様 per user visual feedback (2026-07-11 tweaks2: 語彙 moved
-// between 概要 and タグ). Traceability/Compare were also in that "not mocked"
-// set but were dropped from the nav entirely per an earlier user request —
-// not in the design, so removed for now rather than left half-styled; git
-// history has the prior version if they come back. 'spec' (the legacy
-// per-tag-report hash) is deliberately NOT a nav entry: it renders the same
-// BrowseView as 'tags' with a different initial focus, so having both as
-// separate buttons would just be two nav items doing the same thing. Config
-// is not here either — the design treats settings as a standalone icon
-// button, not a nav tab (see the header switches cluster below).
-const NAV: Array<[ViewName, string, IconName]> = [
-  ['home', strings.nav.home, 'layout-dashboard'],
-  ['vocab', strings.nav.vocab, 'book-open'],
-  ['tags', strings.nav.tags, 'tags'],
-  ['browse', strings.nav.specs, 'scroll-text'],
-];
-
 // Every screen that renders a BrowseRail (the off-canvas drawer on narrow
 // viewports needs a toggle for these, and only these — design's own
 // `showFilterToggle: isNarrow && isBrowse` where isBrowse = view is
@@ -44,11 +24,36 @@ function usesRail(view: ViewName): boolean {
 }
 
 export function Header({ view, onSelectView }: Props) {
+  const t = useT();
+  const { lang, toggleLang } = useLang();
   const { settings, toggleTheme, incFont, decFont } = useViewerSettings();
   const { comments, panelOpen, openPanel } = useComments();
   const { isNarrow, toggleDrawer } = useDrawer();
   const { productName, headerSubtitle } = useLookups();
   const headerRef = useRef<HTMLElement>(null);
+
+  // Nav mirrors the design's segmented-pill control (概要/タグ/仕様 + icons),
+  // extended with Vocab — a screen the design didn't mock but which still
+  // needs a reachable nav slot (.concierge/decision.md §A-4). Order is
+  // 概要/語彙/タグ/仕様 per user visual feedback (2026-07-11 tweaks2: 語彙 moved
+  // between 概要 and タグ). Traceability/Compare were also in that "not mocked"
+  // set but were dropped from the nav entirely per an earlier user request —
+  // not in the design, so removed for now rather than left half-styled; git
+  // history has the prior version if they come back. 'spec' (the legacy
+  // per-tag-report hash) is deliberately NOT a nav entry: it renders the same
+  // BrowseView as 'tags' with a different initial focus, so having both as
+  // separate buttons would just be two nav items doing the same thing. Config
+  // is not here either — the design treats settings as a standalone icon
+  // button, not a nav tab (see the header switches cluster below).
+  //
+  // Built inside the component (not module scope) so it re-renders with the
+  // active language — strings pulled from `t`, not a module-level `strings`.
+  const NAV: Array<[ViewName, string, IconName]> = [
+    ['home', t.nav.home, 'layout-dashboard'],
+    ['vocab', t.nav.vocab, 'book-open'],
+    ['tags', t.nav.tags, 'tags'],
+    ['browse', t.nav.specs, 'scroll-text'],
+  ];
 
   // Rail responsiveness (drawer's fixed `top`, sticky rail's `top`/height,
   // backdrop's `inset`) all need the header's actual rendered height —
@@ -70,9 +75,9 @@ export function Header({ view, onSelectView }: Props) {
   return (
     <header class="topbar" ref={headerRef}>
       {showFilterToggle && (
-        <button type="button" class="topbar-filter-toggle" aria-label={strings.header.filterToggle} onClick={toggleDrawer}>
+        <button type="button" class="topbar-filter-toggle" aria-label={t.header.filterToggle} onClick={toggleDrawer}>
           <Icon name="sliders-horizontal" size={15} />
-          {strings.header.filterToggle}
+          {t.header.filterToggle}
         </button>
       )}
 
@@ -102,20 +107,29 @@ export function Header({ view, onSelectView }: Props) {
       </nav>
 
       <div class="header-switches">
-        <div class="font-scale" role="group" aria-label="文字サイズ">
-          <button type="button" aria-label={strings.header.fontDec} onClick={decFont}>
+        <div class="font-scale" role="group" aria-label={t.header.fontScaleGroupLabel}>
+          <button type="button" aria-label={t.header.fontDec} onClick={decFont}>
             <Icon name="minus" size={14} />
           </button>
           <span class="font-scale-pct">{Math.round(settings.fontScale * 100)}%</span>
-          <button type="button" aria-label={strings.header.fontInc} onClick={incFont}>
+          <button type="button" aria-label={t.header.fontInc} onClick={incFont}>
             <Icon name="plus" size={14} />
           </button>
         </div>
-        <button type="button" class="topbar-icon-btn" aria-label={strings.header.themeToggle} onClick={toggleTheme}>
+        <button type="button" class="topbar-icon-btn lang-toggle-btn" aria-label={t.header.langToggle} title={t.header.langToggle} onClick={toggleLang}>
+          <Icon name="languages" size={17} />
+          <span class="lang-toggle-code">{lang === 'ja' ? 'EN' : 'JA'}</span>
+        </button>
+        <button type="button" class="topbar-icon-btn" aria-label={t.header.themeToggle} onClick={toggleTheme}>
           <Icon name={settings.theme === 'dark' ? 'moon' : 'sun'} size={17} />
         </button>
         {comments.length > 0 && (
-          <button type="button" class={'topbar-icon-btn comment-header-btn' + (panelOpen ? ' active' : '')} aria-label="コメント一覧" onClick={openPanel}>
+          <button
+            type="button"
+            class={'topbar-icon-btn comment-header-btn' + (panelOpen ? ' active' : '')}
+            aria-label={t.header.commentList}
+            onClick={openPanel}
+          >
             <Icon name="message-filled" size={18} />
             <span class="comment-header-badge">{comments.length}</span>
           </button>
@@ -123,8 +137,8 @@ export function Header({ view, onSelectView }: Props) {
         <button
           type="button"
           class={'topbar-icon-btn' + (view === 'config' ? ' active' : '')}
-          aria-label={strings.nav.config}
-          title={strings.nav.config}
+          aria-label={t.nav.config}
+          title={t.nav.config}
           onClick={() => onSelectView('config')}
         >
           <Icon name="settings" size={17} />

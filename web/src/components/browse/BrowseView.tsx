@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { api } from '../../api';
-import { strings } from '../../strings';
+import { useT } from '../../i18n';
 import { useLookups } from '../../lookups';
 import { useDrawer } from '../../drawer';
 import type { Config, FacetsResponse, SpecReport, Tag, TraceabilityResponse, Transition, TransitionDetail } from '../../types';
@@ -46,6 +46,7 @@ function buildTagOrder(facetsData: FacetsResponse, allTags: Tag[], kindFacet: st
 }
 
 export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToSpec }: Props) {
+  const t = useT();
   const { tagById: lookupTagById, vocabById, tagKindLabel } = useLookups();
   const { closeDrawer } = useDrawer();
 
@@ -195,7 +196,7 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
   const gapByTagId = useMemo(() => new Map((traceability?.entries || []).map((e) => [e.tag.id, e])), [traceability]);
 
   if (error) return <div class="browse-view error">{error}</div>;
-  if (!config || !facetsData || !tags || !traceability) return <div class="browse-view dim">{strings.browse.loading}</div>;
+  if (!config || !facetsData || !tags || !traceability) return <div class="browse-view dim">{t.browse.loading}</div>;
 
   const q = query.trim().toLowerCase();
 
@@ -215,8 +216,8 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
       return tagMatchesFilters(t, filters, facetsData.trees);
     });
 
-    title = strings.browse.tagsTitle;
-    subtitle = strings.browse.tagsSubtitle;
+    title = t.browse.tagsTitle;
+    subtitle = t.browse.tagsSubtitle;
     indexItems = visible.map(({ id, depth }) => {
       const t = tagById.get(id)!;
       const entry = gapByTagId.get(id);
@@ -231,9 +232,9 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
     });
 
     body = !tagsReady ? (
-      <div class="dim">{strings.browse.loading}</div>
+      <div class="dim">{t.browse.loading}</div>
     ) : visible.length === 0 ? (
-      <div class="card-empty">{strings.browse.empty}</div>
+      <div class="card-empty">{t.browse.empty}</div>
     ) : (
       <>
         {visible.map(({ id }) => {
@@ -288,8 +289,8 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
       return specMatchesFilters(detail, filters);
     });
 
-    title = strings.browse.specsTitle;
-    subtitle = strings.browse.specsSubtitle;
+    title = t.browse.specsTitle;
+    subtitle = t.browse.specsSubtitle;
     indexItems = visible.map((tx) => ({
       id: tx.id,
       label: txDetails[tx.id]?.actionLabel || tx.id,
@@ -299,9 +300,9 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
     }));
 
     body = !specsReady ? (
-      <div class="dim">{strings.browse.loading}</div>
+      <div class="dim">{t.browse.loading}</div>
     ) : visible.length === 0 ? (
-      <div class="card-empty">{strings.browse.empty}</div>
+      <div class="card-empty">{t.browse.empty}</div>
     ) : (
       <>
         {visible.map((tx) => (
@@ -324,8 +325,8 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
 
   const conditions: ConditionChip[] = filters.map((f, i) => {
     if (f.type === 'tag') {
-      const t = tagById.get(f.id) || lookupTagById.get(f.id);
-      return { label: t?.name || f.id, color: kindColor(t?.kind), onRemove: () => removeFilter(i) };
+      const tag = tagById.get(f.id) || lookupTagById.get(f.id);
+      return { label: tag?.name || f.id, color: kindColor(tag?.kind), onRemove: () => removeFilter(i) };
     }
     const v = vocabById.get(f.id);
     return { label: v?.label || f.id, color: kindColor(v?.category), onRemove: () => removeFilter(i) };
@@ -351,15 +352,15 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
   };
   const suggestions: SuggestionItem[] = [
     ...tags
-      .filter((t) => !activeFilterKeys.has(`tag:${t.id}`) && wouldMatchAny({ type: 'tag', id: t.id }))
-      .map((t) => ({ id: t.id, label: t.name || t.id, color: kindColor(t.kind), kindLabel: strings.nav.tags, onSelect: () => addFilter({ type: 'tag', id: t.id }) })),
+      .filter((tag) => !activeFilterKeys.has(`tag:${tag.id}`) && wouldMatchAny({ type: 'tag', id: tag.id }))
+      .map((tag) => ({ id: tag.id, label: tag.name || tag.id, color: kindColor(tag.kind), kindLabel: t.nav.tags, onSelect: () => addFilter({ type: 'tag', id: tag.id }) })),
     ...Array.from(vocabById.values())
       .filter((v) => !activeFilterKeys.has(`vocab:${v.id}`) && wouldMatchAny({ type: 'vocab', id: v.id }))
       .map((v) => ({
         id: v.id,
         label: v.label || v.id,
         color: kindColor(v.category),
-        kindLabel: strings.nav.vocab,
+        kindLabel: t.nav.vocab,
         onSelect: () => addFilter({ type: 'vocab', id: v.id }),
       })),
   ];
@@ -381,11 +382,11 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
         <div class="browse-main-head">
           <h1>
             {title}
-            <CommentButton recordType="page" recordId={facet} recordTitle={title} anchor="page" anchorLabel="ページ全体" />
+            <CommentButton recordType="page" recordId={facet} recordTitle={title} anchor="page" anchorLabel={t.comments.pageAnchorLabel} />
           </h1>
           <span class="dim">{subtitle}</span>
         </div>
-        {failedCount > 0 && <div class="browse-fetch-warning">{failedCount} 件の読み込みに失敗しました（表示されているカードは正常です。再読み込みで再試行できます）</div>}
+        {failedCount > 0 && <div class="browse-fetch-warning">{t.browse.fetchWarning(failedCount)}</div>}
         <div class="browse-card-list">{body}</div>
       </main>
     </div>

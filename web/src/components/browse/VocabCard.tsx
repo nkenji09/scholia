@@ -1,5 +1,5 @@
 import { useLookups } from '../../lookups';
-import { strings } from '../../strings';
+import { useT } from '../../i18n';
 import type { Transition, VocabEntry } from '../../types';
 import { Markdown } from '../Markdown';
 import { Chip, kindColor } from '../shared/Chip';
@@ -29,6 +29,7 @@ const CATEGORY_ICON: Record<VocabEntry['category'], IconName> = {
 // they're generic "card head" / "row of records" patterns, not actually
 // tag-specific.
 export function VocabCard({ entry, uses, cardRef, onFilterTag, onSelectTx }: Props) {
+  const t = useT();
   const { tagById, transitionLabel } = useLookups();
   const tags = entry.tags || [];
 
@@ -37,11 +38,11 @@ export function VocabCard({ entry, uses, cardRef, onFilterTag, onSelectTx }: Pro
       <div class="tag-card-head">
         <div class="tag-card-badges">
           <Chip color={kindColor(entry.category)}>
-            <Icon name={CATEGORY_ICON[entry.category]} size={12} /> {strings.vocab.categoryLabel(entry.category)}
+            <Icon name={CATEGORY_ICON[entry.category]} size={12} /> {t.vocab.categoryLabel(entry.category)}
           </Chip>
           {entry.kind && <span class="vocab-card-kind dim">{entry.kind}</span>}
           <span class="tag-card-spacer" />
-          <CommentButton recordType="vocab" recordId={entry.id} recordTitle={entry.label} anchor="card" anchorLabel="カード全体" />
+          <CommentButton recordType="vocab" recordId={entry.id} recordTitle={entry.label} anchor="card" anchorLabel={t.comments.cardAnchorLabel} />
         </div>
         {/* Unlike TagCard's name (clicking narrows to a tag's subtree —
             meaningful because tags nest), a vocab entry has no hierarchy to
@@ -53,7 +54,7 @@ export function VocabCard({ entry, uses, cardRef, onFilterTag, onSelectTx }: Pro
         <span class="tag-card-name vocab-card-name">{entry.label}</span>
         {entry.owner && (
           <span class="vocab-card-owner">
-            {strings.vocab.owner}: {entry.owner}
+            {t.vocab.owner}: {entry.owner}
           </span>
         )}
       </div>
@@ -68,9 +69,9 @@ export function VocabCard({ entry, uses, cardRef, onFilterTag, onSelectTx }: Pro
         <div class="card-section">
           <div class="card-section-heading-row">
             <span class="card-section-heading">
-              <Icon name="tags" size={14} /> {strings.browse.tagsHeading}{' '}
+              <Icon name="tags" size={14} /> {t.browse.tagsHeading}{' '}
               <span class="spec-card-hint dim">
-                <Icon name="plus" size={11} class="filter-plus-icon" /> {strings.browse.clickToFilter}
+                <Icon name="plus" size={11} class="filter-plus-icon" /> {t.browse.clickToFilter}
               </span>
             </span>
           </div>
@@ -87,11 +88,11 @@ export function VocabCard({ entry, uses, cardRef, onFilterTag, onSelectTx }: Pro
       <div class="card-section">
         <div class="card-section-heading-row">
           <span class="card-section-heading">
-            <Icon name="scroll-text" size={14} /> {strings.vocab.usageCount(uses.length)}
+            <Icon name="scroll-text" size={14} /> {t.vocab.usageCount(uses.length)}
           </span>
         </div>
         {uses.length === 0 ? (
-          <span class="vocab-card-no-usage dim">{strings.vocab.noUsage}</span>
+          <span class="vocab-card-no-usage dim">{t.vocab.noUsage}</span>
         ) : (
           <div class="tag-card-spec-list">
             {uses.map((t) => {

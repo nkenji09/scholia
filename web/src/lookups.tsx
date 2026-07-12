@@ -2,7 +2,7 @@ import { createContext } from 'preact';
 import type { ComponentChildren } from 'preact';
 import { useContext, useEffect, useState } from 'preact/hooks';
 import { api } from './api';
-import { strings } from './strings';
+import { useT } from './i18n';
 import type { Config, Tag, Transition, VocabEntry } from './types';
 
 const EMPTY_TAG_KIND_LABELS: Record<string, string> = {};
@@ -32,7 +32,7 @@ interface Lookups {
   tagName: (id: string) => string;
   /** A transition's human-readable headline: its action's label, plus a short "→ then…" summary. */
   transitionLabel: (txId: string) => { primary: string; secondary?: string };
-  /** Turns a raw `GET /api/search` matchedOn entry ("tag:x" / "vocab:x" / "kind:x" / "id") into Japanese prose instead of a bare id. */
+  /** Turns a raw `GET /api/search` matchedOn entry ("tag:x" / "vocab:x" / "kind:x" / "id") into localized prose instead of a bare id. */
   describeMatch: (matchedOn: string) => string;
   /** config.tagKindLabels[kind], falling back to the bare kind id when
       unset — the single place tagKind display labels get resolved
@@ -65,6 +65,7 @@ function composeTransitionLabel(t: Transition | undefined, txId: string, vocabLa
 }
 
 export function LookupsProvider({ children }: { children: ComponentChildren }) {
+  const t = useT();
   const [vocabById, setVocabById] = useState<Map<string, VocabEntry>>(new Map());
   const [tagById, setTagById] = useState<Map<string, Tag>>(new Map());
   const [transitionById, setTransitionById] = useState<Map<string, Transition>>(new Map());
@@ -97,19 +98,19 @@ export function LookupsProvider({ children }: { children: ComponentChildren }) {
   const tagKindLabel = (kind: string | undefined) => (kind && tagKindLabels[kind]) || kind || '';
 
   const describeMatch = (matchedOn: string) => {
-    if (matchedOn === 'id') return '遷移 id';
+    if (matchedOn === 'id') return t.lookups.searchById;
     const [prefix, ...rest] = matchedOn.split(':');
     const id = rest.join(':');
-    if (prefix === 'tag') return `タグ: ${tagName(id)}`;
-    if (prefix === 'vocab') return `語彙: ${vocabLabel(id)}`;
-    if (prefix === 'kind') return `種別: ${id}`;
+    if (prefix === 'tag') return `${t.lookups.tagPrefix}${tagName(id)}`;
+    if (prefix === 'vocab') return `${t.lookups.vocabPrefix}${vocabLabel(id)}`;
+    if (prefix === 'kind') return `${t.lookups.kindPrefix}${id}`;
     return matchedOn;
   };
 
   const productName = config?.display?.productName || DEFAULT_PRODUCT_NAME;
   const headerSubtitle = config?.branch || DEFAULT_SUBTITLE;
-  const tagline = config?.display?.tagline || strings.home.tagline;
-  const intro = config?.display?.intro || strings.home.intro;
+  const tagline = config?.display?.tagline || t.home.tagline;
+  const intro = config?.display?.intro || t.home.intro;
 
   const value: Lookups = {
     ready,

@@ -1,5 +1,7 @@
-import { useComments, RECORD_TYPE_META } from './useComments';
+import { useComments, recordTypeMeta } from './useComments';
 import type { CommentRecord } from './useComments';
+import { useT } from '../../i18n';
+import type { Strings } from '../../i18n';
 import { Icon } from '../shared/Icon';
 import { useBodyScrollLock } from '../../scrollLock';
 
@@ -23,7 +25,9 @@ function isSubmitKey(e: KeyboardEvent): boolean {
   return e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.isComposing;
 }
 
-const SUBMIT_HINT = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘+Enter で投稿' : 'Ctrl+Enter で投稿';
+function submitHint(t: Strings): string {
+  return typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? t.comments.submitHintMac : t.comments.submitHintOther;
+}
 
 // Slide-over panel opened from the header's comment icon (or any per-section
 // CommentButton): a composer for the currently-targeted section plus a
@@ -31,6 +35,7 @@ const SUBMIT_HINT = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(n
 // back to its record via onGoto (App.tsx's existing openTagSpec/
 // openTransition/openVocabEntry/setView routes).
 export function CommentPanel({ onGoto }: Props) {
+  const t = useT();
   const {
     comments,
     panelOpen,
@@ -66,18 +71,18 @@ export function CommentPanel({ onGoto }: Props) {
       <aside class="comment-panel">
         <div class="comment-panel-head">
           <span class="comment-panel-title">
-            <Icon name="message-filled" size={14} /> コメント <span class="comment-panel-count">{comments.length}</span>
+            <Icon name="message-filled" size={14} /> {t.comments.panelTitle} <span class="comment-panel-count">{comments.length}</span>
           </span>
           <span class="comment-panel-spacer" />
           {copyMsg && (
             <span class="comment-copy-msg">
-              <Icon name="check" size={12} /> コピーしました
+              <Icon name="check" size={12} /> {t.comments.copied}
             </span>
           )}
-          <button type="button" class="comment-copy-btn" title="AI が修正するための情報をまとめてコピー" onClick={copyAll} disabled={comments.length === 0}>
-            <Icon name="clipboard-copy" size={14} /> コピー
+          <button type="button" class="comment-copy-btn" title={t.comments.copyAllTitle} onClick={copyAll} disabled={comments.length === 0}>
+            <Icon name="clipboard-copy" size={14} /> {t.comments.copyAll}
           </button>
-          <button type="button" class="comment-close-btn" aria-label="閉じる" onClick={closePanel}>
+          <button type="button" class="comment-close-btn" aria-label={t.common.close} onClick={closePanel}>
             <Icon name="x" size={17} />
           </button>
         </div>
@@ -86,7 +91,7 @@ export function CommentPanel({ onGoto }: Props) {
           {composer && (
             <div class="comment-composer">
               <div class="comment-composer-target">
-                <span class="comment-composer-type">{RECORD_TYPE_META[composer.recordType].label}</span>
+                <span class="comment-composer-type">{recordTypeMeta(t, composer.recordType).label}</span>
                 <span class="comment-composer-title">{composer.recordTitle}</span>
                 <span class="dim">›</span>
                 <span class="dim">{composer.anchorLabel}</span>
@@ -94,7 +99,7 @@ export function CommentPanel({ onGoto }: Props) {
               <textarea
                 class="comment-composer-input"
                 rows={3}
-                placeholder="コメントを入力…（このカードのこの箇所について）"
+                placeholder={t.comments.composerPlaceholder}
                 value={composerText}
                 onInput={(e) => setComposerText((e.target as HTMLTextAreaElement).value)}
                 onKeyDown={(e) => {
@@ -106,12 +111,12 @@ export function CommentPanel({ onGoto }: Props) {
               />
               <div class="comment-composer-actions">
                 <button type="button" class="comment-btn-primary" onClick={saveComposer}>
-                  <Icon name="check" size={14} /> 保存
+                  <Icon name="check" size={14} /> {t.common.save}
                 </button>
                 <button type="button" class="comment-btn-secondary" onClick={cancelComposer}>
-                  キャンセル
+                  {t.common.cancel}
                 </button>
-                <span class="comment-kbd-hint dim">{SUBMIT_HINT}</span>
+                <span class="comment-kbd-hint dim">{submitHint(t)}</span>
                 <span class="comment-panel-spacer" />
                 {isEditingExisting && (
                   <button
@@ -123,7 +128,7 @@ export function CommentPanel({ onGoto }: Props) {
                       cancelComposer();
                     }}
                   >
-                    <Icon name="trash-2" size={14} /> 削除
+                    <Icon name="trash-2" size={14} /> {t.common.delete}
                   </button>
                 )}
               </div>
@@ -132,14 +137,14 @@ export function CommentPanel({ onGoto }: Props) {
 
           {comments.length === 0 && !composer && (
             <div class="comment-empty">
-              まだコメントはありません。
+              {t.comments.emptyLine1}
               <br />
-              各カードの見出し横の <Icon name="message-plus" size={13} /> から追加できます。
+              {t.comments.emptyLine2Before} <Icon name="message-plus" size={13} /> {t.comments.emptyLine2After}
             </div>
           )}
 
           {sorted.map((c) => {
-            const meta = RECORD_TYPE_META[c.recordType];
+            const meta = recordTypeMeta(t, c.recordType);
             return (
               <div key={c.id} class="comment-item">
                 <div class="comment-item-head">
@@ -162,7 +167,7 @@ export function CommentPanel({ onGoto }: Props) {
                           <span class="comment-reply-text">{r.text}</span>
                           <span class="comment-reply-time dim">{formatTime(r.createdAt)}</span>
                         </div>
-                        <button type="button" class="comment-reply-delete" aria-label="返信を削除" onClick={() => deleteReply(c.id, r.id)}>
+                        <button type="button" class="comment-reply-delete" aria-label={t.comments.replyDelete} onClick={() => deleteReply(c.id, r.id)}>
                           <Icon name="x" size={12} />
                         </button>
                       </div>
@@ -173,8 +178,8 @@ export function CommentPanel({ onGoto }: Props) {
                 <div class="comment-reply-composer">
                   <input
                     class="comment-reply-input"
-                    placeholder="返信を追加…"
-                    title={SUBMIT_HINT}
+                    placeholder={t.comments.replyPlaceholder}
+                    title={submitHint(t)}
                     value={replyDrafts[c.id] || ''}
                     onInput={(e) => setReplyDraft(c.id, (e.target as HTMLInputElement).value)}
                     onKeyDown={(e) => {
@@ -185,20 +190,20 @@ export function CommentPanel({ onGoto }: Props) {
                     }}
                   />
                   <button type="button" class="comment-reply-add" onClick={() => addReply(c.id)}>
-                    返信
+                    {t.comments.replyAdd}
                   </button>
                 </div>
 
                 <div class="comment-item-actions">
                   <button type="button" class="comment-btn-chip" onClick={() => onGoto(c)}>
-                    <Icon name="crosshair" size={13} /> 位置へ移動
+                    <Icon name="crosshair" size={13} /> {t.comments.gotoLocation}
                   </button>
                   <button type="button" class="comment-btn-chip" onClick={() => editComment(c)}>
-                    <Icon name="pencil" size={12} /> 編集
+                    <Icon name="pencil" size={12} /> {t.common.edit}
                   </button>
                   <span class="comment-panel-spacer" />
                   <span class="comment-item-time dim">{formatTime(c.updatedAt)}</span>
-                  <button type="button" class="comment-btn-icon-danger" aria-label="削除" onClick={() => deleteComment(c.id)}>
+                  <button type="button" class="comment-btn-icon-danger" aria-label={t.common.delete} onClick={() => deleteComment(c.id)}>
                     <Icon name="trash-2" size={13} />
                   </button>
                 </div>

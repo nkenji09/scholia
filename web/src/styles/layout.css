@@ -192,6 +192,21 @@
   height: 36px;
 }
 
+/* Language toggle (i18n, #16) — same 34px-tall .topbar-icon-btn box as
+   theme/settings, widened to fit the target-language code next to the icon
+   (shows the language a click switches TO, e.g. "EN" while in Japanese). */
+.lang-toggle-btn {
+  width: auto;
+  padding: 0 8px;
+  gap: 4px;
+}
+
+.lang-toggle-code {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+}
+
 .comment-header-badge {
   position: absolute;
   top: -6px;

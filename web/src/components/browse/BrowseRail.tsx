@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { strings } from '../../strings';
+import { useT } from '../../i18n';
 import { useDrawer } from '../../drawer';
 import { Chip } from '../shared/Chip';
 import { Icon } from '../shared/Icon';
@@ -78,6 +78,7 @@ export function BrowseRail({
   indexItems,
   suggestions = [],
 }: Props) {
+  const t = useT();
   const [focused, setFocused] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const { isNarrow, drawerOpen, closeDrawer } = useDrawer();
@@ -118,9 +119,9 @@ export function BrowseRail({
       <aside class={'browse-rail' + (isNarrow ? ' browse-rail-narrow' : '') + (isNarrow && drawerOpen ? ' browse-rail-open' : '')}>
         <div class="browse-rail-head">
           <Icon name="sliders-horizontal" size={14} class="dim" />
-          <span class="browse-rail-label dim">検索条件</span>
+          <span class="browse-rail-label dim">{t.browse.railHeading}</span>
           {isNarrow && (
-            <button type="button" class="browse-rail-close" aria-label="閉じる" onClick={closeDrawer}>
+            <button type="button" class="browse-rail-close" aria-label={t.common.close} onClick={closeDrawer}>
               <Icon name="x" size={17} />
             </button>
           )}
@@ -136,7 +137,7 @@ export function BrowseRail({
             aria-controls="browse-rail-listbox"
             aria-autocomplete="list"
             autocomplete="off"
-            placeholder={strings.browse.searchPlaceholder}
+            placeholder={t.browse.searchPlaceholder}
             value={query}
             onInput={(e) => {
               onQueryChange((e.target as HTMLInputElement).value);
@@ -169,10 +170,10 @@ export function BrowseRail({
 
         {kindOptions.length > 0 && (
           <div class="browse-rail-section">
-            <span class="browse-rail-label dim">種別</span>
+            <span class="browse-rail-label dim">{t.browse.kindHeading}</span>
             <div class="browse-rail-kinds">
               <button type="button" class={'browse-rail-kind' + (kindFacet === 'all' ? ' active' : '')} onClick={() => onKindFacetChange('all')}>
-                <span>{strings.browse.kindAll}</span>
+                <span>{t.browse.kindAll}</span>
                 <span class="dim">{kindOptions.reduce((sum, k) => sum + k.count, 0)}</span>
               </button>
               {kindOptions.map((k) => (
@@ -194,10 +195,10 @@ export function BrowseRail({
           <div class="browse-rail-conditions">
             <div class="browse-rail-conditions-head">
               <span class="browse-rail-label dim">
-                <Icon name="filter" size={13} /> {strings.browse.conditionsHeading} <span class="browse-rail-and">{strings.browse.and}</span>
+                <Icon name="filter" size={13} /> {t.browse.conditionsHeading} <span class="browse-rail-and">{t.browse.and}</span>
               </span>
               <button type="button" class="browse-rail-clear" onClick={onClearConditions}>
-                {strings.browse.clear}
+                {t.browse.clear}
               </button>
             </div>
             <div class="browse-rail-condition-chips">
@@ -212,7 +213,7 @@ export function BrowseRail({
 
         <div class="browse-rail-section browse-rail-index">
           <span class="browse-rail-label dim">
-            <Icon name="list" size={13} /> {strings.browse.indexHeading} <span class="browse-rail-index-count">{indexItems.length}</span>
+            <Icon name="list" size={13} /> {t.browse.indexHeading} <span class="browse-rail-index-count">{indexItems.length}</span>
           </span>
           <div class="browse-rail-index-list">
             {indexItems.map((item) => (
@@ -232,7 +233,7 @@ export function BrowseRail({
                 )}
               </button>
             ))}
-            {indexItems.length === 0 && <span class="dim browse-rail-index-empty">{strings.browse.indexEmpty}</span>}
+            {indexItems.length === 0 && <span class="dim browse-rail-index-empty">{t.browse.indexEmpty}</span>}
           </div>
         </div>
       </aside>

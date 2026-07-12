@@ -1,3 +1,4 @@
+import { useT } from '../../i18n';
 import { Icon } from '../shared/Icon';
 
 interface Props {
@@ -14,18 +15,19 @@ interface Props {
 // central resolver (lookups.tsx's tagKindLabel) falls back to the bare kind
 // id, and this field's own placeholder previews that fallback live.
 export function TagKindLabelsField({ tagKinds, labels, editable, onChange }: Props) {
+  const t = useT();
   return (
     <div class="config-field">
       <div class="config-field-head">
         <span class="config-field-icon">
           <Icon name="pencil" size={14} />
         </span>
-        <span class="config-field-label">タグ種別の表示ラベル</span>
+        <span class="config-field-label">{t.config.tagKindLabelsField.label}</span>
         <span class="config-field-mono">tagKindLabels</span>
       </div>
-      <p class="config-field-desc dim">各タグ種別の画面表示名。未設定のままなら id をそのまま表示します。</p>
+      <p class="config-field-desc dim">{t.config.tagKindLabelsField.description}</p>
       {tagKinds.length === 0 ? (
-        <span class="dim config-field-empty">（タグ種別が未設定です）</span>
+        <span class="dim config-field-empty">{t.config.tagKindsUnset}</span>
       ) : (
         <div class="config-label-map">
           {tagKinds.map((kind) => (

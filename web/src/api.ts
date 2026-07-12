@@ -13,6 +13,8 @@ import type {
   VocabEntry,
   Decision,
 } from './types';
+import { loadLang } from './i18n';
+import { DICTS } from './strings';
 
 class ApiError extends Error {}
 
@@ -31,7 +33,7 @@ const staticData: PmemStaticData | undefined = window.__PMEM_STATIC__;
 export const isStaticMode = !!staticData;
 
 function staticUnavailable(what: string): Promise<never> {
-  return Promise.reject(new ApiError(`${what}は静的版（pmem export --html）では利用できません`));
+  return Promise.reject(new ApiError(DICTS[loadLang()].api.unavailable(what)));
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -100,7 +102,7 @@ export const api = {
   getConfig: () => (staticData ? Promise.resolve(staticData.config) : request<Config>('/api/config')),
 
   putConfig: (patch: ConfigPatch) => {
-    if (staticData) return staticUnavailable('config の編集');
+    if (staticData) return staticUnavailable(DICTS[loadLang()].api.configEdit);
     return request<Config>('/api/config', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -128,9 +130,9 @@ export const api = {
 
   getTransitions: (params: { facet?: string; tag?: string; kind?: string }) => {
     if (staticData) {
-      if (params.facet || params.kind) return staticUnavailable('facet/kind での遷移一覧');
+      if (params.facet || params.kind) return staticUnavailable(DICTS[loadLang()].api.transitionsByFacetKind);
       const res = staticData.transitionsByTag[params.tag ?? ''];
-      if (!res) return staticUnavailable(`tag ${params.tag} の遷移一覧`);
+      if (!res) return staticUnavailable(DICTS[loadLang()].api.transitionsForTag(params.tag ?? ''));
       return Promise.resolve(res);
     }
     return request<TransitionsResponse>('/api/transitions' + query(params));
@@ -139,7 +141,7 @@ export const api = {
   getTransition: (id: string) => {
     if (staticData) {
       const detail = staticData.transitionDetail[id];
-      return detail ? Promise.resolve(detail) : staticUnavailable(`遷移 ${id}`);
+      return detail ? Promise.resolve(detail) : staticUnavailable(DICTS[loadLang()].api.transition(id));
     }
     return request<TransitionDetail>(`/api/transitions/${encodeURIComponent(id)}`);
   },
@@ -147,7 +149,7 @@ export const api = {
   getSpec: (tagId: string) => {
     if (staticData) {
       const report = staticData.spec[tagId];
-      return report ? Promise.resolve(report) : staticUnavailable(`spec ${tagId}`);
+      return report ? Promise.resolve(report) : staticUnavailable(DICTS[loadLang()].api.spec(tagId));
     }
     return request<SpecReport>(`/api/spec/${encodeURIComponent(tagId)}`);
   },
@@ -159,7 +161,7 @@ export const api = {
       // only current caller and never passes tag/tx/facet. Per-selector
       // rules queries stay live-only (TransitionDetail/SpecView already get
       // their decisions embedded directly in their own static payloads).
-      if (params.tag || params.tx || params.facet) return staticUnavailable('rules (tag/tx/facet 指定)');
+      if (params.tag || params.tx || params.facet) return staticUnavailable(DICTS[loadLang()].api.rulesWithSelectors);
       return Promise.resolve({ decisions: staticData.decisions });
     }
     return request<{ decisions: Decision[] }>('/api/rules' + query(params));

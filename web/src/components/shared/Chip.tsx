@@ -1,4 +1,5 @@
 import type { ComponentChildren, JSX } from 'preact';
+import { useT } from '../../i18n';
 import { Icon } from './Icon';
 
 // Kind color mapping (design tokens --k-req/--k-sub/--k-con for tag kinds,
@@ -32,6 +33,7 @@ interface Props {
 }
 
 export function Chip({ color = 'var(--lm-text-dim)', onClick, onRemove, filterable, title, children }: Props) {
+  const t = useT();
   const style = { '--chip-color': color } as JSX.CSSProperties;
   if (onClick) {
     return (
@@ -45,7 +47,7 @@ export function Chip({ color = 'var(--lm-text-dim)', onClick, onRemove, filterab
     <span class="chip" style={style} title={title}>
       {children}
       {onRemove && (
-        <button type="button" class="chip-remove" aria-label="除去" onClick={onRemove}>
+        <button type="button" class="chip-remove" aria-label={t.common.remove} onClick={onRemove}>
           <Icon name="x" size={11} />
         </button>
       )}

@@ -1,6 +1,8 @@
 import { createContext } from 'preact';
 import type { ComponentChildren } from 'preact';
 import { useContext, useEffect, useState } from 'preact/hooks';
+import { useT } from '../../i18n';
+import type { Strings } from '../../i18n';
 import type { IconName } from '../shared/Icon';
 
 // Comments (#18) — volatile, per-browser annotations. Deliberately NOT part
@@ -23,12 +25,24 @@ import type { IconName } from '../shared/Icon';
 
 export type RecordType = 'tag' | 'transition' | 'vocab' | 'page';
 
-export const RECORD_TYPE_META: Record<RecordType, { label: string; icon: IconName; color: string }> = {
-  tag: { label: 'タグ', icon: 'tags', color: 'var(--lm-primary-strong)' },
-  transition: { label: '仕様', icon: 'scroll-text', color: 'var(--t-act)' },
-  vocab: { label: '語彙', icon: 'book-open', color: 'var(--tag-teal)' },
-  page: { label: 'ページ', icon: 'layout-dashboard', color: 'var(--lm-text-dim)' },
+const RECORD_TYPE_ICON: Record<RecordType, IconName> = {
+  tag: 'tags',
+  transition: 'scroll-text',
+  vocab: 'book-open',
+  page: 'layout-dashboard',
 };
+
+const RECORD_TYPE_COLOR: Record<RecordType, string> = {
+  tag: 'var(--lm-primary-strong)',
+  transition: 'var(--t-act)',
+  vocab: 'var(--tag-teal)',
+  page: 'var(--lm-text-dim)',
+};
+
+/** icon/color are language-independent constants; label comes from the active `t` (replaces the old static RECORD_TYPE_META). */
+export function recordTypeMeta(t: Strings, type: RecordType): { label: string; icon: IconName; color: string } {
+  return { label: t.comments.recordType[type], icon: RECORD_TYPE_ICON[type], color: RECORD_TYPE_COLOR[type] };
+}
 
 export interface CommentTarget {
   recordType: RecordType;
@@ -105,18 +119,14 @@ function newId(prefix: string): string {
   return prefix + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
 }
 
-function buildCopyText(comments: CommentRecord[]): string {
-  const lines = [
-    '# product-memory ビューア — レビューコメント',
-    `以下の ${comments.length} 件のコメントに基づき、該当箇所を修正してください（[ページ] は特定のカードに紐づかない、そのビュー全体への指摘です）。`,
-    '',
-  ];
+function buildCopyText(t: Strings, comments: CommentRecord[]): string {
+  const lines = [t.comments.copyDocTitle, t.comments.copyIntro(comments.length), ''];
   comments.forEach((c, i) => {
-    lines.push(`${i + 1}. [${RECORD_TYPE_META[c.recordType].label}] ${c.recordId} 「${c.recordTitle}」`);
-    lines.push(`   箇所: ${c.anchorLabel}`);
-    lines.push(`   コメント: ${c.text}`);
+    lines.push(t.comments.copyItemHeader(i + 1, recordTypeMeta(t, c.recordType).label, c.recordId, c.recordTitle));
+    lines.push(t.comments.copyLocationLine(c.anchorLabel));
+    lines.push(t.comments.copyCommentLine(c.text));
     if (c.replies.length > 0) {
-      lines.push('   返信スレッド:');
+      lines.push(t.comments.copyReplyHeading);
       c.replies.forEach((r) => lines.push(`     - ${r.text}`));
     }
     lines.push('');
@@ -142,6 +152,7 @@ function fallbackCopy(text: string) {
 }
 
 export function CommentsProvider({ children }: { children: ComponentChildren }) {
+  const t = useT();
   const [comments, setComments] = useState<CommentRecord[]>([]);
   const [panelOpen, setPanelOpen] = useState(false);
   const [composer, setComposer] = useState<CommentTarget | null>(null);
@@ -238,7 +249,7 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
 
   const copyAll = () => {
     if (comments.length === 0) return;
-    const text = buildCopyText(comments);
+    const text = buildCopyText(t, comments);
     const done = () => {
       setCopyMsg(true);
       setTimeout(() => setCopyMsg(false), 2000);

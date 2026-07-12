@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { api } from '../api';
 import { useLookups } from '../lookups';
 import { useDrawer } from '../drawer';
-import { strings } from '../strings';
+import { useT } from '../i18n';
 import type { Transition, VocabEntry } from '../types';
 import { BrowseRail } from './browse/BrowseRail';
 import type { ConditionChip, IndexItem, KindOption, SuggestionItem } from './browse/BrowseRail';
@@ -35,6 +35,7 @@ function usedBy(v: VocabEntry, transitions: Transition[]): Transition[] {
 // descendant-tree walk — don't fit that shared machinery), it just borrows
 // the same rail/card *presentation*.
 export function VocabView({ onSelectTx, initialFocusId }: Props) {
+  const t = useT();
   const { tagById } = useLookups();
   const { closeDrawer } = useDrawer();
   const [vocab, setVocab] = useState<VocabEntry[] | null>(null);
@@ -84,12 +85,12 @@ export function VocabView({ onSelectTx, initialFocusId }: Props) {
   const removeTagFilter = (i: number) => setTagFilters((prev) => prev.filter((_, idx) => idx !== i));
 
   if (error) return <div class="browse-view error">{error}</div>;
-  if (!vocab) return <div class="browse-view dim">{strings.vocab.loading}</div>;
+  if (!vocab) return <div class="browse-view dim">{t.vocab.loading}</div>;
 
   const q = query.trim().toLowerCase();
   const kindOptions: KindOption[] = CATEGORIES.map((c) => ({
     key: c,
-    label: strings.vocab.categoryLabel(c),
+    label: t.vocab.categoryLabel(c),
     count: vocab.filter((v) => v.category === c).length,
   }));
 
@@ -112,8 +113,8 @@ export function VocabView({ onSelectTx, initialFocusId }: Props) {
   }));
 
   const conditions: ConditionChip[] = tagFilters.map((id, i) => {
-    const t = tagById.get(id);
-    return { label: t?.name || id, color: kindColor(t?.kind), onRemove: () => removeTagFilter(i) };
+    const tag = tagById.get(id);
+    return { label: tag?.name || id, color: kindColor(tag?.kind), onRemove: () => removeTagFilter(i) };
   });
 
   // Combobox candidates (2026-07-11 tweaks3 §3): tags only, not other vocab
@@ -130,8 +131,8 @@ export function VocabView({ onSelectTx, initialFocusId }: Props) {
     return categoryPool.some((v) => testFilters.every((id) => (v.tags || []).includes(id)));
   };
   const suggestions: SuggestionItem[] = Array.from(tagById.values())
-    .filter((t) => !tagFilters.includes(t.id) && tagWouldMatchAny(t.id))
-    .map((t) => ({ id: t.id, label: t.name || t.id, color: kindColor(t.kind), kindLabel: strings.nav.tags, onSelect: () => addTagFilter(t.id) }));
+    .filter((tag) => !tagFilters.includes(tag.id) && tagWouldMatchAny(tag.id))
+    .map((tag) => ({ id: tag.id, label: tag.name || tag.id, color: kindColor(tag.kind), kindLabel: t.nav.tags, onSelect: () => addTagFilter(tag.id) }));
 
   return (
     <div class="browse-view">
@@ -149,14 +150,14 @@ export function VocabView({ onSelectTx, initialFocusId }: Props) {
       <main class="browse-main">
         <div class="browse-main-head">
           <h1>
-            {strings.vocab.heading}
-            <CommentButton recordType="page" recordId="vocab" recordTitle={strings.vocab.heading} anchor="page" anchorLabel="ページ全体" />
+            {t.vocab.heading}
+            <CommentButton recordType="page" recordId="vocab" recordTitle={t.vocab.heading} anchor="page" anchorLabel={t.comments.pageAnchorLabel} />
           </h1>
-          <span class="dim">{strings.vocab.intro}</span>
+          <span class="dim">{t.vocab.intro}</span>
         </div>
         <div class="browse-card-list">
           {visible.length === 0 ? (
-            <div class="card-empty">{strings.vocab.empty}</div>
+            <div class="card-empty">{t.vocab.empty}</div>
           ) : (
             visible.map((v) => (
               <VocabCard
