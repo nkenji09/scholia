@@ -1,9 +1,11 @@
 import { useLookups } from '../../lookups';
+import { usePendingDiff } from '../../pendingDiff';
 import { useT } from '../../i18n';
 import type { Decision, SpecReport, Tag } from '../../types';
 import { Markdown } from '../Markdown';
 import { Chip, kindColor } from '../shared/Chip';
 import { CommentButton } from '../comments/CommentButton';
+import { useComments } from '../comments/useComments';
 import { Icon } from '../shared/Icon';
 
 interface Props {
@@ -33,11 +35,27 @@ function dedupeDecisions(decisions: Decision[]): Decision[] {
 export function TagCard({ tag, report, isGap, parents, children, cardRef, onFilterSelf, onSelectParent, onSelectChild, onSelectSpec }: Props) {
   const t = useT();
   const { tagKindLabel } = useLookups();
+  const { changedTagIds } = usePendingDiff();
+  const { openComposer, comments } = useComments();
   const entries = report?.entries || [];
   const tagDecisions = dedupeDecisions(entries.flatMap((e) => (e.decisions || []).filter((d) => d.target.type === 'tag')));
+  // §8.8 P5 vocab/tag（generalized from SpecCard's hasUncommentedChange・
+  // §8.3）: see VocabCard.tsx's identical comment.
+  const hasUncommentedChange = changedTagIds.has(tag.id) && !comments.some((c) => c.recordType === 'tag' && c.recordId === tag.id);
 
   return (
     <article ref={cardRef} data-card-id={tag.id} class="card" title={tag.id}>
+      {hasUncommentedChange && (
+        <button
+          type="button"
+          class="spec-card-clean-flag"
+          onClick={() =>
+            openComposer({ recordType: 'tag', recordId: tag.id, recordTitle: tag.name || tag.id, anchor: 'card', anchorLabel: t.comments.cardAnchorLabel })
+          }
+        >
+          <Icon name="git-compare" size={12} /> {t.comments.proposalCleanFlag}
+        </button>
+      )}
       <div class="tag-card-head">
         <div class="tag-card-badges">
           <Chip color={kindColor(tag.kind)} onClick={onFilterSelf}>

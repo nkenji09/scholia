@@ -1,9 +1,11 @@
 import { useLookups } from '../../lookups';
+import { usePendingDiff } from '../../pendingDiff';
 import { useT } from '../../i18n';
 import type { Transition, VocabEntry } from '../../types';
 import { Markdown } from '../Markdown';
 import { Chip, kindColor, OWNER_COLOR } from '../shared/Chip';
 import { CommentButton } from '../comments/CommentButton';
+import { useComments } from '../comments/useComments';
 import { Icon } from '../shared/Icon';
 import type { IconName } from '../shared/Icon';
 
@@ -32,10 +34,26 @@ const CATEGORY_ICON: Record<VocabEntry['category'], IconName> = {
 export function VocabCard({ entry, uses, cardRef, onFilterTag, onFilterOwner, onSelectTx }: Props) {
   const t = useT();
   const { tagById, transitionLabel } = useLookups();
+  const { changedVocabIds } = usePendingDiff();
+  const { openComposer, comments } = useComments();
   const tags = entry.tags || [];
+  // §8.8 P5 vocab/tag（generalized from SpecCard's hasUncommentedChange・
+  // §8.3）: a pending change with no comment yet is a quiet pending-change
+  // flag, not a "proposal" — it steps aside once someone comments on this
+  // entry (the comment itself then carries the diff card and badge count).
+  const hasUncommentedChange = changedVocabIds.has(entry.id) && !comments.some((c) => c.recordType === 'vocab' && c.recordId === entry.id);
 
   return (
     <article ref={cardRef} data-card-id={entry.id} class="card" title={entry.id}>
+      {hasUncommentedChange && (
+        <button
+          type="button"
+          class="spec-card-clean-flag"
+          onClick={() => openComposer({ recordType: 'vocab', recordId: entry.id, recordTitle: entry.label, anchor: 'card', anchorLabel: t.comments.cardAnchorLabel })}
+        >
+          <Icon name="git-compare" size={12} /> {t.comments.proposalCleanFlag}
+        </button>
+      )}
       <div class="tag-card-head">
         <div class="tag-card-badges">
           <Chip color={kindColor(entry.category)}>

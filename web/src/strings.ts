@@ -228,6 +228,15 @@ const ja = {
     reflectButton: 'この手直しを提案に反映',
     reflecting: '反映中…',
     reflectError: (msg: string) => `反映できませんでした: ${msg}`,
+    // #27 §8.8 P5 vocab/tag: transition の ProposalCard は語彙ピッカーで
+    // 手直しできる（G-1′）が、vocab/tag は書込エンドポイントが無い
+    // read-only の before/after 表示のみ（RecordDiffCard.tsx）。
+    recordDiffLabelField: 'ラベル',
+    recordDiffKindField: '種別',
+    recordDiffDescriptionField: '説明',
+    recordDiffNameField: '名前',
+    recordDiffParentsField: '親タグ',
+    recordDiffNoParents: '（親タグなし）',
   },
   // lookups.tsx の describeMatch()（検索結果の一致理由テキスト）。
   lookups: {
@@ -478,6 +487,12 @@ const en: Strings = {
     deleteProposalDeleting: 'Deleting…',
     deleteProposalCancel: 'Cancel',
     deleteProposalError: (msg) => `Could not delete: ${msg}`,
+    recordDiffLabelField: 'Label',
+    recordDiffKindField: 'Kind',
+    recordDiffDescriptionField: 'Description',
+    recordDiffNameField: 'Name',
+    recordDiffParentsField: 'Parent tags',
+    recordDiffNoParents: '(no parent tags)',
   },
   lookups: {
     searchById: 'transition id',
