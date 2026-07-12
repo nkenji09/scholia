@@ -10,8 +10,5 @@
   "tags": [
     "req.self-consistency-lint",
     "subject.lint"
-  ],
-  "tests": [
-    "TestCLI_LintFailsOnDanglingVocabRef"
   ]
 }

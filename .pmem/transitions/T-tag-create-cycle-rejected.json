@@ -11,8 +11,5 @@
     "req.git-native",
     "subject.lint",
     "concern.data-integrity"
-  ],
-  "tests": [
-    "TestCLI_TagCreateRejectsMissingParentAndCycle"
   ]
 }

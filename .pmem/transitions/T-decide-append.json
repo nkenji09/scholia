@@ -11,8 +11,5 @@
     "req.record-decisions.transition",
     "req.record-decisions.tag",
     "subject.decision"
-  ],
-  "tests": [
-    "TestCLI_DecideThenRulesSurfacesTxAndTagDecisions"
   ]
 }
