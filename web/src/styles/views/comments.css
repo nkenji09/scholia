@@ -584,6 +584,35 @@
   font-size: var(--fs-3xs);
 }
 
+/* RecordDiffCard.tsx（#27 §8.8 P5 vocab/tag）— description のような複数行
+   テキストは .proposal-atom のチップ表現に収まらないので、ブロック単位の
+   before/after 表示にする。行自体は .proposal-row を再利用しつつ
+   baseline 揃えを外す（複数行だと上端が揃っていた方が読みやすいため）。 */
+.proposal-row-text {
+  align-items: start;
+}
+
+.proposal-text-diff {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.proposal-text-before {
+  border-radius: var(--r-sm);
+  background: var(--lm-error-weak);
+  padding: 4px 8px;
+  text-decoration: line-through;
+  opacity: 0.75;
+}
+
+.proposal-text-after {
+  border-radius: var(--r-sm);
+  background: var(--lm-success-weak);
+  padding: 4px 8px;
+}
+
 /* Nested placement (#27 P2′-rework) — .proposal-card renders inside
    .comment-composer/.comment-item, both already flex columns with their own
    gap, so drop the card's own bottom margin to avoid doubled spacing. */

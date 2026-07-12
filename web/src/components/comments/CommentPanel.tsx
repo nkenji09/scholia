@@ -2,6 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { useComments, recordTypeMeta } from './useComments';
 import type { CommentRecord, DisplayComment } from './useComments';
 import { ProposalCard } from './ProposalCard';
+import { RecordDiffCard } from './RecordDiffCard';
 import { usePendingDiff } from '../../pendingDiff';
 import { useT } from '../../i18n';
 import type { Strings } from '../../i18n';
@@ -59,6 +60,7 @@ export function CommentPanel({ onGoto }: Props) {
     adoptLocalComment,
     adoptReview,
     getDecision,
+    cacheDecision,
     copyMsg,
     copyAll,
     tasks,
@@ -71,7 +73,7 @@ export function CommentPanel({ onGoto }: Props) {
     cancelCreateTask,
     saveNewTask,
   } = useComments();
-  const { changedTransitionIds, refresh: refreshPendingDiff } = usePendingDiff();
+  const { changedTransitionIds, changedVocabIds, changedTagIds, refresh: refreshPendingDiff } = usePendingDiff();
 
   // 削除（提案）（change-cockpit-design-v3.md §8.8 P5・M-5「削除」・G-1′
   // 拡張）: composer が transition を指しているときだけ出るトグル。
@@ -131,6 +133,11 @@ export function CommentPanel({ onGoto }: Props) {
     setAdoptError(null);
     try {
       const decision = await api.postDecision({ on: `${c.recordType}:${c.recordId}`, why, commits: [] });
+      // レビュー major fix-back（#27 P5b）: consider() の reload 専用
+      // 再取得を待たず、POST 応答の Decision（編集後 why を含む）を即座に
+      // キャッシュへ入れる — 「採用された why」表示が編集前の AI 原文/
+      // 旧 text で固まらないようにする（transition/tag 共通）。
+      cacheDecision(decision);
       if (c.source === 'ai') adoptReview(c.id, decision.id);
       else adoptLocalComment(c.id, decision.id, why);
       setAdoptingId(null);
@@ -151,10 +158,19 @@ export function CommentPanel({ onGoto }: Props) {
 
   // #27 P2′-rework (change-cockpit-design-v3.md §8.2): a comment IS a
   // proposal when its record currently has a pending change — no separate
-  // Proposal record, just this derived check plus an inline ProposalCard.
+  // Proposal record, just this derived check plus an inline diff card.
   // Applies equally to AI comments (§8.4): an AI review on a changed record
   // is a proposal exactly like a human one, via the same derive.
-  const isProposalComment = (c: DisplayComment) => c.recordType === 'transition' && changedTransitionIds.has(c.recordId);
+  // §8.8 P5 vocab/tag: the same derive generalizes by recordType — only the
+  // Set it consults changes (transition/vocab/tag each has its own pending-
+  // diff Set from usePendingDiff()); 'page' comments never qualify (a page
+  // isn't a .pmem record with a diff).
+  const isProposalComment = (c: DisplayComment) => {
+    if (c.recordType === 'transition') return changedTransitionIds.has(c.recordId);
+    if (c.recordType === 'vocab') return changedVocabIds.has(c.recordId);
+    if (c.recordType === 'tag') return changedTagIds.has(c.recordId);
+    return false;
+  };
 
   // Proposal comments (change + comment) group to the front (§8.2/§8.8),
   // most-recently-updated first within each group (stable sort keeps the
@@ -245,6 +261,10 @@ export function CommentPanel({ onGoto }: Props) {
                 <span class="dim">{composer.anchorLabel}</span>
               </div>
               {composer.recordType === 'transition' && changedTransitionIds.has(composer.recordId) && <ProposalCard txId={composer.recordId} />}
+              {composer.recordType === 'vocab' && changedVocabIds.has(composer.recordId) && (
+                <RecordDiffCard recordType="vocab" recordId={composer.recordId} />
+              )}
+              {composer.recordType === 'tag' && changedTagIds.has(composer.recordId) && <RecordDiffCard recordType="tag" recordId={composer.recordId} />}
               {/* 削除（提案）（§8.8 P5・M-5「削除」・G-1′ 拡張）: どの
                   transition ドロワーからでも出せる（変更の有無を問わない）
                   — ProposalCard 上の「反映」と違い下書きを持たず、確定を
@@ -325,6 +345,12 @@ export function CommentPanel({ onGoto }: Props) {
             const meta = recordTypeMeta(t, c.recordType);
             const isAi = c.source === 'ai';
             const isProposal = isProposalComment(c);
+            // §8.5/P4 の POST /api/decision は on=transition:<id>|tag:<id>
+            // のみを受ける（internal/model.DecisionTarget・vocab は対象外
+            // ＝backend は不可変更のスコープ）。vocab の提案は差分カード＋
+            // バッジには乗るが、採用導線だけはここで外す（出しても 400 に
+            // なるだけの死んだボタンにしない）。
+            const isAdoptable = c.recordType === 'transition' || c.recordType === 'tag';
             const adopted = !!c.decisionId;
             const decision = c.decisionId ? getDecision(c.decisionId) : undefined;
             return (
@@ -351,7 +377,10 @@ export function CommentPanel({ onGoto }: Props) {
                     </span>
                   )}
                 </div>
-                {isProposal && <ProposalCard txId={c.recordId} />}
+                {isProposal && c.recordType === 'transition' && <ProposalCard txId={c.recordId} />}
+                {isProposal && (c.recordType === 'vocab' || c.recordType === 'tag') && (
+                  <RecordDiffCard recordType={c.recordType} recordId={c.recordId} />
+                )}
                 <p class="comment-item-text">{c.text}</p>
 
                 {adopted && (
@@ -367,13 +396,13 @@ export function CommentPanel({ onGoto }: Props) {
 
                 {/* 採用（§8.5・P4）: 唯一の書込導線。static export は書込不可
                     なので導線ごと隠す（handoff「static では非活性/非表示」）。 */}
-                {isProposal && !isStaticMode && !adopted && adoptingId !== c.id && (
+                {isProposal && isAdoptable && !isStaticMode && !adopted && adoptingId !== c.id && (
                   <button type="button" class="comment-adopt-btn" onClick={() => startAdopt(c)}>
                     <Icon name="gavel" size={13} /> {t.comments.adoptButton}
                   </button>
                 )}
 
-                {isProposal && adoptingId === c.id && (
+                {isProposal && isAdoptable && adoptingId === c.id && (
                   <div class="comment-adopt-form">
                     <div class="comment-adopt-form-label">{t.comments.adoptWhyLabel}</div>
                     <textarea
