@@ -35,6 +35,7 @@ func NewHandler(s *store.Store) (http.Handler, error) {
 	registerDerivedRoutes(apiMux, s)
 	registerTraceabilityRoute(apiMux, s)
 	registerSearchRoute(apiMux, s)
+	registerReviewsRoute(apiMux, s)
 
 	root := http.NewServeMux()
 	root.Handle("/api/", jsonAPIHandler{mux: apiMux})

@@ -66,7 +66,8 @@ type InitOptions struct {
 }
 
 // Init は projectRoot/.pmem 以下のディレクトリと config.json を作成する（冪等）。
-// 既存 config は上書きしない。対象 repo の .gitignore に .pmem/index.db を追記する（§3.1）。
+// 既存 config は上書きしない。対象 repo の .gitignore に .pmem/index.db と
+// .pmem/reviews/（AI コメント配送サイドカー・揮発層・§8.4）を追記する（§3.1）。
 func Init(projectRoot string) (*Store, error) {
 	return InitWithOptions(projectRoot, InitOptions{})
 }
@@ -96,6 +97,9 @@ func InitWithOptions(projectRoot string, opts InitOptions) (*Store, error) {
 
 	if !opts.SkipGitignore {
 		if err := ensureGitignoreEntry(abs, DirName+"/index.db"); err != nil {
+			return nil, err
+		}
+		if err := ensureGitignoreEntry(abs, DirName+"/reviews/"); err != nil {
 			return nil, err
 		}
 	}
