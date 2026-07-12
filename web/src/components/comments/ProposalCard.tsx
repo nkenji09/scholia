@@ -63,7 +63,7 @@ export function ProposalCard({ txId }: Props) {
   const givenAtoms = setDiffIds(change.before.given, change.givenRemoved, change.givenAdded);
   const thenAtoms = thenDiff(change.before.then, change.after.then);
   const tagsAtoms = setDiffIds(change.before.tags || [], change.tagsRemoved, change.tagsAdded);
-  const thenSetUnchanged = !change.thenChanged && change.thenReordered;
+  const thenReorderedOnly = change.thenChanged && change.thenReordered;
 
   return (
     <div class="proposal-card">
@@ -107,7 +107,7 @@ export function ProposalCard({ txId }: Props) {
               {vocabLabel(a.id)}
             </Atom>
           ))}
-          {thenSetUnchanged && <span class="proposal-reordered-note dim">{t.comments.proposalReordered}</span>}
+          {thenReorderedOnly && <span class="proposal-reordered-note dim">{t.comments.proposalReordered}</span>}
         </span>
       </div>
 
