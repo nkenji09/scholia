@@ -60,6 +60,30 @@ func TestInitIsIdempotentAndWritesDefaultConfig(t *testing.T) {
 	}
 }
 
+func TestInitWritesReviewsGitignoreEntryOnce(t *testing.T) {
+	dir := t.TempDir()
+
+	if _, err := Init(dir); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	// 2 回目以降の Init でも .pmem/reviews/ が重複追記されないこと（冪等）。
+	if _, err := Init(dir); err != nil {
+		t.Fatalf("second Init: %v", err)
+	}
+	if _, err := Init(dir); err != nil {
+		t.Fatalf("third Init: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	if err != nil {
+		t.Fatalf("read .gitignore: %v", err)
+	}
+	count := strings.Count(string(data), ".pmem/reviews/")
+	if count != 1 {
+		t.Fatalf(".gitignore entry duplicated or missing: count=%d, content=%q", count, string(data))
+	}
+}
+
 func TestInitWithOptionsSkipGitignoreLeavesGitignoreUntouched(t *testing.T) {
 	dir := t.TempDir()
 
