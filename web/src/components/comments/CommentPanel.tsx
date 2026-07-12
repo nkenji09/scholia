@@ -60,6 +60,7 @@ export function CommentPanel({ onGoto }: Props) {
     adoptLocalComment,
     adoptReview,
     getDecision,
+    cacheDecision,
     copyMsg,
     copyAll,
     tasks,
@@ -132,6 +133,11 @@ export function CommentPanel({ onGoto }: Props) {
     setAdoptError(null);
     try {
       const decision = await api.postDecision({ on: `${c.recordType}:${c.recordId}`, why, commits: [] });
+      // レビュー major fix-back（#27 P5b）: consider() の reload 専用
+      // 再取得を待たず、POST 応答の Decision（編集後 why を含む）を即座に
+      // キャッシュへ入れる — 「採用された why」表示が編集前の AI 原文/
+      // 旧 text で固まらないようにする（transition/tag 共通）。
+      cacheDecision(decision);
       if (c.source === 'ai') adoptReview(c.id, decision.id);
       else adoptLocalComment(c.id, decision.id, why);
       setAdoptingId(null);

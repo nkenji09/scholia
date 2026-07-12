@@ -150,6 +150,7 @@ interface CommentsValue {
   adoptLocalComment: (commentId: string, decisionId: string, finalWhy: string) => void;
   adoptReview: (reviewId: string, decisionId: string) => void;
   getDecision: (decisionId: string) => Decision | undefined;
+  cacheDecision: (decision: Decision) => void;
   copyMsg: boolean;
   copyAll: () => void;
   tasks: Task[];
@@ -309,13 +310,14 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
   const [creatingTask, setCreatingTask] = useState(false);
   const [taskDraftTitle, setTaskDraftTitle] = useState('');
   const [reviewBindings, setReviewBindings] = useState<ReviewBindings>({});
-  // 採用（§8.5・P4）: decisionId が付いたコメント/AI レビューの、確定 why を
-  // 表示するためのキャッシュ。decision 自体の正本は .pmem/decisions/ のまま
-  // （GET /api/rules?tx= 経由の read-only キャッシュ）— ここに保存はしない
-  // （reload 後は fetchedTxIds 経由で読み直す。§7.10「原子を保存し構造は
-  // derive」と同じ流儀）。
+  // 採用（§8.5・P4／#27 P5b fix-back）: decisionId が付いたコメント/AI
+  // レビューの、確定 why を表示するためのキャッシュ。decision 自体の正本は
+  // .pmem/decisions/ のまま（採用直後は cacheDecision で POST 応答を直接
+  // 投入し、reload 後は下の consider() で GET /api/rules?tx=|tag= から
+  // 読み直す。§7.10「原子を保存し構造は derive」と同じ流儀）。
   const [decisionCache, setDecisionCache] = useState<Record<string, Decision>>({});
-  const [fetchedTxIds, setFetchedTxIds] = useState<Set<string>>(new Set());
+  // recordType:recordId の複合キー（tx と tag の id 名前空間衝突を避ける）。
+  const [fetchedRecordKeys, setFetchedRecordKeys] = useState<Set<string>>(new Set());
 
   const { reviews } = useReviews();
   const { transitionLabel, vocabLabel, tagName } = useLookups();
@@ -351,25 +353,33 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
   }, [reviews, activeTaskId]);
 
   // 採用済みコメント/AI レビュー（decisionId 付き）の why を復元する
-  // （reload 後の「採用済み」表示・P4）。decision の正本は .pmem/decisions/
-  // のみ・localStorage には複製しない。tx ごとに 1 回だけ GET /api/rules?tx=
-  // を叩き（既存 read-only エンドポイント・新規追加なし）、返ってきた
-  // decisions を id で引けるようキャッシュする。同じ tx を何度も叩かないよう
-  // fetchedTxIds で既試行を記録する（decision が見つからない/失敗した場合も
-  // 含め、無限リトライを避ける）。
+  // （reload 後の「採用済み」表示・P4／#27 P5b fix-back で tag へ拡張）。
+  // decision の正本は .pmem/decisions/ のみ・localStorage には複製しない。
+  // レコードごとに 1 回だけ GET /api/rules?tx=|tag= を叩き（既存 read-only
+  // エンドポイント・新規追加なし）、返ってきた decisions を id で引ける
+  // ようキャッシュする。同じレコードを何度も叩かないよう
+  // fetchedRecordKeys で既試行を記録する（decision が見つからない/失敗
+  // した場合も含め、無限リトライを避ける）。vocab は採用導線が無い
+  // （isAdoptable）ので対象外。
   useEffect(() => {
-    const pending = new Set<string>();
+    type AdoptableRecordType = 'transition' | 'tag';
+    const pending = new Map<string, { recordType: AdoptableRecordType; recordId: string }>();
     const consider = (recordType: RecordType, recordId: string, decisionId: string | undefined) => {
-      if (!decisionId || recordType !== 'transition') return;
-      if (decisionCache[decisionId] || fetchedTxIds.has(recordId)) return;
-      pending.add(recordId);
+      if (!decisionId || (recordType !== 'transition' && recordType !== 'tag')) return;
+      const key = `${recordType}:${recordId}`;
+      if (decisionCache[decisionId] || fetchedRecordKeys.has(key)) return;
+      pending.set(key, { recordType, recordId });
     };
     for (const c of comments) consider(c.recordType, c.recordId, c.decisionId);
     for (const r of reviews) consider(r.recordRef.type, r.recordRef.id, reviewBindings[r.id]?.decisionId);
     if (pending.size === 0) return;
 
-    setFetchedTxIds((prev) => new Set([...prev, ...pending]));
-    Promise.all(Array.from(pending).map((txId) => api.getRules({ tx: txId }).catch(() => ({ decisions: [] as Decision[] })))).then((results) => {
+    setFetchedRecordKeys((prev) => new Set([...prev, ...pending.keys()]));
+    Promise.all(
+      Array.from(pending.values()).map(({ recordType, recordId }) =>
+        (recordType === 'transition' ? api.getRules({ tx: recordId }) : api.getRules({ tag: recordId })).catch(() => ({ decisions: [] as Decision[] })),
+      ),
+    ).then((results) => {
       setDecisionCache((prev) => {
         const next = { ...prev };
         for (const res of results) for (const d of res.decisions) next[d.id] = d;
@@ -527,6 +537,15 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
 
   const getDecision = (decisionId: string): Decision | undefined => decisionCache[decisionId];
 
+  // 採用（§8.5・P4／#27 P5b fix-back）: POST /api/decision の応答（確定 why
+  // を含む Decision）を採用成功の瞬間に直接キャッシュへ入れる。consider()
+  // の GET /api/rules?tx=|tag= 再取得（reload 後専用）を待たず、「採用され
+  // た why」表示が編集後 why を即座に見せるための経路（transition/tag
+  // 共通）。
+  const cacheDecision = (decision: Decision) => {
+    setDecisionCache((prev) => ({ ...prev, [decision.id]: decision }));
+  };
+
   const copyAll = () => {
     if (visibleComments.length === 0) return;
     const text = buildCopyText(t, visibleComments, activeTask?.title || '');
@@ -613,6 +632,7 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
     adoptLocalComment,
     adoptReview,
     getDecision,
+    cacheDecision,
     copyMsg,
     copyAll,
     tasks,
