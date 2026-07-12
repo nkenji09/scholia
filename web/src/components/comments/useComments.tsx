@@ -191,7 +191,7 @@ function initTasksAndComments(t: Strings): { tasks: Task[]; activeTaskId: string
   const rawComments = loadRawComments();
   let commentsChanged = false;
   const comments = rawComments.map((c) => {
-    if (typeof c.taskId === 'string' && c.taskId) return c;
+    if (typeof c.taskId === 'string' && c.taskId && tasks.some((tk) => tk.id === c.taskId)) return c;
     commentsChanged = true;
     return { ...c, taskId: defaultTaskId };
   });
