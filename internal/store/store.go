@@ -59,9 +59,20 @@ func Discover(startDir string) (*Store, error) {
 	}
 }
 
+// InitOptions は Init の挙動を制御するオプション（既定値 = 従来の Init 挙動）。
+type InitOptions struct {
+	// SkipGitignore が true のとき、.gitignore への追記をスキップする。
+	SkipGitignore bool
+}
+
 // Init は projectRoot/.pmem 以下のディレクトリと config.json を作成する（冪等）。
 // 既存 config は上書きしない。対象 repo の .gitignore に .pmem/index.db を追記する（§3.1）。
 func Init(projectRoot string) (*Store, error) {
+	return InitWithOptions(projectRoot, InitOptions{})
+}
+
+// InitWithOptions は Init と同じ処理を行うが、opts で .gitignore への追記有無を制御できる（§3.1）。
+func InitWithOptions(projectRoot string, opts InitOptions) (*Store, error) {
 	abs, err := filepath.Abs(projectRoot)
 	if err != nil {
 		return nil, err
@@ -83,8 +94,10 @@ func Init(projectRoot string) (*Store, error) {
 		return nil, err
 	}
 
-	if err := ensureGitignoreEntry(abs, DirName+"/index.db"); err != nil {
-		return nil, err
+	if !opts.SkipGitignore {
+		if err := ensureGitignoreEntry(abs, DirName+"/index.db"); err != nil {
+			return nil, err
+		}
 	}
 	return s, nil
 }
