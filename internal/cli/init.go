@@ -11,6 +11,7 @@ import (
 
 func newInitCmd() *cobra.Command {
 	var asJSON bool
+	var noGitignore bool
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: ".pmem/ を作成する（冪等）",
@@ -19,7 +20,7 @@ func newInitCmd() *cobra.Command {
 			if root == "" {
 				root = "."
 			}
-			s, err := store.Init(root)
+			s, err := store.InitWithOptions(root, store.InitOptions{SkipGitignore: noGitignore})
 			if err != nil {
 				return err
 			}
@@ -37,5 +38,6 @@ func newInitCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, "config.json を JSON で出力する")
+	cmd.Flags().BoolVar(&noGitignore, "no-gitignore", false, ".gitignore への .pmem/index.db 追記をスキップする")
 	return cmd
 }

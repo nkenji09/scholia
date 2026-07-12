@@ -75,6 +75,35 @@ func TestCLISmoke_InitVocabTagTxLintShow(t *testing.T) {
 	}
 }
 
+func TestCLI_InitNoGitignoreSkipsGitignoreWrite(t *testing.T) {
+	dir := t.TempDir()
+
+	if out, err := run(t, dir, "init", "--no-gitignore"); err != nil {
+		t.Fatalf("init --no-gitignore failed: %v\noutput:\n%s", err, out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".gitignore")); !os.IsNotExist(err) {
+		t.Fatalf(".gitignore should not be created with --no-gitignore, stat err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".pmem")); err != nil {
+		t.Fatalf(".pmem should still be created with --no-gitignore: %v", err)
+	}
+}
+
+func TestCLI_InitWithoutFlagWritesGitignore(t *testing.T) {
+	dir := t.TempDir()
+
+	if out, err := run(t, dir, "init"); err != nil {
+		t.Fatalf("init failed: %v\noutput:\n%s", err, out)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	if err != nil {
+		t.Fatalf("read .gitignore: %v", err)
+	}
+	if !strings.Contains(string(data), ".pmem/index.db") {
+		t.Fatalf(".gitignore should contain .pmem/index.db by default, got %q", string(data))
+	}
+}
+
 func TestCLI_VocabAddRejectsDuplicateAndInvalidKindAndOwner(t *testing.T) {
 	dir := t.TempDir()
 	if _, err := run(t, dir, "init"); err != nil {

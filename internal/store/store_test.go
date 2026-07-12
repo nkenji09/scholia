@@ -60,6 +60,39 @@ func TestInitIsIdempotentAndWritesDefaultConfig(t *testing.T) {
 	}
 }
 
+func TestInitWithOptionsSkipGitignoreLeavesGitignoreUntouched(t *testing.T) {
+	dir := t.TempDir()
+
+	if _, err := InitWithOptions(dir, InitOptions{SkipGitignore: true}); err != nil {
+		t.Fatalf("InitWithOptions: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, ".gitignore")); !os.IsNotExist(err) {
+		t.Fatalf(".gitignore should not be created when SkipGitignore=true, stat err=%v", err)
+	}
+	for _, sub := range []string{"vocab", "tags", "transitions", "decisions"} {
+		if info, err := os.Stat(filepath.Join(dir, ".pmem", sub)); err != nil || !info.IsDir() {
+			t.Fatalf(".pmem/%s missing: %v", sub, err)
+		}
+	}
+}
+
+func TestInitWithOptionsDefaultMatchesInit(t *testing.T) {
+	dir := t.TempDir()
+
+	if _, err := InitWithOptions(dir, InitOptions{}); err != nil {
+		t.Fatalf("InitWithOptions: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	if err != nil {
+		t.Fatalf("read .gitignore: %v", err)
+	}
+	if !strings.Contains(string(data), ".pmem/index.db") {
+		t.Fatalf(".gitignore should contain .pmem/index.db by default, got %q", string(data))
+	}
+}
+
 func TestSaveTransitionNormalizesGivenAndOmitsEmpty(t *testing.T) {
 	dir := t.TempDir()
 	s, err := Init(dir)
