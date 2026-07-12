@@ -22,6 +22,16 @@ import type { IconName } from '../shared/Icon';
 // the existing recordId/anchor uniqueness key rather than adding new
 // schema, since a page is just "the one thing this view's title stands
 // for").
+//
+// #27 Phase2-2b (task drawer): comments are namespaced by `taskId` — a
+// lightweight client-only Task concept (id/title/createdAt), NOT a branch
+// or commit (design doc change-cockpit-design-v2.md §0/§3). Deliberately a
+// field on CommentRecord rather than a separate `pmem-comments-v1::<id>`
+// storage key (the design doc offers both as equivalent) — this keeps the
+// single STORAGE_KEY/load/persist path from #18 unchanged and makes the
+// legacy-comment migration a one-line addition to the existing additive
+// normalization below (same idempotent "map + fill in a missing field"
+// pattern already used for `replies`).
 
 export type RecordType = 'tag' | 'transition' | 'vocab' | 'page';
 
@@ -60,10 +70,17 @@ export interface CommentReply {
 
 export interface CommentRecord extends CommentTarget {
   id: string;
+  taskId: string;
   text: string;
   createdAt: number;
   updatedAt: number;
   replies: CommentReply[];
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  createdAt: number;
 }
 
 interface CommentsValue {
@@ -87,12 +104,28 @@ interface CommentsValue {
   deleteReply: (commentId: string, replyId: string) => void;
   copyMsg: boolean;
   copyAll: () => void;
+  tasks: Task[];
+  activeTaskId: string;
+  activeTask: Task | null;
+  switchTask: (id: string) => void;
+  creatingTask: boolean;
+  taskDraftTitle: string;
+  setTaskDraftTitle: (text: string) => void;
+  startCreateTask: () => void;
+  cancelCreateTask: () => void;
+  saveNewTask: () => void;
 }
 
 const STORAGE_KEY = 'pmem-comments-v1';
+const TASKS_STORAGE_KEY = 'pmem-tasks-v1';
+const ACTIVE_TASK_STORAGE_KEY = 'pmem-active-task-v1';
 const CommentsContext = createContext<CommentsValue | null>(null);
 
-function load(): CommentRecord[] {
+function newId(prefix: string): string {
+  return prefix + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
+}
+
+function loadRawComments(): CommentRecord[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
@@ -115,12 +148,73 @@ function persist(arr: CommentRecord[]) {
   }
 }
 
-function newId(prefix: string): string {
-  return prefix + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
+function loadTasks(): Task[] {
+  try {
+    const raw = localStorage.getItem(TASKS_STORAGE_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
 }
 
-function buildCopyText(t: Strings, comments: CommentRecord[]): string {
-  const lines = [t.comments.copyDocTitle, t.comments.copyIntro(comments.length), ''];
+function persistTasks(arr: Task[]) {
+  try {
+    localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(arr));
+  } catch {
+    // Private-mode/quota — tasks stay in-memory for this session only.
+  }
+}
+
+function persistActiveTaskId(id: string) {
+  try {
+    localStorage.setItem(ACTIVE_TASK_STORAGE_KEY, id);
+  } catch {
+    // Private-mode/quota — active task stays in-memory for this session only.
+  }
+}
+
+// Runs once at mount (see the effect below): ensures a default task exists,
+// migrates any pre-#27 flat comments (no `taskId`) into it, and resolves
+// the active task. Idempotent — after the first run every comment carries
+// a `taskId` and every subsequent load is a no-op pass-through.
+function initTasksAndComments(t: Strings): { tasks: Task[]; activeTaskId: string; comments: CommentRecord[] } {
+  let tasks = loadTasks();
+  let tasksChanged = false;
+  if (tasks.length === 0) {
+    tasks = [{ id: newId('t'), title: t.comments.taskDefaultTitle, createdAt: Date.now() }];
+    tasksChanged = true;
+  }
+  const defaultTaskId = tasks[0].id;
+
+  const rawComments = loadRawComments();
+  let commentsChanged = false;
+  const comments = rawComments.map((c) => {
+    if (typeof c.taskId === 'string' && c.taskId) return c;
+    commentsChanged = true;
+    return { ...c, taskId: defaultTaskId };
+  });
+
+  if (tasksChanged) persistTasks(tasks);
+  if (commentsChanged) persist(comments);
+
+  let activeTaskId: string | null = null;
+  try {
+    activeTaskId = localStorage.getItem(ACTIVE_TASK_STORAGE_KEY);
+  } catch {
+    activeTaskId = null;
+  }
+  if (!activeTaskId || !tasks.some((tk) => tk.id === activeTaskId)) {
+    activeTaskId = tasks[0].id;
+    persistActiveTaskId(activeTaskId);
+  }
+
+  return { tasks, activeTaskId, comments };
+}
+
+function buildCopyText(t: Strings, comments: CommentRecord[], taskTitle: string): string {
+  const lines = [t.comments.copyDocTitle, t.comments.copyTaskLine(taskTitle), t.comments.copyIntro(comments.length), ''];
   comments.forEach((c, i) => {
     lines.push(t.comments.copyItemHeader(i + 1, recordTypeMeta(t, c.recordType).label, c.recordId, c.recordTitle));
     lines.push(t.comments.copyLocationLine(c.anchorLabel));
@@ -153,21 +247,34 @@ function fallbackCopy(text: string) {
 
 export function CommentsProvider({ children }: { children: ComponentChildren }) {
   const t = useT();
+  // `comments` holds every task's comments; `activeTaskId` narrows what's
+  // shown/edited (see `visibleComments` below) — CommentPanel/Header only
+  // ever see the active task's slice, so "switch task" == "swap this filter".
   const [comments, setComments] = useState<CommentRecord[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [activeTaskId, setActiveTaskId] = useState('');
   const [panelOpen, setPanelOpen] = useState(false);
   const [composer, setComposer] = useState<CommentTarget | null>(null);
   const [composerText, setComposerTextState] = useState('');
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [copyMsg, setCopyMsg] = useState(false);
+  const [creatingTask, setCreatingTask] = useState(false);
+  const [taskDraftTitle, setTaskDraftTitle] = useState('');
 
   useEffect(() => {
-    setComments(load());
+    const init = initTasksAndComments(t);
+    setTasks(init.tasks);
+    setActiveTaskId(init.activeTaskId);
+    setComments(init.comments);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const hasComment = (recordId: string, anchor: string) => comments.some((c) => c.recordId === recordId && c.anchor === anchor);
+  const visibleComments = comments.filter((c) => c.taskId === activeTaskId);
+
+  const hasComment = (recordId: string, anchor: string) => visibleComments.some((c) => c.recordId === recordId && c.anchor === anchor);
 
   const openComposer = (target: CommentTarget) => {
-    const existing = comments.find((c) => c.recordId === target.recordId && c.anchor === target.anchor);
+    const existing = visibleComments.find((c) => c.recordId === target.recordId && c.anchor === target.anchor);
     setComposer(target);
     setComposerTextState(existing?.text || '');
     setPanelOpen(true);
@@ -190,14 +297,14 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
     if (!composer) return;
     const text = composerText.trim();
     setComments((prev) => {
-      const idx = prev.findIndex((c) => c.recordId === composer.recordId && c.anchor === composer.anchor);
+      const idx = prev.findIndex((c) => c.taskId === activeTaskId && c.recordId === composer.recordId && c.anchor === composer.anchor);
       let next: CommentRecord[];
       if (!text) {
         next = idx >= 0 ? prev.filter((_, i) => i !== idx) : prev;
       } else if (idx >= 0) {
         next = prev.map((c, i) => (i === idx ? { ...c, text, updatedAt: Date.now() } : c));
       } else {
-        next = [...prev, { ...composer, id: newId('c'), text, createdAt: Date.now(), updatedAt: Date.now(), replies: [] }];
+        next = [...prev, { ...composer, id: newId('c'), taskId: activeTaskId, text, createdAt: Date.now(), updatedAt: Date.now(), replies: [] }];
       }
       persist(next);
       return next;
@@ -248,8 +355,8 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
   };
 
   const copyAll = () => {
-    if (comments.length === 0) return;
-    const text = buildCopyText(t, comments);
+    if (visibleComments.length === 0) return;
+    const text = buildCopyText(t, visibleComments, activeTask?.title || '');
     const done = () => {
       setCopyMsg(true);
       setTimeout(() => setCopyMsg(false), 2000);
@@ -265,8 +372,46 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
     }
   };
 
+  const switchTask = (id: string) => {
+    if (id === activeTaskId || !tasks.some((tk) => tk.id === id)) return;
+    setActiveTaskId(id);
+    persistActiveTaskId(id);
+    setComposer(null);
+    setComposerTextState('');
+    setCopyMsg(false);
+  };
+
+  const startCreateTask = () => {
+    setCreatingTask(true);
+    setTaskDraftTitle('');
+  };
+
+  const cancelCreateTask = () => {
+    setCreatingTask(false);
+    setTaskDraftTitle('');
+  };
+
+  const saveNewTask = () => {
+    const title = taskDraftTitle.trim();
+    if (!title) return;
+    const task: Task = { id: newId('t'), title, createdAt: Date.now() };
+    setTasks((prev) => {
+      const next = [...prev, task];
+      persistTasks(next);
+      return next;
+    });
+    setActiveTaskId(task.id);
+    persistActiveTaskId(task.id);
+    setCreatingTask(false);
+    setTaskDraftTitle('');
+    setComposer(null);
+    setComposerTextState('');
+  };
+
+  const activeTask = tasks.find((tk) => tk.id === activeTaskId) || null;
+
   const value: CommentsValue = {
-    comments,
+    comments: visibleComments,
     hasComment,
     panelOpen,
     openPanel: () => {
@@ -281,7 +426,7 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
     },
     composer,
     composerText,
-    isEditingExisting: !!composer && comments.some((c) => c.recordId === composer.recordId && c.anchor === composer.anchor),
+    isEditingExisting: !!composer && visibleComments.some((c) => c.recordId === composer.recordId && c.anchor === composer.anchor),
     openComposer,
     editComment,
     setComposerText: setComposerTextState,
@@ -294,6 +439,16 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
     deleteReply,
     copyMsg,
     copyAll,
+    tasks,
+    activeTaskId,
+    activeTask,
+    switchTask,
+    creatingTask,
+    taskDraftTitle,
+    setTaskDraftTitle,
+    startCreateTask,
+    cancelCreateTask,
+    saveNewTask,
   };
 
   return <CommentsContext.Provider value={value}>{children}</CommentsContext.Provider>;

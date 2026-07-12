@@ -54,6 +54,15 @@ export function CommentPanel({ onGoto }: Props) {
     deleteReply,
     copyMsg,
     copyAll,
+    tasks,
+    activeTaskId,
+    switchTask,
+    creatingTask,
+    taskDraftTitle,
+    setTaskDraftTitle,
+    startCreateTask,
+    cancelCreateTask,
+    saveNewTask,
   } = useComments();
 
   // Locks background scroll while the panel is open — unlike BrowseRail's
@@ -86,6 +95,55 @@ export function CommentPanel({ onGoto }: Props) {
             <Icon name="x" size={17} />
           </button>
         </div>
+
+        <div class="comment-task-bar">
+          <label class="comment-task-label" for="comment-task-select">
+            {t.comments.taskLabel}
+          </label>
+          <select
+            id="comment-task-select"
+            class="comment-task-select"
+            value={activeTaskId}
+            onChange={(e) => switchTask((e.target as HTMLSelectElement).value)}
+          >
+            {tasks.map((tk) => (
+              <option key={tk.id} value={tk.id}>
+                {tk.title}
+              </option>
+            ))}
+          </select>
+          {!creatingTask && (
+            <button type="button" class="comment-task-new-btn" title={t.comments.taskNewTitle} onClick={startCreateTask}>
+              <Icon name="plus" size={12} /> {t.comments.taskNew}
+            </button>
+          )}
+        </div>
+        {creatingTask && (
+          <div class="comment-task-new-form">
+            <input
+              class="comment-task-new-input"
+              placeholder={t.comments.taskNewPlaceholder}
+              value={taskDraftTitle}
+              autoFocus
+              onInput={(e) => setTaskDraftTitle((e.target as HTMLInputElement).value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.isComposing) {
+                  e.preventDefault();
+                  saveNewTask();
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  cancelCreateTask();
+                }
+              }}
+            />
+            <button type="button" class="comment-btn-primary" onClick={saveNewTask} disabled={!taskDraftTitle.trim()}>
+              <Icon name="check" size={13} /> {t.common.save}
+            </button>
+            <button type="button" class="comment-btn-secondary" onClick={cancelCreateTask}>
+              {t.common.cancel}
+            </button>
+          </div>
+        )}
 
         <div class="comment-panel-body">
           {composer && (
