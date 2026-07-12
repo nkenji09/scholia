@@ -19,5 +19,6 @@
 @import './styles/views/vocab.css';
 @import './styles/views/config.css';
 @import './styles/views/comments.css';
+@import './styles/views/compare.css';
 
 @import './styles/markdown.css';

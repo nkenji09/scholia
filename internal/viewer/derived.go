@@ -72,12 +72,27 @@ func getLintHandler(s *store.Store) http.HandlerFunc {
 	}
 }
 
+// getDiffHandler は `?ref=<before>` で作業ツリー vs gitref（既定 HEAD・従来挙動）、
+// `?ref=<before>&head=<after>` で gitref 対 gitref（`diff.DiffRefs`・§2 R-2 のタスク粒度=commit
+// を可視化するコア経路。例: `?ref=<commit>^&head=<commit>` で1コミット分を再現）を返す。
+// head 省略時の挙動・レスポンス形は既存と不変（後方互換）。
 func getDiffHandler(s *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ref := r.URL.Query().Get("ref")
 		if ref == "" {
 			ref = "HEAD"
 		}
+		head := r.URL.Query().Get("head")
+		if head != "" {
+			result, err := diff.DiffRefs(s, ref, head)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, fmt.Sprintf("diff %q..%q に失敗しました: %v", ref, head, err))
+				return
+			}
+			writeJSON(w, http.StatusOK, result)
+			return
+		}
+
 		result, err := diff.Diff(s, ref)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, fmt.Sprintf("diff %q に失敗しました: %v", ref, err))

@@ -195,6 +195,75 @@ export interface TransitionSearchDoc {
   candidates: SearchCandidate[];
 }
 
+// diff-viz types (§2 of change-cockpit-design-v2.md) — mirror
+// internal/diff.Result 1:1 (JSON field names, additive-only optional
+// fields). This is a server-mode-only surface: `pmem export --html` never
+// bakes diff data into PmemStaticData, so api.getDiff() always hits
+// `GET /api/diff` and CompareView must not render when isStaticMode.
+export interface DiffChange<T> {
+  id: string;
+  before: T;
+  after: T;
+}
+
+export interface VocabDiff {
+  added?: VocabEntry[];
+  removed?: VocabEntry[];
+  changed?: DiffChange<VocabEntry>[];
+}
+
+export interface TagDiff {
+  added?: Tag[];
+  removed?: Tag[];
+  changed?: DiffChange<Tag>[];
+}
+
+export interface TransitionChange {
+  id: string;
+  before: Transition;
+  after: Transition;
+  actionChanged?: boolean;
+  givenAdded?: string[];
+  givenRemoved?: string[];
+  thenChanged?: boolean;
+  /** Given/tags/tests are set comparisons; then is an ordered list — this
+      flags a then whose *set* is unchanged but whose order differs (§3.2). */
+  thenReordered?: boolean;
+  tagsAdded?: string[];
+  tagsRemoved?: string[];
+  testsAdded?: string[];
+  testsRemoved?: string[];
+}
+
+export interface TransitionDiff {
+  added?: Transition[];
+  removed?: Transition[];
+  changed?: TransitionChange[];
+}
+
+export interface DecisionDiff {
+  added?: Decision[];
+  removed?: Decision[];
+  changed?: DiffChange<Decision>[];
+}
+
+export interface DiffResult {
+  ref: string;
+  vocab: VocabDiff;
+  tags: TagDiff;
+  transitions: TransitionDiff;
+  decisions: DecisionDiff;
+  /** True when `ref` fell back to an empty baseline because the caller
+      didn't pass one explicitly and it doesn't resolve yet (first-run UX) —
+      never set on the `head`-present (DiffRefs) path, which always errors
+      instead of falling back. */
+  baselineMissing?: boolean;
+  /** Set only on the ref-vs-ref (DiffRefs) path — its presence is what
+      distinguishes "landed task: commit vs parent" from the default
+      "pending task: working tree vs base" comparison. */
+  afterRef?: string;
+}
+
 // PmemStaticData is what `pmem export --html` bakes into
 // `window.__PMEM_STATIC__` — the same shapes the live /api/* endpoints
 // return, precomputed for every input the SPA's read-only views can ask for

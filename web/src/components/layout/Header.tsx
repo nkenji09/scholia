@@ -7,6 +7,7 @@ import { Icon } from '../shared/Icon';
 import type { IconName } from '../shared/Icon';
 import { useComments } from '../comments/useComments';
 import { useLookups } from '../../lookups';
+import { isStaticMode } from '../../api';
 
 interface Props {
   view: ViewName;
@@ -48,11 +49,16 @@ export function Header({ view, onSelectView }: Props) {
   //
   // Built inside the component (not module scope) so it re-renders with the
   // active language — strings pulled from `t`, not a module-level `strings`.
+  // 'compare'（評価コックピット・diff-viz §2）はサーバモード限定（`GET
+  // /api/diff` を叩く・static export はバケた ref データを持たない）なので
+  // isStaticMode の時だけナビから外す — graceful hide（ビュー自体も直接
+  // #/compare で踏んだ場合に備え static メッセージを出す・CompareView.tsx）。
   const NAV: Array<[ViewName, string, IconName]> = [
     ['home', t.nav.home, 'layout-dashboard'],
     ['vocab', t.nav.vocab, 'book-open'],
     ['tags', t.nav.tags, 'tags'],
     ['browse', t.nav.specs, 'scroll-text'],
+    ...(isStaticMode ? [] : ([['compare', t.nav.compare, 'git-compare']] as Array<[ViewName, string, IconName]>)),
   ];
 
   // Rail responsiveness (drawer's fixed `top`, sticky rail's `top`/height,

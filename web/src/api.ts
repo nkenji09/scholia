@@ -1,6 +1,7 @@
 import type {
   Config,
   ConfigPatch,
+  DiffResult,
   FacetsResponse,
   LintResult,
   PmemStaticData,
@@ -168,6 +169,14 @@ export const api = {
   },
 
   getLint: () => (staticData ? Promise.resolve(staticData.lint) : request<LintResult>('/api/lint')),
+
+  // 比較/評価ビュー（diff-viz・§2）専用。static export はビルド時点の1
+  // スナップショットしか持たず ref/head 比較の材料（他の ref の .pmem/
+  // ツリー）が無いため、常に静的モード非対応 — CompareView 自体が
+  // isStaticMode を見てこの関数を呼ばずにビューごと隠す設計だが、直接叩か
+  // れた場合の防御としてもここで弾く（他の api.* と同じ流儀）。
+  getDiff: (params: { ref?: string; head?: string }) =>
+    staticData ? staticUnavailable(DICTS[loadLang()].api.diff) : request<DiffResult>('/api/diff' + query(params)),
 
   getTraceability: (kind?: string) =>
     staticData ? Promise.resolve(staticTraceability(staticData, kind)) : request<TraceabilityResponse>('/api/traceability' + query({ kind })),

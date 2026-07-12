@@ -7,11 +7,18 @@ import { useEffect, useState } from 'preact/hooks';
 // and pushes a browser history entry, with no server round-trip, which is
 // exactly the "static export with working Back/Forward" behavior this needs.
 
-// 'traceability'/'compare' removed (2026-07-11, user request): not covered
-// by the Claude Design mock and dropped from the nav for now — trivially
-// restorable from git history (internal/viewer's /api/traceability and
-// /api/diff endpoints are untouched; only this frontend surface is gone).
-export type ViewName = 'home' | 'browse' | 'vocab' | 'spec' | 'tags' | 'config';
+// 'traceability' removed (2026-07-11, user request): not covered by the
+// Claude Design mock and dropped from the nav for now — trivially
+// restorable from git history (internal/viewer's /api/traceability endpoint
+// is untouched; only this frontend surface is gone).
+//
+// 'compare' (diff-viz / 評価コックピット, G-5) was removed in that same pass
+// but reinstated 2026-07-12 as a purpose-built read-only comparison view
+// (change-cockpit-design-v2.md §2, user-approved reintroduction) — see
+// components/compare/CompareView.tsx. Server-mode only: hidden from the nav
+// and this route is unreachable in a `pmem export --html` static build
+// (api.ts's isStaticMode / api.getDiff).
+export type ViewName = 'home' | 'browse' | 'vocab' | 'spec' | 'tags' | 'config' | 'compare';
 
 export interface Route {
   view: ViewName;
@@ -23,7 +30,7 @@ export interface Route {
   vocabId?: string;
 }
 
-const VIEWS: ViewName[] = ['home', 'browse', 'vocab', 'spec', 'tags', 'config'];
+const VIEWS: ViewName[] = ['home', 'browse', 'vocab', 'spec', 'tags', 'config', 'compare'];
 // HOME is the new landing page (.concierge/decision.md G-2, resolved:
 // default route moves from 'browse' to 'home'). An empty/unknown hash still
 // falls back to DEFAULT_ROUTE below, so bookmarks of `#` or the bare page
