@@ -101,6 +101,78 @@
   background: var(--lm-s2);
 }
 
+/* Task selector (#27 Phase2-2b) — sits between the panel head and the
+   comment list/composer; not part of .comment-panel-body's scroll area so
+   it stays pinned while the comment list below it scrolls. */
+.comment-task-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--lm-border);
+  background: var(--lm-s1);
+}
+
+.comment-task-label {
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--lm-text-dim);
+  flex-shrink: 0;
+}
+
+.comment-task-select {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  color: var(--lm-text);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-xs);
+  font-family: inherit;
+}
+
+.comment-task-new-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  color: var(--lm-primary-strong);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.comment-task-new-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--lm-border);
+  background: var(--lm-s2);
+}
+
+.comment-task-new-input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  color: var(--lm-text);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-sm);
+  font-family: inherit;
+}
+
 .comment-panel-body {
   flex: 1;
   overflow-y: auto;

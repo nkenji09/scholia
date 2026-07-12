@@ -159,12 +159,19 @@ const ja = {
     replyAdd: '返信',
     gotoLocation: '位置へ移動',
     copyDocTitle: '# product-memory ビューア — レビューコメント',
+    copyTaskLine: (title: string) => `タスク: ${title}`,
     copyIntro: (n: number) =>
       `以下の ${n} 件のコメントに基づき、該当箇所を修正してください（[ページ] は特定のカードに紐づかない、そのビュー全体への指摘です）。`,
     copyItemHeader: (i: number, typeLabel: string, recordId: string, title: string) => `${i}. [${typeLabel}] ${recordId} 「${title}」`,
     copyLocationLine: (anchorLabel: string) => `   箇所: ${anchorLabel}`,
     copyCommentLine: (text: string) => `   コメント: ${text}`,
     copyReplyHeading: '   返信スレッド:',
+    // #27 Phase2-2b: task セレクタ（コメントを task 単位で束ねる・設計 §0/§3）。
+    taskDefaultTitle: '未整理',
+    taskLabel: 'タスク',
+    taskNew: '＋ 新規タスク',
+    taskNewTitle: '新しいタスクを作成',
+    taskNewPlaceholder: 'タスク名を入力…',
   },
   // lookups.tsx の describeMatch()（検索結果の一致理由テキスト）。
   lookups: {
@@ -355,12 +362,18 @@ const en: Strings = {
     replyAdd: 'Reply',
     gotoLocation: 'Go to location',
     copyDocTitle: '# product-memory viewer — review comments',
+    copyTaskLine: (title) => `Task: ${title}`,
     copyIntro: (n) =>
       `Please fix the following ${n} comment(s) at their respective locations ([Page] items aren't tied to a specific card — they're feedback on the whole view).`,
     copyItemHeader: (i, typeLabel, recordId, title) => `${i}. [${typeLabel}] ${recordId} "${title}"`,
     copyLocationLine: (anchorLabel) => `   Location: ${anchorLabel}`,
     copyCommentLine: (text) => `   Comment: ${text}`,
     copyReplyHeading: '   Reply thread:',
+    taskDefaultTitle: 'Uncategorized',
+    taskLabel: 'Task',
+    taskNew: '+ New task',
+    taskNewTitle: 'Create a new task',
+    taskNewPlaceholder: 'Enter a task name…',
   },
   lookups: {
     searchById: 'transition id',
