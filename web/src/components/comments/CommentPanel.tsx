@@ -321,7 +321,11 @@ export function CommentPanel({ onGoto }: Props) {
                     type="button"
                     class="comment-btn-danger"
                     onClick={() => {
-                      const existing = comments.find((c) => c.recordId === composer.recordId && c.anchor === composer.anchor);
+                      // AIDF minor-1: comments は合流後（人+AI）の配列 —
+                      // 削除できるのは常にローカルコメントのみなので、配列
+                      // 構築順 [...local,...ai] に暗黙依存せず source で
+                      // 明示的に絞る。
+                      const existing = comments.find((c) => c.source === 'local' && c.recordId === composer.recordId && c.anchor === composer.anchor);
                       if (existing) deleteComment(existing.id);
                       cancelComposer();
                     }}
