@@ -466,3 +466,120 @@
   color: var(--lm-error);
   border-radius: var(--r-sm);
 }
+
+/* Proposal card (#27 P2) — read-only "現状 vs 提案" (pending diff) card,
+   pinned above the composer/comment list for whichever Transition the
+   drawer is currently focused on (CommentPanel's `focusedTx`). */
+.proposal-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid var(--lm-primary-ring);
+  box-shadow: 0 0 0 3px var(--lm-primary-weak);
+  border-radius: var(--r-md);
+  background: var(--lm-s1);
+  padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-3);
+}
+
+.proposal-card-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--lm-text-muted);
+}
+
+.proposal-card-title {
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--lm-text);
+}
+
+.proposal-card-badge {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-3xs);
+  color: var(--lm-error);
+  border: 1px dashed var(--lm-error-weak);
+  border-radius: var(--r-full);
+  padding: 1px 8px;
+  margin-left: auto;
+}
+
+.proposal-card-note {
+  font-size: var(--fs-3xs);
+  margin: 0 0 var(--sp-3);
+}
+
+.proposal-row {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.proposal-row-key {
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--lm-text-dim);
+}
+
+.proposal-row-atoms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+}
+
+.proposal-atom {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-3xs);
+  padding: 2px 8px;
+  border-radius: var(--r-sm);
+  background: var(--lm-s2);
+  color: var(--lm-text);
+}
+
+.proposal-atom-keep {
+  opacity: 0.65;
+}
+
+.proposal-atom-add {
+  background: var(--lm-success-weak);
+  color: var(--lm-success-strong);
+}
+
+.proposal-atom-add::before {
+  content: '+ ';
+  font-weight: 700;
+}
+
+.proposal-atom-del {
+  background: var(--lm-error-weak);
+  color: var(--lm-error);
+  text-decoration: line-through;
+}
+
+.proposal-reordered-note {
+  font-size: var(--fs-3xs);
+}
+
+/* SpecCard clean-flag (#27 P2) — the *only* diff-related affordance on the
+   main Transition card itself; it never renders the diff inline (v3 §2:
+   "メインの Transition カードは現状のままクリーン"), just a pointer into
+   the drawer. */
+.spec-card-clean-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  font-size: var(--fs-3xs);
+  color: var(--lm-text-muted);
+  background: var(--lm-s2);
+  border: none;
+  border-radius: var(--r-full);
+  padding: 3px 10px;
+  margin-bottom: var(--sp-2);
+}

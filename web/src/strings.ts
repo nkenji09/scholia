@@ -172,6 +172,13 @@ const ja = {
     taskNew: '＋ 新規タスク',
     taskNewTitle: '新しいタスクを作成',
     taskNewPlaceholder: 'タスク名を入力…',
+    // #27 P2: 現状 vs 提案（pending diff）の read-only カード。
+    proposalHeading: '提案',
+    proposalUncommitted: '未コミット',
+    proposalCleanFlag: '提案あり（→ドロワー）',
+    proposalWhatLabel: '提案の差分表示',
+    proposalUnavailableError: '提案の差分を取得できませんでした',
+    proposalReordered: '順序が変わりました',
   },
   // lookups.tsx の describeMatch()（検索結果の一致理由テキスト）。
   lookups: {
@@ -374,6 +381,12 @@ const en: Strings = {
     taskNew: '+ New task',
     taskNewTitle: 'Create a new task',
     taskNewPlaceholder: 'Enter a task name…',
+    proposalHeading: 'Proposal',
+    proposalUncommitted: 'Uncommitted',
+    proposalCleanFlag: 'Proposal available (→ drawer)',
+    proposalWhatLabel: 'the proposal diff view',
+    proposalUnavailableError: 'Could not load the proposal diff',
+    proposalReordered: 'Order changed',
   },
   lookups: {
     searchById: 'transition id',

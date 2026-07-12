@@ -1,8 +1,10 @@
 import { useLookups } from '../../lookups';
+import { usePendingDiff } from '../../pendingDiff';
 import { useT } from '../../i18n';
 import type { EffectiveTag, TransitionDetail } from '../../types';
 import { Chip, kindColor, OWNER_COLOR } from '../shared/Chip';
 import { CommentButton } from '../comments/CommentButton';
+import { useComments } from '../comments/useComments';
 import { Icon } from '../shared/Icon';
 
 interface Props {
@@ -18,6 +20,9 @@ interface Props {
 export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab, onFilterTag, onFilterOwner }: Props) {
   const t = useT();
   const { tagById, vocabById } = useLookups();
+  const { changedTransitionIds } = usePendingDiff();
+  const { openComposer } = useComments();
+  const hasProposal = changedTransitionIds.has(detail.id);
 
   // own/derived split reads straight off backend-computed provenance (gap
   // G11) — no re-derivation client-side (§9). "own" is any tag directly
@@ -35,6 +40,23 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
 
   return (
     <article ref={cardRef} data-card-id={detail.id} class="card">
+      {hasProposal && (
+        <button
+          type="button"
+          class="spec-card-clean-flag"
+          onClick={() =>
+            openComposer({
+              recordType: 'transition',
+              recordId: detail.id,
+              recordTitle: detail.actionLabel || detail.action,
+              anchor: 'action',
+              anchorLabel: t.flow.trigger,
+            })
+          }
+        >
+          <Icon name="git-compare" size={12} /> {t.comments.proposalCleanFlag}
+        </button>
+      )}
       <div class="spec-card-slot">
         <div class="card-section-heading-row">
           <span class="spec-card-slot-label" style={{ color: 'var(--t-act)' }}>
