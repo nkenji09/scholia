@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/nkenji09/product-memory/internal/model"
 	"github.com/nkenji09/product-memory/internal/store"
@@ -31,20 +32,25 @@ type transitionPostBody struct {
 }
 
 // postTransitionHandler serves POST /api/transition: the proposal-rework
-// write (§1 (Wp)/§8.8 P3). This is G-1′ — the broadest loosening of §7's
-// "viewer only writes config" rule, because it lets viewer write an atom
-// (Transition) itself rather than a derived record (decision). It is
-// contained by three things: (1) the structural guard above (vocab-id
-// slots only, enforced by the type + DisallowUnknownFields), (2) the same
-// existence/category validation `pmem tx add`/`pmem tx edit` run before
-// `store.SaveTransition` (internal/cli/tx_add.go's checkVocabSlot,
-// duplicated below — see parseDecisionOn in decision.go for why this
-// package can't import internal/cli), and (3) git remains human-only: this
-// handler only ever touches the working tree's `.pmem/transitions/<id>.json`
-// (uncommitted), never `git`.
+// write (§1 (Wp)/§8.8 P3) plus new-transition creation (§8.8 P5・M-5「追加」).
+// This is G-1′ — the broadest loosening of §7's "viewer only writes config"
+// rule, because it lets viewer write an atom (Transition) itself rather
+// than a derived record (decision). It is contained by three things: (1)
+// the structural guard above (vocab-id slots only, enforced by the type +
+// DisallowUnknownFields), (2) the same existence/category validation
+// `pmem tx add`/`pmem tx edit` run before `store.SaveTransition`
+// (internal/cli/tx_add.go's checkVocabSlot, duplicated below — see
+// parseDecisionOn in decision.go for why this package can't import
+// internal/cli), and (3) git remains human-only: this handler only ever
+// touches the working tree's `.pmem/transitions/<id>.json` (uncommitted),
+// never `git`.
 //
-// Scoped to editing an existing transition only (id must already resolve) —
-// creating new transitions is P5 territory (§8.8), out of scope here.
+// Create vs. edit is decided purely by whether body.ID already resolves
+// (checked once, before the write, so the response status matches what
+// actually happened): unknown id → create (201), existing id → edit (200,
+// P3's original behavior). Both paths share every validation below — a
+// newly-created transition is just as vocab-only/structurally-guarded as an
+// edited one.
 func postTransitionHandler(s *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		dec := json.NewDecoder(r.Body)
@@ -59,10 +65,17 @@ func postTransitionHandler(s *store.Store) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "id は必須です")
 			return
 		}
-		if !s.TransitionExists(body.ID) {
-			writeError(w, http.StatusNotFound, fmt.Sprintf("transition %q が実在しません", body.ID))
+		// id は SaveTransition/RemoveTransitionUnlinked 経由でそのまま
+		// ファイル名になる（store.transitionPath）。P5 前は既存 id への
+		// 上書きに限られていた（TransitionExists の事前検証が必須だっ
+		// た）ため実質無害だったが、新規 id 作成を許すここからは
+		// path-traversal（"../" 等）で `.pmem/transitions/` の外へ書ける
+		// 攻撃面になる — 作成/編集どちらの経路でも弾く。
+		if !validTransitionID(body.ID) {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("id %q は不正です（'/' '\\' や '.'/'..' は使えません）", body.ID))
 			return
 		}
+		existed := s.TransitionExists(body.ID)
 		if body.Action == "" {
 			writeError(w, http.StatusBadRequest, "action は必須です")
 			return
@@ -115,8 +128,22 @@ func postTransitionHandler(s *store.Store) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, saved)
+		status := http.StatusOK
+		if !existed {
+			status = http.StatusCreated
+		}
+		writeJSON(w, status, saved)
 	}
+}
+
+// validTransitionID rejects ids that could escape .pmem/transitions/ once
+// interpolated into a filename (store.transitionPath = <id>+".json") — no
+// path separators and no bare "." / ".." segment.
+func validTransitionID(id string) bool {
+	if id == "." || id == ".." {
+		return false
+	}
+	return !strings.ContainsAny(id, "/\\")
 }
 
 // checkVocabSlotWrite validates that every id in a slot resolves to a vocab

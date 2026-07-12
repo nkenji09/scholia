@@ -20,7 +20,7 @@ interface Props {
 export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab, onFilterTag, onFilterOwner }: Props) {
   const t = useT();
   const { tagById, vocabById } = useLookups();
-  const { changedTransitionIds } = usePendingDiff();
+  const { changedTransitionIds, addedTransitionIds } = usePendingDiff();
   const { openComposer, comments } = useComments();
   // #27 P2′-rework (change-cockpit-design-v3.md §8.3): a pending change with
   // no comment yet isn't a "proposal" (that's derived from comment × change
@@ -28,6 +28,11 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
   // steps aside once someone comments on this record (the comment itself
   // then carries the inline diff card and counts toward the badge).
   const hasUncommentedChange = changedTransitionIds.has(detail.id) && !comments.some((c) => c.recordType === 'transition' && c.recordId === detail.id);
+  // §8.8 P5・M-5「追加」（§3 の 3種別表）: this transition exists in the
+  // working tree but not at base — always badged (not gated on comment
+  // state like hasUncommentedChange above, since "this is new" is a
+  // structural fact about the record, not an attention-needed nudge).
+  const isAdded = addedTransitionIds.has(detail.id);
 
   // own/derived split reads straight off backend-computed provenance (gap
   // G11) — no re-derivation client-side (§9). "own" is any tag directly
@@ -44,7 +49,24 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
   const hasDetail = detail.rules && detail.rules.length > 0;
 
   return (
-    <article ref={cardRef} data-card-id={detail.id} class="card">
+    <article ref={cardRef} data-card-id={detail.id} class={'card' + (isAdded ? ' card-added-proposal' : '')}>
+      {isAdded && (
+        <button
+          type="button"
+          class="spec-card-added-badge"
+          onClick={() =>
+            openComposer({
+              recordType: 'transition',
+              recordId: detail.id,
+              recordTitle: detail.actionLabel || detail.action,
+              anchor: 'action',
+              anchorLabel: t.flow.trigger,
+            })
+          }
+        >
+          <Icon name="plus" size={12} /> {t.comments.proposalAddedBadge}
+        </button>
+      )}
       {hasUncommentedChange && (
         <button
           type="button"

@@ -1,17 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { api } from '../../api';
+import { api, isStaticMode } from '../../api';
 import { useT } from '../../i18n';
 import { useLookups } from '../../lookups';
 import { useDrawer } from '../../drawer';
+import { usePendingDiff } from '../../pendingDiff';
 import type { Config, FacetsResponse, SpecReport, Tag, TraceabilityResponse, Transition, TransitionDetail } from '../../types';
 import { BrowseRail } from './BrowseRail';
 import type { ConditionChip, IndexItem, KindOption, SuggestionItem } from './BrowseRail';
 import { TagCard } from './TagCard';
 import { SpecCard } from './SpecCard';
+import { TombstoneCard } from './TombstoneCard';
+import { NewTransitionForm } from './NewTransitionForm';
 import { parentsOf, childrenOf, tagMatchesFilters, specMatchesFilters } from './filters';
 import type { FilterCondition } from './filters';
 import { kindColor, OWNER_COLOR } from '../shared/Chip';
 import { CommentButton } from '../comments/CommentButton';
+import { Icon } from '../shared/Icon';
 
 interface Props {
   facet: 'tags' | 'specs';
@@ -49,6 +53,11 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
   const t = useT();
   const { tagById: lookupTagById, vocabById, tagKindLabel } = useLookups();
   const { closeDrawer } = useDrawer();
+  const pendingDiff = usePendingDiff();
+  // §8.8 P5「追加」の入口（subject の仕様一覧先頭の「＋ 新規 Transition を
+  // 提案」トグル）— server-mode 限定（static export は書込不可・handoff
+  // 「static では非活性/非表示」）。
+  const [creatingNew, setCreatingNew] = useState(false);
 
   const [config, setConfig] = useState<Config | null>(null);
   const [facetsData, setFacetsData] = useState<FacetsResponse | null>(null);
@@ -159,7 +168,12 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
     return () => {
       cancelled = true;
     };
-  }, [facet]);
+    // pendingDiff.version bumps on every refresh() (§8.8 P5) — a
+    // create/delete elsewhere (comment drawer's delete toggle, this view's
+    // own "+ 新規 Transition" form) refreshes the diff, and this refetches
+    // the live transition list/details so the affected card actually
+    // appears/disappears without a full page reload.
+  }, [facet, pendingDiff.version]);
 
   const tagsReady = facet === 'tags' && tagsSettled;
   const specsReady = facet === 'specs' && specsSettled;
@@ -289,6 +303,18 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
       return specMatchesFilters(detail, filters, vocabById);
     });
 
+    // §8.8 P5「削除」の tombstone（§3 の 3種別表）: removed from the working
+    // tree, so there's no TransitionDetail to run specMatchesFilters/
+    // kindFacet against — only the free-text query narrows this list (id/
+    // action match), same as the live list's own text-search clause above.
+    // Tag/vocab/owner AND-filter chips and the kind facet don't apply here
+    // (bounded scope: a deleted record's provenance data is gone with it).
+    const visibleTombstones = pendingDiff.removedTransitions.filter((tx) => {
+      if (!q) return true;
+      const hay = (tx.id + ' ' + vocabById.get(tx.action)?.label || tx.action).toLowerCase();
+      return hay.includes(q);
+    });
+
     title = t.browse.specsTitle;
     subtitle = t.browse.specsSubtitle;
     indexItems = visible.map((tx) => ({
@@ -299,12 +325,36 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
       onClick: () => scrollToCard(tx.id),
     }));
 
+    const newTransitionEntry = !isStaticMode && (
+      <>
+        {!creatingNew && (
+          <button type="button" class="new-transition-trigger" onClick={() => setCreatingNew(true)}>
+            <Icon name="plus" size={13} /> {t.comments.newTransitionButton}
+          </button>
+        )}
+        {creatingNew && (
+          <NewTransitionForm
+            onClose={() => setCreatingNew(false)}
+            onCreated={(id) => {
+              setCreatingNew(false);
+              scrollTarget.current = id;
+              setOpenTx((prev) => ({ ...prev, [id]: true }));
+            }}
+          />
+        )}
+      </>
+    );
+
     body = !specsReady ? (
       <div class="dim">{t.browse.loading}</div>
-    ) : visible.length === 0 ? (
-      <div class="card-empty">{t.browse.empty}</div>
+    ) : visible.length === 0 && visibleTombstones.length === 0 ? (
+      <>
+        {newTransitionEntry}
+        <div class="card-empty">{t.browse.empty}</div>
+      </>
     ) : (
       <>
+        {newTransitionEntry}
         {visible.map((tx) => (
           <SpecCard
             key={tx.id}
@@ -318,6 +368,16 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
             onFilterVocab={(id) => addFilter({ type: 'vocab', id })}
             onFilterTag={(id) => addFilter({ type: 'tag', id })}
             onFilterOwner={(owner) => addFilter({ type: 'owner', id: owner })}
+          />
+        ))}
+        {visibleTombstones.map((tx) => (
+          <TombstoneCard
+            key={tx.id}
+            transition={tx}
+            cardRef={(el) => {
+              if (el) cardRefs.current.set(tx.id, el);
+              else cardRefs.current.delete(tx.id);
+            }}
           />
         ))}
       </>

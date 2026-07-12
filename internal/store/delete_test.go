@@ -1,6 +1,8 @@
 package store
 
 import (
+	"errors"
+	"os"
 	"testing"
 
 	"github.com/nkenji09/product-memory/internal/model"
@@ -205,5 +207,69 @@ func TestRemoveTransition_CascadesOnlyItsOwnDecisions(t *testing.T) {
 	}
 	if len(snap.Decisions) != 1 || snap.Decisions[0].ID != "01D2" {
 		t.Fatalf("expected only 01D2 to survive, got %v", snap.Decisions)
+	}
+}
+
+// TestRemoveTransitionUnlinked_DeletesOnlyWhenUnreferenced is the viewer
+// DELETE endpoint's primitive (§8.8 P5・G-1′ 拡張) — the opposite policy
+// from RemoveTransition above: it never cascades, so a transition still
+// targeted by a decision must be refused rather than taking the decision
+// down with it.
+func TestRemoveTransitionUnlinked_DeletesOnlyWhenUnreferenced(t *testing.T) {
+	dir := t.TempDir()
+	s, err := Init(dir)
+	if err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	if err := s.SaveTransition(model.Transition{ID: "T-1", Action: "act.a", Then: []string{"eff.a"}}); err != nil {
+		t.Fatalf("SaveTransition: %v", err)
+	}
+	if err := s.SaveDecision(model.Decision{
+		ID: "01D1", Target: model.DecisionTarget{Type: model.DecisionTargetTransition, ID: "T-1"},
+		Why: "w", At: "2026-01-01T00:00:00Z",
+	}); err != nil {
+		t.Fatalf("SaveDecision: %v", err)
+	}
+
+	err = s.RemoveTransitionUnlinked("T-1")
+	var refErr *TransitionReferencedError
+	if !errors.As(err, &refErr) {
+		t.Fatalf("RemoveTransitionUnlinked = %v, want *TransitionReferencedError", err)
+	}
+	if refErr.ID != "T-1" || len(refErr.DecisionIDs) != 1 || refErr.DecisionIDs[0] != "01D1" {
+		t.Fatalf("unexpected error contents: %+v", refErr)
+	}
+	if !s.TransitionExists("T-1") {
+		t.Fatalf("T-1 must survive a refused delete")
+	}
+	snap, err := s.LoadAll()
+	if err != nil {
+		t.Fatalf("LoadAll: %v", err)
+	}
+	if len(snap.Decisions) != 1 {
+		t.Fatalf("decision must survive a refused delete, got %v", snap.Decisions)
+	}
+
+	// Removing the blocking decision first (append-only in practice, but
+	// the store layer doesn't enforce that) frees the transition to delete.
+	if err := os.Remove(s.decisionPath("01D1")); err != nil {
+		t.Fatalf("remove blocking decision file: %v", err)
+	}
+	if err := s.RemoveTransitionUnlinked("T-1"); err != nil {
+		t.Fatalf("RemoveTransitionUnlinked after unblocking: %v", err)
+	}
+	if s.TransitionExists("T-1") {
+		t.Fatalf("T-1 should be deleted once unreferenced")
+	}
+}
+
+func TestRemoveTransitionUnlinked_UnknownIDErrors(t *testing.T) {
+	dir := t.TempDir()
+	s, err := Init(dir)
+	if err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	if err := s.RemoveTransitionUnlinked("T-does-not-exist"); err == nil {
+		t.Fatalf("expected error for unknown id")
 	}
 }

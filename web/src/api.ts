@@ -205,7 +205,8 @@ export const api = {
 
   // 提案の手直し（change-cockpit-design-v3.md §1 (Wp)/§8.8 P3・G-1′ 承認済み）
   // — 語彙ピッカーの「反映」1 回につき 1 本呼ぶ。viewer の書込は
-  // PUT /api/config・POST /api/decision・これの3本のみ（§7 narrow rule）。
+  // PUT /api/config・POST /api/decision・これの4本のみ（§7 narrow rule・
+  // §8.8 P5 で DELETE /api/transitions/{id} が5本目に加わる・下記）。
   // static export は書込不可なので常に非対応（putConfig/postDecision と同じ流儀）。
   putTransition: (body: TransitionPostBody) => {
     if (staticData) return staticUnavailable(DICTS[loadLang()].api.transitionEdit);
@@ -214,6 +215,30 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
+  },
+
+  // 新規 Transition の提案（change-cockpit-design-v3.md §8.8 P5・M-5「追加」・
+  // 同じ G-1′ 書込面）— POST /api/transition は body.id が未実在なら 201 作成
+  // として扱う（internal/viewer/transition_write.go）。エンドポイント/body は
+  // putTransition と同一（サーバ側が存在有無で create/edit を分岐する）ため
+  // 実体は流用しつつ、呼び出し側の意図（新規作成）を名前で明確にする。
+  createTransition: (body: TransitionPostBody) => {
+    if (staticData) return staticUnavailable(DICTS[loadLang()].api.transitionCreate);
+    return request<Transition>('/api/transition', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  },
+
+  // Transition の削除提案（change-cockpit-design-v3.md §8.8 P5・M-5「削除」・
+  // G-1′ 拡張）— 作業ツリーの transition ファイルのみ除去（未コミット・git は
+  // 人）。decision がまだ対象にしている transition は 409 で拒否される
+  // （internal/store.RemoveTransitionUnlinked）。static export は書込不可
+  // なので常に非対応。
+  deleteTransition: (id: string) => {
+    if (staticData) return staticUnavailable(DICTS[loadLang()].api.transitionDelete);
+    return request<{ id: string }>(`/api/transitions/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },
 
   getTraceability: (kind?: string) =>

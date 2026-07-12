@@ -886,3 +886,69 @@
   font-size: var(--fs-3xs);
   color: var(--lm-text-muted);
 }
+
+/* #27 P5a（change-cockpit-design-v3.md §8.8 P5）: 新規 Transition 提案の
+   入口（subject の仕様一覧の先頭）とフォーム本体。.proposal-card/.proposal-row
+   系（P3）をそのまま再利用しつつ、常設カードなので .card も足す。 */
+.new-transition-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px dashed var(--lm-border-strong);
+  background: var(--lm-s2);
+  color: var(--lm-primary-strong);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  margin-bottom: var(--sp-3);
+}
+
+.new-transition-form {
+  border-style: dashed;
+  border-color: var(--lm-primary);
+}
+
+.new-transition-id-input {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-3xs);
+  padding: 4px 8px;
+  border: 1px solid var(--lm-border-strong);
+  border-radius: var(--r-sm);
+  background: var(--lm-s1);
+  color: var(--lm-text);
+  min-width: 220px;
+}
+
+/* 削除（提案・§8.8 P5「削除」）— composer 内の削除トグルと確認フォーム。 */
+.delete-proposal-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--lm-error);
+  background: var(--lm-error-weak);
+  color: var(--lm-error);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+}
+
+.delete-proposal-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: var(--sp-3);
+  background: var(--lm-error-weak);
+  border: 1px solid var(--lm-error);
+  border-radius: var(--r-md);
+}
+
+.delete-proposal-confirm-label {
+  font-size: var(--fs-sm);
+  color: var(--lm-text);
+}

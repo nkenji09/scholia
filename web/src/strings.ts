@@ -182,6 +182,29 @@ const ja = {
     // 「変更はあるがまだコメントが無い」状態だけに出る控えめな pending 表示。
     proposalCleanFlag: '変更あり（未コメント・→ドロワー）',
     proposalWhatLabel: '提案の差分表示',
+    // #27 P5a（change-cockpit-design-v3.md §3/§8.8「3種別の表し方」）: 追加
+    // ＝subject の仕様一覧に出る緑カードのバッジ／削除＝メイン一覧に残る
+    // tombstone カードの文言。
+    proposalAddedBadge: '新規 Transition（提案）',
+    tombstoneBadge: '削除（提案）',
+    tombstoneRestoreButton: '削除を取り消す（再作成）',
+    tombstoneRestoring: '取り消し中…',
+    tombstoneRestoreError: (msg: string) => `取り消せませんでした: ${msg}`,
+    newTransitionButton: '＋ 新規 Transition を提案',
+    newTransitionActionUnset: '（未選択）',
+    newTransitionIdLabel: 'id（新規識別子）',
+    newTransitionIdPlaceholder: '例: T-lint-check',
+    newTransitionIdDuplicate: (id: string) => `id "${id}" は既に存在します。別の id を指定してください`,
+    newTransitionCreateButton: '作成',
+    newTransitionCreating: '作成中…',
+    newTransitionCancel: '閉じる',
+    newTransitionCreateError: (msg: string) => `作成できませんでした: ${msg}`,
+    deleteProposalButton: 'この Transition を削除（提案）',
+    deleteProposalConfirmLabel: '本当に削除しますか？（作業ツリーから未コミットで除去します）',
+    deleteProposalConfirmButton: '削除する',
+    deleteProposalDeleting: '削除中…',
+    deleteProposalCancel: 'キャンセル',
+    deleteProposalError: (msg: string) => `削除できませんでした: ${msg}`,
     // AI配送（change-cockpit-design-v3.md §8.4）: GET /api/reviews から合流
     // した AI コメント（read-only・編集/削除/返信不可）。
     aiBadge: 'AI',
@@ -276,6 +299,8 @@ const ja = {
     reviews: 'AI コメント',
     decisionAdopt: '採用（decision の記録）',
     transitionEdit: '提案の手直し（語彙ピッカー）',
+    transitionCreate: '新規 Transition の提案',
+    transitionDelete: 'Transition の削除提案',
   },
 };
 
@@ -433,6 +458,26 @@ const en: Strings = {
     reflectButton: 'Apply this edit to the proposal',
     reflecting: 'Applying…',
     reflectError: (msg) => `Could not apply the edit: ${msg}`,
+    proposalAddedBadge: 'New transition (proposed)',
+    tombstoneBadge: 'Deletion (proposed)',
+    tombstoneRestoreButton: 'Undo deletion (re-create)',
+    tombstoneRestoring: 'Undoing…',
+    tombstoneRestoreError: (msg) => `Could not undo: ${msg}`,
+    newTransitionButton: '+ Propose a new transition',
+    newTransitionActionUnset: '(not selected)',
+    newTransitionIdLabel: 'id (new identifier)',
+    newTransitionIdPlaceholder: 'e.g. T-lint-check',
+    newTransitionIdDuplicate: (id) => `id "${id}" already exists — pick a different id`,
+    newTransitionCreateButton: 'Create',
+    newTransitionCreating: 'Creating…',
+    newTransitionCancel: 'Close',
+    newTransitionCreateError: (msg) => `Could not create: ${msg}`,
+    deleteProposalButton: 'Delete this transition (proposed)',
+    deleteProposalConfirmLabel: 'Delete for real? (removes it from the working tree, uncommitted)',
+    deleteProposalConfirmButton: 'Delete',
+    deleteProposalDeleting: 'Deleting…',
+    deleteProposalCancel: 'Cancel',
+    deleteProposalError: (msg) => `Could not delete: ${msg}`,
   },
   lookups: {
     searchById: 'transition id',
@@ -503,6 +548,8 @@ const en: Strings = {
     reviews: 'AI comments',
     decisionAdopt: 'adopting (recording a decision)',
     transitionEdit: 'editing the proposal (vocab picker)',
+    transitionCreate: 'proposing a new transition',
+    transitionDelete: 'proposing a transition deletion',
   },
 };
 

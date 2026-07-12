@@ -1,6 +1,7 @@
 package viewer
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -12,6 +13,7 @@ import (
 func registerTransitionRoutes(mux *http.ServeMux, s *store.Store) {
 	mux.HandleFunc("GET /api/transitions", listTransitionsHandler(s))
 	mux.HandleFunc("GET /api/transitions/{id}", getTransitionHandler(s))
+	mux.HandleFunc("DELETE /api/transitions/{id}", deleteTransitionHandler(s))
 }
 
 type transitionsResponse struct {
@@ -85,5 +87,41 @@ func getTransitionHandler(s *store.Store) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, detail)
+	}
+}
+
+type deleteTransitionResponse struct {
+	ID string `json:"id"`
+}
+
+// deleteTransitionHandler serves DELETE /api/transitions/{id}: the「削除
+// (提案)」write (§8.8 P5・M-5「削除」・G-1′ 拡張). Removes only the
+// transition's own working-tree file (store.RemoveTransitionUnlinked —
+// uncommitted, never touches git), refusing with 409 if any decision still
+// targets it (that would otherwise leave `pmem lint`'s decision-target rule
+// — error severity — pointing at a dangling reference; see
+// RemoveTransitionUnlinked's doc comment for why this doesn't cascade the
+// way `pmem tx rm` does).
+func deleteTransitionHandler(s *store.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		if !validTransitionID(id) {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("id %q は不正です（'/' '\\' や '.'/'..' は使えません）", id))
+			return
+		}
+		if !s.TransitionExists(id) {
+			writeError(w, http.StatusNotFound, fmt.Sprintf("transition %q が実在しません", id))
+			return
+		}
+		if err := s.RemoveTransitionUnlinked(id); err != nil {
+			var refErr *store.TransitionReferencedError
+			if errors.As(err, &refErr) {
+				writeError(w, http.StatusConflict, refErr.Error())
+				return
+			}
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, deleteTransitionResponse{ID: id})
 	}
 }

@@ -56,8 +56,10 @@ export interface DecisionPostBody {
 // 提案の手直し・G-1′ 承認済み）。action/given/then/tags は vocab-id/tag-id
 // のみ（自由記述の label/description フィールドは無い — 構造ガードは型その
 // ものが担う。internal/viewer/transition_write.go の transitionPostBody と
-// 1:1）。既存 transition の編集専用（新規作成は P5 スコープ外）。given/then/
-// tags は常にフル置換（tx add と同じ全体指定、tx edit の部分更新ではない）。
+// 1:1）。id が既存なら編集（200）、未実在なら新規作成（201・§8.8 P5・
+// api.ts の createTransition/putTransition はどちらもこの型・同一
+// エンドポイントを使う）。given/then/tags は常にフル置換（tx add と同じ
+// 全体指定、tx edit の部分更新ではない）。
 export interface TransitionPostBody {
   id: string;
   action: string;

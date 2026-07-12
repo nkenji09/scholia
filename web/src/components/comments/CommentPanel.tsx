@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { useComments, recordTypeMeta } from './useComments';
 import type { CommentRecord, DisplayComment } from './useComments';
 import { ProposalCard } from './ProposalCard';
@@ -71,7 +71,40 @@ export function CommentPanel({ onGoto }: Props) {
     cancelCreateTask,
     saveNewTask,
   } = useComments();
-  const { changedTransitionIds } = usePendingDiff();
+  const { changedTransitionIds, refresh: refreshPendingDiff } = usePendingDiff();
+
+  // 削除（提案）（change-cockpit-design-v3.md §8.8 P5・M-5「削除」・G-1′
+  // 拡張）: composer が transition を指しているときだけ出るトグル。
+  // DELETE は即座に作業ツリーから除去する（P3 の下書き→反映のような二段
+  // 階ではない）ので、誤操作を防ぐため二段階確認にする（採用フローの
+  // adoptingId パターンと同じ流儀）。
+  const [deletingTx, setDeletingTx] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // The confirm step is scoped to whichever record the composer currently
+  // targets — switching composers (or closing it) must not leave a stale
+  // "本当に削除しますか？" confirmation armed for the next record opened.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    setDeletingTx(false);
+    setDeleteError(null);
+  }, [composer?.recordId, composer?.anchor]);
+
+  const confirmDeleteTransition = async (recordId: string) => {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await api.deleteTransition(recordId);
+      refreshPendingDiff();
+      setDeletingTx(false);
+      cancelComposer();
+    } catch (e) {
+      setDeleteError(e instanceof ApiError ? e.message : String(e));
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   // 採用（change-cockpit-design-v3.md §8.5・P4）: どのコメントを採用中かの
   // ローカル UI 状態。why の下書きは POST 成功まで確定しない（P-1: 未コミッ
@@ -212,6 +245,35 @@ export function CommentPanel({ onGoto }: Props) {
                 <span class="dim">{composer.anchorLabel}</span>
               </div>
               {composer.recordType === 'transition' && changedTransitionIds.has(composer.recordId) && <ProposalCard txId={composer.recordId} />}
+              {/* 削除（提案）（§8.8 P5・M-5「削除」・G-1′ 拡張）: どの
+                  transition ドロワーからでも出せる（変更の有無を問わない）
+                  — ProposalCard 上の「反映」と違い下書きを持たず、確定を
+                  挟んで即座に作業ツリーから除去する。static export は
+                  書込不可なので非表示。 */}
+              {composer.recordType === 'transition' && !isStaticMode && !deletingTx && (
+                <button type="button" class="delete-proposal-btn" onClick={() => setDeletingTx(true)}>
+                  <Icon name="trash-2" size={13} /> {t.comments.deleteProposalButton}
+                </button>
+              )}
+              {composer.recordType === 'transition' && !isStaticMode && deletingTx && (
+                <div class="delete-proposal-confirm">
+                  <p class="delete-proposal-confirm-label">{t.comments.deleteProposalConfirmLabel}</p>
+                  {deleteError && <p class="proposal-card-error">{t.comments.deleteProposalError(deleteError)}</p>}
+                  <div class="comment-adopt-form-actions">
+                    <button
+                      type="button"
+                      class="comment-btn-danger"
+                      disabled={deleting}
+                      onClick={() => confirmDeleteTransition(composer.recordId)}
+                    >
+                      <Icon name="trash-2" size={13} /> {deleting ? t.comments.deleteProposalDeleting : t.comments.deleteProposalConfirmButton}
+                    </button>
+                    <button type="button" class="comment-btn-secondary" disabled={deleting} onClick={() => setDeletingTx(false)}>
+                      {t.comments.deleteProposalCancel}
+                    </button>
+                  </div>
+                </div>
+              )}
               <textarea
                 class="comment-composer-input"
                 rows={3}

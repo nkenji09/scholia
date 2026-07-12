@@ -193,6 +193,63 @@ func (s *Store) RemoveTransition(id, why string) (RemoveTransitionResult, error)
 	return RemoveTransitionResult{ID: id, Why: why, RemovedDecisions: decisionIDs}, nil
 }
 
+// TransitionReferencedError is returned by RemoveTransitionUnlinked when the
+// transition is still the target of one or more decisions.
+type TransitionReferencedError struct {
+	ID          string
+	DecisionIDs []string
+}
+
+func (e *TransitionReferencedError) Error() string {
+	return fmt.Sprintf(
+		"transition %q は %d 件の decision の対象です（削除できません）: %s",
+		e.ID, len(e.DecisionIDs), strings.Join(e.DecisionIDs, ", "))
+}
+
+// RemoveTransitionUnlinked deletes only the transition file itself — no
+// cascade. This is the viewer's DELETE /api/transitions/{id} primitive
+// (change-cockpit-design-v3.md §8.8 P5, G-1′ extension): unlike
+// RemoveTransition/`pmem tx rm` (which deletes every decision targeting the
+// transition too, since a human explicitly asked for the destructive
+// cascade via --why/--force), an HTTP DELETE from the cockpit must never
+// reach past the one atom it was asked to remove. Deleting decision files
+// out from under a human is the kind of blast radius §7's "viewer only
+// writes config" was guarding against — it isn't just "does this look like
+// the same operation as `pmem tx rm`", it's "would removing a Transition
+// silently discard someone else's append-only decision record".
+//
+// So instead of cascading, this refuses whenever any decision still
+// targets the transition (which would otherwise leave `pmem lint`'s
+// decision-target rule — SeverityError — pointing at a dangling
+// reference): the caller gets a TransitionReferencedError naming every
+// blocking decision id, and nothing is deleted. The transition can only be
+// removed via this path once it's unreferenced (symmetric with
+// RemoveVocab's "unreferenced-only" rule above), or via `pmem tx rm
+// --force` for the cascading case, which stays a deliberate human/CLI
+// action.
+func (s *Store) RemoveTransitionUnlinked(id string) error {
+	if !s.TransitionExists(id) {
+		return fmt.Errorf("transition %q が見つかりません", id)
+	}
+	snap, err := s.LoadAll()
+	if err != nil {
+		return err
+	}
+
+	var decisionIDs []string
+	for _, d := range snap.Decisions {
+		if d.Target.Type == model.DecisionTargetTransition && d.Target.ID == id {
+			decisionIDs = append(decisionIDs, d.ID)
+		}
+	}
+	if len(decisionIDs) > 0 {
+		sort.Strings(decisionIDs)
+		return &TransitionReferencedError{ID: id, DecisionIDs: decisionIDs}
+	}
+
+	return os.Remove(s.transitionPath(id))
+}
+
 func containsID(list []string, want string) bool {
 	for _, v := range list {
 		if v == want {

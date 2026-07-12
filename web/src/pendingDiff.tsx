@@ -2,7 +2,7 @@ import { createContext } from 'preact';
 import type { ComponentChildren } from 'preact';
 import { useContext, useEffect, useMemo, useState } from 'preact/hooks';
 import { api, isStaticMode } from './api';
-import type { DiffResult, TransitionChange } from './types';
+import type { DiffResult, Transition, TransitionChange } from './types';
 
 // Pending diff (現状 vs 提案) — change-cockpit-design-v3.md §2/§5 P2. base=
 // 'main' (never HEAD — §2 is explicit that the evaluation question is "what
@@ -24,6 +24,21 @@ interface PendingDiff {
   unavailable: 'static' | 'error' | null;
   changedTransitionIds: Set<string>;
   getChange: (txId: string) => TransitionChange | undefined;
+  /** §8.8 P5・M-5「追加」: ids of transitions present in the working tree
+      but not at base — the subject spec list decorates these as a green
+      "新規 Transition（提案）" card (§3's 3-種別表). */
+  addedTransitionIds: Set<string>;
+  /** §8.8 P5・M-5「削除」: full records (base-side) of transitions present
+      at base but removed from the working tree — these no longer resolve
+      via GET /api/transitions/{id}, so the tombstone card renders straight
+      from this diff-supplied Before snapshot rather than a TransitionDetail. */
+  removedTransitions: Transition[];
+  /** Bumped on every refresh() — a plain re-render trigger other views
+      (BrowseView's specs-facet transition list) key their own refetch off
+      of, so a create/delete elsewhere doesn't require prop-drilling a
+      dedicated callback down to wherever the mutation happened (comment
+      drawer, subject list "+ 新規" entry, …). */
+  version: number;
   refresh: () => void;
 }
 
@@ -33,11 +48,13 @@ export function PendingDiffProvider({ children }: { children: ComponentChildren 
   const [result, setResult] = useState<DiffResult | null>(null);
   const [ready, setReady] = useState(false);
   const [unavailable, setUnavailable] = useState<'static' | 'error' | null>(isStaticMode ? 'static' : null);
+  const [version, setVersion] = useState(0);
 
   const load = () => {
     if (isStaticMode) {
       setUnavailable('static');
       setReady(true);
+      setVersion((v) => v + 1);
       return;
     }
     api
@@ -46,10 +63,12 @@ export function PendingDiffProvider({ children }: { children: ComponentChildren 
         setResult(r);
         setUnavailable(null);
         setReady(true);
+        setVersion((v) => v + 1);
       })
       .catch(() => {
         setUnavailable('error');
         setReady(true);
+        setVersion((v) => v + 1);
       });
   };
 
@@ -57,10 +76,21 @@ export function PendingDiffProvider({ children }: { children: ComponentChildren 
   useEffect(load, []);
 
   const changedTransitionIds = useMemo(() => new Set((result?.transitions.changed || []).map((c) => c.id)), [result]);
+  const addedTransitionIds = useMemo(() => new Set((result?.transitions.added || []).map((tx) => tx.id)), [result]);
+  const removedTransitions = useMemo(() => result?.transitions.removed || [], [result]);
 
   const getChange = (txId: string) => result?.transitions.changed?.find((c) => c.id === txId);
 
-  const value: PendingDiff = { ready, unavailable, changedTransitionIds, getChange, refresh: load };
+  const value: PendingDiff = {
+    ready,
+    unavailable,
+    changedTransitionIds,
+    getChange,
+    addedTransitionIds,
+    removedTransitions,
+    version,
+    refresh: load,
+  };
   return <PendingDiffContext.Provider value={value}>{children}</PendingDiffContext.Provider>;
 }
 
