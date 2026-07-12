@@ -121,17 +121,23 @@ export function VocabView({ onSelectTx, initialFocusId }: Props) {
   // entries — Vocab's own entries have no self-filter affordance (see
   // VocabCard.tsx's onFilterSelf comment), so there's nothing meaningful a
   // vocab suggestion would do here that clicking the card itself doesn't
-  // already do. Narrowed further (2026-07-11 tweaks4 §1) to only tags that
-  // would leave ≥1 entry visible if added — reusing the same category-facet
-  // + tagFilters membership test `visible` above already runs, just with
-  // one more candidate tag appended (no new relationship logic, §7/§9).
-  const categoryPool = vocab.filter((v) => categoryFacet === 'all' || v.category === categoryFacet);
-  const tagWouldMatchAny = (tagId: string): boolean => {
-    const testFilters = [...tagFilters, tagId];
-    return categoryPool.some((v) => testFilters.every((id) => (v.tags || []).includes(id)));
-  };
+  // already do.
+  //
+  // NOT narrowed to "would leave ≥1 entry visible if added" (tweaks4
+  // 2026-07-11 had this, checking `(v.tags || []).includes(tagId)` across
+  // the visible pool) — reverted as the root cause of a bug report
+  // (vocab-owner-tag): VocabEntry.tags is rarely populated directly in
+  // practice, since tagging normally happens at the transition/spec level
+  // (Transition.tags/effectiveTags), not per vocab word. That narrowing
+  // meant almost every real tag failed the check, so the combobox looked
+  // empty for any realistic search. Tag's own BrowseView equivalent doesn't
+  // hit this because a candidate always matches *itself* there (Tag
+  // membership, not vocab.tags membership). Fix: list every tag matching
+  // the query, full stop — selecting one that happens to leave zero
+  // results is the same "no matches" state a free-text query can already
+  // produce, not a new failure mode.
   const suggestions: SuggestionItem[] = Array.from(tagById.values())
-    .filter((tag) => !tagFilters.includes(tag.id) && tagWouldMatchAny(tag.id))
+    .filter((tag) => !tagFilters.includes(tag.id))
     .map((tag) => ({ id: tag.id, label: tag.name || tag.id, color: kindColor(tag.kind), kindLabel: t.nav.tags, onSelect: () => addTagFilter(tag.id) }));
 
   return (
