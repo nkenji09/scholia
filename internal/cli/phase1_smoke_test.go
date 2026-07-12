@@ -25,7 +25,6 @@ func TestCLISmoke_Phase1FullFlow(t *testing.T) {
 		"--given", "cond.credentials-valid",
 		"--then", "eff.session.issue-token",
 		"--tags", "req.auth-happy-path",
-		"--test", "TC101_正しい資格情報でログインできる",
 	)
 
 	txDecide := mustRun(t, dir, "decide", "--on", "transition:T-login-submit-valid", "--why", "トークンは httpOnly cookie で発行（XSS対策）", "--ref", "https://example.com/pr/42", "--json")
