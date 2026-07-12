@@ -65,6 +65,12 @@ type Decision struct {
 	Changed string         `json:"changed,omitempty"`
 	Ref     string         `json:"ref,omitempty"`
 	At      string         `json:"at"` // RFC3339
+	// Commits は実装来歴（git hash の集合）。判断フィールド（Target/Why/
+	// Changed/Ref/At）は不変のまま、Commits だけ `pmem decision
+	// add-commit` で追記できる（追加専用・単調増加・§3.5 append-only の
+	// 精緻化）。omitempty により commits の無い旧 decision ファイルも無改修
+	// で読める。
+	Commits []string `json:"commits,omitempty"`
 }
 
 func (d Decision) GetID() string { return d.ID }

@@ -13,6 +13,7 @@ import (
 
 func newDecideCmd() *cobra.Command {
 	var on, why, changed, ref string
+	var commits []string
 	var asJSON bool
 	cmd := &cobra.Command{
 		Use:   "decide",
@@ -52,6 +53,7 @@ func newDecideCmd() *cobra.Command {
 				Changed: changed,
 				Ref:     ref,
 				At:      time.Now().UTC().Format(time.RFC3339),
+				Commits: dedupeAppend(nil, commits),
 			}
 			if err := s.SaveDecision(d); err != nil {
 				return err
@@ -70,6 +72,7 @@ func newDecideCmd() *cobra.Command {
 	cmd.Flags().StringVar(&why, "why", "", "なぜそうしたか（必須）")
 	cmd.Flags().StringVar(&changed, "changed", "", "何を変更したか（任意）")
 	cmd.Flags().StringVar(&ref, "ref", "", "参照。URL・commit hash 推奨（file:line は lint ref-freshness で警告）")
+	cmd.Flags().StringArrayVar(&commits, "commit", nil, "実装した commit hash（複数指定可・繰り返し可。着地後に結ぶ場合は `pmem decision add-commit` を使う）")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "作成したレコードを JSON で出力する")
 	return cmd
 }
