@@ -31,6 +31,7 @@ func NewHandler(s *store.Store) (http.Handler, error) {
 	registerConfigRoutes(apiMux, s)
 	registerFacetRoutes(apiMux, s)
 	registerTransitionRoutes(apiMux, s)
+	registerTransitionWriteRoutes(apiMux, s)
 	registerRulesRoute(apiMux, s)
 	registerDerivedRoutes(apiMux, s)
 	registerTraceabilityRoute(apiMux, s)
