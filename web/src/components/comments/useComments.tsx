@@ -83,12 +83,24 @@ export interface Task {
   createdAt: number;
 }
 
+/** The transition (if any) the drawer is currently "about" — #27 P2. Unlike
+    `composer` (which nulls out on save/cancel), this stays put for as long
+    as the drawer is open so ProposalCard doesn't disappear the moment a
+    comment is saved (change-cockpit-design-v3.md §3: the proposal card is
+    a fixed fixture of "the drawer for this Transition", not part of the
+    composer's transient state). */
+export interface FocusedTransition {
+  id: string;
+  title: string;
+}
+
 interface CommentsValue {
   comments: CommentRecord[];
   hasComment: (recordId: string, anchor: string) => boolean;
   panelOpen: boolean;
   openPanel: () => void;
   closePanel: () => void;
+  focusedTx: FocusedTransition | null;
   composer: CommentTarget | null;
   composerText: string;
   isEditingExisting: boolean;
@@ -254,6 +266,7 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activeTaskId, setActiveTaskId] = useState('');
   const [panelOpen, setPanelOpen] = useState(false);
+  const [focusedTx, setFocusedTx] = useState<FocusedTransition | null>(null);
   const [composer, setComposer] = useState<CommentTarget | null>(null);
   const [composerText, setComposerTextState] = useState('');
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
@@ -279,6 +292,7 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
     setComposerTextState(existing?.text || '');
     setPanelOpen(true);
     setCopyMsg(false);
+    setFocusedTx(target.recordType === 'transition' ? { id: target.recordId, title: target.recordTitle } : null);
   };
 
   const editComment = (c: CommentRecord) => {
@@ -286,6 +300,7 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
     setComposerTextState(c.text);
     setPanelOpen(true);
     setCopyMsg(false);
+    setFocusedTx(c.recordType === 'transition' ? { id: c.recordId, title: c.recordTitle } : null);
   };
 
   const cancelComposer = () => {
@@ -418,12 +433,15 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
       setPanelOpen(true);
       setComposer(null);
       setCopyMsg(false);
+      setFocusedTx(null);
     },
     closePanel: () => {
       setPanelOpen(false);
       setComposer(null);
       setComposerTextState('');
+      setFocusedTx(null);
     },
+    focusedTx,
     composer,
     composerText,
     isEditingExisting: !!composer && visibleComments.some((c) => c.recordId === composer.recordId && c.anchor === composer.anchor),

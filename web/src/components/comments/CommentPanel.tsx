@@ -1,5 +1,6 @@
 import { useComments, recordTypeMeta } from './useComments';
 import type { CommentRecord } from './useComments';
+import { ProposalCard } from './ProposalCard';
 import { useT } from '../../i18n';
 import type { Strings } from '../../i18n';
 import { Icon } from '../shared/Icon';
@@ -54,6 +55,7 @@ export function CommentPanel({ onGoto }: Props) {
     deleteReply,
     copyMsg,
     copyAll,
+    focusedTx,
     tasks,
     activeTaskId,
     switchTask,
@@ -146,6 +148,8 @@ export function CommentPanel({ onGoto }: Props) {
         )}
 
         <div class="comment-panel-body">
+          {focusedTx && <ProposalCard txId={focusedTx.id} />}
+
           {composer && (
             <div class="comment-composer">
               <div class="comment-composer-target">
