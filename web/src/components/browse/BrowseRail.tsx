@@ -91,7 +91,12 @@ export function BrowseRail({
   const selectMatch = (m: SuggestionItem) => {
     m.onSelect();
     onQueryChange('');
-    setFocused(false);
+    // Don't setFocused(false) here: the suggestion button's onMouseDown
+    // preventDefault keeps DOM focus on the input, so `focused` should stay
+    // true too — otherwise the next keystroke can't reopen the dropdown
+    // (matches requires `focused && q`) until the input is blurred and
+    // refocused. Clearing the query already closes the dropdown (q is
+    // empty), so this is safe.
   };
 
   const onKeyDown = (e: KeyboardEvent) => {
