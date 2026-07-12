@@ -467,9 +467,12 @@
   border-radius: var(--r-sm);
 }
 
-/* Proposal card (#27 P2) — read-only "現状 vs 提案" (pending diff) card,
-   pinned above the composer/comment list for whichever Transition the
-   drawer is currently focused on (CommentPanel's `focusedTx`). */
+/* Proposal card (#27 P2, re-laid-out in #27 P2′-rework) — read-only "現状
+   vs 提案" (pending diff) card. A proposal is now just a comment whose
+   record has a pending change (change-cockpit-design-v3.md §8.2), so this
+   renders inline inside the composer (while drafting) and inside each
+   comment item that qualifies (CommentPanel.tsx) rather than in a separate
+   proposal section — hence the nested-margin reset below. */
 .proposal-card {
   display: flex;
   flex-direction: column;
@@ -566,83 +569,12 @@
   font-size: var(--fs-3xs);
 }
 
-/* Proposal list (#27 P2′) — the active task's proposals (§7.5), each a
-   record-ref heading + the existing read-only ProposalCard (if the change
-   still exists in the pending diff) + a why draft textarea. */
-.proposal-section {
-  margin-bottom: var(--sp-3);
-}
-
-.proposal-section-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--fs-3xs);
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: var(--lm-text-muted);
-  margin-bottom: var(--sp-2);
-}
-
-.proposal-block {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: var(--sp-2) 0 var(--sp-3);
-  border-bottom: 1px solid var(--lm-border);
-}
-
-.proposal-block:last-child {
-  border-bottom: none;
-}
-
-.proposal-block-focused {
-  background: var(--lm-primary-weak);
-  border-radius: var(--r-md);
-  padding: var(--sp-2) var(--sp-2) var(--sp-3);
-}
-
-.proposal-block-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  font-size: var(--fs-xs);
-}
-
-.proposal-block-title {
-  font-weight: 600;
-  color: var(--lm-text);
-}
-
-.proposal-block-gone {
-  font-size: var(--fs-3xs);
-  color: var(--lm-error);
-  border: 1px dashed var(--lm-error-weak);
-  border-radius: var(--r-full);
-  padding: 1px 8px;
-}
-
-.proposal-why-label {
-  font-size: var(--fs-3xs);
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: var(--lm-text-dim);
-}
-
-.proposal-why-input {
-  width: 100%;
-  box-sizing: border-box;
-  resize: vertical;
-  min-height: 44px;
-  padding: 8px 10px;
-  border: 1px solid var(--lm-border);
-  background: var(--lm-bg);
-  color: var(--lm-text);
-  border-radius: var(--r-sm);
-  font-size: var(--fs-sm);
-  font-family: inherit;
-  line-height: 1.5;
+/* Nested placement (#27 P2′-rework) — .proposal-card renders inside
+   .comment-composer/.comment-item, both already flex columns with their own
+   gap, so drop the card's own bottom margin to avoid doubled spacing. */
+.comment-composer .proposal-card,
+.comment-item .proposal-card {
+  margin-bottom: 0;
 }
 
 /* SpecCard clean-flag (#27 P2) — the *only* diff-related affordance on the

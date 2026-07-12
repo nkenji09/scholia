@@ -21,8 +21,13 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
   const t = useT();
   const { tagById, vocabById } = useLookups();
   const { changedTransitionIds } = usePendingDiff();
-  const { openComposer } = useComments();
-  const hasProposal = changedTransitionIds.has(detail.id);
+  const { openComposer, comments } = useComments();
+  // #27 P2′-rework (change-cockpit-design-v3.md §8.3): a pending change with
+  // no comment yet isn't a "proposal" (that's derived from comment × change
+  // in CommentPanel) — it's just a quiet pending-change flag here, and it
+  // steps aside once someone comments on this record (the comment itself
+  // then carries the inline diff card and counts toward the badge).
+  const hasUncommentedChange = changedTransitionIds.has(detail.id) && !comments.some((c) => c.recordType === 'transition' && c.recordId === detail.id);
 
   // own/derived split reads straight off backend-computed provenance (gap
   // G11) — no re-derivation client-side (§9). "own" is any tag directly
@@ -40,7 +45,7 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
 
   return (
     <article ref={cardRef} data-card-id={detail.id} class="card">
-      {hasProposal && (
+      {hasUncommentedChange && (
         <button
           type="button"
           class="spec-card-clean-flag"

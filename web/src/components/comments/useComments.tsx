@@ -4,7 +4,6 @@ import { useContext, useEffect, useState } from 'preact/hooks';
 import { useT } from '../../i18n';
 import type { Strings } from '../../i18n';
 import type { IconName } from '../shared/Icon';
-import { usePendingDiff } from '../../pendingDiff';
 
 // Comments (#18) — volatile, per-browser annotations. Deliberately NOT part
 // of the .pmem record model: everything here lives only in localStorage
@@ -84,49 +83,12 @@ export interface Task {
   createdAt: number;
 }
 
-// #27 P2′ (change-cockpit-design-v3.md §7.2) — a proposal is a task-bound
-// "why" overlay on top of a pending-diff change; it never duplicates the
-// change itself (that stays in git, read via pendingDiff.getChange). Kept
-// in this same Provider/storage-key family as comments/tasks rather than a
-// separate module, per §7.2's "同じ Provider で持つのが素直" — reconcile
-// (below) is the additive-migration counterpart of initTasksAndComments.
-export type RecordType2 = 'transition' | 'vocab' | 'tag';
-
-export interface ProposalRecordRef {
-  type: RecordType2;
-  id: string;
-}
-
-export interface Proposal {
-  id: string;
-  taskId: string;
-  recordRef: ProposalRecordRef;
-  /** Draft rationale — free-edit until adoption (P4) hands it to a decision (§7.6). */
-  why: string;
-  /** Set once adopted (P4, not yet wired) — after which `why` here freezes. */
-  decisionId?: string;
-  createdAt: number;
-  updatedAt: number;
-}
-
-/** The transition (if any) the drawer is currently "about" — #27 P2. Unlike
-    `composer` (which nulls out on save/cancel), this stays put for as long
-    as the drawer is open so ProposalCard doesn't disappear the moment a
-    comment is saved (change-cockpit-design-v3.md §3: the proposal card is
-    a fixed fixture of "the drawer for this Transition", not part of the
-    composer's transient state). */
-export interface FocusedTransition {
-  id: string;
-  title: string;
-}
-
 interface CommentsValue {
   comments: CommentRecord[];
   hasComment: (recordId: string, anchor: string) => boolean;
   panelOpen: boolean;
   openPanel: () => void;
   closePanel: () => void;
-  focusedTx: FocusedTransition | null;
   composer: CommentTarget | null;
   composerText: string;
   isEditingExisting: boolean;
@@ -152,18 +114,11 @@ interface CommentsValue {
   startCreateTask: () => void;
   cancelCreateTask: () => void;
   saveNewTask: () => void;
-  /** Active task's proposals (§7.5) — includes proposals whose underlying
-      change no longer exists in the pending diff (revert/merge); use
-      `proposalExists` to tell those apart for display/badge purposes. */
-  proposals: Proposal[];
-  proposalExists: (p: Proposal) => boolean;
-  updateProposalWhy: (id: string, why: string) => void;
 }
 
 const STORAGE_KEY = 'pmem-comments-v1';
 const TASKS_STORAGE_KEY = 'pmem-tasks-v1';
 const ACTIVE_TASK_STORAGE_KEY = 'pmem-active-task-v1';
-const PROPOSALS_STORAGE_KEY = 'pmem-proposals-v1';
 const CommentsContext = createContext<CommentsValue | null>(null);
 
 function newId(prefix: string): string {
@@ -218,45 +173,6 @@ function persistActiveTaskId(id: string) {
   } catch {
     // Private-mode/quota — active task stays in-memory for this session only.
   }
-}
-
-function loadProposals(): Proposal[] {
-  try {
-    const raw = localStorage.getItem(PROPOSALS_STORAGE_KEY);
-    if (!raw) return [];
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
-  }
-}
-
-function persistProposals(arr: Proposal[]) {
-  try {
-    localStorage.setItem(PROPOSALS_STORAGE_KEY, JSON.stringify(arr));
-  } catch {
-    // Private-mode/quota — proposals stay in-memory for this session only.
-  }
-}
-
-// §7.4 Option C — additive & idempotent, same shape as initTasksAndComments'
-// migration: every changed transition in the pending diff gets a proposal
-// (why: '') if none exists yet *anywhere* (not just in the active task —
-// §7.2's uniqueness key is (recordRef), a record is claimed by whichever
-// task first saw it and stays there across active-task switches). Never
-// removes a proposal whose change vanished (revert/merge) — that's shown as
-// "body gone" in the drawer instead (§7.4), so a why draft is never
-// silently discarded.
-function reconcileProposals(changedTransitionIds: Set<string>, activeTaskId: string, proposals: Proposal[]): { proposals: Proposal[]; changed: boolean } {
-  let changed = false;
-  const next = proposals.slice();
-  changedTransitionIds.forEach((txId) => {
-    if (next.some((p) => p.recordRef.type === 'transition' && p.recordRef.id === txId)) return;
-    const now = Date.now();
-    next.push({ id: newId('p'), taskId: activeTaskId, recordRef: { type: 'transition', id: txId }, why: '', createdAt: now, updatedAt: now });
-    changed = true;
-  });
-  return { proposals: next, changed };
 }
 
 // Runs once at mount (see the effect below): ensures a default task exists,
@@ -338,49 +254,22 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activeTaskId, setActiveTaskId] = useState('');
   const [panelOpen, setPanelOpen] = useState(false);
-  const [focusedTx, setFocusedTx] = useState<FocusedTransition | null>(null);
   const [composer, setComposer] = useState<CommentTarget | null>(null);
   const [composerText, setComposerTextState] = useState('');
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [copyMsg, setCopyMsg] = useState(false);
   const [creatingTask, setCreatingTask] = useState(false);
   const [taskDraftTitle, setTaskDraftTitle] = useState('');
-  const [proposals, setProposals] = useState<Proposal[]>([]);
-  const { ready: diffReady, unavailable: diffUnavailable, changedTransitionIds } = usePendingDiff();
 
   useEffect(() => {
     const init = initTasksAndComments(t);
     setTasks(init.tasks);
     setActiveTaskId(init.activeTaskId);
     setComments(init.comments);
-    setProposals(loadProposals());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Reconcile once the pending diff has actually resolved (and once tasks/
-  // activeTaskId are past their own init above) — re-runs whenever the diff
-  // is refreshed (e.g. ProposalCard's txId-change refetch), which is fine
-  // since reconcileProposals is idempotent.
-  useEffect(() => {
-    if (!activeTaskId || !diffReady || diffUnavailable) return;
-    setProposals((prev) => {
-      const { proposals: next, changed } = reconcileProposals(changedTransitionIds, activeTaskId, prev);
-      if (changed) persistProposals(next);
-      return changed ? next : prev;
-    });
-  }, [activeTaskId, diffReady, diffUnavailable, changedTransitionIds]);
-
   const visibleComments = comments.filter((c) => c.taskId === activeTaskId);
-  const visibleProposals = proposals.filter((p) => p.taskId === activeTaskId);
-  const proposalExists = (p: Proposal) => p.recordRef.type === 'transition' && changedTransitionIds.has(p.recordRef.id);
-
-  const updateProposalWhy = (id: string, why: string) => {
-    setProposals((prev) => {
-      const next = prev.map((p) => (p.id === id ? { ...p, why, updatedAt: Date.now() } : p));
-      persistProposals(next);
-      return next;
-    });
-  };
 
   const hasComment = (recordId: string, anchor: string) => visibleComments.some((c) => c.recordId === recordId && c.anchor === anchor);
 
@@ -390,7 +279,6 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
     setComposerTextState(existing?.text || '');
     setPanelOpen(true);
     setCopyMsg(false);
-    setFocusedTx(target.recordType === 'transition' ? { id: target.recordId, title: target.recordTitle } : null);
   };
 
   const editComment = (c: CommentRecord) => {
@@ -398,7 +286,6 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
     setComposerTextState(c.text);
     setPanelOpen(true);
     setCopyMsg(false);
-    setFocusedTx(c.recordType === 'transition' ? { id: c.recordId, title: c.recordTitle } : null);
   };
 
   const cancelComposer = () => {
@@ -531,15 +418,12 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
       setPanelOpen(true);
       setComposer(null);
       setCopyMsg(false);
-      setFocusedTx(null);
     },
     closePanel: () => {
       setPanelOpen(false);
       setComposer(null);
       setComposerTextState('');
-      setFocusedTx(null);
     },
-    focusedTx,
     composer,
     composerText,
     isEditingExisting: !!composer && visibleComments.some((c) => c.recordId === composer.recordId && c.anchor === composer.anchor),
@@ -565,9 +449,6 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
     startCreateTask,
     cancelCreateTask,
     saveNewTask,
-    proposals: visibleProposals,
-    proposalExists,
-    updateProposalWhy,
   };
 
   return <CommentsContext.Provider value={value}>{children}</CommentsContext.Provider>;

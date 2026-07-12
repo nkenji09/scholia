@@ -175,15 +175,13 @@ const ja = {
     // #27 P2: 現状 vs 提案（pending diff）の read-only カード。
     proposalHeading: '提案',
     proposalUncommitted: '未コミット',
-    proposalCleanFlag: '提案あり（→ドロワー）',
-    proposalWhatLabel: '提案の差分表示',
     proposalUnavailableError: '提案の差分を取得できませんでした',
     proposalReordered: '順序が変わりました',
-    // #27 P2′: 提案メタ層（task 束ね＋why 下書き・localStorage）。
-    proposalsSectionHeading: 'このタスクの提案',
-    proposalGone: '本体消失（変更が取り消されました）',
-    proposalWhyLabel: 'なぜ必要か（下書き）',
-    proposalWhyPlaceholder: 'この提案が必要な理由を書く…',
+    // #27 P2′-rework（change-cockpit-design-v3.md §8）: 提案＝変更を持つ
+    // レコードのコメント（別 why 欄は無い）。SpecCard のこのフラグは
+    // 「変更はあるがまだコメントが無い」状態だけに出る控えめな pending 表示。
+    proposalCleanFlag: '変更あり（未コメント・→ドロワー）',
+    proposalWhatLabel: '提案の差分表示',
   },
   // lookups.tsx の describeMatch()（検索結果の一致理由テキスト）。
   lookups: {
@@ -388,14 +386,10 @@ const en: Strings = {
     taskNewPlaceholder: 'Enter a task name…',
     proposalHeading: 'Proposal',
     proposalUncommitted: 'Uncommitted',
-    proposalCleanFlag: 'Proposal available (→ drawer)',
-    proposalWhatLabel: 'the proposal diff view',
     proposalUnavailableError: 'Could not load the proposal diff',
     proposalReordered: 'Order changed',
-    proposalsSectionHeading: 'Proposals in this task',
-    proposalGone: 'Change reverted (proposal body gone)',
-    proposalWhyLabel: 'Why (draft)',
-    proposalWhyPlaceholder: 'Explain why this proposal is needed…',
+    proposalCleanFlag: 'Change pending (no comment yet → drawer)',
+    proposalWhatLabel: 'the proposal diff view',
   },
   lookups: {
     searchById: 'transition id',
