@@ -199,7 +199,8 @@ export interface TransitionSearchDoc {
 // internal/diff.Result 1:1 (JSON field names, additive-only optional
 // fields). This is a server-mode-only surface: `pmem export --html` never
 // bakes diff data into PmemStaticData, so api.getDiff() always hits
-// `GET /api/diff` and CompareView must not render when isStaticMode.
+// `GET /api/diff` and any caller must not invoke it when isStaticMode
+// (the former CompareView did this; P2's comment-drawer diff card will).
 export interface DiffChange<T> {
   id: string;
   before: T;

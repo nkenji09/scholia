@@ -12,13 +12,13 @@ import { useEffect, useState } from 'preact/hooks';
 // restorable from git history (internal/viewer's /api/traceability endpoint
 // is untouched; only this frontend surface is gone).
 //
-// 'compare' (diff-viz / 評価コックピット, G-5) was removed in that same pass
-// but reinstated 2026-07-12 as a purpose-built read-only comparison view
-// (change-cockpit-design-v2.md §2, user-approved reintroduction) — see
-// components/compare/CompareView.tsx. Server-mode only: hidden from the nav
-// and this route is unreachable in a `pmem export --html` static build
-// (api.ts's isStaticMode / api.getDiff).
-export type ViewName = 'home' | 'browse' | 'vocab' | 'spec' | 'tags' | 'config' | 'compare';
+// 'compare' (diff-viz / 評価コックピット, G-5) was reinstated 2026-07-12 as a
+// purpose-built read-only comparison view (change-cockpit-design-v2.md §2)
+// but removed again the same day per change-cockpit-design-v3.md §5 P1:
+// evaluation moves inline into each Transition's comment drawer instead of
+// living on its own route. `getDiff` (api.ts) and the `/api/diff` backend
+// endpoint stay for that inline reuse (P2) — only this standalone view goes.
+export type ViewName = 'home' | 'browse' | 'vocab' | 'spec' | 'tags' | 'config';
 
 export interface Route {
   view: ViewName;
@@ -30,7 +30,7 @@ export interface Route {
   vocabId?: string;
 }
 
-const VIEWS: ViewName[] = ['home', 'browse', 'vocab', 'spec', 'tags', 'config', 'compare'];
+const VIEWS: ViewName[] = ['home', 'browse', 'vocab', 'spec', 'tags', 'config'];
 // HOME is the new landing page (.concierge/decision.md G-2, resolved:
 // default route moves from 'browse' to 'home'). An empty/unknown hash still
 // falls back to DEFAULT_ROUTE below, so bookmarks of `#` or the bare page
