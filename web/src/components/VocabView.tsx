@@ -93,6 +93,16 @@ export function VocabView({ onSelectTx, initialFocusId }: Props) {
   if (error) return <div class="browse-view error">{error}</div>;
   if (!vocab) return <div class="browse-view dim">{t.vocab.loading}</div>;
 
+  // Single predicate for "does this vocab entry satisfy this one condition"
+  // — shared by `visible` (the actual list filter) and `wouldMatchAny`
+  // below (the combobox's "would this candidate leave ≥1 result" check).
+  // Deliberately the ONLY place this membership rule is written: a second,
+  // simplified copy for candidate-narrowing was the root cause of a prior
+  // bug (vocab-owner-tag rework) — "shows as a candidate" and "actually
+  // narrows something" must always agree.
+  const matchesFilter = (v: VocabEntry, f: FilterCondition): boolean =>
+    f.type === 'tag' ? (v.tags || []).includes(f.id) : v.owner === f.id;
+
   const q = query.trim().toLowerCase();
   const kindOptions: KindOption[] = CATEGORIES.map((c) => ({
     key: c,
@@ -103,7 +113,7 @@ export function VocabView({ onSelectTx, initialFocusId }: Props) {
   const visible = vocab
     .filter((v) => categoryFacet === 'all' || v.category === categoryFacet)
     .filter((v) => !q || (v.id + ' ' + v.label + ' ' + (v.description || '')).toLowerCase().includes(q))
-    .filter((v) => filters.every((f) => (f.type === 'tag' ? (v.tags || []).includes(f.id) : v.owner === f.id)))
+    .filter((v) => filters.every((f) => matchesFilter(v, f)))
     .sort((a, b) => a.id.localeCompare(b.id));
 
   const indexItems: IndexItem[] = visible.map((v) => ({
@@ -127,29 +137,33 @@ export function VocabView({ onSelectTx, initialFocusId }: Props) {
   });
 
   // Combobox candidates (2026-07-11 tweaks3 §3): every known tag, plus
-  // (vocab-owner-tag) every distinct owner value, matching the typed
-  // substring — not other vocab entries (Vocab's own entries have no
-  // self-filter affordance, see VocabCard.tsx's onFilterSelf comment).
+  // (vocab-owner-tag) every distinct owner value, narrowed to whichever
+  // would actually leave ≥1 result if added — same "AND-narrow, only offer
+  // what helps" UX as BrowseView.tsx's facet combobox (tags/specs).
   //
-  // Root cause of the "no tag candidates ever show up" bug (vocab-owner-tag
-  // handoff §要件1): tweaks4 (2026-07-11) narrowed this list to only tags
-  // that were already directly present on some *visible* vocab entry's own
-  // `tags` array. But VocabEntry.tags is rarely populated in practice —
-  // tagging normally happens at the transition/spec level (Transition.tags/
-  // effectiveTags), not per vocab word — so almost every real tag failed
-  // that check and the box looked empty for any realistic search. Tag's own
-  // BrowseView equivalent doesn't hit this because a candidate always
-  // matches *itself* there (Tag membership, not vocab.tags membership).
-  // Fix: list every tag/owner matching the query, full stop; selecting one
-  // that happens to leave zero results is the same "no matches" state a
-  // free-text query can already produce, not a new failure mode.
+  // History (vocab-owner-tag → rework): this box originally (tweaks4,
+  // 2026-07-11) narrowed candidates with a *shortcut* predicate —
+  // `(v.tags || []).includes(tagId)` computed only over vocab.tags — which
+  // is almost always empty in practice (tagging normally happens at the
+  // transition/spec level, not per vocab word), so nearly every real tag
+  // failed the check and the box looked broken. The first fix over-
+  // corrected by dropping narrowing entirely. The actual defect wasn't
+  // "narrowing is wrong" — it was "the predicate used for narrowing didn't
+  // match the predicate used for filtering". `wouldMatchAny` below reuses
+  // `matchesFilter` (the exact same rule `visible` above filters with), so
+  // "shown as a candidate" and "actually narrows the list" can never
+  // diverge again.
+  const wouldMatchAny = (candidate: FilterCondition): boolean => {
+    const testFilters = [...filters, candidate];
+    return vocab.some((v) => testFilters.every((f) => matchesFilter(v, f)));
+  };
   const ownerValues = Array.from(new Set(vocab.map((v) => v.owner).filter((o): o is string => !!o)));
   const suggestions: SuggestionItem[] = [
     ...Array.from(tagById.values())
-      .filter((tag) => !filters.some((f) => f.type === 'tag' && f.id === tag.id))
+      .filter((tag) => !filters.some((f) => f.type === 'tag' && f.id === tag.id) && wouldMatchAny({ type: 'tag', id: tag.id }))
       .map((tag) => ({ id: tag.id, label: tag.name || tag.id, color: kindColor(tag.kind), kindLabel: t.nav.tags, onSelect: () => addFilter({ type: 'tag', id: tag.id }) })),
     ...ownerValues
-      .filter((o) => !filters.some((f) => f.type === 'owner' && f.id === o))
+      .filter((o) => !filters.some((f) => f.type === 'owner' && f.id === o) && wouldMatchAny({ type: 'owner', id: o }))
       .map((o) => ({ id: o, label: o, color: OWNER_COLOR, kindLabel: t.vocab.owner, onSelect: () => addFilter({ type: 'owner', id: o }) })),
   ];
 
