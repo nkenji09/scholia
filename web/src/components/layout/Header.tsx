@@ -124,11 +124,13 @@ export function Header({ view, onSelectView }: Props) {
         <button type="button" class="topbar-icon-btn" aria-label={t.header.themeToggle} onClick={toggleTheme}>
           <Icon name={settings.theme === 'dark' ? 'moon' : 'sun'} size={17} />
         </button>
-        {/* #27 P2′-rework (change-cockpit-design-v3.md §8.6): badge = comment
-            count, scoped to the active task. A comment on a record that has
-            a pending change is a "proposal" (rendered with an inline diff
-            card in the drawer — see CommentPanel), so it's already counted
-            here without a separate tally. */}
+        {/* #27 P2′-rework／AI配送 (change-cockpit-design-v3.md §8.6): badge =
+            comment count, scoped to the active task — human comments
+            (localStorage) plus AI reviews merged in by useComments (§8.4).
+            A comment on a record that has a pending change is a "proposal"
+            (rendered with an inline diff card in the drawer — see
+            CommentPanel), so it's already counted here without a separate
+            tally. */}
         {badgeCount > 0 && (
           <button
             type="button"

@@ -1,5 +1,5 @@
 import { useComments, recordTypeMeta } from './useComments';
-import type { CommentRecord } from './useComments';
+import type { CommentRecord, DisplayComment } from './useComments';
 import { ProposalCard } from './ProposalCard';
 import { usePendingDiff } from '../../pendingDiff';
 import { useT } from '../../i18n';
@@ -78,7 +78,9 @@ export function CommentPanel({ onGoto }: Props) {
   // #27 P2′-rework (change-cockpit-design-v3.md §8.2): a comment IS a
   // proposal when its record currently has a pending change — no separate
   // Proposal record, just this derived check plus an inline ProposalCard.
-  const isProposalComment = (c: CommentRecord) => c.recordType === 'transition' && changedTransitionIds.has(c.recordId);
+  // Applies equally to AI comments (§8.4): an AI review on a changed record
+  // is a proposal exactly like a human one, via the same derive.
+  const isProposalComment = (c: DisplayComment) => c.recordType === 'transition' && changedTransitionIds.has(c.recordId);
 
   // Proposal comments (change + comment) group to the front (§8.2/§8.8),
   // most-recently-updated first within each group (stable sort keeps the
@@ -218,8 +220,9 @@ export function CommentPanel({ onGoto }: Props) {
 
           {sorted.map((c) => {
             const meta = recordTypeMeta(t, c.recordType);
+            const isAi = c.source === 'ai';
             return (
-              <div key={c.id} class="comment-item">
+              <div key={c.id} class={'comment-item' + (isAi ? ' comment-item-ai' : '')}>
                 <div class="comment-item-head">
                   <span class="comment-item-type" style={{ color: meta.color }}>
                     <Icon name={meta.icon} size={12} /> {meta.label}
@@ -228,11 +231,19 @@ export function CommentPanel({ onGoto }: Props) {
                   <span class="comment-item-location dim">
                     <Icon name="crosshair" size={10} /> {c.anchorLabel}
                   </span>
+                  {/* AI配送（change-cockpit-design-v3.md §8.4）: AI コメントは
+                      GET /api/reviews から合流した read-only 項目 — badge の
+                      み表示し、下の編集/削除/返信 UI は出さない。 */}
+                  {isAi && (
+                    <span class="comment-ai-badge" title={t.comments.aiReadonlyNote}>
+                      {t.comments.aiBadge}
+                    </span>
+                  )}
                 </div>
                 {isProposalComment(c) && <ProposalCard txId={c.recordId} />}
                 <p class="comment-item-text">{c.text}</p>
 
-                {c.replies.length > 0 && (
+                {!isAi && c.replies.length > 0 && (
                   <div class="comment-reply-list">
                     {c.replies.map((r) => (
                       <div key={r.id} class="comment-reply">
@@ -249,37 +260,43 @@ export function CommentPanel({ onGoto }: Props) {
                   </div>
                 )}
 
-                <div class="comment-reply-composer">
-                  <input
-                    class="comment-reply-input"
-                    placeholder={t.comments.replyPlaceholder}
-                    title={submitHint(t)}
-                    value={replyDrafts[c.id] || ''}
-                    onInput={(e) => setReplyDraft(c.id, (e.target as HTMLInputElement).value)}
-                    onKeyDown={(e) => {
-                      if (isSubmitKey(e)) {
-                        e.preventDefault();
-                        addReply(c.id);
-                      }
-                    }}
-                  />
-                  <button type="button" class="comment-reply-add" onClick={() => addReply(c.id)}>
-                    {t.comments.replyAdd}
-                  </button>
-                </div>
+                {!isAi && (
+                  <div class="comment-reply-composer">
+                    <input
+                      class="comment-reply-input"
+                      placeholder={t.comments.replyPlaceholder}
+                      title={submitHint(t)}
+                      value={replyDrafts[c.id] || ''}
+                      onInput={(e) => setReplyDraft(c.id, (e.target as HTMLInputElement).value)}
+                      onKeyDown={(e) => {
+                        if (isSubmitKey(e)) {
+                          e.preventDefault();
+                          addReply(c.id);
+                        }
+                      }}
+                    />
+                    <button type="button" class="comment-reply-add" onClick={() => addReply(c.id)}>
+                      {t.comments.replyAdd}
+                    </button>
+                  </div>
+                )}
 
                 <div class="comment-item-actions">
                   <button type="button" class="comment-btn-chip" onClick={() => onGoto(c)}>
                     <Icon name="crosshair" size={13} /> {t.comments.gotoLocation}
                   </button>
-                  <button type="button" class="comment-btn-chip" onClick={() => editComment(c)}>
-                    <Icon name="pencil" size={12} /> {t.common.edit}
-                  </button>
+                  {!isAi && (
+                    <button type="button" class="comment-btn-chip" onClick={() => editComment(c)}>
+                      <Icon name="pencil" size={12} /> {t.common.edit}
+                    </button>
+                  )}
                   <span class="comment-panel-spacer" />
                   <span class="comment-item-time dim">{formatTime(c.updatedAt)}</span>
-                  <button type="button" class="comment-btn-icon-danger" aria-label={t.common.delete} onClick={() => deleteComment(c.id)}>
-                    <Icon name="trash-2" size={13} />
-                  </button>
+                  {!isAi && (
+                    <button type="button" class="comment-btn-icon-danger" aria-label={t.common.delete} onClick={() => deleteComment(c.id)}>
+                      <Icon name="trash-2" size={13} />
+                    </button>
+                  )}
                 </div>
               </div>
             );

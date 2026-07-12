@@ -262,6 +262,23 @@ export interface DiffResult {
   afterRef?: string;
 }
 
+// AI コメント配送（change-cockpit-design-v3.md §8.4）— `GET /api/reviews` が
+// 返す read-only サイドカー。internal/review.Review の JSON shape と 1:1。
+// static export には焼き込まない（本単位のスコープ外・§8.4/handoff 参照）ため
+// PmemStaticData には含まれない。
+export interface ReviewRecordRef {
+  type: 'transition' | 'vocab' | 'tag';
+  id: string;
+}
+
+export interface Review {
+  id: string;
+  recordRef: ReviewRecordRef;
+  body: string;
+  source: string;
+  createdAt: string;
+}
+
 // PmemStaticData is what `pmem export --html` bakes into
 // `window.__PMEM_STATIC__` — the same shapes the live /api/* endpoints
 // return, precomputed for every input the SPA's read-only views can ask for

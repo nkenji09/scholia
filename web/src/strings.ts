@@ -182,6 +182,10 @@ const ja = {
     // 「変更はあるがまだコメントが無い」状態だけに出る控えめな pending 表示。
     proposalCleanFlag: '変更あり（未コメント・→ドロワー）',
     proposalWhatLabel: '提案の差分表示',
+    // AI配送（change-cockpit-design-v3.md §8.4）: GET /api/reviews から合流
+    // した AI コメント（read-only・編集/削除/返信不可）。
+    aiBadge: 'AI',
+    aiReadonlyNote: 'AI が書いたコメントです（編集・削除・返信はできません）',
   },
   // lookups.tsx の describeMatch()（検索結果の一致理由テキスト）。
   lookups: {
@@ -250,6 +254,7 @@ const ja = {
     spec: (tagId: string) => `spec ${tagId}`,
     rulesWithSelectors: 'rules (tag/tx/facet 指定)',
     diff: '差分（diff）',
+    reviews: 'AI コメント',
   },
 };
 
@@ -390,6 +395,8 @@ const en: Strings = {
     proposalReordered: 'Order changed',
     proposalCleanFlag: 'Change pending (no comment yet → drawer)',
     proposalWhatLabel: 'the proposal diff view',
+    aiBadge: 'AI',
+    aiReadonlyNote: "Written by AI — can't be edited, deleted, or replied to.",
   },
   lookups: {
     searchById: 'transition id',
@@ -457,6 +464,7 @@ const en: Strings = {
     spec: (tagId) => `spec ${tagId}`,
     rulesWithSelectors: 'rules (tag/tx/facet selectors)',
     diff: 'the diff',
+    reviews: 'AI comments',
   },
 };
 

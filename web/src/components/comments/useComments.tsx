@@ -4,6 +4,9 @@ import { useContext, useEffect, useState } from 'preact/hooks';
 import { useT } from '../../i18n';
 import type { Strings } from '../../i18n';
 import type { IconName } from '../shared/Icon';
+import { useReviews } from '../../reviews';
+import { useLookups } from '../../lookups';
+import type { Review } from '../../types';
 
 // Comments (#18) — volatile, per-browser annotations. Deliberately NOT part
 // of the .pmem record model: everything here lives only in localStorage
@@ -83,8 +86,46 @@ export interface Task {
   createdAt: number;
 }
 
+// AI配送（change-cockpit-design-v3.md §8.4） — a CommentRecord-shaped view of
+// either a human comment (localStorage, `source: 'local'`) or an AI review
+// (GET /api/reviews, `source: 'ai'`) after they're merged into one list.
+// AI items are synthesized read-only (§8.2: "AI コメントは viewer 上
+// read-only") — never written back to STORAGE_KEY, never mutated by
+// saveComposer/deleteComment/addReply (those only ever see `source: 'local'`
+// items, since composer targets are always built from human UI affordances).
+export interface DisplayComment extends CommentRecord {
+  source: 'local' | 'ai';
+}
+
+const REVIEW_BINDINGS_STORAGE_KEY = 'pmem-review-bindings-v1';
+
+// §8.3: a thin overlay binding each AI review to the task it was first seen
+// under — reviews carry no taskId of their own (they're read-only sidecars),
+// so this is the only place that namespaces them by task. No `why` field
+// (the review body itself is the why — §8.2 "二重管理が構造的に不可能").
+type ReviewBindings = Record<string, { taskId: string; decisionId?: string }>;
+
+function loadReviewBindings(): ReviewBindings {
+  try {
+    const raw = localStorage.getItem(REVIEW_BINDINGS_STORAGE_KEY);
+    if (!raw) return {};
+    const obj = JSON.parse(raw);
+    return obj && typeof obj === 'object' && !Array.isArray(obj) ? obj : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistReviewBindings(bindings: ReviewBindings) {
+  try {
+    localStorage.setItem(REVIEW_BINDINGS_STORAGE_KEY, JSON.stringify(bindings));
+  } catch {
+    // Private-mode/quota — bindings stay in-memory for this session only.
+  }
+}
+
 interface CommentsValue {
-  comments: CommentRecord[];
+  comments: DisplayComment[];
   hasComment: (recordId: string, anchor: string) => boolean;
   panelOpen: boolean;
   openPanel: () => void;
@@ -260,16 +301,78 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
   const [copyMsg, setCopyMsg] = useState(false);
   const [creatingTask, setCreatingTask] = useState(false);
   const [taskDraftTitle, setTaskDraftTitle] = useState('');
+  const [reviewBindings, setReviewBindings] = useState<ReviewBindings>({});
+
+  const { reviews } = useReviews();
+  const { transitionLabel, vocabLabel, tagName } = useLookups();
 
   useEffect(() => {
     const init = initTasksAndComments(t);
     setTasks(init.tasks);
     setActiveTaskId(init.activeTaskId);
     setComments(init.comments);
+    setReviewBindings(loadReviewBindings());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // §8.3 reconcile: bind every not-yet-bound AI review to the active task,
+  // additive and idempotent (same shape as initTasksAndComments' legacy-
+  // comment migration above) — a review keeps whatever task it was first
+  // seen under even if the active task later changes.
+  useEffect(() => {
+    if (!activeTaskId || reviews.length === 0) return;
+    setReviewBindings((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const r of reviews) {
+        if (!next[r.id]) {
+          next[r.id] = { taskId: activeTaskId };
+          changed = true;
+        }
+      }
+      if (!changed) return prev;
+      persistReviewBindings(next);
+      return next;
+    });
+  }, [reviews, activeTaskId]);
+
   const visibleComments = comments.filter((c) => c.taskId === activeTaskId);
+
+  const reviewRecordTitle = (r: Review): string => {
+    if (r.recordRef.type === 'transition') return transitionLabel(r.recordRef.id).primary;
+    if (r.recordRef.type === 'vocab') return vocabLabel(r.recordRef.id);
+    return tagName(r.recordRef.id);
+  };
+
+  // AI review → CommentRecord-shaped read-only item (§8.2/§8.4): recordType/
+  // recordId come straight off recordRef, text = body (the sole why — no
+  // separate why field), anchor is the generic "whole card" anchor (an AI
+  // review comments on the record as a whole, not one section of it).
+  const visibleAiComments: DisplayComment[] = reviews
+    .filter((r) => reviewBindings[r.id]?.taskId === activeTaskId)
+    .map((r) => ({
+      id: r.id,
+      taskId: activeTaskId,
+      recordType: r.recordRef.type,
+      recordId: r.recordRef.id,
+      recordTitle: reviewRecordTitle(r),
+      anchor: 'card',
+      anchorLabel: t.comments.cardAnchorLabel,
+      text: r.body,
+      createdAt: Date.parse(r.createdAt) || 0,
+      updatedAt: Date.parse(r.createdAt) || 0,
+      replies: [],
+      source: 'ai',
+    }));
+
+  // The merged, task-scoped comment list every consumer (badge/CommentPanel/
+  // SpecCard's clean-flag) sees. Human comment CRUD (saveComposer etc. below)
+  // stays entirely on `comments`/`visibleComments` — AI items never round-trip
+  // through those, so there's no risk of a read-only item being edited.
+  const mergedVisibleComments: DisplayComment[] = [
+    ...visibleComments.map((c): DisplayComment => ({ ...c, source: 'local' })),
+    ...visibleAiComments,
+  ];
 
   const hasComment = (recordId: string, anchor: string) => visibleComments.some((c) => c.recordId === recordId && c.anchor === anchor);
 
@@ -411,7 +514,7 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
   const activeTask = tasks.find((tk) => tk.id === activeTaskId) || null;
 
   const value: CommentsValue = {
-    comments: visibleComments,
+    comments: mergedVisibleComments,
     hasComment,
     panelOpen,
     openPanel: () => {

@@ -13,6 +13,7 @@ import type {
   TransitionsResponse,
   VocabEntry,
   Decision,
+  Review,
 } from './types';
 import { loadLang } from './i18n';
 import { DICTS } from './strings';
@@ -178,6 +179,14 @@ export const api = {
   // api.* と同じ流儀で弾く）。
   getDiff: (params: { ref?: string; head?: string }) =>
     staticData ? staticUnavailable(DICTS[loadLang()].api.diff) : request<DiffResult>('/api/diff' + query(params)),
+
+  // AI コメント配送（change-cockpit-design-v3.md §8.4）— `.pmem/reviews/` の
+  // read-only サイドカーを返す。getDiff と同流儀: static export はその場限りの
+  // 1スナップショットで、AI review は焼き込み対象外（§8.4 「本単位ではやらな
+  // い」）なので常に静的モード非対応。人コメント（localStorage）の経路には
+  // 触れない — この getter だけが新規（useComments.tsx 冒頭の「fetch を足す
+  // な」は人コメント永続化の制約であり、この別系統 read には適用されない）。
+  getReviews: () => (staticData ? staticUnavailable(DICTS[loadLang()].api.reviews) : request<Review[]>('/api/reviews')),
 
   getTraceability: (kind?: string) =>
     staticData ? Promise.resolve(staticTraceability(staticData, kind)) : request<TraceabilityResponse>('/api/traceability' + query({ kind })),

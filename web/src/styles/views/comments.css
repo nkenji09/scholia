@@ -324,6 +324,25 @@
   font-size: var(--fs-3xs);
 }
 
+/* AI配送（change-cockpit-design-v3.md §8.4）: GET /api/reviews から合流した
+   read-only コメント。人コメントと同じカードだが薄い primary の縁取りと
+   「AI」バッジで見分ける — 編集/削除/返信ボタンは JSX 側で出さない。 */
+.comment-item-ai {
+  border-color: var(--lm-primary-ring);
+}
+
+.comment-ai-badge {
+  margin-left: auto;
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--lm-primary-strong);
+  border: 1px solid var(--lm-primary-ring);
+  border-radius: var(--r-full);
+  padding: 1px 8px;
+}
+
 .comment-item-text {
   margin: 0;
   font-size: var(--fs-sm);
