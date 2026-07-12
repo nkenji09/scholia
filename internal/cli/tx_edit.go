@@ -11,17 +11,14 @@ import (
 
 func newTxEditCmd() *cobra.Command {
 	var action string
-	var given, then, tags, tests []string
-	var clearTests, asJSON bool
+	var given, then, tags []string
+	var asJSON bool
 	cmd := &cobra.Command{
 		Use:   "edit <id>",
 		Short: "遷移の指定フィールドのみ更新する（tx add と同一の検証を通す）",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
-			if clearTests && cmd.Flags().Changed("test") {
-				return fmt.Errorf("--clear-tests と --test は同時に指定できません")
-			}
 
 			s, err := openStore()
 			if err != nil {
@@ -74,12 +71,6 @@ func newTxEditCmd() *cobra.Command {
 				}
 				t.Tags = tags
 			}
-			if cmd.Flags().Changed("test") {
-				t.Tests = tests
-			}
-			if clearTests {
-				t.Tests = nil
-			}
 
 			if err := s.SaveTransition(t); err != nil {
 				return err
@@ -102,8 +93,6 @@ func newTxEditCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&given, "given", nil, "condition の語彙 id（カンマ区切り・完全置換）")
 	cmd.Flags().StringSliceVar(&then, "then", nil, "effect の語彙 id（カンマ区切り・順序保存・完全置換）")
 	cmd.Flags().StringSliceVar(&tags, "tags", nil, "タグ id（カンマ区切り・完全置換）")
-	cmd.Flags().StringArrayVar(&tests, "test", nil, "実テストを一意特定する文字列（複数指定可・完全置換）")
-	cmd.Flags().BoolVar(&clearTests, "clear-tests", false, "tests を空にする")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "更新後のレコードを JSON で出力する")
 	return cmd
 }

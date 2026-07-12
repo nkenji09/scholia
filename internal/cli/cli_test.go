@@ -55,7 +55,6 @@ func TestCLISmoke_InitVocabTagTxLintShow(t *testing.T) {
 		"--given", "cond.credentials-valid",
 		"--then", "eff.session.issue-token",
 		"--tags", "req.auth-happy-path,subject.auth",
-		"--test", "TC101_正しい資格情報でログインできる",
 	); err != nil {
 		t.Fatalf("tx add failed: %v\noutput:\n%s", err, out)
 	}

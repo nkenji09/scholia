@@ -31,7 +31,7 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
     const extra = et.sources.filter((s) => s !== 'own');
     return extra.length > 0 ? t.browse.provenanceLabel(extra) : null;
   };
-  const hasDetail = (detail.tests && detail.tests.length > 0) || (detail.rules && detail.rules.length > 0);
+  const hasDetail = detail.rules && detail.rules.length > 0;
 
   return (
     <article ref={cardRef} data-card-id={detail.id} class="card">
@@ -149,20 +149,6 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
 
       {isOpen && hasDetail && (
         <div class="card-section spec-card-detail">
-          {detail.tests && detail.tests.length > 0 && (
-            <div>
-              <span class="card-section-heading">
-                <Icon name="flask-conical" size={14} /> {t.browse.tests}
-              </span>
-              <div class="spec-card-chip-row">
-                {detail.tests.map((t) => (
-                  <span key={t} class="spec-card-test">
-                    {t}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
           {detail.rules && detail.rules.length > 0 && (
             <div>
               <span class="card-section-heading">

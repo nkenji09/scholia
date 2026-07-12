@@ -4,7 +4,6 @@ export interface Transition {
   given: string[];
   then: string[];
   tags?: string[];
-  tests?: string[];
 }
 
 export interface VocabEntry {
@@ -199,7 +198,8 @@ export interface TransitionSearchDoc {
 // internal/diff.Result 1:1 (JSON field names, additive-only optional
 // fields). This is a server-mode-only surface: `pmem export --html` never
 // bakes diff data into PmemStaticData, so api.getDiff() always hits
-// `GET /api/diff` and CompareView must not render when isStaticMode.
+// `GET /api/diff` and any caller must not invoke it when isStaticMode
+// (the former CompareView did this; P2's comment-drawer diff card will).
 export interface DiffChange<T> {
   id: string;
   before: T;
@@ -226,13 +226,11 @@ export interface TransitionChange {
   givenAdded?: string[];
   givenRemoved?: string[];
   thenChanged?: boolean;
-  /** Given/tags/tests are set comparisons; then is an ordered list — this
+  /** Given/tags are set comparisons; then is an ordered list — this
       flags a then whose *set* is unchanged but whose order differs (§3.2). */
   thenReordered?: boolean;
   tagsAdded?: string[];
   tagsRemoved?: string[];
-  testsAdded?: string[];
-  testsRemoved?: string[];
 }
 
 export interface TransitionDiff {

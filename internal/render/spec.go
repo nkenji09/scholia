@@ -102,9 +102,6 @@ func WriteText(w io.Writer, report SpecReport) {
 		line += " THEN " + strings.Join(e.ThenLabels, " → ")
 		fmt.Fprintln(w, line)
 
-		if len(e.Transition.Tests) > 0 {
-			fmt.Fprintf(w, "tests: %s\n", strings.Join(e.Transition.Tests, ", "))
-		}
 		if len(e.Decisions) > 0 {
 			fmt.Fprintln(w, "decisions:")
 			for _, d := range e.Decisions {

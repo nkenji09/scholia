@@ -11,7 +11,7 @@ import (
 
 func newTxAddCmd() *cobra.Command {
 	var action string
-	var given, then, tags, tests []string
+	var given, then, tags []string
 	var asJSON bool
 	cmd := &cobra.Command{
 		Use:   "add <id>",
@@ -62,7 +62,7 @@ func newTxAddCmd() *cobra.Command {
 				}
 			}
 
-			t := model.Transition{ID: id, Action: action, Given: given, Then: then, Tags: tags, Tests: tests}
+			t := model.Transition{ID: id, Action: action, Given: given, Then: then, Tags: tags}
 			if err := s.SaveTransition(t); err != nil {
 				return err
 			}
@@ -84,7 +84,6 @@ func newTxAddCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&given, "given", nil, "condition の語彙 id（カンマ区切り、複数指定可）")
 	cmd.Flags().StringSliceVar(&then, "then", nil, "effect の語彙 id（カンマ区切り、順序保存、必須）")
 	cmd.Flags().StringSliceVar(&tags, "tags", nil, "タグ id（カンマ区切り、複数指定可）")
-	cmd.Flags().StringArrayVar(&tests, "test", nil, "実テストを一意特定する文字列（複数指定可）")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "作成したレコードを JSON で出力する")
 	return cmd
 }

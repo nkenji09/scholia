@@ -4,7 +4,6 @@ import { HomeView } from './components/home/HomeView';
 import { BrowseView } from './components/browse/BrowseView';
 import { ConfigView } from './components/config/ConfigView';
 import { VocabView } from './components/VocabView';
-import { CompareView } from './components/compare/CompareView';
 import { CommentPanel } from './components/comments/CommentPanel';
 import { useComments } from './components/comments/useComments';
 import type { CommentRecord } from './components/comments/useComments';
@@ -59,7 +58,6 @@ export function App() {
       {view === 'spec' && <BrowseView facet="tags" initialFocusTagId={route.tagId} onGoToSpec={openTransition} />}
       {view === 'tags' && <BrowseView facet="tags" onGoToSpec={openTransition} />}
       {view === 'config' && <ConfigView />}
-      {view === 'compare' && <CompareView onGoToSpec={openTransition} onGoToTagSpec={openTagSpec} />}
       <CommentPanel onGoto={gotoComment} />
     </>
   );

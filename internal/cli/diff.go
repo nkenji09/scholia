@@ -137,9 +137,6 @@ func printTransitionDiff(w io.Writer, d diff.TransitionDiff) {
 		if len(c.TagsAdded) > 0 || len(c.TagsRemoved) > 0 {
 			fmt.Fprintf(w, "      tags: +%s -%s\n", strings.Join(c.TagsAdded, ","), strings.Join(c.TagsRemoved, ","))
 		}
-		if len(c.TestsAdded) > 0 || len(c.TestsRemoved) > 0 {
-			fmt.Fprintf(w, "      tests: +%s -%s\n", strings.Join(c.TestsAdded, ","), strings.Join(c.TestsRemoved, ","))
-		}
 	}
 }
 

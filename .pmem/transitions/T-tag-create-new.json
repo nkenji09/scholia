@@ -11,8 +11,5 @@
     "req.atoms-derive.no-spec-file",
     "req.no-partition-burden",
     "subject.cli"
-  ],
-  "tests": [
-    "TestCLISmoke_InitVocabTagTxLintShow"
   ]
 }

@@ -672,28 +672,6 @@
   gap: var(--sp-4);
 }
 
-.spec-card-test {
-  font-family: var(--lm-font-mono);
-  font-size: var(--fs-2xs);
-  color: var(--lm-text-muted);
-  background: var(--lm-s2);
-  border: 1px solid var(--lm-border);
-  border-radius: var(--r-sm);
-  padding: 4px var(--sp-3);
-  /* A long test name (often a single unbroken identifier, e.g.
-     TestFoo_Bar_Baz) has no whitespace for flex-wrap:wrap alone to break
-     on — .spec-card-chip-row's flex-wrap only wraps whole chips onto new
-     lines, but a flex item's default min-width:auto still keeps this one
-     chip as wide as its content, pushing past the card/rail width on
-     narrow screens (2026-07-11 tweaks6 §2). max-width+min-width:0 lets it
-     shrink to the row, overflow-wrap/word-break let long identifiers break
-     mid-word instead of overflowing. */
-  max-width: 100%;
-  min-width: 0;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
 /* Review MINOR-1: a settled-but-partial fetch surfaces here instead of
    hanging on "loading…" forever. */
 .browse-fetch-warning {

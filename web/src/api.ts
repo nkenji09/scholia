@@ -170,11 +170,12 @@ export const api = {
 
   getLint: () => (staticData ? Promise.resolve(staticData.lint) : request<LintResult>('/api/lint')),
 
-  // 比較/評価ビュー（diff-viz・§2）専用。static export はビルド時点の1
-  // スナップショットしか持たず ref/head 比較の材料（他の ref の .pmem/
-  // ツリー）が無いため、常に静的モード非対応 — CompareView 自体が
-  // isStaticMode を見てこの関数を呼ばずにビューごと隠す設計だが、直接叩か
-  // れた場合の防御としてもここで弾く（他の api.* と同じ流儀）。
+  // 意味 diff（base ref 対 head/作業ツリー）。旧・独立 compare ビューが呼んで
+  // いたが撤去（change-cockpit-design-v3.md §5 P1）、後続 P2 で Transition の
+  // コメントドロワーから pending diff 表示に再利用する想定で温存。static
+  // export はビルド時点の1スナップショットしか持たず ref/head 比較の材料
+  // （他の ref の .pmem/ ツリー）が無いため、常に静的モード非対応（他の
+  // api.* と同じ流儀で弾く）。
   getDiff: (params: { ref?: string; head?: string }) =>
     staticData ? staticUnavailable(DICTS[loadLang()].api.diff) : request<DiffResult>('/api/diff' + query(params)),
 

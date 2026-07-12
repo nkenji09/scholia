@@ -15,7 +15,6 @@ type Transition struct {
 	Given  []string `json:"given"`
 	Then   []string `json:"then"`
 	Tags   []string `json:"tags,omitempty"`
-	Tests  []string `json:"tests,omitempty"`
 }
 
 func (t Transition) GetID() string { return t.ID }

@@ -94,7 +94,4 @@ func printTxView(cmd *cobra.Command, v txView, resolve bool) {
 	if len(v.Tags) > 0 {
 		fmt.Fprintf(out, "tags: %s\n", strings.Join(v.Tags, ", "))
 	}
-	if len(v.Tests) > 0 {
-		fmt.Fprintf(out, "tests: %s\n", strings.Join(v.Tests, ", "))
-	}
 }

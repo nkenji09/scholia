@@ -40,27 +40,6 @@ func TestCLI_TxEditRejectsEmptyThenAndDanglingRefs(t *testing.T) {
 	}
 }
 
-func TestCLI_TxEditClearTestsAndTestAreMutuallyExclusive(t *testing.T) {
-	dir := t.TempDir()
-	setupAuthFixture(t, dir)
-	mustRun(t, dir, "tx", "edit", "T-login", "--test", "TC1", "--test", "TC2")
-
-	out := mustRun(t, dir, "show", "tx", "T-login")
-	if !strings.Contains(out, "TC1") || !strings.Contains(out, "TC2") {
-		t.Fatalf("expected tests to be set:\n%s", out)
-	}
-
-	if _, err := run(t, dir, "tx", "edit", "T-login", "--clear-tests", "--test", "TC3"); err == nil {
-		t.Fatalf("expected error combining --clear-tests and --test")
-	}
-
-	mustRun(t, dir, "tx", "edit", "T-login", "--clear-tests")
-	out = mustRun(t, dir, "show", "tx", "T-login")
-	if strings.Contains(out, "TC1") {
-		t.Fatalf("expected --clear-tests to remove tests:\n%s", out)
-	}
-}
-
 func TestCLI_TxTagAddRmAndSet(t *testing.T) {
 	dir := t.TempDir()
 	setupAuthFixture(t, dir)

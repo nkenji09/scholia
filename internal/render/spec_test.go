@@ -24,7 +24,7 @@ func testSnapshot() *store.Snapshot {
 		},
 		Transitions: []model.Transition{
 			{ID: "T-1", Action: "act.submit", Given: []string{"cond.valid"}, Then: []string{"eff.token", "eff.redirect"},
-				Tags: []string{"req.auth-happy"}, Tests: []string{"TC101"}},
+				Tags: []string{"req.auth-happy"}},
 		},
 		Decisions: []model.Decision{
 			{ID: "d1", Target: model.DecisionTarget{Type: model.DecisionTargetTransition, ID: "T-1"}, Why: "トークンは httpOnly cookie で発行", Ref: "PR#42", At: "2026-01-01T00:00:00Z"},
@@ -107,7 +107,6 @@ func TestWriteText_ContainsWhenGivenThenAndDecisions(t *testing.T) {
 	for _, want := range []string{
 		"認証", "T-1",
 		"WHEN ログイン送信", "GIVEN 資格情報が正当", "THEN セッショントークン発行 → ホームへリダイレクト",
-		"TC101",
 		"トークンは httpOnly cookie で発行 (PR#42)",
 		"null と空文字は同じ未入力として扱う",
 	} {

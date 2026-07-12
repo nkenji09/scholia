@@ -43,8 +43,6 @@ type TransitionChange struct {
 	ThenReordered bool             `json:"thenReordered,omitempty"` // 集合は同じだが順序が変わった
 	TagsAdded     []string         `json:"tagsAdded,omitempty"`
 	TagsRemoved   []string         `json:"tagsRemoved,omitempty"`
-	TestsAdded    []string         `json:"testsAdded,omitempty"`
-	TestsRemoved  []string         `json:"testsRemoved,omitempty"`
 }
 
 type TransitionDiff struct {
@@ -298,7 +296,7 @@ func diffTransitions(before, after []model.Transition) TransitionDiff {
 	return d
 }
 
-// transitionsSemanticallyEqual は given/tags/tests を集合として比較し、then のみ
+// transitionsSemanticallyEqual は given/tags を集合として比較し、then のみ
 // 順序リストとして比較する（§3.2）。given の並びだけが違う記録を「変更」として
 // 報告しないためのゲート（byte-identical である必要はない）。
 func transitionsSemanticallyEqual(a, b model.Transition) bool {
@@ -314,16 +312,12 @@ func transitionsSemanticallyEqual(a, b model.Transition) bool {
 	if !reflect.DeepEqual(sortedCopy(a.Tags), sortedCopy(b.Tags)) {
 		return false
 	}
-	if !reflect.DeepEqual(sortedCopy(a.Tests), sortedCopy(b.Tests)) {
-		return false
-	}
 	return true
 }
 
 func transitionChange(id string, before, after model.Transition) TransitionChange {
 	givenAdded, givenRemoved := setDiff(before.Given, after.Given)
 	tagsAdded, tagsRemoved := setDiff(before.Tags, after.Tags)
-	testsAdded, testsRemoved := setDiff(before.Tests, after.Tests)
 
 	thenChanged := !reflect.DeepEqual(before.Then, after.Then)
 	thenReordered := false
@@ -343,8 +337,6 @@ func transitionChange(id string, before, after model.Transition) TransitionChang
 		ThenReordered: thenReordered,
 		TagsAdded:     tagsAdded,
 		TagsRemoved:   tagsRemoved,
-		TestsAdded:    testsAdded,
-		TestsRemoved:  testsRemoved,
 	}
 }
 
