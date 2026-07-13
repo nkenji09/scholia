@@ -147,6 +147,18 @@
   margin-left: auto;
 }
 
+/* E1: narrow 時、絞り込みボタンを内包した header-switches を全幅の専用
+   ツールバー行にし、絞り込みを左端・switches 群を右端へ分ける
+   （[絞り込み] …spacer… [− 100% +][文A EN][🌙][⚙]）。desktop では
+   has-filter-toggle が付かない（JS の isNarrow gate）ため不変。 */
+.header-switches.has-filter-toggle {
+  width: 100%;
+}
+
+.header-switches .topbar-filter-toggle {
+  margin-right: auto;
+}
+
 .font-scale {
   display: flex;
   align-items: center;

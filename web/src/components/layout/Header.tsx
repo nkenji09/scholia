@@ -75,13 +75,6 @@ export function Header({ view, onSelectView }: Props) {
 
   return (
     <header class="topbar" ref={headerRef}>
-      {showFilterToggle && (
-        <button type="button" class="topbar-filter-toggle" aria-label={t.header.filterToggle} onClick={toggleDrawer}>
-          <Icon name="sliders-horizontal" size={15} />
-          {t.header.filterToggle}
-        </button>
-      )}
-
       <div class="topbar-logo">
         <span class="topbar-logo-mark">
           <Icon name="box" size={19} />
@@ -107,7 +100,16 @@ export function Header({ view, onSelectView }: Props) {
         })}
       </nav>
 
-      <div class="header-switches">
+      <div class={'header-switches' + (showFilterToggle ? ' has-filter-toggle' : '')}>
+        {/* E1: narrow 時のみ、絞り込み（ドロワー開閉）をこのツールバー行の左端に
+            置く。has-filter-toggle で header-switches を全幅化し、絞り込みの
+            margin-right:auto がスペーサになって switches 群を右端へ寄せる。 */}
+        {showFilterToggle && (
+          <button type="button" class="topbar-filter-toggle" aria-label={t.header.filterToggle} onClick={toggleDrawer}>
+            <Icon name="sliders-horizontal" size={15} />
+            {t.header.filterToggle}
+          </button>
+        )}
         <div class="font-scale" role="group" aria-label={t.header.fontScaleGroupLabel}>
           <button type="button" aria-label={t.header.fontDec} onClick={decFont}>
             <Icon name="minus" size={14} />
