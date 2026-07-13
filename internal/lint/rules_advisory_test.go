@@ -58,6 +58,26 @@ func TestRequirementGapCoversViaAncestorAndVocabPath(t *testing.T) {
 	}
 }
 
+func TestKindMissingRedAndGreen(t *testing.T) {
+	red := store.Snapshot{
+		Tags: []model.Tag{{ID: "t.orphan", Name: "orphan"}}, // Kind == ""
+	}
+	got := checkKindMissing(red)
+	if len(got) != 1 || got[0].Target != "t.orphan" {
+		t.Fatalf("expected kind-missing finding for null-kind tag, got %+v", got)
+	}
+	if got[0].Severity != SeverityWarn {
+		t.Fatalf("kind-missing must be warn severity, got %s", got[0].Severity)
+	}
+
+	green := store.Snapshot{
+		Tags: []model.Tag{{ID: "t.typed", Name: "typed", Kind: "concern"}},
+	}
+	if got := checkKindMissing(green); hasRule(got, "kind-missing") {
+		t.Fatalf("did not expect kind-missing finding for a tag with kind set, got %+v", got)
+	}
+}
+
 func TestRefFreshnessRedAndGreen(t *testing.T) {
 	fileLine := store.Snapshot{
 		Decisions: []model.Decision{{ID: "d1", Target: model.DecisionTarget{Type: "tag", ID: "t"}, Why: "w", Ref: "foo.go:42", At: "2026-01-01T00:00:00Z"}},

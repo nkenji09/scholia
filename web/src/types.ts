@@ -131,9 +131,12 @@ export interface FacetTreeNode {
   children?: FacetTreeNode[];
 }
 
+// browse ナビの「1本の統一ツリー」（§3.8）。roots は kind 非依存に parentIds で
+// 入れ子にした単一フォレスト。kind はノードの属性（バッジ/色・tag.kind）で、
+// 木を分割する軸ではない。facetKinds は「その kind だけ表示」フィルタ（chips）。
 export interface FacetsResponse {
   facetKinds: string[];
-  trees: Record<string, FacetTreeNode[]>;
+  roots: FacetTreeNode[];
 }
 
 export interface FacetNode {

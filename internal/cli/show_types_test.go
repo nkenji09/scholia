@@ -10,7 +10,7 @@ func TestCLI_ShowTag(t *testing.T) {
 	if _, err := run(t, dir, "init"); err != nil {
 		t.Fatalf("init: %v", err)
 	}
-	if _, err := run(t, dir, "tag", "create", "subject.auth", "--name", "認証"); err != nil {
+	if _, err := run(t, dir, "tag", "create", "subject.auth", "--name", "認証", "--kind", "subject"); err != nil {
 		t.Fatalf("tag create parent: %v", err)
 	}
 	if _, err := run(t, dir, "tag", "create", "req.auth-happy-path",
@@ -71,7 +71,7 @@ func TestCLI_ShowDecision(t *testing.T) {
 	if _, err := run(t, dir, "init"); err != nil {
 		t.Fatalf("init: %v", err)
 	}
-	if _, err := run(t, dir, "tag", "create", "subject.auth", "--name", "認証"); err != nil {
+	if _, err := run(t, dir, "tag", "create", "subject.auth", "--name", "認証", "--kind", "subject"); err != nil {
 		t.Fatalf("tag create: %v", err)
 	}
 	decideOut, err := run(t, dir, "decide", "--on", "tag:subject.auth", "--why", "認証方式を決定", "--json")

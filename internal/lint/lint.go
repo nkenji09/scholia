@@ -42,6 +42,7 @@ var Rules = []Rule{
 	{Name: "empty-then", Severity: SeverityError, Check: checkEmptyThen},
 	{Name: "id-unique", Severity: SeverityError, Check: checkIDUnique},
 	{Name: "requirement-gap", Severity: SeverityWarn, Check: checkRequirementGap},
+	{Name: "kind-missing", Severity: SeverityWarn, Check: checkKindMissing},
 	{Name: "ref-freshness", Severity: SeverityWarn, Check: checkRefFreshness},
 	{Name: "decision-coverage", Severity: SeverityInfo, Check: checkDecisionCoverage},
 	{Name: "unused-vocab", Severity: SeverityInfo, Check: checkUnusedVocab},

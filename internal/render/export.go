@@ -59,8 +59,8 @@ type staticData struct {
 // shared internal/index / internal/lint functions, not from re-derived
 // logic.
 type facetsPayload struct {
-	FacetKinds []string                         `json:"facetKinds"`
-	Trees      map[string][]index.FacetTreeNode `json:"trees"`
+	FacetKinds []string              `json:"facetKinds"`
+	Roots      []index.FacetTreeNode `json:"roots"`
 }
 
 type transitionsPayload struct {
@@ -97,10 +97,7 @@ func collectStaticData(s *store.Store) (staticData, error) {
 	snap.Config.Branch = diff.CurrentBranch(filepath.Dir(s.Dir))
 	ix := index.Build(&snap)
 
-	facets := facetsPayload{FacetKinds: snap.Config.FacetKinds, Trees: map[string][]index.FacetTreeNode{}}
-	for _, kind := range snap.Config.FacetKinds {
-		facets.Trees[kind] = index.BuildFacetTreeNodes(ix.FacetTree(kind))
-	}
+	facets := facetsPayload{FacetKinds: snap.Config.FacetKinds, Roots: index.BuildFacetTreeNodes(ix.TagForest())}
 
 	tagIDs := map[string]bool{"": true}
 	var collectTagIDs func(nodes []index.FacetTreeNode)
@@ -110,9 +107,7 @@ func collectStaticData(s *store.Store) (staticData, error) {
 			collectTagIDs(n.Children)
 		}
 	}
-	for _, tree := range facets.Trees {
-		collectTagIDs(tree)
-	}
+	collectTagIDs(facets.Roots)
 
 	transitionsByTag := make(map[string]transitionsPayload, len(tagIDs))
 	for id := range tagIDs {
