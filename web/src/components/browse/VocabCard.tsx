@@ -8,6 +8,7 @@ import { CommentButton } from '../comments/CommentButton';
 import { useComments } from '../comments/useComments';
 import { Icon } from '../shared/Icon';
 import type { IconName } from '../shared/Icon';
+import { CollapsibleSection } from '../shared/CollapsibleSection';
 
 interface Props {
   entry: VocabEntry;
@@ -117,20 +118,22 @@ export function VocabCard({ entry, uses, cardRef, onFilterTag, onFilterOwner, on
         </div>
       )}
 
-      <div class="card-section">
-        <div class="card-section-heading-row">
-          <span class="card-section-heading">
-            <Icon name="scroll-text" size={14} /> {t.vocab.usageCount(uses.length)}
-          </span>
-        </div>
-        {uses.length === 0 ? (
+      {uses.length === 0 ? (
+        <div class="card-section">
+          <div class="card-section-heading-row">
+            <span class="card-section-heading">
+              <Icon name="scroll-text" size={14} /> {t.vocab.usageCount(uses.length)}
+            </span>
+          </div>
           <span class="vocab-card-no-usage dim">{t.vocab.noUsage}</span>
-        ) : (
+        </div>
+      ) : (
+        <CollapsibleSection recordId={entry.id} section="usage" count={uses.length} icon="scroll-text" label={t.vocab.usageHeading}>
           <div class="tag-card-spec-list">
-            {uses.map((t) => {
-              const label = transitionLabel(t.id);
+            {uses.map((tx) => {
+              const label = transitionLabel(tx.id);
               return (
-                <button key={t.id} type="button" class="tag-card-spec-row" onClick={() => onSelectTx(t.id)} title={t.id}>
+                <button key={tx.id} type="button" class="tag-card-spec-row" onClick={() => onSelectTx(tx.id)} title={tx.id}>
                   <span class="tag-card-spec-label">
                     {label.primary}
                     {label.secondary && <span class="dim"> {label.secondary}</span>}
@@ -139,8 +142,8 @@ export function VocabCard({ entry, uses, cardRef, onFilterTag, onFilterOwner, on
               );
             })}
           </div>
-        )}
-      </div>
+        </CollapsibleSection>
+      )}
     </article>
   );
 }

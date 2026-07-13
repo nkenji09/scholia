@@ -7,6 +7,7 @@ import { Chip, kindColor } from '../shared/Chip';
 import { CommentButton } from '../comments/CommentButton';
 import { useComments } from '../comments/useComments';
 import { Icon } from '../shared/Icon';
+import { CollapsibleSection } from '../shared/CollapsibleSection';
 
 interface Props {
   tag: Tag;
@@ -103,13 +104,14 @@ export function TagCard({ tag, report, isGap, parents, children, cardRef, onFilt
       )}
 
       {entries.length > 0 && (
-        <div class="card-section">
-          <div class="card-section-heading-row">
-            <span class="card-section-heading">
-              <Icon name="scroll-text" size={14} /> {t.browse.satisfiedSpecs}
-            </span>
-            <CommentButton recordType="tag" recordId={tag.id} recordTitle={tag.name || tag.id} anchor="specs" anchorLabel={t.browse.satisfiedSpecs} />
-          </div>
+        <CollapsibleSection
+          recordId={tag.id}
+          section="specs"
+          count={entries.length}
+          icon="scroll-text"
+          label={t.browse.satisfiedSpecs}
+          extra={<CommentButton recordType="tag" recordId={tag.id} recordTitle={tag.name || tag.id} anchor="specs" anchorLabel={t.browse.satisfiedSpecs} />}
+        >
           <div class="tag-card-spec-list">
             {entries.map((e) => (
               <button key={e.transition.id} type="button" class="tag-card-spec-row" onClick={() => onSelectSpec(e.transition.id)} title={e.transition.id}>
@@ -117,17 +119,20 @@ export function TagCard({ tag, report, isGap, parents, children, cardRef, onFilt
               </button>
             ))}
           </div>
-        </div>
+        </CollapsibleSection>
       )}
 
       {tagDecisions.length > 0 && (
-        <div class="card-section">
-          <div class="card-section-heading-row">
-            <span class="card-section-heading">
-              <Icon name="gavel" size={14} /> {t.browse.relatedDecisions}
-            </span>
+        <CollapsibleSection
+          recordId={tag.id}
+          section="decisions"
+          count={tagDecisions.length}
+          icon="gavel"
+          label={t.browse.relatedDecisions}
+          extra={
             <CommentButton recordType="tag" recordId={tag.id} recordTitle={tag.name || tag.id} anchor="decisions" anchorLabel={t.browse.relatedDecisions} />
-          </div>
+          }
+        >
           {tagDecisions.map((d) => (
             <div key={d.id} class="tag-card-decision">
               <p>{d.why}</p>
@@ -136,7 +141,7 @@ export function TagCard({ tag, report, isGap, parents, children, cardRef, onFilt
               </span>
             </div>
           ))}
-        </div>
+        </CollapsibleSection>
       )}
 
       {children.length > 0 && (

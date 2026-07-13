@@ -56,6 +56,34 @@
   flex-wrap: wrap;
 }
 
+/* F2: 開閉可能セクション（意思決定/関連仕様/使用箇所）のヘッダボタン。
+   rail の見出しトグル（browse-rail-index-toggle）と同じ chevron-right/-down
+   語彙だが、こちらはカード内セクション用の別クラス名前空間。 */
+.card-section-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+}
+
+.card-section-toggle .card-section-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.card-section-count {
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 /* Sized to match the design's own commentBtnData (width:24,height:22) —
    コメント拡張4件 item 4 ("少しだけ大きく"), so this is a design-alignment
    fix, not a fresh design decision. */

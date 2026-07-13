@@ -6,6 +6,7 @@ import { Chip, kindColor } from '../shared/Chip';
 import { CommentButton } from '../comments/CommentButton';
 import { useComments } from '../comments/useComments';
 import { Icon } from '../shared/Icon';
+import { CollapsibleSection } from '../shared/CollapsibleSection';
 
 interface Props {
   detail: TransitionDetail;
@@ -185,29 +186,24 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
       )}
 
       {hasDetail && (
-        <button type="button" class="spec-card-detail-toggle" onClick={onToggleOpen}>
-          <Icon name={isOpen ? 'chevron-up' : 'chevron-down'} size={15} /> {isOpen ? t.browse.hideDetail : t.browse.showDetail}
-        </button>
-      )}
-
-      {isOpen && hasDetail && (
-        <div class="card-section spec-card-detail">
-          {detail.rules && detail.rules.length > 0 && (
-            <div>
-              <span class="card-section-heading">
-                <Icon name="gavel" size={14} /> {t.browse.rulesHeading}
+        <CollapsibleSection
+          recordId={detail.id}
+          section="rules"
+          count={detail.rules!.length}
+          icon="gavel"
+          label={t.browse.rulesHeading}
+          initialOpen={isOpen}
+          onToggle={onToggleOpen}
+        >
+          {detail.rules!.map((d) => (
+            <div key={d.id} class="tag-card-decision">
+              <p>{d.why}</p>
+              <span class="dim">
+                {d.at.slice(0, 10)} {d.ref && `· ${d.ref}`}
               </span>
-              {detail.rules.map((d) => (
-                <div key={d.id} class="tag-card-decision">
-                  <p>{d.why}</p>
-                  <span class="dim">
-                    {d.at.slice(0, 10)} {d.ref && `· ${d.ref}`}
-                  </span>
-                </div>
-              ))}
             </div>
-          )}
-        </div>
+          ))}
+        </CollapsibleSection>
       )}
     </article>
   );
