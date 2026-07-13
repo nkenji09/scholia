@@ -37,6 +37,20 @@ func checkRequirementGap(snap store.Snapshot) []Finding {
 	return out
 }
 
+// --- kind-missing: kind 未設定のタグを列挙（facet/traceability から漏れる） ---
+
+func checkKindMissing(snap store.Snapshot) []Finding {
+	var out []Finding
+	for _, t := range snap.Tags {
+		if t.Kind != "" {
+			continue
+		}
+		out = append(out, finding("kind-missing", SeverityWarn, t.ID,
+			"tag %s: kind が未設定です（どの facet/traceability にも属さないため階層・要件追跡から外れます）", t.ID))
+	}
+	return out
+}
+
 // --- ref-freshness: decision.ref が file:line 形式（腐りやすい）なら警告 ---
 
 func checkRefFreshness(snap store.Snapshot) []Finding {
