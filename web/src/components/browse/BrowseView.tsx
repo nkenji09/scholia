@@ -20,7 +20,11 @@ import { Icon } from '../shared/Icon';
 export interface SearchStateChange {
   query: string;
   kindFacet: string;
-  filtersEncoded: string;
+  /** undefined = drop the `f` param entirely (filters equal the URL's
+      no-explicit-filter default — keeps the URL clean, A-2); a string
+      (incl. '') = write `f=<v>` (an explicit '' records "user cleared every
+      filter", which must override the focus-tag default on reload — 条件2). */
+  filtersEncoded: string | undefined;
 }
 
 interface Props {
@@ -183,22 +187,16 @@ export function BrowseView({
 
   const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
   const scrollTarget = useRef<string | null>(initialFocusTagId || initialFocusTxId || null);
-  // Set on mount and on every reset/adopt below; consumed (and cleared) by
-  // the URL-sync effect further down so that a (re)seed — which may pull in
-  // the legacy filter-on-focus default rather than the URL's actual (empty)
-  // search state — doesn't immediately push/rewrite the hash and spam
-  // browser history before the user has done anything (handoff #6).
-  const skipNextSearchPush = useRef(true);
 
   // Content-aware setFilters: bails out (returns the *same* array reference)
   // when the derived value is equivalent to what's already there. Both
   // effects below run on every mount, and a plain `setFilters(deriveFilters(
   // ...))` would hand back a freshly-allocated-but-equal array each time —
-  // React can't tell that's a no-op via Object.is, so it re-renders, which
-  // re-fires the URL-push effect past its one-shot skip guard and spams the
-  // hash with the seeded default on a plain page load. Comparing the
-  // encodeFilters() wire form (already the canonical string) is cheap and
-  // exact.
+  // React can't tell that's a no-op via Object.is, so it re-renders. The push
+  // effect's own echo guard already absorbs such no-op renders, but keeping
+  // the reference stable avoids the wasted render in the first place.
+  // Comparing the encodeFilters() wire form (already the canonical string) is
+  // cheap and exact.
   const setFiltersIfChanged = (next: FilterCondition[]) =>
     setFilters((prev) => (encodeFilters(prev) === encodeFilters(next) ? prev : next));
 
@@ -223,7 +221,6 @@ export function BrowseView({
     setSpecsSettled(false);
     setTagsFailedCount(0);
     setSpecsFailedCount(0);
-    skipNextSearchPush.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [facet, initialFocusTagId, initialFocusTxId]);
 
@@ -238,22 +235,45 @@ export function BrowseView({
     setQuery(searchQuery || '');
     setKindFacet(searchKindFacet || 'all');
     setFiltersIfChanged(deriveFilters(searchFiltersEncoded, initialFocusTagId));
-    skipNextSearchPush.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, searchKindFacet, searchFiltersEncoded]);
 
-  // Pushes local query/kindFacet/filters changes back out to the URL
-  // (debounced so free-text typing doesn't push a new hash — and browser
-  // history entry — on every keystroke; router.ts's navigate() is itself a
-  // no-op when the resulting hash is unchanged, e.g. after the two adopt
-  // effects above just mirrored the URL back into local state).
+  // Pushes local query/kindFacet/filters changes back out to the URL, but
+  // ONLY when local state genuinely diverges from what the URL already
+  // encodes (echo guard). The old skip-a-flag scheme miscounted: after our
+  // own push→hashchange→adopt round-trip the adopt effect re-armed the flag,
+  // but the push effect never re-ran (local state already equalled the pushed
+  // value), so a stale flag lingered and swallowed the *next* real edit
+  // (settle → single op lost — review A-1). Comparing the URL-equivalent
+  // serialization here means the return leg of a round-trip (state == URL)
+  // and the mount seed both no-op naturally, with no flag to leave dangling.
+  //
+  // Deps are the LOCAL state only, NOT the URL props (which are read directly
+  // in the body). That's deliberate: an external navigation (Back/Forward, or
+  // a programmatic navigate to a different search) changes the URL props in
+  // render N while local state is still the old value — if this effect fired
+  // on that render it would (old-local != new-url) schedule a spurious push of
+  // the *stale* local state, fighting the navigation. Firing only on local
+  // change means it re-runs in render N+1 (after the adopt effect has mirrored
+  // the URL into local state), where the closure captures the already-updated
+  // props and the echo guard cleanly no-ops.
   useEffect(() => {
-    if (skipNextSearchPush.current) {
-      skipNextSearchPush.current = false;
+    // What the URL currently means for filters, re-derived the same way the
+    // adopt/reset effects seed local state (so undefined `f` + focus-tag
+    // default compares equal to its own seeded filters — mount doesn't push).
+    const urlFiltersEncoded = encodeFilters(deriveFilters(searchFiltersEncoded, initialFocusTagId));
+    const localFiltersEncoded = encodeFilters(filters);
+    // Echo / seed: local already matches the URL — nothing to push.
+    if (query === searchQuery && kindFacet === searchKindFacet && localFiltersEncoded === urlFiltersEncoded) {
       return;
     }
+    // A-2: drop `f=` when filters equal the no-explicit-filter default (clean
+    // URL); keep an explicit '' only when it diverges from that default (i.e.
+    // the user cleared filters a focus route would otherwise re-seed — 条件2).
+    const defaultFiltersEncoded = encodeFilters(deriveFilters(undefined, initialFocusTagId));
+    const nextFiltersEncoded = localFiltersEncoded === defaultFiltersEncoded ? undefined : localFiltersEncoded;
     const id = setTimeout(() => {
-      onSearchChange({ query, kindFacet, filtersEncoded: encodeFilters(filters) });
+      onSearchChange({ query, kindFacet, filtersEncoded: nextFiltersEncoded });
     }, 350);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
