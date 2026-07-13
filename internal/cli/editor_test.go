@@ -94,7 +94,7 @@ func TestCLI_EditFlagRespectsEditorEnvAndSeam(t *testing.T) {
 	})
 	t.Setenv("EDITOR", "my-fake-editor")
 
-	mustRun(t, dir, "tag", "create", "t1", "--name", "t1", "--edit")
+	mustRun(t, dir, "tag", "create", "t1", "--name", "t1", "--kind", "concern", "--edit")
 
 	if gotEditorCmd != "my-fake-editor" {
 		t.Fatalf("$EDITOR not respected: got %q", gotEditorCmd)
@@ -124,7 +124,7 @@ func TestCLI_EditFlagDefaultsToViWhenEditorUnset(t *testing.T) {
 	})
 	t.Setenv("EDITOR", "")
 
-	mustRun(t, dir, "tag", "create", "t1", "--name", "t1", "--edit")
+	mustRun(t, dir, "tag", "create", "t1", "--name", "t1", "--kind", "concern", "--edit")
 
 	if gotEditorCmd != "vi" {
 		t.Fatalf("expected default editor \"vi\", got %q", gotEditorCmd)
@@ -143,7 +143,7 @@ func TestCLI_TagCreateDescFileRoundTripsMultiParagraphMarkdown(t *testing.T) {
 		t.Fatalf("write fixture: %v", err)
 	}
 
-	mustRun(t, dir, "tag", "create", "t1", "--name", "t1", "--desc-file", descPath)
+	mustRun(t, dir, "tag", "create", "t1", "--name", "t1", "--kind", "concern", "--desc-file", descPath)
 
 	s, err := store.Open(dir)
 	if err != nil {
@@ -161,7 +161,7 @@ func TestCLI_TagCreateDescFileRoundTripsMultiParagraphMarkdown(t *testing.T) {
 func TestCLI_TagEditDescFileUpdatesDescriptionKeepsOtherFields(t *testing.T) {
 	dir := t.TempDir()
 	mustRun(t, dir, "init")
-	mustRun(t, dir, "tag", "create", "t1", "--name", "one", "--color", "#3b82f6")
+	mustRun(t, dir, "tag", "create", "t1", "--name", "one", "--kind", "concern", "--color", "#3b82f6")
 
 	descPath := filepath.Join(t.TempDir(), "desc.md")
 	content := "更新後の説明。\n\n複数段落。\n"
@@ -222,7 +222,7 @@ func TestCLI_TagCreateRejectsDescAndDescFileTogether(t *testing.T) {
 	if err := os.WriteFile(descPath, []byte("x"), 0o644); err != nil {
 		t.Fatalf("write fixture: %v", err)
 	}
-	if _, err := run(t, dir, "tag", "create", "t1", "--name", "t1", "--desc", "a", "--desc-file", descPath); err == nil {
+	if _, err := run(t, dir, "tag", "create", "t1", "--name", "t1", "--kind", "concern", "--desc", "a", "--desc-file", descPath); err == nil {
 		t.Fatalf("expected error for --desc + --desc-file together")
 	}
 }
@@ -230,7 +230,7 @@ func TestCLI_TagCreateRejectsDescAndDescFileTogether(t *testing.T) {
 func TestCLI_TagEditRejectsDescAndEditTogether(t *testing.T) {
 	dir := t.TempDir()
 	mustRun(t, dir, "init")
-	mustRun(t, dir, "tag", "create", "t1", "--name", "t1")
+	mustRun(t, dir, "tag", "create", "t1", "--name", "t1", "--kind", "concern")
 	if _, err := run(t, dir, "tag", "edit", "t1", "--desc", "a", "--edit"); err == nil {
 		t.Fatalf("expected error for --desc + --edit together")
 	}

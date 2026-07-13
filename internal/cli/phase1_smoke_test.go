@@ -17,7 +17,7 @@ func TestCLISmoke_Phase1FullFlow(t *testing.T) {
 	mustRun(t, dir, "vocab", "add", "condition", "cond.credentials-valid", "--label", "資格情報が正当")
 	mustRun(t, dir, "vocab", "add", "action", "act.user.submit-login", "--label", "ログイン送信", "--kind", "user")
 	mustRun(t, dir, "vocab", "add", "effect", "eff.session.issue-token", "--label", "セッショントークン発行", "--kind", "state", "--owner", "server")
-	mustRun(t, dir, "tag", "create", "subject.auth", "--name", "認証")
+	mustRun(t, dir, "tag", "create", "subject.auth", "--name", "認証", "--kind", "subject")
 	mustRun(t, dir, "tag", "create", "req.auth-happy-path", "--name", "正常系ログイン", "--kind", "requirement", "--parent", "subject.auth")
 	mustRun(t, dir, "vocab", "tag", "act.user.submit-login", "--add", "subject.auth")
 	mustRun(t, dir, "tx", "add", "T-login-submit-valid",
