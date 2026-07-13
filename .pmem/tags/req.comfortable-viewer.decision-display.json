@@ -1,0 +1,9 @@
+{
+  "id": "req.comfortable-viewer.decision-display",
+  "name": "意思決定の own-only 表示",
+  "kind": "requirement",
+  "parentIds": [
+    "req.comfortable-viewer"
+  ],
+  "description": "**As a** タグ/仕様カードを見る利用者\n**I want** そのレコード自身の意思決定だけをカードに見たい（横断ルールは別枠で）\n**so that** 「どれがこのレコード自身の判断か」が曖昧にならない\n\n### 受け入れ基準\n- タグカードは target がそのタグ自身の decision だけを表示（祖先/子孫を混ぜない）\n- 横断ルールは rules query（pmem rules / GET /api/rules）で別に surface する"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "eff.state.settled-refocus",
+  "category": "effect",
+  "label": "再フォーカスで settled 維持（loading 無限を防ぐ）",
+  "kind": "state",
+  "owner": "viewer-web"
+}

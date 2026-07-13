@@ -1,0 +1,11 @@
+{
+  "id": "01KXDFD2SRHJJ0E551V240JMKT",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.collapsible-section"
+  },
+  "why": "CollapsibleSection の3挙動を固定する: (1) 明示クローズは localStorage で永続する、(2) focus はマウント後の変化でのみセクションを開く（didMountRef ガード・マウント時に発火させない）、(3) 5件以上のセクションは既定で折りたたむ。\n\n理由: card-decisions で差し戻し2回を要した顛末そのもの。focus 同期の useEffect がマウント時に発火すると、永続クローズの復元を上書きして壊す回帰が起きた（b5a303e）。didMountRef ガードはこの3すくみ（focus×永続×閾値）を両立させる必須要素であり、「このガードは不要では」というレビュー指摘が来ても、この decision を根拠に却下する。",
+  "changed": "focus×永続×閾値の3すくみを仕様化（差戻2回の顛末）",
+  "ref": "b6b229e",
+  "at": "2026-07-13T10:12:14Z"
+}

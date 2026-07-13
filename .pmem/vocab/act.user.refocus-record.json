@@ -1,0 +1,6 @@
+{
+  "id": "act.user.refocus-record",
+  "category": "action",
+  "label": "同一ビュー内で別レコードへ再フォーカス",
+  "kind": "user"
+}
