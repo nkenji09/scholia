@@ -567,6 +567,30 @@
   overflow-wrap: anywhere;
 }
 
+/* H3: 関連語彙の行（category バッジ＋kind＋ラベル）。tag-card-spec-row を
+   踏襲しつつ非クリックなので hover 強調は付けない。 */
+.tag-card-vocab-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  border-radius: var(--r-md);
+  padding: 9px var(--sp-3);
+  text-align: left;
+  color: var(--lm-text);
+}
+
+.tag-card-vocab-label {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .tag-card-children {
   display: flex;
   flex-wrap: wrap;

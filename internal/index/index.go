@@ -25,6 +25,7 @@ type Index struct {
 	tagTransitions   map[string]map[string]bool // tagId -> txId set（実効タグの逆引き）
 	tagChildren      map[string][]string        // parentTagId -> 子 tagId（ソート済み・parentIds の逆引き）
 	vocabTransitions map[string]map[string]bool // vocabId -> txId set（action/given/then からの参照の逆引き）
+	tagVocab         map[string]map[string]bool // tagId -> vocabId set（VocabEntry.Tags 直付与の逆引き・祖先展開なし）
 }
 
 // Build は snapshot 全体から派生インデックスを構築する（§3.9）。SQLite は使わない。
@@ -37,6 +38,7 @@ func Build(snap *store.Snapshot) *Index {
 		tagTransitions:   make(map[string]map[string]bool),
 		tagChildren:      make(map[string][]string),
 		vocabTransitions: make(map[string]map[string]bool),
+		tagVocab:         make(map[string]map[string]bool),
 	}
 
 	for _, t := range snap.Tags {
@@ -44,6 +46,14 @@ func Build(snap *store.Snapshot) *Index {
 	}
 	for _, v := range snap.Vocab {
 		ix.VocabByID[v.ID] = v
+		// vocab→tag 逆引き（VocabEntry.Tags の直付与のみ。実効タグの祖先展開は
+		// しない — 「そのタグを直接持つ語彙」を関連語彙として出すため・H3）。
+		for _, tagID := range v.Tags {
+			if ix.tagVocab[tagID] == nil {
+				ix.tagVocab[tagID] = make(map[string]bool)
+			}
+			ix.tagVocab[tagID][v.ID] = true
+		}
 	}
 	for _, t := range snap.Tags {
 		for _, p := range t.ParentIDs {
@@ -100,6 +110,18 @@ func (ix *Index) TransitionsByVocab(vocabID string) []model.Transition {
 // HasEffectiveTag は遷移 txID の実効タグに tagID が含まれるかを返す。
 func (ix *Index) HasEffectiveTag(txID, tagID string) bool {
 	return ix.tagTransitions[tagID][txID]
+}
+
+// VocabByTag は tagID を（直接）持つ語彙を id 昇順で返す（VocabEntry.Tags の
+// 逆引き・祖先展開なし・H3 の関連語彙）。
+func (ix *Index) VocabByTag(tagID string) []model.VocabEntry {
+	set := ix.tagVocab[tagID]
+	out := make([]model.VocabEntry, 0, len(set))
+	for id := range set {
+		out = append(out, ix.VocabByID[id])
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
 }
 
 func (ix *Index) transitionsFromSet(set map[string]bool, all bool) []model.Transition {

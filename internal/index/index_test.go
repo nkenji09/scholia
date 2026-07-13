@@ -85,6 +85,48 @@ func TestBuild_VocabTransitionsReverse(t *testing.T) {
 	}
 }
 
+func vocabIDs(vs []model.VocabEntry) []string {
+	out := make([]string, len(vs))
+	for i, v := range vs {
+		out[i] = v.ID
+	}
+	return out
+}
+
+func TestVocabByTag_ReverseFromVocabTagsSortedByID(t *testing.T) {
+	snap := &store.Snapshot{
+		Vocab: []model.VocabEntry{
+			{ID: "act.submit", Category: model.CategoryAction, Label: "送信", Tags: []string{"subject.auth"}},
+			{ID: "cond.valid", Category: model.CategoryCondition, Label: "正当", Tags: []string{"subject.auth", "concern.security"}},
+			{ID: "eff.token", Category: model.CategoryEffect, Label: "トークン発行"},
+		},
+		Tags: []model.Tag{
+			{ID: "subject.auth", Name: "認証", Kind: "subject"},
+			{ID: "concern.security", Name: "セキュリティ", Kind: "concern"},
+		},
+	}
+	ix := Build(snap)
+
+	// subject.auth は act.submit と cond.valid が直接持つ（id 昇順）。
+	got := vocabIDs(ix.VocabByTag("subject.auth"))
+	want := []string{"act.submit", "cond.valid"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("VocabByTag(subject.auth) = %v, want %v", got, want)
+	}
+
+	// concern.security は cond.valid のみ。
+	got = vocabIDs(ix.VocabByTag("concern.security"))
+	want = []string{"cond.valid"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("VocabByTag(concern.security) = %v, want %v", got, want)
+	}
+
+	// 誰も持たないタグは空（nil スライス長 0）。
+	if got := ix.VocabByTag("subject.nonexistent"); len(got) != 0 {
+		t.Fatalf("VocabByTag(subject.nonexistent) = %v, want empty", got)
+	}
+}
+
 func TestBuild_AllTransitionsSortedByID(t *testing.T) {
 	ix := Build(testSnapshot())
 	got := txIDs(ix.AllTransitions())

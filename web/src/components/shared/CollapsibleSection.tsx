@@ -18,6 +18,11 @@ interface Props {
   // 同期する。true→false 方向へは同期しない（ユーザーの明示的な開閉・
   // localStorage 済みの状態を上書きしないため、一方向のみ）。
   focusOpen?: boolean;
+  // マウント時の既定開閉を件数しきい値ではなく明示 bool で決める口（H1・
+  // SpecCard「継承タグ」は件数に関わらず常に既定閉じ）。未指定なら従来通り
+  // defaultCardSectionOpen(count)（5件以上で折りたたみ）。いずれの場合も
+  // localStorage 済みのユーザー操作が最優先（＝一度開けば次回復元）。
+  defaultOpen?: boolean;
   onToggle?: () => void;
   children: ComponentChildren;
 }
@@ -26,8 +31,8 @@ interface Props {
 // ヘッダに保有件数を表示し、5件以上は既定で折りたたむ（TagCard/SpecCard/
 // VocabCard の3箇所で共通利用）。開閉状態はレコード×セクション単位で
 // localStorage に永続化（rail の折りたたみと同じパターン、キーは別名前空間）。
-export function CollapsibleSection({ recordId, section, count, icon, label, extra, focusOpen, onToggle, children }: Props) {
-  const [open, setOpen] = useState<boolean>(() => loadCardSectionOpen(recordId, section) ?? (focusOpen || defaultCardSectionOpen(count)));
+export function CollapsibleSection({ recordId, section, count, icon, label, extra, focusOpen, defaultOpen, onToggle, children }: Props) {
+  const [open, setOpen] = useState<boolean>(() => loadCardSectionOpen(recordId, section) ?? (focusOpen || (defaultOpen ?? defaultCardSectionOpen(count))));
 
   // focusOpen は「一方向の開シグナル」— マウント*後*に true へ変化した瞬間
   // だけ open へ反映する（同一ビュー内で別 spec へフォーカス移動し、既存

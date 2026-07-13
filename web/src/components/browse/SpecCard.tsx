@@ -44,7 +44,6 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
   const effective = detail.effectiveTags || [];
   const own = effective.filter((et) => et.sources.includes('own'));
   const derived = effective.filter((et) => !et.sources.includes('own'));
-  const hasTags = own.length > 0 || derived.length > 0;
   const provenanceBadge = (et: EffectiveTag) => {
     const extra = et.sources.filter((s) => s !== 'own');
     return extra.length > 0 ? t.browse.provenanceLabel(extra) : null;
@@ -138,7 +137,7 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
         </div>
       </div>
 
-      {hasTags && (
+      {own.length > 0 && (
         <div class="card-section">
           <div class="card-section-heading-row">
             <span class="card-section-heading">
@@ -163,26 +162,30 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
               </Chip>
             ))}
           </div>
-          {derived.length > 0 && (
-            <div class="spec-card-derived">
-              <span class="dim spec-card-derived-label">{t.browse.derivedHeading}</span>
-              <div class="spec-card-chip-row">
-                {derived.map((et) => (
-                  <Chip
-                    key={et.id}
-                    color={kindColor(tagById.get(et.id)?.kind)}
-                    onClick={() => onFilterTag(et.id)}
-                    filterable
-                    title={t.browse.provenanceLabel(et.sources)}
-                  >
-                    {tagById.get(et.id)?.name || et.id}
-                    <span class="tag-provenance-badge">{t.browse.provenanceLabel(et.sources)}</span>
-                  </Chip>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
+      )}
+
+      {/* H1: 継承タグ（own でない実効タグ）は既定で閉じておく（ユーザー明示
+          「デフォルトでは閉じておく」＝件数に関わらず常に既定閉じ・H2 の
+          5件しきい値とは別扱い）。defaultOpen={false} で件数しきい値を上書き、
+          localStorage 済みのユーザー操作は尊重（一度開けば次回復元）。 */}
+      {derived.length > 0 && (
+        <CollapsibleSection recordId={detail.id} section="derived" count={derived.length} icon="tags" label={t.browse.derivedHeading} defaultOpen={false}>
+          <div class="spec-card-chip-row">
+            {derived.map((et) => (
+              <Chip
+                key={et.id}
+                color={kindColor(tagById.get(et.id)?.kind)}
+                onClick={() => onFilterTag(et.id)}
+                filterable
+                title={t.browse.provenanceLabel(et.sources)}
+              >
+                {tagById.get(et.id)?.name || et.id}
+                <span class="tag-provenance-badge">{t.browse.provenanceLabel(et.sources)}</span>
+              </Chip>
+            ))}
+          </div>
+        </CollapsibleSection>
       )}
 
       {hasDetail && (

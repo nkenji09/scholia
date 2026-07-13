@@ -23,6 +23,10 @@ type SpecEntry struct {
 type SpecReport struct {
 	Tag     model.Tag   `json:"tag"`
 	Entries []SpecEntry `json:"entries"`
+	// RelatedVocab は subjectTag を直接持つ語彙（VocabEntry.Tags の逆引き・
+	// H3）。entries（関連仕様）が transition を届けるのと同じ経路でカードへ
+	// 載せるので live API・静的 export 双方に効く。omitempty で該当なしは省略。
+	RelatedVocab []model.VocabEntry `json:"relatedVocab,omitempty"`
 }
 
 // Spec は subjectTag で束ねた"仕様"レポートを構築する。
@@ -55,7 +59,7 @@ func Spec(snap *store.Snapshot, ix *index.Index, subjectTag string) (SpecReport,
 		entries = append(entries, e)
 	}
 
-	return SpecReport{Tag: tag, Entries: entries}, nil
+	return SpecReport{Tag: tag, Entries: entries, RelatedVocab: ix.VocabByTag(subjectTag)}, nil
 }
 
 func vocabLabel(ix *index.Index, vocabID string) string {

@@ -13,9 +13,9 @@ import (
 func testSnapshot() *store.Snapshot {
 	return &store.Snapshot{
 		Vocab: []model.VocabEntry{
-			{ID: "act.submit", Category: model.CategoryAction, Label: "ログイン送信"},
+			{ID: "act.submit", Category: model.CategoryAction, Label: "ログイン送信", Tags: []string{"subject.auth"}},
 			{ID: "cond.valid", Category: model.CategoryCondition, Label: "資格情報が正当"},
-			{ID: "eff.token", Category: model.CategoryEffect, Label: "セッショントークン発行"},
+			{ID: "eff.token", Category: model.CategoryEffect, Label: "セッショントークン発行", Tags: []string{"subject.auth"}},
 			{ID: "eff.redirect", Category: model.CategoryEffect, Label: "ホームへリダイレクト"},
 		},
 		Tags: []model.Tag{
@@ -67,6 +67,25 @@ func TestSpec_ResolvesLabelsAndAttachesDecisions(t *testing.T) {
 	}
 	if len(gotIDs) != 2 || gotIDs[0] != "d1" || gotIDs[1] != "d2" {
 		t.Fatalf("Decisions ids = %v, want [d1 d2]", gotIDs)
+	}
+}
+
+func TestSpec_RelatedVocabFromVocabTags(t *testing.T) {
+	snap := testSnapshot()
+	ix := index.Build(snap)
+
+	report, err := Spec(snap, ix, "subject.auth")
+	if err != nil {
+		t.Fatalf("Spec: %v", err)
+	}
+	// subject.auth を直接持つ語彙は act.submit と eff.token（id 昇順）。祖先展開は
+	// しないので req.auth-happy 側の遷移 vocab（cond.valid 等）は含まれない。
+	var gotIDs []string
+	for _, v := range report.RelatedVocab {
+		gotIDs = append(gotIDs, v.ID)
+	}
+	if len(gotIDs) != 2 || gotIDs[0] != "act.submit" || gotIDs[1] != "eff.token" {
+		t.Fatalf("RelatedVocab ids = %v, want [act.submit eff.token]", gotIDs)
 	}
 }
 

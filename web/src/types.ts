@@ -183,6 +183,9 @@ export interface SpecEntry {
 export interface SpecReport {
   tag: Tag;
   entries: SpecEntry[];
+  // このタグを直接持つ語彙（VocabEntry.Tags 逆引き・H3 の関連語彙）。Go 側の
+  // render.SpecReport.RelatedVocab（omitempty）と同期。該当なしは省略される。
+  relatedVocab?: VocabEntry[];
 }
 
 export interface LintFinding {

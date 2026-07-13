@@ -1,13 +1,22 @@
 import { useLookups } from '../../lookups';
 import { usePendingDiff } from '../../pendingDiff';
 import { useT } from '../../i18n';
-import type { Decision, SpecReport, Tag } from '../../types';
+import type { Decision, SpecReport, Tag, VocabEntry } from '../../types';
 import { Markdown } from '../Markdown';
 import { Chip, kindColor } from '../shared/Chip';
 import { CommentButton } from '../comments/CommentButton';
 import { useComments } from '../comments/useComments';
 import { Icon } from '../shared/Icon';
+import type { IconName } from '../shared/Icon';
 import { CollapsibleSection } from '../shared/CollapsibleSection';
+
+// VocabCard と同じ category→アイコン対応（きっかけ/前提/結果 = action/
+// condition/effect の固定3軸）。関連語彙行（H3）で流用する。
+const CATEGORY_ICON: Record<VocabEntry['category'], IconName> = {
+  action: 'circle-play',
+  condition: 'funnel',
+  effect: 'arrow-right-to-line',
+};
 
 interface Props {
   tag: Tag;
@@ -39,6 +48,9 @@ export function TagCard({ tag, report, isGap, parents, children, cardRef, onFilt
   const { changedTagIds } = usePendingDiff();
   const { openComposer, comments } = useComments();
   const entries = report?.entries || [];
+  // H3: このタグを直接持つ語彙（Go 側 render.SpecReport.RelatedVocab・
+  // VocabEntry.Tags の逆引き）。関連仕様の"上"に常時開きで出す。
+  const relatedVocab = report?.relatedVocab || [];
   // このタグ自身に直接ぶら下がる decision のみ（祖先/子孫タグの cross-cutting は
   // 出さない）。Go 側 render.Spec は subject タグの decision しか埋めないが、
   // target.id を明示照合して「そのレコード自身の意思決定だけ」を保証する。
@@ -103,6 +115,31 @@ export function TagCard({ tag, report, isGap, parents, children, cardRef, onFilt
         </div>
       )}
 
+      {/* H3: 関連語彙（このタグを直接持つ vocab）。関連仕様の"上"・常時開き
+          （ユーザー明示「開閉できなくて良い」＝CollapsibleSection ではなく素の
+          card-section）。各行は category バッジ（きっかけ/前提/結果）＋kind
+          （api/prop/user 等）＋ラベルで VocabCard の vocab 行を踏襲。 */}
+      {relatedVocab.length > 0 && (
+        <div class="card-section">
+          <div class="card-section-heading-row">
+            <span class="card-section-heading">
+              <Icon name="book-open" size={14} /> {t.browse.relatedVocab} <span class="card-section-count dim">({relatedVocab.length})</span>
+            </span>
+          </div>
+          <div class="tag-card-spec-list">
+            {relatedVocab.map((v) => (
+              <div key={v.id} class="tag-card-vocab-row" title={v.id}>
+                <Chip color={kindColor(v.category)}>
+                  <Icon name={CATEGORY_ICON[v.category]} size={12} /> {t.vocab.categoryLabel(v.category)}
+                </Chip>
+                {v.kind && <span class="vocab-card-kind dim">{v.kind}</span>}
+                <span class="tag-card-vocab-label">{v.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {entries.length > 0 && (
         <CollapsibleSection
           recordId={tag.id}
@@ -144,14 +181,18 @@ export function TagCard({ tag, report, isGap, parents, children, cardRef, onFilt
         </CollapsibleSection>
       )}
 
+      {/* H2: 下位のタグを件数付きで開閉可能に（5件以上で既定折りたたみ＝
+          CollapsibleSection の既定しきい値そのまま）。specs/decisions と同じ
+          パターン。CommentButton は extra prop で維持。 */}
       {children.length > 0 && (
-        <div class="card-section">
-          <div class="card-section-heading-row">
-            <span class="card-section-heading">
-              <Icon name="list-tree" size={14} /> {t.browse.childTags}
-            </span>
-            <CommentButton recordType="tag" recordId={tag.id} recordTitle={tag.name || tag.id} anchor="children" anchorLabel={t.browse.childTags} />
-          </div>
+        <CollapsibleSection
+          recordId={tag.id}
+          section="children"
+          count={children.length}
+          icon="list-tree"
+          label={t.browse.childTags}
+          extra={<CommentButton recordType="tag" recordId={tag.id} recordTitle={tag.name || tag.id} anchor="children" anchorLabel={t.browse.childTags} />}
+        >
           <div class="tag-card-children">
             {children.map((c) => (
               <button key={c.id} type="button" class="tag-card-child-chip" onClick={() => onSelectChild(c.id)} title={t.browse.childLinkTitle}>
@@ -159,7 +200,7 @@ export function TagCard({ tag, report, isGap, parents, children, cardRef, onFilt
               </button>
             ))}
           </div>
-        </div>
+        </CollapsibleSection>
       )}
     </article>
   );
