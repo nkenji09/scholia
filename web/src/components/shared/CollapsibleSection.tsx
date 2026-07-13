@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
@@ -29,11 +29,21 @@ interface Props {
 export function CollapsibleSection({ recordId, section, count, icon, label, extra, focusOpen, onToggle, children }: Props) {
   const [open, setOpen] = useState<boolean>(() => loadCardSectionOpen(recordId, section) ?? (focusOpen || defaultCardSectionOpen(count)));
 
-  // focusOpen は「一方向の開シグナル」— true になった瞬間（マウント時含む）
-  // だけ open へ反映し、false 方向へは何もしない。isOpen prop がマウント後
-  // に false→true へ変わる経路（同一ビュー内で別の spec へフォーカス移動）
-  // でも意思決定セクションが自動展開されるようにするための同期。
+  // focusOpen は「一方向の開シグナル」— マウント*後*に true へ変化した瞬間
+  // だけ open へ反映する（同一ビュー内で別 spec へフォーカス移動し、既存
+  // カードの isOpen が false→true になる経路・#27 差し戻しレビュー1-3）。
+  // 初回マウントは意図的にスキップする: マウント時の focusOpen 値は上の
+  // useState 初期化子が既に `localStorage ?? (focusOpen || threshold)` で
+  // 織り込み済みなので、ここで二重に触ると、ユーザーが明示的に閉じて
+  // localStorage に「閉じ」を保存済みのセクションを、focus 付き URL で
+  // リロードした瞬間に開き直してしまう（＝閉じ状態の永続復元が壊れる・
+  // 差し戻しレビュー2）。true→false 方向へも同期しない（一方向）。
+  const didMountRef = useRef(false);
   useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
     if (focusOpen) setOpen(true);
   }, [focusOpen]);
 
