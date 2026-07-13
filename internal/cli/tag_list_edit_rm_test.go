@@ -28,9 +28,9 @@ func TestCLI_TagListFlatAndKindFilter(t *testing.T) {
 func TestCLI_TagListTreeNestsByParentAndShowsMultiParentTwice(t *testing.T) {
 	dir := t.TempDir()
 	mustRun(t, dir, "init")
-	mustRun(t, dir, "tag", "create", "p1", "--name", "p1")
-	mustRun(t, dir, "tag", "create", "p2", "--name", "p2")
-	mustRun(t, dir, "tag", "create", "child", "--name", "child", "--parent", "p1", "--parent", "p2")
+	mustRun(t, dir, "tag", "create", "p1", "--name", "p1", "--kind", "concern")
+	mustRun(t, dir, "tag", "create", "p2", "--name", "p2", "--kind", "concern")
+	mustRun(t, dir, "tag", "create", "child", "--name", "child", "--kind", "concern", "--parent", "p1", "--parent", "p2")
 
 	out := mustRun(t, dir, "tag", "list", "--tree")
 	if strings.Count(out, "- child ") != 2 {
@@ -41,7 +41,7 @@ func TestCLI_TagListTreeNestsByParentAndShowsMultiParentTwice(t *testing.T) {
 func TestCLI_TagEditUpdatesOnlyGivenFields(t *testing.T) {
 	dir := t.TempDir()
 	mustRun(t, dir, "init")
-	mustRun(t, dir, "tag", "create", "t1", "--name", "one", "--desc", "orig")
+	mustRun(t, dir, "tag", "create", "t1", "--name", "one", "--kind", "concern", "--desc", "orig")
 
 	mustRun(t, dir, "tag", "edit", "t1", "--color", "#3b82f6")
 
@@ -57,8 +57,8 @@ func TestCLI_TagEditUpdatesOnlyGivenFields(t *testing.T) {
 func TestCLI_TagEditRejectsUndeclaredKindMissingParentAndCycle(t *testing.T) {
 	dir := t.TempDir()
 	mustRun(t, dir, "init")
-	mustRun(t, dir, "tag", "create", "a", "--name", "a")
-	mustRun(t, dir, "tag", "create", "b", "--name", "b", "--parent", "a")
+	mustRun(t, dir, "tag", "create", "a", "--name", "a", "--kind", "concern")
+	mustRun(t, dir, "tag", "create", "b", "--name", "b", "--kind", "concern", "--parent", "a")
 
 	if _, err := run(t, dir, "tag", "edit", "a", "--kind", "not-declared"); err == nil {
 		t.Fatalf("expected error for undeclared kind")

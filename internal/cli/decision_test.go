@@ -45,7 +45,7 @@ func TestCLI_DecideWithCommitFlags(t *testing.T) {
 	if _, err := run(t, dir, "init"); err != nil {
 		t.Fatalf("init: %v", err)
 	}
-	if _, err := run(t, dir, "tag", "create", "t1", "--name", "t1"); err != nil {
+	if _, err := run(t, dir, "tag", "create", "t1", "--name", "t1", "--kind", "concern"); err != nil {
 		t.Fatalf("tag create: %v", err)
 	}
 
@@ -71,7 +71,7 @@ func TestCLI_DecisionAddCommit(t *testing.T) {
 	if _, err := run(t, dir, "init"); err != nil {
 		t.Fatalf("init: %v", err)
 	}
-	if _, err := run(t, dir, "tag", "create", "t1", "--name", "t1"); err != nil {
+	if _, err := run(t, dir, "tag", "create", "t1", "--name", "t1", "--kind", "concern"); err != nil {
 		t.Fatalf("tag create: %v", err)
 	}
 	decideOut, err := run(t, dir, "decide", "--on", "tag:t1", "--why", "元の理由", "--changed", "元の変更", "--ref", "PR#1", "--commit", "a", "--json")

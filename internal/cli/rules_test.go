@@ -10,7 +10,7 @@ import (
 func setupAuthFixture(t *testing.T, dir string) {
 	t.Helper()
 	mustRun(t, dir, "init")
-	mustRun(t, dir, "tag", "create", "subject.auth", "--name", "認証")
+	mustRun(t, dir, "tag", "create", "subject.auth", "--name", "認証", "--kind", "subject")
 	mustRun(t, dir, "tag", "create", "req.auth", "--name", "要件-auth", "--kind", "requirement", "--parent", "subject.auth")
 	mustRun(t, dir, "vocab", "add", "action", "act.user.submit-login", "--label", "ログイン送信")
 	mustRun(t, dir, "vocab", "add", "effect", "eff.session.issue-token", "--label", "トークン発行")
