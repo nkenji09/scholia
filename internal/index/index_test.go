@@ -153,3 +153,104 @@ func TestFacetTree_ToleratesCycleWithinKind(t *testing.T) {
 		t.Fatal("FacetTree did not terminate on cyclic parentIds")
 	}
 }
+
+// rootIDs / findNode help assert against the unified TagForest shape.
+func rootIDs(forest []*TagNode) []string {
+	out := make([]string, len(forest))
+	for i, n := range forest {
+		out[i] = n.Tag.ID
+	}
+	return out
+}
+
+func findNode(forest []*TagNode, id string) *TagNode {
+	for _, n := range forest {
+		if n.Tag.ID == id {
+			return n
+		}
+		if got := findNode(n.Children, id); got != nil {
+			return got
+		}
+	}
+	return nil
+}
+
+func childIDs(node *TagNode) []string {
+	if node == nil {
+		return nil
+	}
+	out := make([]string, len(node.Children))
+	for i, c := range node.Children {
+		out[i] = c.Tag.ID
+	}
+	return out
+}
+
+func TestTagForest_CrossKindNestingAndNullKind(t *testing.T) {
+	// subject 親の下に requirement 子（cross-kind）、さらに kind=null のタグも
+	// parentIds 通りに現れることを確認する — per-kind FacetTree では両方脱落する。
+	snap := &store.Snapshot{
+		Tags: []model.Tag{
+			{ID: "subject.auth", Name: "認証", Kind: "subject"},
+			{ID: "req.login", Name: "ログイン要件", Kind: "requirement", ParentIDs: []string{"subject.auth"}},
+			{ID: "note.free", Name: "無分類メモ", ParentIDs: []string{"req.login"}}, // kind=null
+		},
+	}
+	ix := Build(snap)
+
+	forest := ix.TagForest()
+	if got := rootIDs(forest); !reflect.DeepEqual(got, []string{"subject.auth"}) {
+		t.Fatalf("TagForest roots = %v, want [subject.auth]", got)
+	}
+	if got := childIDs(findNode(forest, "subject.auth")); !reflect.DeepEqual(got, []string{"req.login"}) {
+		t.Fatalf("subject.auth children = %v, want [req.login] (cross-kind nesting)", got)
+	}
+	if got := childIDs(findNode(forest, "req.login")); !reflect.DeepEqual(got, []string{"note.free"}) {
+		t.Fatalf("req.login children = %v, want [note.free] (kind=null nests, not dropped)", got)
+	}
+
+	// 対照: per-kind FacetTree は cross-kind の親子を繋がない（挙動不変の確認）。
+	reqTree := ix.FacetTree("requirement")
+	if got := rootIDs(reqTree); !reflect.DeepEqual(got, []string{"req.login"}) {
+		t.Fatalf("FacetTree(requirement) roots = %v, want [req.login] (re-rooted, subject parent invisible)", got)
+	}
+}
+
+func TestTagForest_MultiParentAppearsUnderEachParent(t *testing.T) {
+	// 多親タグは各親の下に重複して現れる（多重所属可・§3.8）。cross-kind でも同様。
+	snap := &store.Snapshot{
+		Tags: []model.Tag{
+			{ID: "subject.a", Name: "A", Kind: "subject"},
+			{ID: "concern.b", Name: "B", Kind: "concern"},
+			{ID: "req.shared", Name: "共有", Kind: "requirement", ParentIDs: []string{"subject.a", "concern.b"}},
+		},
+	}
+	ix := Build(snap)
+	forest := ix.TagForest()
+	if got := rootIDs(forest); !reflect.DeepEqual(got, []string{"concern.b", "subject.a"}) {
+		t.Fatalf("TagForest roots = %v, want [concern.b subject.a]", got)
+	}
+	for _, parent := range []string{"subject.a", "concern.b"} {
+		if got := childIDs(findNode(forest, parent)); !reflect.DeepEqual(got, []string{"req.shared"}) {
+			t.Fatalf("%s children = %v, want [req.shared]", parent, got)
+		}
+	}
+}
+
+func TestTagForest_ToleratesCycle(t *testing.T) {
+	snap := &store.Snapshot{
+		Tags: []model.Tag{
+			{ID: "a", Name: "a", Kind: "requirement", ParentIDs: []string{"b"}},
+			{ID: "b", Name: "b", Kind: "subject", ParentIDs: []string{"a"}},
+		},
+	}
+	ix := Build(snap)
+	done := make(chan []*TagNode, 1)
+	go func() { done <- ix.TagForest() }()
+	select {
+	case tree := <-done:
+		_ = tree // 無限ループしなければ十分（lint が循環を別途 error にする・§5）
+	case <-time.After(2 * time.Second):
+		t.Fatal("TagForest did not terminate on cyclic parentIds")
+	}
+}

@@ -10,6 +10,11 @@ import type { FacetTreeNode, Tag, TransitionDetail, VocabEntry } from '../../typ
 // descendant of A", which is a tree traversal over data Go already built,
 // not a new derivation — the same pattern the pre-refactor
 // TagsView.tsx/TagHierarchyTree.tsx already used.
+//
+// `roots` is the single kind-agnostic forest from GET /api/facets
+// (FacetsResponse.roots, §3.8 unified tree) — one tree covering every tag by
+// parentIds, so "descendant/parent/child" is answered over the whole
+// hierarchy (including cross-kind nesting) rather than per-kind subtrees.
 
 // 'owner' (vocab-owner-tag): VocabEntry.owner is a plain string field, not a
 // tag record, so it carries its own condition shape rather than being
@@ -17,7 +22,7 @@ import type { FacetTreeNode, Tag, TransitionDetail, VocabEntry } from '../../typ
 export type FilterCondition = { type: 'tag' | 'vocab'; id: string } | { type: 'owner'; id: string };
 
 /** All tag ids in the subtree rooted at `rootId` (inclusive of rootId itself). */
-export function descendantIds(trees: Record<string, FacetTreeNode[]>, rootId: string): Set<string> {
+export function descendantIds(roots: FacetTreeNode[], rootId: string): Set<string> {
   const out = new Set<string>();
   const collect = (nodes: FacetTreeNode[]) => {
     for (const n of nodes) {
@@ -36,29 +41,32 @@ export function descendantIds(trees: Record<string, FacetTreeNode[]>, rootId: st
     }
     return false;
   };
-  for (const tree of Object.values(trees)) {
-    if (findAndCollect(tree)) return out;
-  }
-  // rootId isn't in any facet tree (its kind may not be a declared facet
-  // kind) — it has no visible descendants, so it's just itself.
+  if (findAndCollect(roots)) return out;
+  // rootId isn't in the forest at all (shouldn't happen — the unified tree
+  // nests every tag) — it has no visible descendants, so it's just itself.
   out.add(rootId);
   return out;
 }
 
-/** A tag's parent tags, read directly off the already-nested facet trees. */
-export function parentsOf(trees: Record<string, FacetTreeNode[]>, tagId: string, tagById: Map<string, Tag>): Tag[] {
+/** A tag's parent tags, read directly off the unified facet forest (all
+    parents across the DAG, including cross-kind parents). */
+export function parentsOf(roots: FacetTreeNode[], tagId: string, tagById: Map<string, Tag>): Tag[] {
   const parents: Tag[] = [];
+  const seen = new Set<string>();
   const walk = (nodes: FacetTreeNode[], parent: Tag | null) => {
     for (const n of nodes) {
-      if (n.tag.id === tagId && parent) parents.push(parent);
+      if (n.tag.id === tagId && parent && !seen.has(parent.id)) {
+        seen.add(parent.id);
+        parents.push(parent);
+      }
       if (n.children) walk(n.children, n.tag);
     }
   };
-  for (const tree of Object.values(trees)) walk(tree, null);
+  walk(roots, null);
   if (parents.length === 0) {
-    // Fallback for tags whose kind isn't a declared facet kind: parentIds is
-    // already on the flat Tag record itself (no relationship computed here,
-    // just read straight off the record).
+    // Fallback for a tag not reached in the forest: parentIds is already on
+    // the flat Tag record itself (no relationship computed here, just read
+    // straight off the record).
     const self = tagById.get(tagId);
     for (const pid of self?.parentIds || []) {
       const p = tagById.get(pid);
@@ -68,8 +76,8 @@ export function parentsOf(trees: Record<string, FacetTreeNode[]>, tagId: string,
   return parents;
 }
 
-/** A tag's direct children, read directly off the already-nested facet trees. */
-export function childrenOf(trees: Record<string, FacetTreeNode[]>, tagId: string, tagById: Map<string, Tag>): Tag[] {
+/** A tag's direct children, read directly off the unified facet forest. */
+export function childrenOf(roots: FacetTreeNode[], tagId: string, tagById: Map<string, Tag>): Tag[] {
   const findNode = (nodes: FacetTreeNode[]): FacetTreeNode | null => {
     for (const n of nodes) {
       if (n.tag.id === tagId) return n;
@@ -78,18 +86,16 @@ export function childrenOf(trees: Record<string, FacetTreeNode[]>, tagId: string
     }
     return null;
   };
-  for (const tree of Object.values(trees)) {
-    const node = findNode(tree);
-    if (node) return (node.children || []).map((c) => c.tag);
-  }
+  const node = findNode(roots);
+  if (node) return (node.children || []).map((c) => c.tag);
   // Fallback: same as parentsOf, read straight off the flat records.
   return Array.from(tagById.values()).filter((t) => (t.parentIds || []).includes(tagId));
 }
 
-export function tagMatchesFilters(tag: Tag, filters: FilterCondition[], trees: Record<string, FacetTreeNode[]>): boolean {
+export function tagMatchesFilters(tag: Tag, filters: FilterCondition[], roots: FacetTreeNode[]): boolean {
   return filters.every((f) => {
     if (f.type !== 'tag') return true;
-    return descendantIds(trees, f.id).has(tag.id);
+    return descendantIds(roots, f.id).has(tag.id);
   });
 }
 

@@ -14,7 +14,7 @@ func TestCLI_ReviewAddAndList(t *testing.T) {
 	if _, err := run(t, dir, "init"); err != nil {
 		t.Fatalf("init: %v", err)
 	}
-	if _, err := run(t, dir, "tag", "create", "subject.auth", "--name", "認証"); err != nil {
+	if _, err := run(t, dir, "tag", "create", "subject.auth", "--name", "認証", "--kind", "subject"); err != nil {
 		t.Fatalf("tag create: %v", err)
 	}
 	if _, err := run(t, dir, "vocab", "add", "action", "act.a", "--label", "a"); err != nil {

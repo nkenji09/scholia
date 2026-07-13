@@ -38,8 +38,19 @@ func newTagCreateCmd() *cobra.Command {
 				return err
 			}
 
-			if kind != "" && !containsStr(snap.Config.TagKinds, kind) {
-				return fmt.Errorf("kind %q は config.tagKinds に未宣言です", kind)
+			if kind != "" {
+				if !containsStr(snap.Config.TagKinds, kind) {
+					return fmt.Errorf("kind %q は config.tagKinds に未宣言です", kind)
+				}
+			} else {
+				switch len(snap.Config.TagKinds) {
+				case 0:
+					// 退化した config（tagKinds 未宣言）: 既定できないので空を許容する。lint が後で警告する。
+				case 1:
+					kind = snap.Config.TagKinds[0]
+				default:
+					return fmt.Errorf("tagKind が複数あるため --kind が必須です: %v", snap.Config.TagKinds)
+				}
 			}
 
 			for _, p := range parents {

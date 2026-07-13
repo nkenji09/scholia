@@ -17,13 +17,19 @@ func TestGetFacets(t *testing.T) {
 	if len(out.FacetKinds) != 2 {
 		t.Fatalf("FacetKinds = %v, want 2 kinds", out.FacetKinds)
 	}
-	subjectTree := out.Trees["subject"]
-	if len(subjectTree) != 1 || subjectTree[0].Tag.ID != "subject.auth" {
-		t.Fatalf("Trees[subject] = %+v, want root subject.auth", subjectTree)
+	// 統一ツリー（§3.8）: kind 非依存の 1 本のフォレスト。fixture の req.auth-happy
+	// は parentIds=[subject.auth]（requirement が subject の子）なので、per-kind の
+	// 旧レスポンスでは別々の木だったが、統一ツリーでは subject.auth 配下に cross-kind
+	// で入れ子になる（唯一のルートは subject.auth）。
+	if len(out.Roots) != 1 || out.Roots[0].Tag.ID != "subject.auth" {
+		t.Fatalf("Roots = %+v, want single root subject.auth", out.Roots)
 	}
-	reqTree := out.Trees["requirement"]
-	if len(reqTree) != 1 || reqTree[0].Tag.ID != "req.auth-happy" {
-		t.Fatalf("Trees[requirement] = %+v, want root req.auth-happy", reqTree)
+	kids := out.Roots[0].Children
+	if len(kids) != 1 || kids[0].Tag.ID != "req.auth-happy" {
+		t.Fatalf("subject.auth children = %+v, want [req.auth-happy] (cross-kind nesting)", kids)
+	}
+	if kids[0].Tag.Kind != "requirement" {
+		t.Fatalf("nested child kind = %q, want requirement (kind kept as node attribute)", kids[0].Tag.Kind)
 	}
 }
 

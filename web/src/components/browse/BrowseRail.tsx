@@ -23,6 +23,12 @@ export interface IndexItem {
   indent: number;
   isGap?: boolean;
   onClick: () => void;
+  // 見出しの折りたたみ（依頼1）。統一ツリーの親ノードだけ hasChildren=true で
+  // ▶/▼ トグルを出す。collapsed のとき子孫はこの indexItems 配列から除かれる
+  // （呼び出し側が flatten で間引く）。leaf は spacer で桁を揃える。
+  hasChildren?: boolean;
+  collapsed?: boolean;
+  onToggle?: () => void;
 }
 
 // A selectable tag/vocab candidate for the search box's combobox dropdown
@@ -222,21 +228,30 @@ export function BrowseRail({
           </span>
           <div class="browse-rail-index-list">
             {indexItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                class="browse-rail-index-item"
-                style={{ paddingLeft: `${8 + item.indent * 14}px` }}
-                onClick={item.onClick}
-              >
-                <span class="browse-rail-index-dot" style={{ background: item.color }} />
-                <span class="browse-rail-index-label">{item.label}</span>
-                {item.isGap && (
-                  <span class="browse-rail-index-gap">
-                    <Icon name="triangle-alert" size={12} />
-                  </span>
+              <div key={item.id} class="browse-rail-index-row" style={{ paddingLeft: `${8 + item.indent * 14}px` }}>
+                {item.hasChildren ? (
+                  <button
+                    type="button"
+                    class="browse-rail-index-toggle"
+                    aria-label={item.collapsed ? t.browse.indexExpand : t.browse.indexCollapse}
+                    aria-expanded={!item.collapsed}
+                    onClick={() => item.onToggle?.()}
+                  >
+                    <Icon name={item.collapsed ? 'chevron-right' : 'chevron-down'} size={13} />
+                  </button>
+                ) : (
+                  <span class="browse-rail-index-toggle-spacer" />
                 )}
-              </button>
+                <button type="button" class="browse-rail-index-item" onClick={item.onClick}>
+                  <span class="browse-rail-index-dot" style={{ background: item.color }} />
+                  <span class="browse-rail-index-label">{item.label}</span>
+                  {item.isGap && (
+                    <span class="browse-rail-index-gap">
+                      <Icon name="triangle-alert" size={12} />
+                    </span>
+                  )}
+                </button>
+              </div>
             ))}
             {indexItems.length === 0 && <span class="dim browse-rail-index-empty">{t.browse.indexEmpty}</span>}
           </div>

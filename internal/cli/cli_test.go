@@ -43,7 +43,7 @@ func TestCLISmoke_InitVocabTagTxLintShow(t *testing.T) {
 		t.Fatalf("vocab add effect failed: %v\noutput:\n%s", err, out)
 	}
 
-	if out, err := run(t, dir, "tag", "create", "subject.auth", "--name", "認証"); err != nil {
+	if out, err := run(t, dir, "tag", "create", "subject.auth", "--name", "認証", "--kind", "subject"); err != nil {
 		t.Fatalf("tag create parent failed: %v\noutput:\n%s", err, out)
 	}
 	if out, err := run(t, dir, "tag", "create", "req.auth-happy-path", "--name", "正常系ログイン", "--kind", "requirement", "--parent", "subject.auth"); err != nil {
@@ -143,7 +143,7 @@ func TestCLI_TagCreateRejectsMissingParentAndCycle(t *testing.T) {
 	if _, err := run(t, dir, "init"); err != nil {
 		t.Fatalf("init: %v", err)
 	}
-	if _, err := run(t, dir, "tag", "create", "t1", "--name", "t1", "--parent", "t.missing"); err == nil {
+	if _, err := run(t, dir, "tag", "create", "t1", "--name", "t1", "--kind", "concern", "--parent", "t.missing"); err == nil {
 		t.Fatalf("expected error for missing parent")
 	}
 }

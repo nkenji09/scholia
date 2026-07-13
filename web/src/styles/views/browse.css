@@ -293,11 +293,45 @@
   gap: 1px;
 }
 
+/* 見出しの行: [▶/▼ トグル or spacer] + [ジャンプ button]。indent は行の
+   paddingLeft（インライン）で付ける。ネスト button 回避のためトグルと
+   ジャンプを別 button に分離している（依頼1 折りたたみ）。 */
+.browse-rail-index-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.browse-rail-index-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  border-radius: var(--r-sm);
+  color: var(--lm-text-dim);
+  cursor: pointer;
+}
+
+.browse-rail-index-toggle:hover {
+  background: var(--lm-s2);
+  color: var(--lm-text);
+}
+
+.browse-rail-index-toggle-spacer {
+  flex-shrink: 0;
+  width: 18px;
+}
+
 .browse-rail-index-item {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   border: none;
   background: transparent;
   text-align: left;
