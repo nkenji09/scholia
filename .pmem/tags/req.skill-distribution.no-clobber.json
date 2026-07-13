@@ -1,0 +1,9 @@
+{
+  "id": "req.skill-distribution.no-clobber",
+  "name": "既定は既存を上書きしない",
+  "kind": "requirement",
+  "parentIds": [
+    "req.skill-distribution"
+  ],
+  "description": "既定では対象に既存ファイルがあれば温存し、--force を明示したときだけ上書きする（利用者の手変更を消さない）"
+}
