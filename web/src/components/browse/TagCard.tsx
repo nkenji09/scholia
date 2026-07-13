@@ -144,14 +144,18 @@ export function TagCard({ tag, report, isGap, parents, children, cardRef, onFilt
         </CollapsibleSection>
       )}
 
+      {/* H2: 下位のタグを件数付きで開閉可能に（5件以上で既定折りたたみ＝
+          CollapsibleSection の既定しきい値そのまま）。specs/decisions と同じ
+          パターン。CommentButton は extra prop で維持。 */}
       {children.length > 0 && (
-        <div class="card-section">
-          <div class="card-section-heading-row">
-            <span class="card-section-heading">
-              <Icon name="list-tree" size={14} /> {t.browse.childTags}
-            </span>
-            <CommentButton recordType="tag" recordId={tag.id} recordTitle={tag.name || tag.id} anchor="children" anchorLabel={t.browse.childTags} />
-          </div>
+        <CollapsibleSection
+          recordId={tag.id}
+          section="children"
+          count={children.length}
+          icon="list-tree"
+          label={t.browse.childTags}
+          extra={<CommentButton recordType="tag" recordId={tag.id} recordTitle={tag.name || tag.id} anchor="children" anchorLabel={t.browse.childTags} />}
+        >
           <div class="tag-card-children">
             {children.map((c) => (
               <button key={c.id} type="button" class="tag-card-child-chip" onClick={() => onSelectChild(c.id)} title={t.browse.childLinkTitle}>
@@ -159,7 +163,7 @@ export function TagCard({ tag, report, isGap, parents, children, cardRef, onFilt
               </button>
             ))}
           </div>
-        </div>
+        </CollapsibleSection>
       )}
     </article>
   );
