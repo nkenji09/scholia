@@ -360,6 +360,7 @@ pmem review list [--on <transition|vocab|tag>:<id>] [--json]                    
 
 # 読み取り / 派生ビュー
 pmem show tx <id> [--resolve] [--json]                    # 遷移 1 件（語彙 label 解決）
+pmem show vocab <id> [--json]                             # 語彙 1 件 + 使用箇所（参照 transition の逆引き＝真の影響集合・§3.3）
 pmem spec <subjectTag> [--json]                           # 主題タグで束ねた"仕様"レポート（派生）
 pmem list [--facet <tagKind>] [--tag <id>] [--kind <k>] [--json]   # faceted 一覧・グルーピング
 pmem rules [--tag <id> | --tx <id> | --facet <k>] [--sort chrono|target] [--json]

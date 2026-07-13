@@ -66,6 +66,51 @@ func TestCLI_ShowVocab(t *testing.T) {
 	}
 }
 
+// vocab を参照する transition が使用箇所（逆引き）として表示される（真の影響集合・§3.3）。
+func TestCLI_ShowVocabUsage(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := run(t, dir, "init"); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	if _, err := run(t, dir, "vocab", "add", "condition", "cond.shared", "--label", "共有条件"); err != nil {
+		t.Fatalf("vocab add condition: %v", err)
+	}
+	if _, err := run(t, dir, "vocab", "add", "action", "act.a", "--label", "アクションA"); err != nil {
+		t.Fatalf("vocab add action a: %v", err)
+	}
+	if _, err := run(t, dir, "vocab", "add", "effect", "eff.a", "--label", "エフェクトA"); err != nil {
+		t.Fatalf("vocab add effect: %v", err)
+	}
+	if _, err := run(t, dir, "tx", "add", "T-1", "--action", "act.a", "--given", "cond.shared", "--then", "eff.a"); err != nil {
+		t.Fatalf("tx add T-1: %v", err)
+	}
+	if _, err := run(t, dir, "vocab", "add", "action", "act.b", "--label", "アクションB"); err != nil {
+		t.Fatalf("vocab add action b: %v", err)
+	}
+	if _, err := run(t, dir, "tx", "add", "T-2", "--action", "act.b", "--given", "cond.shared", "--then", "eff.a"); err != nil {
+		t.Fatalf("tx add T-2: %v", err)
+	}
+
+	out, err := run(t, dir, "show", "vocab", "cond.shared")
+	if err != nil {
+		t.Fatalf("show vocab failed: %v\noutput:\n%s", err, out)
+	}
+	for _, want := range []string{"usage (2 transitions)", "T-1 (given)", "T-2 (given)"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("show vocab output missing %q:\n%s", want, out)
+		}
+	}
+
+	// vocab を参照する transition が無ければ usage は空。
+	unusedOut, err := run(t, dir, "show", "vocab", "eff.a", "--json")
+	if err != nil {
+		t.Fatalf("show vocab --json failed: %v\noutput:\n%s", err, unusedOut)
+	}
+	if !strings.Contains(unusedOut, `"txId": "T-1"`) || !strings.Contains(unusedOut, `"txId": "T-2"`) {
+		t.Fatalf("show vocab --json usage missing expected txIds:\n%s", unusedOut)
+	}
+}
+
 func TestCLI_ShowDecision(t *testing.T) {
 	dir := t.TempDir()
 	if _, err := run(t, dir, "init"); err != nil {
