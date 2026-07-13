@@ -42,6 +42,12 @@ type staticData struct {
 	// stable output.
 	Tags  []model.Tag        `json:"tags"`
 	Vocab []model.VocabEntry `json:"vocab"`
+	// VocabBySubject mirrors GET /api/vocab?subject=<tagId> (vocab-view-p2の
+	// コンポ別モード): subject タグに属す遷移が参照する語彙の導出を、tag id ごとに
+	// 焼き込む。live API は任意の subject を答えられるが static はサーバが無いので
+	// transitionsByTag と同じく「SPA が要求しうる入力（＝各タグ id）」を先に計算
+	// しておく。値は index.VocabBySubject（live handler と同一関数・§9 単一の真実）。
+	VocabBySubject map[string][]model.VocabEntry `json:"vocabBySubject"`
 	// Decisions mirrors GET /api/rules with no tag/tx/facet selector (§F of
 	// .concierge/decision.md): every decision in the project, chronological
 	// (index.SortedRulesFor's "no selector" case) — HOME's recent-decisions
@@ -115,6 +121,18 @@ func collectStaticData(s *store.Store) (staticData, error) {
 		transitionsByTag[id] = transitionsPayload{Transitions: index.FilterTransitions(ix, ix.AllTransitions(), id, "")}
 	}
 
+	// コンポ別 vocab（vocab-view-p2）を tag id ごとに焼く。transitionsByTag と
+	// 同じ tagIDs（全タグ＋""）を回すが、"" は subject でないので飛ばす。frontend
+	// の selector は subject kind のタグしか出さないが、baking は全タグ一律にして
+	// おく（transitionsByTag と対称・any tag クエリでも空配列で答えられる）。
+	vocabBySubject := make(map[string][]model.VocabEntry, len(tagIDs))
+	for id := range tagIDs {
+		if id == "" {
+			continue
+		}
+		vocabBySubject[id] = ix.VocabBySubject(id)
+	}
+
 	txDetail := make(map[string]index.TransitionDetail, len(ix.TransitionByID))
 	for _, t := range ix.AllTransitions() {
 		detail, ok, err := index.BuildTransitionDetail(&snap, ix, t.ID)
@@ -181,6 +199,7 @@ func collectStaticData(s *store.Store) (staticData, error) {
 		Spec:             spec,
 		Tags:             tags,
 		Vocab:            vocab,
+		VocabBySubject:   vocabBySubject,
 		Decisions:        decisions,
 	}, nil
 }

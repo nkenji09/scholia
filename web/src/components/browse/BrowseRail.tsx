@@ -59,6 +59,19 @@ interface Props {
       screens that don't offer suggestions — the free-text filter behavior
       is unaffected either way. */
   suggestions?: SuggestionItem[];
+  /** Optional subject (component) selector shown above the kind facets —
+      VocabView's コンポ別モード (vocab-view-p2). Omit on screens that don't
+      offer it. The empty-string value means the global (all-vocab) mode; a
+      subject id switches to the derived per-component list. */
+  subjectSelect?: {
+    label: string;
+    allLabel: string;
+    value: string;
+    /** Grouped by facet kind (optgroup per group) — e.g. one group per
+        config.facetKinds axis. */
+    groups: { label: string; options: { id: string; label: string }[] }[];
+    onChange: (id: string) => void;
+  };
 }
 
 const MAX_SUGGESTIONS = 8;
@@ -83,6 +96,7 @@ export function BrowseRail({
   onClearConditions,
   indexItems,
   suggestions = [],
+  subjectSelect,
 }: Props) {
   const t = useT();
   const [focused, setFocused] = useState(false);
@@ -176,6 +190,31 @@ export function BrowseRail({
             </ul>
           )}
         </div>
+
+        {subjectSelect && (
+          <div class="browse-rail-section">
+            <div class="browse-rail-divider" />
+            <label class="browse-rail-subject">
+              <span class="browse-rail-label dim">{subjectSelect.label}</span>
+              <select
+                class="browse-rail-subject-select"
+                value={subjectSelect.value}
+                onChange={(e) => subjectSelect.onChange((e.target as HTMLSelectElement).value)}
+              >
+                <option value="">{subjectSelect.allLabel}</option>
+                {subjectSelect.groups.map((g) => (
+                  <optgroup key={g.label} label={g.label}>
+                    {g.options.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
 
         {kindOptions.length > 0 && (
           <div class="browse-rail-section">

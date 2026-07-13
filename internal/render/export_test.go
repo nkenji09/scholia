@@ -178,6 +178,13 @@ func TestExportHTML_WritesSelfContainedIndexHTML(t *testing.T) {
 		t.Fatalf("baked vocab[0] = %+v, want act.user.login with its markdown description", data.Vocab[0])
 	}
 
+	// コンポ別 vocab（vocab-view-p2）: subject.auth は T-login の実効タグなので、
+	// T-login の action/then 由来の vocab が焼き込まれる（id 昇順）。
+	bySubject, ok := data.VocabBySubject["subject.auth"]
+	if !ok || len(bySubject) != 2 || bySubject[0].ID != "act.user.login" || bySubject[1].ID != "eff.session.issue" {
+		t.Fatalf("baked vocabBySubject[subject.auth] = %+v, want [act.user.login eff.session.issue] via ancestor expansion", bySubject)
+	}
+
 	if len(data.Decisions) != 1 || data.Decisions[0].ID != "d1" {
 		t.Fatalf("baked decisions = %+v, want [d1] (HOME's recent-decisions widget needs this in static exports too)", data.Decisions)
 	}

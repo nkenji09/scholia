@@ -70,9 +70,16 @@ func getTagsHandler(s *store.Store) http.HandlerFunc {
 
 func getVocabHandler(s *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		snap, _, err := loadIndexed(s)
+		snap, ix, err := loadIndexed(s)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		// subject（コンポ別モード・vocab-view-p2）: subject タグに属す遷移が
+		// 参照する語彙を導出して返す。category とは排他（導出後は全カテゴリを
+		// 返し、カテゴリ絞りは従来通りクライアント側が行う＝グローバルと同じ流儀）。
+		if subject := r.URL.Query().Get("subject"); subject != "" {
+			writeJSON(w, http.StatusOK, ix.VocabBySubject(subject))
 			return
 		}
 		category := r.URL.Query().Get("category")

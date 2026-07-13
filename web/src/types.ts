@@ -325,5 +325,9 @@ export interface PmemStaticData {
   spec: Record<string, SpecReport>;
   tags: Tag[];
   vocab: VocabEntry[];
+  // コンポ別 vocab（vocab-view-p2）: subject タグ id → その subject に属す遷移が
+  // 参照する導出語彙。live の GET /api/vocab?subject=<id> と同じ形を、SPA が
+  // 要求しうる各 tag id について焼き込む（transitionsByTag と対称）。
+  vocabBySubject: Record<string, VocabEntry[]>;
   decisions: Decision[];
 }

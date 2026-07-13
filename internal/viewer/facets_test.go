@@ -65,6 +65,32 @@ func TestGetVocab_FilterByCategory(t *testing.T) {
 	}
 }
 
+func TestGetVocab_BySubjectDerivesFromTransitions(t *testing.T) {
+	h, _ := newTestHandler(t)
+	// subject.auth は T-login の実効タグ（req.auth-happy 経由）。T-login の
+	// action(act.user.login)＋then(eff.session.issue) を導出し id 昇順で返す。
+	rec := doRequest(t, h, http.MethodGet, "/api/vocab?subject=subject.auth", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	vocab := decodeJSON[[]model.VocabEntry](t, rec)
+	if len(vocab) != 2 || vocab[0].ID != "act.user.login" || vocab[1].ID != "eff.session.issue" {
+		t.Fatalf("vocab = %+v, want [act.user.login eff.session.issue]", vocab)
+	}
+}
+
+func TestGetVocab_BySubjectEmptyForUnusedTag(t *testing.T) {
+	h, _ := newTestHandler(t)
+	rec := doRequest(t, h, http.MethodGet, "/api/vocab?subject=subject.nonexistent", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	vocab := decodeJSON[[]model.VocabEntry](t, rec)
+	if len(vocab) != 0 {
+		t.Fatalf("vocab = %+v, want empty for unused subject", vocab)
+	}
+}
+
 func TestGetVocab_InvalidCategoryIsBadRequest(t *testing.T) {
 	h, _ := newTestHandler(t)
 	rec := doRequest(t, h, http.MethodGet, "/api/vocab?category=nope", nil)

@@ -245,6 +245,29 @@
   color: var(--lm-text-strong);
 }
 
+/* コンポ別モードの subject セレクタ（vocab-view-p2）。ラベル＋ドロップダウンを
+   縦積みにして kind facet の上に置く。 */
+.browse-rail-subject {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.browse-rail-subject-select {
+  width: 100%;
+  border: 1px solid var(--lm-border);
+  background: var(--lm-s1);
+  color: var(--lm-text-strong);
+  border-radius: var(--r-md);
+  padding: 8px var(--sp-3);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.browse-rail-subject-select:hover {
+  background: var(--lm-s2);
+}
+
 .browse-rail-conditions {
   display: flex;
   flex-direction: column;

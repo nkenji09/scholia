@@ -183,3 +183,114 @@ export function buildFolderIndex(opts: BuildFolderIndexOpts): IndexItem[] {
   emit(folders, 0);
   return out;
 }
+
+// ── category→kind ツリー索引（vocab-view-p1 依頼・Phase 1） ─────────────
+// vocab は必ず category(action/condition/effect)×kind を持つ intrinsic な軸
+// なので、タグのフォレストを流用する buildFolderIndex とは別に、固定2階層の
+// 静的タクソノミとして組む: category（最上位）→ kind（第2階層）→ vocab
+// （leaf）。タグは二次的な横断フィルタに降格（VocabView の filters がそのまま
+// 適用）— このツリーの軸には現れない。全 vocab が category×kind を持つので
+// buildFolderIndex の「タグ無し vocab が未分類にフラットに落ちる」問題は
+// この軸では原理的に起こらない。kind 未設定の vocab だけ、その category
+// 直下の「その他」バケットへ（退行回避）。
+export interface CategoryKindLeafInput {
+  id: string;
+  label: string;
+  color: string;
+  category: string;
+  kind?: string;
+}
+
+interface BuildCategoryKindIndexOpts {
+  leaves: CategoryKindLeafInput[];
+  /** 最上位フォルダの並び（category id、表示順）。 */
+  categories: string[];
+  categoryLabel: (category: string) => string;
+  /** kind の表示順（config.kinds[category] の宣言順）を返す。宣言に無い
+      kind が実データに現れた場合は呼び出し側の解決順に任せる（ここでは
+      末尾にアルファベット順で追加し、取りこぼしを防ぐ）。 */
+  kindOrder: (category: string) => string[];
+  /** kind 未設定の vocab を落とす末尾バケットのラベル（例: 「その他」）。 */
+  otherKindLabel: string;
+  /** category/kind 両フォルダの行の色（category id から解決）。 */
+  folderColor: (category: string) => string;
+  collapsedIds: Set<string>;
+  onToggle: (key: string) => void;
+  onSelect: (id: string) => void;
+}
+
+export function buildCategoryKindIndex(opts: BuildCategoryKindIndexOpts): IndexItem[] {
+  const { leaves, categories, categoryLabel, kindOrder, otherKindLabel, folderColor, collapsedIds, onToggle, onSelect } = opts;
+
+  const out: IndexItem[] = [];
+  for (const category of categories) {
+    const catLeaves = leaves.filter((l) => l.category === category);
+    if (catLeaves.length === 0) continue;
+
+    const catKey = 'catkind:' + category;
+    const catCollapsed = collapsedIds.has(catKey);
+    out.push({
+      id: catKey,
+      label: categoryLabel(category),
+      color: folderColor(category),
+      indent: 0,
+      hasChildren: true,
+      collapsed: catCollapsed,
+      onToggle: () => onToggle(catKey),
+      onClick: () => onToggle(catKey),
+    });
+    if (catCollapsed) continue;
+
+    const byKind = new Map<string, CategoryKindLeafInput[]>();
+    const otherLeaves: CategoryKindLeafInput[] = [];
+    for (const l of catLeaves) {
+      if (!l.kind) {
+        otherLeaves.push(l);
+        continue;
+      }
+      const arr = byKind.get(l.kind);
+      if (arr) arr.push(l);
+      else byKind.set(l.kind, [l]);
+    }
+
+    // Declared kinds first (config order), then any kind present in the data
+    // but absent from config.kinds — keeps a stale/undeclared kind visible
+    // instead of silently dropping its vocab (退行回避).
+    const declared = kindOrder(category);
+    const declaredSet = new Set(declared);
+    const extra = Array.from(byKind.keys())
+      .filter((k) => !declaredSet.has(k))
+      .sort();
+
+    const emitKindFolder = (key: string, label: string, kindLeaves: CategoryKindLeafInput[]) => {
+      if (kindLeaves.length === 0) return;
+      const kindKey = catKey + '::' + key;
+      const kindCollapsed = collapsedIds.has(kindKey);
+      out.push({
+        id: kindKey,
+        label,
+        color: folderColor(category),
+        indent: 1,
+        hasChildren: true,
+        collapsed: kindCollapsed,
+        onToggle: () => onToggle(kindKey),
+        onClick: () => onToggle(kindKey),
+      });
+      if (kindCollapsed) return;
+      for (const l of kindLeaves) {
+        out.push({
+          id: kindKey + '::' + l.id,
+          label: l.label,
+          color: l.color,
+          indent: 2,
+          onClick: () => onSelect(l.id),
+        });
+      }
+    };
+
+    for (const kind of [...declared, ...extra]) emitKindFolder(kind, kind, byKind.get(kind) || []);
+    emitKindFolder('__other__', otherKindLabel, otherLeaves);
+  }
+
+  return out;
+}

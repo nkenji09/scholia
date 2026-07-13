@@ -127,6 +127,78 @@ func TestVocabByTag_ReverseFromVocabTagsSortedByID(t *testing.T) {
 	}
 }
 
+func TestVocabBySubject_DerivesFromActionGivenThen(t *testing.T) {
+	ix := Build(testSnapshot())
+
+	// subject.auth は T-1 のみを直接タグ付けする。T-1 の action(act.submit)＋
+	// given(cond.valid)＋then(eff.token, eff.redirect) を全て拾い id 昇順で返す。
+	got := vocabIDs(ix.VocabBySubject("subject.auth"))
+	want := []string{"act.submit", "cond.valid", "eff.redirect", "eff.token"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("VocabBySubject(subject.auth) = %v, want %v", got, want)
+	}
+
+	// 該当遷移が無い（誰もタグ付けしない）subject は空。
+	if got := ix.VocabBySubject("subject.nonexistent"); len(got) != 0 {
+		t.Fatalf("VocabBySubject(subject.nonexistent) = %v, want empty", got)
+	}
+}
+
+func TestVocabBySubject_FollowsEffectiveTagsThroughDescendants(t *testing.T) {
+	ix := Build(testSnapshot())
+
+	// req.auth は T-1 の実効タグ（子 req.auth-happy 経由の祖先ロールアップ）。
+	// TransitionsByTag が実効タグで判定するので、子タグ付き遷移の vocab が親でも
+	// 現れる（＝共有語彙が該当コンポに漏れなく出る decision の担保）。
+	got := vocabIDs(ix.VocabBySubject("req.auth"))
+	want := []string{"act.submit", "cond.valid", "eff.redirect", "eff.token"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("VocabBySubject(req.auth) = %v, want %v (effective-tag path)", got, want)
+	}
+}
+
+func TestVocabBySubject_DedupesAcrossTransitions(t *testing.T) {
+	// 同一 subject 下の2遷移が同じ vocab（act.submit・eff.token）を参照しても
+	// 1度だけ・id 昇順で返す（複数遷移をまたぐ dedupe）。
+	snap := &store.Snapshot{
+		Vocab: []model.VocabEntry{
+			{ID: "act.submit", Category: model.CategoryAction, Label: "送信"},
+			{ID: "cond.valid", Category: model.CategoryCondition, Label: "正当"},
+			{ID: "eff.token", Category: model.CategoryEffect, Label: "トークン発行"},
+		},
+		Tags: []model.Tag{{ID: "subject.auth", Name: "認証", Kind: "subject"}},
+		Transitions: []model.Transition{
+			{ID: "T-1", Action: "act.submit", Given: []string{"cond.valid"}, Then: []string{"eff.token"}, Tags: []string{"subject.auth"}},
+			{ID: "T-2", Action: "act.submit", Given: []string{}, Then: []string{"eff.token"}, Tags: []string{"subject.auth"}},
+		},
+	}
+	ix := Build(snap)
+	got := vocabIDs(ix.VocabBySubject("subject.auth"))
+	want := []string{"act.submit", "cond.valid", "eff.token"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("VocabBySubject(subject.auth) = %v, want %v (deduped, sorted)", got, want)
+	}
+}
+
+func TestVocabBySubject_SkipsDanglingRefs(t *testing.T) {
+	// vocab に存在しない ref（dangling・vocab-ref lint が別途拾う）は静かに飛ばす。
+	snap := &store.Snapshot{
+		Vocab: []model.VocabEntry{
+			{ID: "act.submit", Category: model.CategoryAction, Label: "送信"},
+		},
+		Tags: []model.Tag{{ID: "subject.auth", Name: "認証", Kind: "subject"}},
+		Transitions: []model.Transition{
+			{ID: "T-1", Action: "act.submit", Then: []string{"eff.ghost"}, Tags: []string{"subject.auth"}},
+		},
+	}
+	ix := Build(snap)
+	got := vocabIDs(ix.VocabBySubject("subject.auth"))
+	want := []string{"act.submit"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("VocabBySubject(subject.auth) = %v, want %v (dangling eff.ghost skipped)", got, want)
+	}
+}
+
 func TestBuild_AllTransitionsSortedByID(t *testing.T) {
 	ix := Build(testSnapshot())
 	got := txIDs(ix.AllTransitions())

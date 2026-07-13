@@ -112,6 +112,37 @@ func (ix *Index) HasEffectiveTag(txID, tagID string) bool {
 	return ix.tagTransitions[tagID][txID]
 }
 
+// VocabBySubject は subject タグ（コンポ）に属す遷移が参照する語彙を id 昇順で
+// 返す（vocab-view-p2）。導出は「subject →（実効タグに subject を含む遷移）→
+// 遷移の action/given/then が参照する vocab」の順引き。vocab 自体はタグ不要で
+// コンポ別に見られるべき（帰属は遷移側の実効タグに持たせる）という decision に
+// 基づく。TransitionsByTag が実効タグ（祖先ロールアップ済み）で判定するので、
+// 子タグ付きの遷移も親 subject に正しく現れ、共有語彙は該当する全コンポに出る。
+// 該当遷移が無ければ空。VocabEntry.Tags 直付与の逆引き（VocabByTag）とは別系統。
+func (ix *Index) VocabBySubject(subjectTagID string) []model.VocabEntry {
+	seen := make(map[string]bool)
+	out := make([]model.VocabEntry, 0)
+	for _, t := range ix.TransitionsByTag(subjectTagID) {
+		refs := make([]string, 0, 1+len(t.Given)+len(t.Then))
+		refs = append(refs, t.Action)
+		refs = append(refs, t.Given...)
+		refs = append(refs, t.Then...)
+		for _, id := range refs {
+			if seen[id] {
+				continue
+			}
+			v, ok := ix.VocabByID[id]
+			if !ok {
+				continue // dangling ref（vocab-ref lint が拾う・§5）は静かに飛ばす
+			}
+			seen[id] = true
+			out = append(out, v)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
+}
+
 // VocabByTag は tagID を（直接）持つ語彙を id 昇順で返す（VocabEntry.Tags の
 // 逆引き・祖先展開なし・H3 の関連語彙）。
 func (ix *Index) VocabByTag(tagID string) []model.VocabEntry {

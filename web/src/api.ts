@@ -125,12 +125,17 @@ export const api = {
     return request<Tag[]>('/api/tags' + query({ kind }));
   },
 
-  getVocab: (category?: string) => {
+  // subject 指定（コンポ別モード・vocab-view-p2）は「その subject に属す遷移が
+  // 参照する導出語彙」を返す（category とは排他・全カテゴリを返す）。category は
+  // 従来通りの全件フィルタ。static はそれぞれ vocabBySubject / vocab から解決。
+  getVocab: (params?: { category?: string; subject?: string }) => {
+    const { category, subject } = params ?? {};
     if (staticData) {
+      if (subject) return Promise.resolve(staticData.vocabBySubject[subject] ?? []);
       const list = category ? staticData.vocab.filter((v) => v.category === category) : staticData.vocab;
       return Promise.resolve(list);
     }
-    return request<VocabEntry[]>('/api/vocab' + query({ category }));
+    return request<VocabEntry[]>('/api/vocab' + query({ category, subject }));
   },
 
   getTransitions: (params: { facet?: string; tag?: string; kind?: string }) => {
