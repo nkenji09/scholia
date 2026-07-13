@@ -9,10 +9,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "highlight.js": "^11.11.1",
+    "markdown-it": "^14.3.0",
+    "mermaid": "^11.16.0",
     "preact": "^10.29.3"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.5",
+    "@types/markdown-it": "^14.1.2",
     "@types/node": "^24.13.2",
     "typescript": "~6.0.2",
     "vite": "^8.1.1"

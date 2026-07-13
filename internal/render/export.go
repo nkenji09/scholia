@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -254,11 +255,16 @@ func ExportHTML(s *store.Store, dir string) error {
 	if err != nil {
 		return fmt.Errorf("export: dist の JS %q を読み込めません: %w", jsPath, err)
 	}
-	js = scriptCloseRe.ReplaceAll(js, []byte(`<\/script`))
+	entryKey := "./" + path.Base(jsPath)
+	bootstrap, err := bundleModuleGraph(distFS, path.Dir(jsPath), entryKey, js)
+	if err != nil {
+		return err
+	}
+	bootstrap = scriptCloseRe.ReplaceAllString(bootstrap, `<\/script`)
 
 	dataScript := "<script>\nwindow.__PMEM_STATIC__ = " + string(payload) + ";\n</script>\n"
-	moduleScript := "<script type=\"module\">\n" + string(js) + "\n</script>"
-	html = html[:jsLoc[0]] + dataScript + moduleScript + html[jsLoc[1]:]
+	bootstrapScript := "<script>\n" + bootstrap + "\n</script>"
+	html = html[:jsLoc[0]] + dataScript + bootstrapScript + html[jsLoc[1]:]
 
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err

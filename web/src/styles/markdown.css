@@ -3,6 +3,8 @@
 .markdown-body {
   line-height: 1.65;
   color: var(--lm-text);
+  width: 100%;
+  max-width: 100%;
 }
 
 .markdown-body > *:first-child {
@@ -71,4 +73,117 @@
 
 .markdown-body a {
   color: var(--lm-primary);
+}
+
+/* GFM tables (markdown-it's default preset already parses these — no
+   plugin needed). Wrapped in its own scroll container so a wide table
+   never forces the card itself to overflow horizontally. */
+.markdown-body table {
+  display: block;
+  overflow-x: auto;
+  border-collapse: collapse;
+  width: max-content;
+  max-width: 100%;
+  margin: 0 0 var(--sp-2);
+  font-size: 0.95em;
+}
+
+.markdown-body th,
+.markdown-body td {
+  border: 1px solid var(--lm-border);
+  padding: var(--sp-1) var(--sp-2);
+  text-align: left;
+}
+
+.markdown-body th {
+  background: var(--lm-s2);
+  color: var(--lm-text-strong);
+  font-weight: 600;
+}
+
+.markdown-body tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--lm-s2) 45%, transparent);
+}
+
+/* highlight.js syntax colors, mapped onto this app's own light/dark tokens
+   (tokens.css §[data-theme='dark']) instead of importing a stock hljs
+   theme stylesheet — a stock theme would be light- or dark-only and clash
+   with whichever mode is active. */
+.markdown-body pre.hljs {
+  color: var(--lm-text);
+}
+
+.markdown-body .hljs-comment,
+.markdown-body .hljs-quote {
+  color: var(--lm-text-dim);
+  font-style: italic;
+}
+
+.markdown-body .hljs-keyword,
+.markdown-body .hljs-selector-tag,
+.markdown-body .hljs-literal,
+.markdown-body .hljs-section,
+.markdown-body .hljs-link {
+  color: var(--lm-primary);
+  font-weight: 600;
+}
+
+.markdown-body .hljs-string,
+.markdown-body .hljs-title,
+.markdown-body .hljs-name,
+.markdown-body .hljs-type,
+.markdown-body .hljs-attribute,
+.markdown-body .hljs-symbol,
+.markdown-body .hljs-bullet,
+.markdown-body .hljs-addition {
+  color: var(--lm-success);
+}
+
+.markdown-body .hljs-number,
+.markdown-body .hljs-meta {
+  color: var(--lm-info);
+}
+
+.markdown-body .hljs-deletion {
+  color: var(--lm-error);
+}
+
+.markdown-body .hljs-attr,
+.markdown-body .hljs-variable,
+.markdown-body .hljs-template-variable,
+.markdown-body .hljs-regexp {
+  color: var(--lm-warning-ic);
+}
+
+.markdown-body .hljs-built_in,
+.markdown-body .hljs-builtin-name,
+.markdown-body .hljs-emphasis {
+  color: var(--lm-text-strong);
+}
+
+.markdown-body .hljs-emphasis {
+  font-style: italic;
+}
+
+.markdown-body .hljs-strong {
+  font-weight: 700;
+}
+
+/* mermaid fences: markdown.ts emits `<pre class="mermaid">` holding
+   escaped-but-unrendered diagram source; Markdown.tsx lazily loads mermaid
+   and swaps this in place for the rendered SVG after mount. Style the
+   pre-render state so raw diagram text doesn't flash unstyled, and keep
+   the post-render SVG centered and scrollable if it's wider than the
+   card. */
+.markdown-body pre.mermaid {
+  background: var(--lm-s2);
+  padding: var(--sp-3);
+  border-radius: var(--r-sm);
+  overflow-x: auto;
+  margin: 0 0 var(--sp-2);
+  text-align: center;
+}
+
+.markdown-body pre.mermaid svg {
+  max-width: 100%;
 }

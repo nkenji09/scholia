@@ -484,7 +484,7 @@
 }
 
 .tag-card-body {
-  max-width: 66ch;
+  max-width: 100%;
 }
 
 .tag-card-spec-list {

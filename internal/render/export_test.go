@@ -103,8 +103,19 @@ func TestExportHTML_WritesSelfContainedIndexHTML(t *testing.T) {
 	if !strings.Contains(html, `<style>`) {
 		t.Fatal("exported index.html does not inline CSS via <style>")
 	}
-	if !strings.Contains(html, `<script type="module">`) {
-		t.Fatal("exported index.html does not inline the SPA bundle as an inline module script")
+	// The entry chunk (and, when the SPA imports one, its dynamically-loaded
+	// dependents — see export_bundle.go) is inlined as a plain <script> that
+	// resolves each chunk's source to a Blob URL at load time, not as a
+	// literal <script type="module"> — a real module fetch is blocked by
+	// Chrome's file: CORS policy (this file's own doc comment). The
+	// resolver's own error string is a stable signature that this bootstrap
+	// actually landed, independent of the entry bundle's (hashed, minified)
+	// content.
+	if strings.Contains(html, `<script type="module">`) {
+		t.Fatal("exported index.html inlines the SPA bundle as a literal <script type=\"module\"> — that fetch is blocked under file://")
+	}
+	if !strings.Contains(html, "pmem export: missing inlined module ") {
+		t.Fatal("exported index.html does not inline the SPA bundle via the offline chunk resolver")
 	}
 
 	data := extractStaticPayload(t, html)
