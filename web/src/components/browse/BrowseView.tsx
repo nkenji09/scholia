@@ -13,6 +13,7 @@ import { TombstoneCard } from './TombstoneCard';
 import { NewTransitionForm } from './NewTransitionForm';
 import { parentsOf, childrenOf, tagMatchesFilters, specMatchesFilters, encodeFilters, decodeFilters } from './filters';
 import type { FilterCondition } from './filters';
+import { buildFolderIndex, loadCollapsed, saveCollapsed } from './indexTree';
 import { kindColor, OWNER_COLOR } from '../shared/Chip';
 import { CommentButton } from '../comments/CommentButton';
 import { Icon } from '../shared/Icon';
@@ -104,31 +105,6 @@ function buildIndexTree(visible: Array<{ id: string; depth: number }>): IndexTre
     stack.push({ depth, node });
   }
   return roots;
-}
-
-// Collapse state for the 見出し index, persisted per facet so a reload
-// restores which subtrees are folded (依頼1). Stores the set of *collapsed*
-// ids, so the default (empty) is "all expanded". Pure localStorage, no bearing
-// on the .pmem model — same private-mode-tolerant pattern as settings.ts.
-const COLLAPSE_KEY_PREFIX = 'pmem-browse-collapse-';
-
-function loadCollapsed(facet: string): Set<string> {
-  try {
-    const raw = localStorage.getItem(COLLAPSE_KEY_PREFIX + facet);
-    if (!raw) return new Set();
-    const arr: unknown = JSON.parse(raw);
-    return Array.isArray(arr) ? new Set(arr.filter((x): x is string => typeof x === 'string')) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-function saveCollapsed(facet: string, ids: Set<string>): void {
-  try {
-    localStorage.setItem(COLLAPSE_KEY_PREFIX + facet, JSON.stringify([...ids]));
-  } catch {
-    // Private-mode/quota failures still fold this session — just don't persist.
-  }
 }
 
 /** Filters for a (re)seed: URL's `f=` wins whenever the param is present at
@@ -518,13 +494,23 @@ export function BrowseView({
 
     title = t.browse.specsTitle;
     subtitle = t.browse.specsSubtitle;
-    indexItems = visible.map((tx) => ({
-      id: tx.id,
-      label: txDetails[tx.id]?.actionLabel || tx.id,
-      color: 'var(--t-act)',
-      indent: 0,
-      onClick: () => scrollToCard(tx.id),
-    }));
+    // 索引をタグ階層フォルダに（依頼C-1）: 各 spec を自分の own tags
+    // （Transition.tags — 確定基準）のフォルダすべてに重複して出し、タグ無しは
+    // 末尾の未分類フォルダへ。折りたたみは tags facet と同じ per-facet localStorage。
+    indexItems = buildFolderIndex({
+      roots: facetsData.roots,
+      leaves: visible.map((tx) => ({
+        id: tx.id,
+        label: txDetails[tx.id]?.actionLabel || tx.id,
+        color: 'var(--t-act)',
+        tags: txDetails[tx.id]?.tags || [],
+      })),
+      untaggedLabel: t.browse.uncategorized,
+      folderColor: (tag) => kindColor(tag.kind),
+      collapsedIds,
+      onToggle: toggleCollapse,
+      onSelect: scrollToCard,
+    });
 
     const newTransitionEntry = !isStaticMode && (
       <>

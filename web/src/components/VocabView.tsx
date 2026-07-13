@@ -3,10 +3,11 @@ import { api } from '../api';
 import { useLookups } from '../lookups';
 import { useDrawer } from '../drawer';
 import { useT } from '../i18n';
-import type { Transition, VocabEntry } from '../types';
+import type { FacetsResponse, Transition, VocabEntry } from '../types';
 import { BrowseRail } from './browse/BrowseRail';
-import type { ConditionChip, IndexItem, KindOption, SuggestionItem } from './browse/BrowseRail';
+import type { ConditionChip, KindOption, SuggestionItem } from './browse/BrowseRail';
 import type { FilterCondition } from './browse/filters';
+import { buildFolderIndex, loadCollapsed, saveCollapsed } from './browse/indexTree';
 import { VocabCard } from './browse/VocabCard';
 import { CommentButton } from './comments/CommentButton';
 import { kindColor, OWNER_COLOR } from './shared/Chip';
@@ -41,7 +42,11 @@ export function VocabView({ onSelectTx, initialFocusId }: Props) {
   const { closeDrawer } = useDrawer();
   const [vocab, setVocab] = useState<VocabEntry[] | null>(null);
   const [transitions, setTransitions] = useState<Transition[]>([]);
+  const [facets, setFacets] = useState<FacetsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // 見出しフォルダの折りたたみ状態（依頼C-1）— vocab 専用の per-facet
+  // localStorage キーで復元（tags/specs とは独立）。
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => loadCollapsed('vocab'));
 
   const [query, setQuery] = useState('');
   const [categoryFacet, setCategoryFacet] = useState('all');
@@ -64,10 +69,11 @@ export function VocabView({ onSelectTx, initialFocusId }: Props) {
   }, [initialFocusId]);
 
   useEffect(() => {
-    Promise.all([api.getVocab(), api.getTransitions({})])
-      .then(([v, tx]) => {
+    Promise.all([api.getVocab(), api.getTransitions({}), api.getFacets()])
+      .then(([v, tx, f]) => {
         setVocab(v);
         setTransitions(tx.transitions || []);
+        setFacets(f);
       })
       .catch((err) => setError(String(err)));
   }, []);
@@ -89,6 +95,17 @@ export function VocabView({ onSelectTx, initialFocusId }: Props) {
     closeDrawer();
   };
   const removeFilter = (i: number) => setFilters((prev) => prev.filter((_, idx) => idx !== i));
+  // 見出しフォルダの開閉（依頼C-1）— ドロワーは閉じない（レールから畳むので
+    // 閉じると自己矛盾。removeFilter/kindFacet と同じ理由）。
+  const toggleCollapse = (key: string) => {
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      saveCollapsed('vocab', next);
+      return next;
+    });
+  };
 
   if (error) return <div class="browse-view error">{error}</div>;
   if (!vocab) return <div class="browse-view dim">{t.vocab.loading}</div>;
@@ -116,17 +133,27 @@ export function VocabView({ onSelectTx, initialFocusId }: Props) {
     .filter((v) => filters.every((f) => matchesFilter(v, f)))
     .sort((a, b) => a.id.localeCompare(b.id));
 
-  const indexItems: IndexItem[] = visible.map((v) => ({
-    id: v.id,
-    label: v.label,
-    color: kindColor(v.category),
-    indent: 0,
-    onClick: () => {
-      scrollTarget.current = v.id;
-      cardRefs.current.get(v.id)?.scrollIntoView({ block: 'start' });
-      closeDrawer();
-    },
-  }));
+  const scrollToCard = (id: string) => {
+    scrollTarget.current = id;
+    cardRefs.current.get(id)?.scrollIntoView({ block: 'start' });
+    closeDrawer();
+  };
+  // 索引をタグ階層フォルダに（依頼C-1）: 各 vocab を own tags（VocabEntry.tags）
+  // のフォルダすべてに重複して出し、タグ無しは末尾の未分類フォルダへ。
+  const indexItems = buildFolderIndex({
+    roots: facets?.roots || [],
+    leaves: visible.map((v) => ({
+      id: v.id,
+      label: v.label,
+      color: kindColor(v.category),
+      tags: v.tags || [],
+    })),
+    untaggedLabel: t.browse.uncategorized,
+    folderColor: (tag) => kindColor(tag.kind),
+    collapsedIds,
+    onToggle: toggleCollapse,
+    onSelect: scrollToCard,
+  });
 
   const conditions: ConditionChip[] = filters.map((f, i) => {
     if (f.type === 'tag') {
