@@ -532,6 +532,8 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  /* E2: flex 子として横幅制約を効かせ、長い URL/パスの突き抜けを防ぐ。 */
+  min-width: 0;
 }
 
 .tag-card-decision p {
@@ -539,12 +541,17 @@
   font-size: var(--fs-sm);
   line-height: 1.75;
   color: var(--lm-text);
+  /* E2: 長い連続文字列（スラッシュ区切りパス・URL・git hash）も折り返す。 */
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .tag-card-decision span {
   font-family: var(--lm-font-mono);
   font-size: var(--fs-3xs);
   color: var(--lm-text-dim);
+  /* E2: 長い ref（git hash 等）も折り返す。 */
+  overflow-wrap: anywhere;
 }
 
 .tag-card-children {
