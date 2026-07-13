@@ -271,4 +271,5 @@ pmem config get
 ## 関連
 
 - 日々の記録（tx/decide/lint の運用）は [pmem スキル](../pmem/SKILL.md) へ。
-- config の全フィールドの意味は `DESIGN.md` §3.6、vocab/tag の役割分担は §2.1 が正本。
+- **粒度・同一性・命名・記録の原則は共有リファレンス `../_pmem-shared/references/modeling-principles.md`**（vocab=実装の同一性／tag=概念の族／概念には `concept` のような facet kind を足す／per-component 既定 等）。分類軸（手順 2 の tagKinds/facetKinds/traceabilityKinds）を決めるときの拠り所。
+- config の全フィールドの意味は `DESIGN.md` §3.6（内部設計の背景）。
