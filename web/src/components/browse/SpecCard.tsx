@@ -2,7 +2,7 @@ import { useLookups } from '../../lookups';
 import { usePendingDiff } from '../../pendingDiff';
 import { useT } from '../../i18n';
 import type { EffectiveTag, TransitionDetail } from '../../types';
-import { Chip, kindColor, OWNER_COLOR } from '../shared/Chip';
+import { Chip, kindColor } from '../shared/Chip';
 import { CommentButton } from '../comments/CommentButton';
 import { useComments } from '../comments/useComments';
 import { Icon } from '../shared/Icon';
@@ -14,12 +14,14 @@ interface Props {
   onToggleOpen: () => void;
   onFilterVocab: (id: string) => void;
   onFilterTag: (id: string) => void;
+  // 結果(Then)スロットの owner チップ廃止に伴い未使用だが、呼び出し側
+  // (BrowseView) は並行トラックの領域で今回触らないため prop は残す。
   onFilterOwner: (owner: string) => void;
 }
 
-export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab, onFilterTag, onFilterOwner }: Props) {
+export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab, onFilterTag }: Props) {
   const t = useT();
-  const { tagById, vocabById } = useLookups();
+  const { tagById } = useLookups();
   const { changedTransitionIds, addedTransitionIds } = usePendingDiff();
   const { openComposer, comments } = useComments();
   // #27 P2′-rework (change-cockpit-design-v3.md §8.3): a pending change with
@@ -123,23 +125,15 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
           <CommentButton recordType="transition" recordId={detail.id} recordTitle={detail.actionLabel || detail.action} anchor="then" anchorLabel={t.flow.result} />
         </div>
         <div class="spec-card-then-list">
-          {(detail.then || []).map((id, i) => {
-            const owner = vocabById.get(id)?.owner;
-            return (
-              <div key={id} class="spec-card-cond-row">
-                <span class="spec-card-then-n dim">{i + 1}</span>
-                <button type="button" class="spec-card-cond-label-btn" onClick={() => onFilterVocab(id)} title={t.browse.clickToFilter}>
-                  <span class="spec-card-cond-label">{(detail.thenLabels || [])[i] || id}</span>
-                  <Icon name="plus" size={13} class="filter-plus-icon" />
-                </button>
-                {owner && (
-                  <Chip color={OWNER_COLOR} onClick={() => onFilterOwner(owner)} filterable title={t.browse.clickToFilter}>
-                    {owner}
-                  </Chip>
-                )}
-              </div>
-            );
-          })}
+          {(detail.then || []).map((id, i) => (
+            <div key={id} class="spec-card-cond-row">
+              <span class="spec-card-then-n dim">{i + 1}</span>
+              <button type="button" class="spec-card-cond-label-btn" onClick={() => onFilterVocab(id)} title={t.browse.clickToFilter}>
+                <span class="spec-card-cond-label">{(detail.thenLabels || [])[i] || id}</span>
+                <Icon name="plus" size={13} class="filter-plus-icon" />
+              </button>
+            </div>
+          ))}
         </div>
       </div>
 
