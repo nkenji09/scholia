@@ -519,6 +519,11 @@
   white-space: nowrap;
 }
 
+/* 意思決定の各項目間に縦の間隔（連続する項目のみ・先頭には付けない）。 */
+.tag-card-decision + .tag-card-decision {
+  margin-top: var(--sp-2);
+}
+
 .tag-card-decision {
   border-left: 3px solid var(--lm-primary);
   background: color-mix(in srgb, var(--lm-primary) 5%, var(--lm-s1));
