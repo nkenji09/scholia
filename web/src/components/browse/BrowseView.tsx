@@ -179,10 +179,10 @@ export function BrowseView({
     setFilters((prev) => (encodeFilters(prev) === encodeFilters(next) ? prev : next));
 
   // Per-facet reset (design's `filters: { tags: [], specs: [] }` — each
-  // facet keeps its own independent filter/search/open state). This only
-  // fires when the *facet itself* changes (app.tsx mounts a fresh BrowseView
-  // per route anyway; this additionally covers initialFocus* changing while
-  // the same facet instance is reused for a same-facet legacy-route jump).
+  // facet keeps its own independent filter/search/open state). This also
+  // fires when initialFocus* changes while the same facet instance is reused
+  // (a same-facet re-focus: comment-panel jump to another record, or a URL
+  // edit that only swaps txId/tagId — app.tsx keeps the BrowseView mounted).
   useEffect(() => {
     // Re-derive from the URL rather than hardcoding blank defaults — this
     // effect also runs on first mount (alongside the lazy useState
@@ -195,12 +195,24 @@ export function BrowseView({
     setOpenTx(initialFocusTxId ? { [initialFocusTxId]: true } : {});
     setCollapsedIds(loadCollapsed(facet));
     scrollTarget.current = initialFocusTagId || initialFocusTxId || null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [facet, initialFocusTagId, initialFocusTxId]);
+
+  // Loading (settled/failed) reset is keyed on `facet` ALONE, not on focus.
+  // The fetched data (full tags list / full transition list) doesn't depend
+  // on which record is focused, so a same-facet re-focus must NOT drop back
+  // to `settled=false`: the settle-side fetch effects below re-run only on
+  // `facet`/`tags`/`pendingDiff.version` changes, so a focus-only reset would
+  // clear settled with nothing to set it true again — the infinite
+  // `loading…` this fix targets. Facet changes still reset here (and the
+  // fetch effect re-runs on `facet`, flipping settled back to true).
+  useEffect(() => {
     setTagsSettled(false);
     setSpecsSettled(false);
     setTagsFailedCount(0);
     setSpecsFailedCount(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [facet, initialFocusTagId, initialFocusTxId]);
+  }, [facet]);
 
   // Adopts search state pushed in from *outside* this component's own
   // typing/filter-clicking — i.e. Back/Forward (hashchange → new route →
