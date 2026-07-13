@@ -127,6 +127,10 @@ type TagNode struct {
 // （同 kind 内の親を持たないタグがルート）。多親 DAG なので同じタグが複数の親の下に
 // 重複して現れうる（多重所属可・§3.8）。循環はパス単位のガードで無限展開を防ぐ
 // （tag-ref lint がある正常な記録では発生しない・§5）。
+//
+// これは kind スコープの木＝traceability（§7・kind ごとの要件行）や
+// `pmem list --facet <kind>`（§3.8 の facet 軸別グルーピング）が使う。
+// browse ナビの「1本の統一ツリー」は TagForest（kind 非依存）を使う。
 func (ix *Index) FacetTree(tagKind string) []*TagNode {
 	inKind := make(map[string]bool)
 	for id, t := range ix.TagByID {
@@ -134,18 +138,41 @@ func (ix *Index) FacetTree(tagKind string) []*TagNode {
 			inKind[id] = true
 		}
 	}
+	return ix.tagForest(inKind)
+}
 
+// TagForest は全タグを parentIds で kind 非依存に入れ子にした「1本の統一
+// フォレスト」を返す（§3.8 browse の統一ツリー）。kind は木を分割する軸では
+// なくノードの属性（バッジ/色/フィルタ）なので、subject の子に requirement が
+// ぶら下がる cross-kind 入れ子や、どの facetKind にも属さない kind=null の
+// タグも parentIds 通りに現れる（per-kind の FacetTree では脱落していた）。
+// 入れ子規則は CLI の `tag list --tree`（無フィルタ経路）と同一。多親 DAG・
+// 循環ガードは FacetTree と同じ。
+func (ix *Index) TagForest() []*TagNode {
+	all := make(map[string]bool, len(ix.TagByID))
+	for id := range ix.TagByID {
+		all[id] = true
+	}
+	return ix.tagForest(all)
+}
+
+// tagForest は include に含まれるタグだけを parentIds で入れ子にした
+// フォレストを返す共有ヘルパ。親が include 内にあれば子として繋ぎ、include
+// 内に親を持たないタグをルートにする。多親は各 in-set 親の下に重複して現れ、
+// 循環はパス単位のガードで無限展開を防ぐ。FacetTree（kind スコープ）と
+// TagForest（統一）が同じ入れ子規則を 1 か所で共有する。
+func (ix *Index) tagForest(include map[string]bool) []*TagNode {
 	childrenOf := make(map[string][]string)
 	var roots []string
-	for id := range inKind {
-		hasParentInKind := false
+	for id := range include {
+		hasParentInSet := false
 		for _, p := range ix.TagByID[id].ParentIDs {
-			if inKind[p] {
+			if include[p] {
 				childrenOf[p] = append(childrenOf[p], id)
-				hasParentInKind = true
+				hasParentInSet = true
 			}
 		}
-		if !hasParentInKind {
+		if !hasParentInSet {
 			roots = append(roots, id)
 		}
 	}

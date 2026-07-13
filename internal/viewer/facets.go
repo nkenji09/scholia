@@ -16,19 +16,22 @@ func registerFacetRoutes(mux *http.ServeMux, s *store.Store) {
 	mux.HandleFunc("GET /api/vocab", getVocabHandler(s))
 }
 
+// facetsResponse は browse ナビの「1本の統一ツリー」（§3.8）。Roots は kind 非依存に
+// parentIds で入れ子にした単一フォレスト（各ノードは Tag の id/name/color/kind を持ち、
+// kind はバッジ/色/フィルタ用の属性）。FacetKinds は木を分割する軸ではなく「その kind
+// だけ表示」フィルタ（chips）として残す。
 type facetsResponse struct {
-	FacetKinds []string                         `json:"facetKinds"`
-	Trees      map[string][]index.FacetTreeNode `json:"trees"`
+	FacetKinds []string              `json:"facetKinds"`
+	Roots      []index.FacetTreeNode `json:"roots"`
 }
 
 // buildFacetsResponse is shared by the live handler and the static export
 // bake (§7 pmem export --html) so both serialize the same derived tree.
 func buildFacetsResponse(snap store.Snapshot, ix *index.Index) facetsResponse {
-	trees := make(map[string][]index.FacetTreeNode, len(snap.Config.FacetKinds))
-	for _, kind := range snap.Config.FacetKinds {
-		trees[kind] = index.BuildFacetTreeNodes(ix.FacetTree(kind))
+	return facetsResponse{
+		FacetKinds: snap.Config.FacetKinds,
+		Roots:      index.BuildFacetTreeNodes(ix.TagForest()),
 	}
-	return facetsResponse{FacetKinds: snap.Config.FacetKinds, Trees: trees}
 }
 
 func getFacetsHandler(s *store.Store) http.HandlerFunc {

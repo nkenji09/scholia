@@ -162,6 +162,7 @@ const ICONS = {
   ],
   'chevron-down': [{ tag: 'path', d: 'm6 9 6 6 6-6' }],
   'chevron-up': [{ tag: 'path', d: 'm18 15-6-6-6 6' }],
+  'chevron-right': [{ tag: 'path', d: 'm9 18 6-6-6-6' }],
   'circle-play': [
     { tag: 'path', d: 'M9 9.003a1 1 0 0 1 1.517-.859l4.997 2.997a1 1 0 0 1 0 1.718l-4.997 2.997A1 1 0 0 1 9 14.996z' },
     { tag: 'circle', cx: 12, cy: 12, r: 10 },

@@ -4,7 +4,7 @@ import { useT } from '../../i18n';
 import { useLookups } from '../../lookups';
 import { useDrawer } from '../../drawer';
 import { usePendingDiff } from '../../pendingDiff';
-import type { Config, FacetsResponse, SpecReport, Tag, TraceabilityResponse, Transition, TransitionDetail } from '../../types';
+import type { Config, FacetsResponse, FacetTreeNode, SpecReport, Tag, TraceabilityResponse, Transition, TransitionDetail } from '../../types';
 import { BrowseRail } from './BrowseRail';
 import type { ConditionChip, IndexItem, KindOption, SuggestionItem } from './BrowseRail';
 import { TagCard } from './TagCard';
@@ -24,29 +24,87 @@ interface Props {
   onGoToSpec: (txId: string) => void;
 }
 
-function buildTagOrder(facetsData: FacetsResponse, allTags: Tag[], kindFacet: string): Array<{ id: string; depth: number }> {
+// Flattens the unified parentIds forest (§3.8) into DFS order with a depth per
+// tag. kind is now an attribute, not a tree axis: the whole forest is one tree
+// and `kindFacet` filters it — only tags whose kind matches are emitted, and
+// depth counts just the *emitted* ancestors on the path, so filtering to a
+// kind re-roots its tags cleanly instead of leaving blank indentation from
+// skipped cross-kind ancestors. Each tag is emitted once (first-encountered
+// path) — a multi-parent tag would otherwise repeat. The single forest carries
+// cross-kind nesting and kind=null tags that the old per-kind trees dropped.
+function buildTagOrder(roots: FacetTreeNode[], allTags: Tag[], kindFacet: string): Array<{ id: string; depth: number }> {
   const order: Array<{ id: string; depth: number }> = [];
   const seen = new Set<string>();
-  const kinds = kindFacet === 'all' ? facetsData.facetKinds : facetsData.facetKinds.filter((k) => k === kindFacet);
-  const walk = (nodes: FacetsResponse['trees'][string], depth: number) => {
+  const matchKind = (kind: string | undefined) => kindFacet === 'all' || kind === kindFacet;
+  const walk = (nodes: FacetTreeNode[], depth: number) => {
     for (const n of nodes) {
-      if (!seen.has(n.tag.id)) {
+      const matches = matchKind(n.tag.kind);
+      if (matches && !seen.has(n.tag.id)) {
         order.push({ id: n.tag.id, depth });
         seen.add(n.tag.id);
       }
-      if (n.children) walk(n.children, depth + 1);
+      if (n.children) walk(n.children, matches ? depth + 1 : depth);
     }
   };
-  for (const k of kinds) walk(facetsData.trees[k] || [], 0);
-  // Tags whose kind isn't a declared facet kind never appear in any tree
-  // above — still show them, flat, rather than silently dropping them.
+  walk(roots, 0);
+  // Safety net: any tag not reached in the forest (shouldn't happen — the
+  // unified forest nests every tag by parentIds) still shows, flat.
   for (const t of allTags) {
     if (seen.has(t.id)) continue;
-    if (kindFacet !== 'all' && t.kind !== kindFacet) continue;
+    if (!matchKind(t.kind)) continue;
     order.push({ id: t.id, depth: 0 });
     seen.add(t.id);
   }
   return order;
+}
+
+interface IndexTreeNode {
+  id: string;
+  children: IndexTreeNode[];
+}
+
+// Rebuilds the visible tag outline (the flat, already query/condition-filtered
+// (id, depth) sequence) into a tree so the 見出し index can collapse subtrees
+// (依頼1). A stack tracks the current ancestor chain by depth; a node attaches
+// to the nearest shallower ancestor still present — filtering can drop an
+// intermediate parent, and the child then rides up to its nearest visible
+// ancestor rather than vanishing.
+function buildIndexTree(visible: Array<{ id: string; depth: number }>): IndexTreeNode[] {
+  const roots: IndexTreeNode[] = [];
+  const stack: Array<{ depth: number; node: IndexTreeNode }> = [];
+  for (const { id, depth } of visible) {
+    const node: IndexTreeNode = { id, children: [] };
+    while (stack.length && stack[stack.length - 1].depth >= depth) stack.pop();
+    if (stack.length) stack[stack.length - 1].node.children.push(node);
+    else roots.push(node);
+    stack.push({ depth, node });
+  }
+  return roots;
+}
+
+// Collapse state for the 見出し index, persisted per facet so a reload
+// restores which subtrees are folded (依頼1). Stores the set of *collapsed*
+// ids, so the default (empty) is "all expanded". Pure localStorage, no bearing
+// on the .pmem model — same private-mode-tolerant pattern as settings.ts.
+const COLLAPSE_KEY_PREFIX = 'pmem-browse-collapse-';
+
+function loadCollapsed(facet: string): Set<string> {
+  try {
+    const raw = localStorage.getItem(COLLAPSE_KEY_PREFIX + facet);
+    if (!raw) return new Set();
+    const arr: unknown = JSON.parse(raw);
+    return Array.isArray(arr) ? new Set(arr.filter((x): x is string => typeof x === 'string')) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function saveCollapsed(facet: string, ids: Set<string>): void {
+  try {
+    localStorage.setItem(COLLAPSE_KEY_PREFIX + facet, JSON.stringify([...ids]));
+  } catch {
+    // Private-mode/quota failures still fold this session — just don't persist.
+  }
 }
 
 export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToSpec }: Props) {
@@ -81,6 +139,8 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
   const [kindFacet, setKindFacet] = useState('all');
   const [filters, setFilters] = useState<FilterCondition[]>(() => (initialFocusTagId ? [{ type: 'tag', id: initialFocusTagId }] : []));
   const [openTx, setOpenTx] = useState<Record<string, boolean>>(() => (initialFocusTxId ? { [initialFocusTxId]: true } : {}));
+  // 見出しの折りたたみ状態（依頼1）— facet ごとの localStorage キーで復元。
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => loadCollapsed(facet));
 
   const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
   const scrollTarget = useRef<string | null>(initialFocusTagId || initialFocusTxId || null);
@@ -95,6 +155,7 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
     setKindFacet('all');
     setFilters(initialFocusTagId ? [{ type: 'tag', id: initialFocusTagId }] : []);
     setOpenTx(initialFocusTxId ? { [initialFocusTxId]: true } : {});
+    setCollapsedIds(loadCollapsed(facet));
     scrollTarget.current = initialFocusTagId || initialFocusTxId || null;
     setTagsSettled(false);
     setSpecsSettled(false);
@@ -205,6 +266,18 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
     cardRefs.current.get(id)?.scrollIntoView({ block: 'start' });
     closeDrawer();
   };
+  // Fold/unfold a subtree in the 見出し index and persist it (依頼1). Doesn't
+  // close the drawer — you fold *from* the rail, so closing would be
+  // self-defeating (same reasoning as removeFilter/kindFacet).
+  const toggleCollapse = (id: string) => {
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      saveCollapsed(facet, next);
+      return next;
+    });
+  };
 
   const tagById = useMemo(() => new Map((tags || []).map((t) => [t.id, t])), [tags]);
   const gapByTagId = useMemo(() => new Map((traceability?.entries || []).map((e) => [e.tag.id, e])), [traceability]);
@@ -222,28 +295,41 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
 
   if (facet === 'tags') {
     kindOptions = config.tagKinds.map((k) => ({ key: k, label: tagKindLabel(k), count: tags.filter((t) => t.kind === k).length }));
-    const order = buildTagOrder(facetsData, tags, kindFacet);
+    const order = buildTagOrder(facetsData.roots, tags, kindFacet);
     const visible = order.filter(({ id }) => {
       const t = tagById.get(id);
       if (!t) return false;
       if (q && !(t.id + ' ' + (t.name || '') + ' ' + (t.description || '')).toLowerCase().includes(q)) return false;
-      return tagMatchesFilters(t, filters, facetsData.trees);
+      return tagMatchesFilters(t, filters, facetsData.roots);
     });
 
     title = t.browse.tagsTitle;
     subtitle = t.browse.tagsSubtitle;
-    indexItems = visible.map(({ id, depth }) => {
-      const t = tagById.get(id)!;
-      const entry = gapByTagId.get(id);
-      return {
-        id,
-        label: t.name || t.id,
-        color: kindColor(t.kind),
-        indent: depth,
-        isGap: entry?.gap,
-        onClick: () => scrollToCard(id),
-      };
-    });
+    // 見出しは統一ツリーを畳める階層で描く（依頼1）: visible を木に組み直し、
+    // 畳まれた親の子孫はここで間引く（カード本体は visible 全件のまま）。
+    const flatIndex: IndexItem[] = [];
+    const emitIndex = (nodes: IndexTreeNode[], depth: number) => {
+      for (const n of nodes) {
+        const tg = tagById.get(n.id)!;
+        const entry = gapByTagId.get(n.id);
+        const hasChildren = n.children.length > 0;
+        const collapsed = collapsedIds.has(n.id);
+        flatIndex.push({
+          id: n.id,
+          label: tg.name || tg.id,
+          color: kindColor(tg.kind),
+          indent: depth,
+          isGap: entry?.gap,
+          hasChildren,
+          collapsed,
+          onToggle: hasChildren ? () => toggleCollapse(n.id) : undefined,
+          onClick: () => scrollToCard(n.id),
+        });
+        if (hasChildren && !collapsed) emitIndex(n.children, depth + 1);
+      }
+    };
+    emitIndex(buildIndexTree(visible), 0);
+    indexItems = flatIndex;
 
     body = !tagsReady ? (
       <div class="dim">{t.browse.loading}</div>
@@ -260,8 +346,8 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
               tag={t}
               report={specReports[id]}
               isGap={entry?.gap}
-              parents={parentsOf(facetsData.trees, id, tagById)}
-              children={childrenOf(facetsData.trees, id, tagById)}
+              parents={parentsOf(facetsData.roots, id, tagById)}
+              children={childrenOf(facetsData.roots, id, tagById)}
               cardRef={(el) => {
                 if (el) cardRefs.current.set(id, el);
                 else cardRefs.current.delete(id);
@@ -410,7 +496,7 @@ export function BrowseView({ facet, initialFocusTagId, initialFocusTxId, onGoToS
   const wouldMatchAny = (candidate: FilterCondition): boolean => {
     const testFilters = [...filters, candidate];
     if (facet === 'tags') {
-      return tags.some((t) => tagMatchesFilters(t, testFilters, facetsData.trees));
+      return tags.some((t) => tagMatchesFilters(t, testFilters, facetsData.roots));
     }
     return Object.values(txDetails).some((d) => specMatchesFilters(d, testFilters, vocabById));
   };
