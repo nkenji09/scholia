@@ -38,7 +38,10 @@ export function TagCard({ tag, report, isGap, parents, children, cardRef, onFilt
   const { changedTagIds } = usePendingDiff();
   const { openComposer, comments } = useComments();
   const entries = report?.entries || [];
-  const tagDecisions = dedupeDecisions(entries.flatMap((e) => (e.decisions || []).filter((d) => d.target.type === 'tag')));
+  // このタグ自身に直接ぶら下がる decision のみ（祖先/子孫タグの cross-cutting は
+  // 出さない）。Go 側 render.Spec は subject タグの decision しか埋めないが、
+  // target.id を明示照合して「そのレコード自身の意思決定だけ」を保証する。
+  const tagDecisions = dedupeDecisions(entries.flatMap((e) => (e.decisions || []).filter((d) => d.target.type === 'tag' && d.target.id === tag.id)));
   // §8.8 P5 vocab/tag（generalized from SpecCard's hasUncommentedChange・
   // §8.3）: see VocabCard.tsx's identical comment.
   const hasUncommentedChange = changedTagIds.has(tag.id) && !comments.some((c) => c.recordType === 'tag' && c.recordId === tag.id);

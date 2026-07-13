@@ -94,9 +94,12 @@ func TestGetTransition_ResolvesLabelsAndRules(t *testing.T) {
 			}
 		}
 	}
-	// decision d1 targets tag subject.auth, which is in T-login's effective tags (cross-cutting rule surfaces here).
-	if len(out.Rules) != 1 || out.Rules[0].ID != "d1" {
-		t.Fatalf("Rules = %+v, want [d1]", out.Rules)
+	// カードは「この transition 自身の意思決定」だけを出す（表示の絞り込み）。
+	// d1 は祖先タグ subject.auth 宛の cross-cutting decision なので transition
+	// カードには出さない（cross-cutting 集約は `pmem rules` / GET /api/rules の
+	// 責務＝TestGetRules_ByTx で別途担保）。T-login 自身宛の decision は無いので空。
+	if len(out.Rules) != 0 {
+		t.Fatalf("Rules = %+v, want [] (own-only; ancestor cross-cutting excluded)", out.Rules)
 	}
 }
 

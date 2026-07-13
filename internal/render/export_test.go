@@ -141,8 +141,10 @@ func TestExportHTML_WritesSelfContainedIndexHTML(t *testing.T) {
 	if detail.ActionLabel != "ログイン" {
 		t.Fatalf("detail.ActionLabel = %q, want ログイン", detail.ActionLabel)
 	}
-	if len(detail.Rules) != 1 || detail.Rules[0].ID != "d1" {
-		t.Fatalf("detail.Rules = %+v, want [d1] via effective-tag cross-cutting rule", detail.Rules)
+	// transition カードは自身の decision のみ（祖先タグ subject.auth 宛の
+	// cross-cutting d1 は含めない）。T-login 自身宛の decision は無いので空。
+	if len(detail.Rules) != 0 {
+		t.Fatalf("detail.Rules = %+v, want [] (own-only; ancestor cross-cutting excluded)", detail.Rules)
 	}
 
 	if len(data.Traceability.Entries) != 1 || data.Traceability.Entries[0].Tag.ID != "req.auth-happy" {

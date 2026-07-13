@@ -39,9 +39,8 @@ func SortedRulesFor(snap *store.Snapshot, tagID, txID, facet string) ([]model.De
 }
 
 // TransitionDetail mirrors `pmem show tx --resolve`'s output plus effective
-// tags and the decisions that govern this transition (rules) — the detail
-// panel's data (§7). Shared by GET /api/transitions/{id} and the static
-// export bake.
+// tags and the decisions on this transition itself — the detail panel's data
+// (§7). Shared by GET /api/transitions/{id} and the static export bake.
 type TransitionDetail struct {
 	model.Transition
 	ActionLabel string   `json:"actionLabel,omitempty"`
@@ -51,8 +50,13 @@ type TransitionDetail struct {
 	// viewer can show *why* a tag is effective instead of a flat id set
 	// (gap G11) — computed once by EffectiveTagsWithProvenance, not
 	// re-derived client-side (§9 single source of truth).
-	EffectiveTags []EffectiveTag   `json:"effectiveTags,omitempty"`
-	Rules         []model.Decision `json:"rules,omitempty"`
+	EffectiveTags []EffectiveTag `json:"effectiveTags,omitempty"`
+	// Rules は「この transition 自身に直接ぶら下がる decision」だけを載せる
+	// （祖先タグの cross-cutting decision は含めない）。カードは「そのレコード
+	// 自身の意思決定」を出す表示なので、cross-cutting 集約（§3.8・祖先展開）を
+	// 提供する `pmem rules` / GET /api/rules（SelectRulesDecisions）とは
+	// 意図的に別扱い。append-only の保存は不変で、これは表示の絞り込み。
+	Rules []model.Decision `json:"rules,omitempty"`
 }
 
 // BuildTransitionDetail builds TransitionDetail for id. ok is false if no
@@ -79,11 +83,12 @@ func BuildTransitionDetail(snap *store.Snapshot, ix *Index, id string) (detail T
 	}
 	detail.EffectiveTags = EffectiveTagsWithProvenance(snap, &t)
 
-	rules, err := SortedRulesFor(snap, "", id, "")
-	if err != nil {
-		return TransitionDetail{}, true, err
-	}
-	detail.Rules = rules
+	// この transition 自身の decision のみ（祖先タグの cross-cutting は除く）。
+	own := filterDecisions(snap.Decisions, func(d model.Decision) bool {
+		return d.Target.Type == model.DecisionTargetTransition && d.Target.ID == id
+	})
+	sort.SliceStable(own, func(i, j int) bool { return own[i].At < own[j].At })
+	detail.Rules = own
 
 	return detail, true, nil
 }
