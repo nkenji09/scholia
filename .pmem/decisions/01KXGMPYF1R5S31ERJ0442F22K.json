@@ -1,0 +1,10 @@
+{
+  "id": "01KXGMPYF1R5S31ERJ0442F22K",
+  "target": {
+    "type": "tag",
+    "id": "req.skill-distribution"
+  },
+  "why": "スキルの単一ソースは agents/skills/ の1箇所とし、そこから二経路で配布する: (1) //go:embed 由来の pmem skills install（バイナリに焼き込み、go install 済み環境でも .claude/skills/ へ materialize）、(2) Claude Code プラグイン（agents/ をプラグインルート化し agents/.claude-plugin/plugin.json＋repo ルート .claude-plugin/marketplace.json で marketplace 配布、/plugin install pmem@product-memory）。両経路はファイルを複製せず symlink も張らない。理由: 既存 decision（embed→コピー採用・symlink 不採用＝cross-platform 脆弱）を維持したまま、Claude Code 利用者が /plugin から名前空間付き（/pmem:*）で入れられる公式経路を足すため。symlink/複製は二重管理と壊れやすさを生むので不採用。agents/ をそのままプラグインルートにする最小改変を採り、go:embed パターンは各ディレクトリを明示列挙しているため .claude-plugin/plugin.json は embed されず既存経路は無改変。_pmem-shared（SKILL.md 無し・_ 始まり）はプラグインのスキルスキャンで無害に無視されつつ、プラグインキャッシュには sibling 構造ごとコピーされるため各 SKILL の ../_pmem-shared/... 相対参照は解決する（claude plugin install で実ロード検証済）。プラグイン版は CLI リリース版と独立に管理する。",
+  "changed": "agents/.claude-plugin/plugin.json（name=pmem・v0.1.0）と repo ルート .claude-plugin/marketplace.json（name=product-memory・source=./agents）を新規追加。pmem/SKILL.md 冒頭の frontmatter を阻害する draft コメントを除去（プラグイン frontmatter 検出のため）。README en/ja に2経路の導入手順を追記。",
+  "at": "2026-07-14T15:42:44Z"
+}
