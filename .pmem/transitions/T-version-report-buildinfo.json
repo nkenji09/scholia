@@ -1,0 +1,14 @@
+{
+  "id": "T-version-report-buildinfo",
+  "action": "act.user.version",
+  "given": [
+    "cond.version-ldflags-absent"
+  ],
+  "then": [
+    "eff.log.version-buildinfo"
+  ],
+  "tags": [
+    "req.release-versioning",
+    "subject.cli"
+  ]
+}

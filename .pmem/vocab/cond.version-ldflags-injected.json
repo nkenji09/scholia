@@ -1,0 +1,5 @@
+{
+  "id": "cond.version-ldflags-injected",
+  "category": "condition",
+  "label": "リリースビルドで版が ldflags 注入されている（version 変数が既定値 dev 以外）"
+}

@@ -1,0 +1,5 @@
+{
+  "id": "cond.version-ldflags-absent",
+  "category": "condition",
+  "label": "版が ldflags 注入されていない（go install / go build 直・version 変数が既定値 dev のまま）"
+}

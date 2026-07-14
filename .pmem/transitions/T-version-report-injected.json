@@ -1,0 +1,14 @@
+{
+  "id": "T-version-report-injected",
+  "action": "act.user.version",
+  "given": [
+    "cond.version-ldflags-injected"
+  ],
+  "then": [
+    "eff.log.version-injected"
+  ],
+  "tags": [
+    "req.release-versioning",
+    "subject.cli"
+  ]
+}

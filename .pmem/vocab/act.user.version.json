@@ -1,0 +1,6 @@
+{
+  "id": "act.user.version",
+  "category": "action",
+  "label": "pmem version を実行",
+  "kind": "user"
+}
