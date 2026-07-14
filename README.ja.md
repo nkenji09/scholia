@@ -124,7 +124,24 @@ pmem view   # http://127.0.0.1:4577 で開く
 
 `pmem rules` で「守るべき規則」を、`pmem decision list` で過去の判断を、機械可読な形で引ける。
 `pmem show vocab <id>` は、その語彙を参照している遷移を逆引きする（安全にリファクタするための、真の影響集合）。
-Claude 向けのスキル（`agents/skills/pmem/`）も同梱する。
+
+Claude Code 向けのスキル（`pmem` / `pmem-change` / `pmem-triage` / `pmem-config-setup`）を `agents/skills/` に同梱している。導入経路は 2 つある。
+
+**A. Claude Code プラグインとして（Claude Code 利用者に推奨）。** このリポジトリをプラグインマーケットプレイスとして追加し、`pmem` プラグインをインストールする。スキルは `/pmem:pmem`・`/pmem:pmem-change` のように名前空間化される。
+
+```
+/plugin marketplace add nkenji09/product-memory
+/plugin install pmem@product-memory
+```
+
+**B. CLI から（`pmem skills install`）。** バイナリに焼き込んだ同じスキルを `.claude/skills/` へ展開する（マーケットプレイス不要）。CI・スタンドアロン環境や、`go install` で `pmem` を入れてプラグイン経由を使わずリポジトリ内にスキルを展開したいときに使う。
+
+```sh
+pmem skills install            # <cwd>/.claude/skills/ へ（既定）
+pmem skills install --user     # ~/.claude/skills/ へ
+```
+
+どちらも**単一ソース**（`agents/skills/`）を配布する。プラグインはマーケットプレイス経由で、`pmem skills install` はバイナリの `//go:embed` 由来で、同じスキルを届ける。プラグイン版（`agents/.claude-plugin/plugin.json`）は CLI のリリース版とは独立に管理する。
 
 ## ライセンス
 

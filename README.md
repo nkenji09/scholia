@@ -125,7 +125,24 @@ Writing by hand breaks these guarantees and undermines the reliability of the re
 
 `pmem rules` surfaces the rules to follow, and `pmem decision list` surfaces past judgments, both in machine-readable form.
 `pmem show vocab <id>` reverse-looks-up the transitions that reference a given vocabulary entry — the true impact set for a safe refactor.
-A Claude Code skill (`agents/skills/pmem/`) is bundled as well; run `pmem skills install` to unpack it into `.claude/skills/`.
+
+Claude Code skills (`pmem` / `pmem-change` / `pmem-triage` / `pmem-config-setup`) are bundled under `agents/skills/`, and there are two ways to install them:
+
+**A. As a Claude Code plugin (recommended for Claude Code users).** Add this repository as a plugin marketplace and install the `pmem` plugin. The skills are then namespaced as `/pmem:pmem`, `/pmem:pmem-change`, etc.
+
+```
+/plugin marketplace add nkenji09/product-memory
+/plugin install pmem@product-memory
+```
+
+**B. Via the CLI (`pmem skills install`).** Unpacks the same skills into `.claude/skills/` from the embedded copy in the binary — no marketplace needed. Handy for CI, standalone environments, or when you install `pmem` via `go install` and want the skills materialized in-repo without going through the plugin flow.
+
+```sh
+pmem skills install            # into <cwd>/.claude/skills/ (default)
+pmem skills install --user     # into ~/.claude/skills/
+```
+
+Both paths ship the **same single source** (`agents/skills/`); the plugin serves it via the marketplace, while `pmem skills install` serves it from the binary's `//go:embed` copy. The plugin version (`agents/.claude-plugin/plugin.json`) is tracked independently of the CLI release version.
 
 ## License
 
