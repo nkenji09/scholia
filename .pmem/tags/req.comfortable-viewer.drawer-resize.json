@@ -1,0 +1,9 @@
+{
+  "id": "req.comfortable-viewer.drawer-resize",
+  "name": "左右ドロワーの横幅リサイズ",
+  "kind": "requirement",
+  "parentIds": [
+    "req.comfortable-viewer"
+  ],
+  "description": "左レール（と右コメントパネル）の横幅をドラッグでリサイズできる。CSS 変数・localStorage 永続・clamp・narrow 非表示を共有機構で持ち、タグ/語彙/仕様の全ページで一様に効く。"
+}

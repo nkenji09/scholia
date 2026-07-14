@@ -6,6 +6,8 @@ import { useT } from '../i18n';
 import type { Config, Transition, VocabEntry } from '../types';
 import { BrowseRail } from './browse/BrowseRail';
 import type { ConditionChip, KindOption, SuggestionItem } from './browse/BrowseRail';
+import { Resizer } from './layout/Resizer';
+import { RAIL_WIDTH } from './layout/resizableWidths';
 import type { FilterCondition } from './browse/filters';
 import { encodeFilters, decodeFilters } from './browse/filters';
 import type { SearchStateChange } from './browse/BrowseView';
@@ -463,6 +465,10 @@ export function VocabView({
         indexMode={indexMode}
         onIndexModeChange={changeIndexMode}
       />
+      {/* drawer-resize: 左レールの横幅リサイズ。tag/spec の BrowseView と同じ
+          Resizer/RAIL_WIDTH（CSS var・localStorage・clamp・narrow 非表示）を
+          共有し、語彙ページだけ配線漏れだったのを是正して一様に効かせる。 */}
+      <Resizer config={RAIL_WIDTH} direction="rail" className="pmem-resizer--rail" />
       <main class="browse-main">
         <div class="browse-main-head">
           <h1>

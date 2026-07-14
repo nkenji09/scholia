@@ -9,6 +9,8 @@ import { useComments } from '../comments/useComments';
 import { Icon } from '../shared/Icon';
 import type { IconName } from '../shared/Icon';
 import { CollapsibleSection } from '../shared/CollapsibleSection';
+import { HashLink } from '../shared/HashLink';
+import { routeHash } from '../../router';
 
 interface Props {
   entry: VocabEntry;
@@ -133,12 +135,12 @@ export function VocabCard({ entry, uses, cardRef, onFilterTag, onFilterOwner, on
             {uses.map((tx) => {
               const label = transitionLabel(tx.id);
               return (
-                <button key={tx.id} type="button" class="tag-card-spec-row" onClick={() => onSelectTx(tx.id)} title={tx.id}>
+                <HashLink key={tx.id} href={routeHash({ view: 'browse', txId: tx.id })} class="tag-card-spec-row" onNavigate={() => onSelectTx(tx.id)} title={tx.id}>
                   <span class="tag-card-spec-label">
                     {label.primary}
                     {label.secondary && <span class="dim"> {label.secondary}</span>}
                   </span>
-                </button>
+                </HashLink>
               );
             })}
           </div>

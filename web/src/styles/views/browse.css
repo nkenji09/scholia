@@ -557,6 +557,9 @@
   padding: 9px var(--sp-3);
   text-align: left;
   color: var(--lm-text);
+  /* Rendered as an <a href> (HashLink) for Cmd/middle-click deep-linking —
+     suppress the anchor's default underline so it still reads as a row. */
+  text-decoration: none;
 }
 
 .tag-card-spec-row:hover {
@@ -648,6 +651,8 @@
   padding: 5px var(--sp-3);
   font-size: var(--fs-xs);
   color: var(--lm-text-muted);
+  /* <a href> (HashLink) — drop the anchor's default underline (chip look). */
+  text-decoration: none;
 }
 
 /* ---- 仕様 card ---- */

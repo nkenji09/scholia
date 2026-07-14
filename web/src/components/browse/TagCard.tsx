@@ -9,6 +9,8 @@ import { useComments } from '../comments/useComments';
 import { Icon } from '../shared/Icon';
 import type { IconName } from '../shared/Icon';
 import { CollapsibleSection } from '../shared/CollapsibleSection';
+import { HashLink } from '../shared/HashLink';
+import { routeHash } from '../../router';
 
 // VocabCard と同じ category→アイコン対応（きっかけ/前提/結果 = action/
 // condition/effect の固定3軸）。関連語彙行（H3）で流用する。
@@ -81,9 +83,9 @@ export function TagCard({ tag, report, isGap, parents, children, cardRef, onFilt
             <span class="tag-card-parents dim">
               <Icon name="corner-down-right" size={13} />
               {parents.map((p) => (
-                <button key={p.id} type="button" class="tag-card-parent-link" onClick={() => onSelectParent(p.id)} title={t.browse.parentLinkTitle}>
+                <HashLink key={p.id} href={routeHash({ view: 'spec', tagId: p.id })} class="tag-card-parent-link" onNavigate={() => onSelectParent(p.id)} title={t.browse.parentLinkTitle}>
                   {p.name || p.id}
-                </button>
+                </HashLink>
               ))}
             </span>
           )}
@@ -151,9 +153,9 @@ export function TagCard({ tag, report, isGap, parents, children, cardRef, onFilt
         >
           <div class="tag-card-spec-list">
             {entries.map((e) => (
-              <button key={e.transition.id} type="button" class="tag-card-spec-row" onClick={() => onSelectSpec(e.transition.id)} title={e.transition.id}>
+              <HashLink key={e.transition.id} href={routeHash({ view: 'browse', txId: e.transition.id })} class="tag-card-spec-row" onNavigate={() => onSelectSpec(e.transition.id)} title={e.transition.id}>
                 <span class="tag-card-spec-label">{e.actionLabel}</span>
-              </button>
+              </HashLink>
             ))}
           </div>
         </CollapsibleSection>
@@ -195,9 +197,9 @@ export function TagCard({ tag, report, isGap, parents, children, cardRef, onFilt
         >
           <div class="tag-card-children">
             {children.map((c) => (
-              <button key={c.id} type="button" class="tag-card-child-chip" onClick={() => onSelectChild(c.id)} title={t.browse.childLinkTitle}>
+              <HashLink key={c.id} href={routeHash({ view: 'spec', tagId: c.id })} class="tag-card-child-chip" onNavigate={() => onSelectChild(c.id)} title={t.browse.childLinkTitle}>
                 <Icon name="corner-down-right" size={12} /> {c.name || c.id}
-              </button>
+              </HashLink>
             ))}
           </div>
         </CollapsibleSection>
