@@ -182,7 +182,7 @@ const ja = {
     // #27 Phase2-2b: task セレクタ（コメントを task 単位で束ねる・設計 §0/§3）。
     taskDefaultTitle: '未整理',
     taskLabel: 'タスク',
-    taskNew: '＋ 新規タスク',
+    taskNew: '新規タスク',
     taskNewTitle: '新しいタスクを作成',
     taskNewPlaceholder: 'タスク名を入力…',
     // #27 P2: 現状 vs 提案（pending diff）の read-only カード。
@@ -197,12 +197,12 @@ const ja = {
     // #27 P5a（change-cockpit-design-v3.md §3/§8.8「3種別の表し方」）: 追加
     // ＝subject の仕様一覧に出る緑カードのバッジ／削除＝メイン一覧に残る
     // tombstone カードの文言。
-    proposalAddedBadge: '新規 Transition（提案）',
+    proposalAddedBadge: '新規 仕様（提案）',
     tombstoneBadge: '削除（提案）',
     tombstoneRestoreButton: '削除を取り消す（再作成）',
     tombstoneRestoring: '取り消し中…',
     tombstoneRestoreError: (msg: string) => `取り消せませんでした: ${msg}`,
-    newTransitionButton: '＋ 新規 Transition を提案',
+    newTransitionButton: '新規 仕様を提案',
     newTransitionActionUnset: '（未選択）',
     newTransitionIdLabel: 'id（新規識別子）',
     newTransitionIdPlaceholder: '例: T-lint-check',
@@ -211,7 +211,7 @@ const ja = {
     newTransitionCreating: '作成中…',
     newTransitionCancel: '閉じる',
     newTransitionCreateError: (msg: string) => `作成できませんでした: ${msg}`,
-    deleteProposalButton: 'この Transition を削除（提案）',
+    deleteProposalButton: 'この 仕様を削除（提案）',
     deleteProposalConfirmLabel: '本当に削除しますか？（作業ツリーから未コミットで除去します）',
     deleteProposalConfirmButton: '削除する',
     deleteProposalDeleting: '削除中…',
