@@ -35,6 +35,7 @@ func newRootCmd() *cobra.Command {
 	cmd.AddCommand(newListCmd())
 	cmd.AddCommand(newSpecCmd())
 	cmd.AddCommand(newDiffCmd())
+	cmd.AddCommand(newSearchCmd())
 	cmd.AddCommand(newViewCmd())
 	cmd.AddCommand(newExportCmd())
 	cmd.AddCommand(newSkillsCmd())
