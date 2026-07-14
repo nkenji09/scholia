@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "product-memory",
+  "owner": {
+    "name": "Kenji Nakanishi",
+    "url": "https://github.com/nkenji09"
+  },
+  "description": "Marketplace for product-memory (pmem) — Claude Code skills for recording and evaluating product decisions.",
+  "plugins": [
+    {
+      "name": "pmem",
+      "source": "./agents",
+      "description": "product-memory skills for Claude Code (pmem / pmem-change / pmem-triage / pmem-config-setup).",
+      "license": "MIT",
+      "homepage": "https://github.com/nkenji09/product-memory",
+      "repository": "https://github.com/nkenji09/product-memory"
+    }
+  ]
+}

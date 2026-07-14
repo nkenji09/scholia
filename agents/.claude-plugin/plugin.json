@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "pmem",
+  "version": "0.1.0",
+  "description": "product-memory (pmem) skills for Claude Code — record and evaluate product decisions (why) as a controlled vocabulary linked to code changes. Bundles the pmem / pmem-change / pmem-triage / pmem-config-setup skills.",
+  "author": {
+    "name": "Kenji Nakanishi",
+    "url": "https://github.com/nkenji09"
+  },
+  "homepage": "https://github.com/nkenji09/product-memory",
+  "repository": "https://github.com/nkenji09/product-memory",
+  "license": "MIT",
+  "keywords": ["pmem", "product-memory", "decisions", "spec", "skills"]
+}
