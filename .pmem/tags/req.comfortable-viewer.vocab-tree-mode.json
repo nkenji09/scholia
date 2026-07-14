@@ -1,0 +1,9 @@
+{
+  "id": "req.comfortable-viewer.vocab-tree-mode",
+  "name": "語彙ツリーの表示モード切替",
+  "kind": "requirement",
+  "parentIds": [
+    "req.comfortable-viewer"
+  ],
+  "description": "**As a** 語彙ページで目的の vocab に辿り着きたい利用者\n**I want** 索引ツリーの構成を複数の表示モードから選んで切り替えたい\n**so that** どちらの見え方が自分の探索に合うかを使い比べて確かめられる\n\n### 2つのモード\n- **モードA（既存・維持）**: category×kind ツリー（intrinsic 軸。faceted-nav decision で主軸に採用）。\n- **モードB（新規）**: 消費する Transition の文脈ツリー。vocab は transition に消費されて意味を持つので、消費 transition の下に vocab を色バッジ付き leaf として見せる。上位のコンポーネント/タグ階層はコンボボックス selector に寄せ、選択スコープ内で「Transition → 参照 vocab」の 2〜3 層に畳む。どの transition にも消費されない vocab は「未使用」バケットに集約。\n\n### 受け入れ基準\n- 索引ヘッダ（件数を出す見出し行）の右端にモード切替トグルがあり、A/B を切り替えられる。\n- モードB では選択スコープ内で「Transition → 参照 vocab（色バッジ leaf）」の階層になり、未使用 vocab は「未使用」バケットに集約される。\n- モードB は category×kind の置換ではなく追加レンズであり、faceted-nav decision と共存する（vocab に直接タグを振らず、消費 transition を橋渡しに階層位置を得る）。"
+}

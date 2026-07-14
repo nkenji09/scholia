@@ -1,0 +1,7 @@
+{
+  "id": "eff.state.tree-mode-b-unused-bucket",
+  "category": "effect",
+  "label": "どの transition にも消費されない vocab を『未使用』バケットに集約する",
+  "kind": "state",
+  "owner": "viewer-web"
+}

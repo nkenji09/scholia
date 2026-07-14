@@ -1,0 +1,7 @@
+{
+  "id": "eff.state.tree-mode-switch",
+  "category": "effect",
+  "label": "索引ツリーを選択モード（A=category×kind / B=transition 文脈）の構成に再構築し、件数表示を更新する",
+  "kind": "state",
+  "owner": "viewer-web"
+}

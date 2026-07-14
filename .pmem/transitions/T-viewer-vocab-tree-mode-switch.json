@@ -1,0 +1,15 @@
+{
+  "id": "T-viewer-vocab-tree-mode-switch",
+  "action": "act.user.switch-index-mode",
+  "given": [
+    "cond.index-built"
+  ],
+  "then": [
+    "eff.state.tree-mode-switch",
+    "eff.state.tree-mode-persist"
+  ],
+  "tags": [
+    "req.comfortable-viewer.vocab-tree-mode",
+    "subject.viewer.vocab"
+  ]
+}

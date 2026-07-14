@@ -1,0 +1,9 @@
+{
+  "id": "01KXF605MFAMKA4T0RPVP2A31N",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.vocab-tree-mode"
+  },
+  "why": "語彙ページの索引ツリー（現状=category×kind）が見づらいという課題に対し、既存モードA（category×kind）を今すぐ捨てず、新モードB（消費 transition 文脈）を『追加レンズ』として並べ、表示モード切替トグルで両方を使い比べてから残す方を決める。理由: どちらが探索に効くかは実地で使ってみないと判断できず、片方を先に捨てると比較の機会を失う。切替は索引ヘッダ（件数を出す見出し行）の右端に置き、既存の探索文脈（検索コンボ・折りたたみ）を壊さない。モード選択は既存の折りたたみ永続（eff.state.section-visibility）と同系に localStorage へ永続し、再訪時に選択を保つ。",
+  "at": "2026-07-14T02:06:23Z"
+}

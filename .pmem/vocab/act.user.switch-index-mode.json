@@ -1,0 +1,6 @@
+{
+  "id": "act.user.switch-index-mode",
+  "category": "action",
+  "label": "索引ヘッダのモード切替トグルを操作したとき",
+  "kind": "user"
+}
