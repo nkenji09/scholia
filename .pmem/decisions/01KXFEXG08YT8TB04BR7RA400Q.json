@@ -1,0 +1,10 @@
+{
+  "id": "01KXFEXG08YT8TB04BR7RA400Q",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.faceted-nav"
+  },
+  "why": "コンボボックスの facet チップ／サジェストの種別ラベルを、選択タグの kind（tagKindLabels）で表示し、単一の『コンポーネント』ハードコードを廃す。理由: facetKinds は subject/requirement/concern の3種あり、要件タグや関心タグを facet に選んでも一律『コンポーネント』と出るのは不正確（その facet が消費する語彙の kind を偽って伝える）。ラベル解決は既存の唯一の窓口 lookups.tagKindLabel（config.tagKindLabels→無ければ素の kind id）に通し、表示ラベルだけを additive に足す——tagKinds/facetKinds の妥当性判定には触れない（tweaks3 §2 の tagKindLabels 設計の帰結）。faceted-nav が定めた『facetKind のタグ選択＝per-component 導出のモード切替』はそのままで、その種別表示を正しい kind ラベルにするだけ。",
+  "changed": "VocabView の combobox facet チップ prefix とコンポーネント系サジェストの kindLabel を、ハードコードの t.vocab.component から選択タグ kind の tagKindLabel(tag.kind) に置換。config.tagKindLabels に subject=コンポーネント,requirement=要件,concern=関心 を設定。",
+  "at": "2026-07-14T04:42:12Z"
+}

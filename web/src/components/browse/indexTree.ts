@@ -35,15 +35,21 @@ export function saveCollapsed(facet: string, ids: Set<string>): void {
 // （req.comfortable-viewer.vocab-tree-mode）。選択は再訪時に保つよう localStorage
 // へ永続する — 既存の折りたたみ永続（loadCollapsed/saveCollapsed・
 // eff.state.section-visibility 系）と同じ private-mode 耐性の流儀で、モデル
-// （.pmem）には一切触れない純 UI 状態。未保存/不正値は既定モードA へフォールバック。
+// （.pmem）には一切触れない純 UI 状態。
+//
+// 既定は『文脈』（モードB）: vocab は消費 transition の下でこそ意味を持つ、という
+// faceted-nav の見方を初回体験の既定に据える（decide: 既定索引モードを『文脈』に）。
+// category×kind（モードA=『分類』）は置換ではなく明示切替で残る追加レンズ。
+// localStorage に保存値があればそれを優先し、未保存/不正値のときだけ文脈へ落とす。
 export type VocabIndexMode = 'category-kind' | 'transition';
 const INDEX_MODE_KEY = 'pmem-vocab-index-mode';
 
 export function loadIndexMode(): VocabIndexMode {
   try {
-    return localStorage.getItem(INDEX_MODE_KEY) === 'transition' ? 'transition' : 'category-kind';
+    // 明示的に 'category-kind' を保存した再訪者のみ分類。未保存/不正値は文脈を既定に。
+    return localStorage.getItem(INDEX_MODE_KEY) === 'category-kind' ? 'category-kind' : 'transition';
   } catch {
-    return 'category-kind';
+    return 'transition';
   }
 }
 
@@ -325,9 +331,16 @@ export function buildCategoryKindIndex(opts: BuildCategoryKindIndexOpts): IndexI
 // per-component 導出（subject→実効タグに subject を含む遷移→参照 vocab）を索引の
 // 軸に据えるモードB（eff.state.tree-mode-b-structure）。上位のコンポ/タグ階層は
 // selector（subject コンボ）に寄せ、ここは選択スコープ内で「Transition →
-// その transition が参照する vocab（きっかけ/前提/結果の色バッジ leaf）」の
+// その transition が参照する vocab（前提/結果の色バッジ leaf）」の
 // 2 階層に畳む。vocab に直接タグを振らず消費 transition を橋渡しに階層位置を得る
 // ので faceted-nav decision と非矛盾（category×kind の置換ではなく追加レンズ）。
+//
+// transition ノード名（decide: transition ノードは action(WHEN) ラベルで表示）:
+// transition は {id,action,given,then} で label 欄を持たないので、その action
+// vocab の label（WHEN 句＝「…したとき」）をノードの代表名にする。呼び出し側で
+// action→label を解決して `label` に渡す（解決できない稀ケースは未指定→id へ
+// フォールバック）。action がノード名（きっかけ）になるので leaf からは action を
+// 落とし、refs は given(前提)＋then(結果) のみ渡す（ノード=きっかけ・leaf=前提/結果）。
 // どの scope 内 transition にも消費されない vocab は末尾の「未使用」バケットへ
 // 集約する（eff.state.tree-mode-b-unused-bucket）。折りたたみは buildFolderIndex /
 // buildCategoryKindIndex と同じ collapsedIds/onToggle 基盤を流用（キー接頭辞
@@ -340,9 +353,11 @@ export interface TransitionVocabLeaf {
 }
 
 interface BuildTransitionVocabIndexOpts {
-  /** 選択スコープ内の transitions（描画順＝id 昇順で渡す）。refs は
-      action→given→then の順の vocab id 列（役割順＝きっかけ→前提→結果）。 */
-  transitions: { id: string; refs: string[] }[];
+  /** 選択スコープ内の transitions（描画順＝id 昇順で渡す）。refs は leaf 化する
+      vocab id 列（役割順＝前提→結果＝given→then）。action は refs に含めず、
+      その label を `label`（ノードの代表名＝WHEN 句）に渡す。`label` 未指定/空の
+      ときはノード名を id にフォールバックする。 */
+  transitions: { id: string; label?: string; refs: string[] }[];
   /** ツリーに出しうる vocab の母集合（＝可視 vocab）。id→leaf。transition の
       refs はこの map で解決し、未解決（dangling / スコープ外 / フィルタ外）は
       leaf 化しない。未使用判定もこの母集合を基準にする。 */
@@ -386,7 +401,8 @@ export function buildTransitionVocabIndex(opts: BuildTransitionVocabIndexOpts): 
     const collapsed = collapsedIds.has(key);
     out.push({
       id: key,
-      label: tx.id,
+      // ノード名＝action(WHEN) ラベル。解決できなければ transition id へ。
+      label: tx.label || tx.id,
       color: transitionColor,
       indent: 0,
       hasChildren: true,
