@@ -44,13 +44,21 @@ To see what an actual record looks like, try `pmem spec` and `pmem view` from th
 
 ## Installation
 
-If you have Go, `go install` works.
+Quick install (darwin/linux) — downloads the latest release and installs the `pmem` binary:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/nkenji09/product-memory/main/packaging/install.sh | sh
+```
+
+This installs into `$PMEM_INSTALL_DIR` (default: `~/.local/bin`); add it to your `PATH` if it isn't already.
+
+If you have Go, `go install` works instead:
 
 ```sh
 go install github.com/nkenji09/product-memory/cmd/pmem@latest
 ```
 
-Prebuilt binaries (darwin/linux/windows × amd64/arm64) are available from GitHub Releases.
+Prebuilt binaries (darwin/linux/windows × amd64/arm64) are also available from GitHub Releases — on Windows, use `go install` or grab the release zip directly.
 The viewer SPA is embedded into the binary via `//go:embed`, so a single `pmem` binary runs both the CLI and the viewer.
 
 ## Quickstart

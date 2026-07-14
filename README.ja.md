@@ -43,13 +43,21 @@ flowchart LR
 
 ## インストール
 
-Go がある環境なら `go install` で入る。
+クイックインストール（darwin/linux）：最新リリースを取得して `pmem` バイナリを入れる。
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/nkenji09/product-memory/main/packaging/install.sh | sh
+```
+
+`$PMEM_INSTALL_DIR`（既定: `~/.local/bin`）配下に入る。PATH に無ければ追加すること。
+
+Go がある環境なら `go install` でも入る。
 
 ```sh
 go install github.com/nkenji09/product-memory/cmd/pmem@latest
 ```
 
-プレビルドのバイナリ（darwin/linux/windows × amd64/arm64）は GitHub Releases から入手できる。
+プレビルドのバイナリ（darwin/linux/windows × amd64/arm64）も GitHub Releases から入手できる（Windows は `go install` かリリース zip を利用）。
 ビューアの SPA はバイナリに `//go:embed` で焼き込まれているため、`pmem` 1 つで CLI とビューアの両方が動く。
 
 ## クイックスタート
