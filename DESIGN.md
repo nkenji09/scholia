@@ -370,9 +370,6 @@ pmem diff [<ref1> [<ref2>]] [--json]                      # 現在 vs ref1、ま
 # ビューア
 pmem view [--port <p>]                                     # ローカルビューア（埋め込み SPA）
 pmem export --html <dir>                                   # 静的 HTML 書き出し
-
-# Claude Code 向けスキル
-pmem skills install [--user|--project] [--force] [--json]  # embed 済みスキルを .claude/skills/ へ展開（既定 --project・既存は既定スキップ）
 ```
 
 > **注**: SQLite 索引の再構築コマンド（旧 `pmem index`）は後フェーズ・未実装（§3.9）。現状のインデックスは in-memory のみ。
