@@ -176,13 +176,15 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
           </div>
           <div class="spec-card-chip-row">
             {own.map((et) => (
-              <span key={et.id} class="spec-tag-item">
-                <Chip color={kindColor(tagById.get(et.id)?.kind)} title={t.browse.provenanceLabel(et.sources)}>
-                  {tagById.get(et.id)?.name || et.id}
-                  {provenanceBadge(et) && <span class="tag-provenance-badge">{provenanceBadge(et)}</span>}
-                </Chip>
-                <SpecAffordanceMenu onFilter={() => onFilterTag(et.id)} detailHref={routeHash({ view: 'spec', tagId: et.id })} />
-              </span>
+              <Chip
+                key={et.id}
+                color={kindColor(tagById.get(et.id)?.kind)}
+                title={t.browse.provenanceLabel(et.sources)}
+                trailing={<SpecAffordanceMenu onFilter={() => onFilterTag(et.id)} detailHref={routeHash({ view: 'spec', tagId: et.id })} />}
+              >
+                {tagById.get(et.id)?.name || et.id}
+                {provenanceBadge(et) && <span class="tag-provenance-badge">{provenanceBadge(et)}</span>}
+              </Chip>
             ))}
           </div>
         </div>
@@ -196,13 +198,15 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
         <CollapsibleSection recordId={detail.id} section="derived" count={derived.length} icon="tags" label={t.browse.derivedHeading} defaultOpen={false}>
           <div class="spec-card-chip-row">
             {derived.map((et) => (
-              <span key={et.id} class="spec-tag-item">
-                <Chip color={kindColor(tagById.get(et.id)?.kind)} title={t.browse.provenanceLabel(et.sources)}>
-                  {tagById.get(et.id)?.name || et.id}
-                  <span class="tag-provenance-badge">{t.browse.provenanceLabel(et.sources)}</span>
-                </Chip>
-                <SpecAffordanceMenu onFilter={() => onFilterTag(et.id)} detailHref={routeHash({ view: 'spec', tagId: et.id })} />
-              </span>
+              <Chip
+                key={et.id}
+                color={kindColor(tagById.get(et.id)?.kind)}
+                title={t.browse.provenanceLabel(et.sources)}
+                trailing={<SpecAffordanceMenu onFilter={() => onFilterTag(et.id)} detailHref={routeHash({ view: 'spec', tagId: et.id })} />}
+              >
+                {tagById.get(et.id)?.name || et.id}
+                <span class="tag-provenance-badge">{t.browse.provenanceLabel(et.sources)}</span>
+              </Chip>
             ))}
           </div>
         </CollapsibleSection>

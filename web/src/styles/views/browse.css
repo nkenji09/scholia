@@ -747,15 +747,6 @@
   gap: 6px;
 }
 
-/* card-affordance-menu: タグは非クリックの pill（Chip）+ その末尾に ⋮ メニュー
-   トリガを1つだけ置いた1グループ。旧 card-detail-link は pill の外に ⊕/↗ の2
-   アイコンを並べてタグ多数/長名で行が破綻したため、アフォーダンスを ⋮ 1つに集約。 */
-.spec-tag-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-}
-
 /* ⋮ アフォーダンスメニュー（card-affordance-menu）: トリガ + popover のラッパ。
    popover を絶対配置する基準にするため position:relative。 */
 .kebab-menu {
@@ -790,6 +781,30 @@
 .kebab-menu-trigger:focus-visible {
   outline: 2px solid var(--lm-primary-strong);
   outline-offset: -2px;
+}
+
+/* kebab-in-chip: タグ chip では ⋮ を色付きピルの内部（trailing スロット）に
+   描画するため、ピル外の touch-friendly な 26px より一回り小さくし、chip 自
+   身の色（--chip-color）を継承して馴染ませる。ピル外の汎用トリガ（語彙行など）
+   は上の 26px のまま。 */
+.chip .kebab-menu-trigger {
+  width: 18px;
+  height: 18px;
+  color: inherit;
+  opacity: 0.65;
+}
+
+.chip .kebab-menu-trigger svg {
+  width: 12px;
+  height: 12px;
+}
+
+.chip .kebab-menu-trigger:hover,
+.chip .kebab-menu-trigger:focus-visible,
+.chip .kebab-menu-trigger[aria-expanded='true'] {
+  background: color-mix(in srgb, var(--chip-color) 25%, transparent);
+  color: var(--chip-color);
+  opacity: 1;
 }
 
 /* popover はトリガの右端に揃えて左へ展開する（chip 行はスクロール領域内に
