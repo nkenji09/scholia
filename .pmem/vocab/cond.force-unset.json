@@ -1,5 +1,0 @@
-{
-  "id": "cond.force-unset",
-  "category": "condition",
-  "label": "--force が未指定（既定・上書きしない）"
-}

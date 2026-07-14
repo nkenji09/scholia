@@ -2,7 +2,7 @@
   "id": "T-skills-install-skip-existing",
   "action": "act.user.skills-install",
   "given": [
-    "cond.force-unset",
+    "cond.skills-force-unset",
     "cond.skills-scope-resolved",
     "cond.skills-target-exists"
   ],

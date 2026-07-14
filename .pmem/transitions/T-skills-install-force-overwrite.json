@@ -2,7 +2,7 @@
   "id": "T-skills-install-force-overwrite",
   "action": "act.user.skills-install",
   "given": [
-    "cond.force-set",
+    "cond.skills-force-set",
     "cond.skills-scope-resolved",
     "cond.skills-target-exists"
   ],
