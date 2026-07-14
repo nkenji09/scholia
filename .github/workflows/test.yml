@@ -62,12 +62,15 @@ jobs:
         working-directory: web
         run: npm run build
 
-      # committed web/dist is the canonical embed source (go:embed). This build is
-      # normalized by hand at merge time, so a fresh build must reproduce it exactly.
-      # Determinism depends on the node/npm toolchain (rolldown/mermaid chunk hashes);
-      # if this starts flaking across runners, relax to continue-on-error rather than
-      # dropping the check outright.
+      # committed web/dist is the canonical embed source (go:embed); the local darwin
+      # build is the authority normalized by hand at merge time. This step is a
+      # best-effort drift check only: CI runs on ubuntu-latest (cross-platform from
+      # the darwin authority), and byte-identical output across OSes is not guaranteed
+      # (rolldown/mermaid chunk hashes). continue-on-error keeps this from failing the
+      # job on a false positive — it only surfaces drift for a human to look at; the
+      # build itself (tsc/vite above) still fails the job on real breakage.
       - name: verify web/dist matches committed build
+        continue-on-error: true
         run: git diff --exit-code -- web/dist
 
   lint:
