@@ -1,0 +1,9 @@
+{
+  "id": "01KXFRYP50077NFTM71DFYPQ2T",
+  "target": {
+    "type": "tag",
+    "id": "req.record-maintenance"
+  },
+  "why": "tag rename の不変条件を確定する。(a) 参照整合: タグ id を持つ全4箇所——他タグの parentIds・遷移の tags・語彙の tags・decision の target(type=tag)——を漏れなく old→new に張替える（append-only の履歴を壊さない構造編集）。config.roots は「追加探索ルート」の構想で未配線でありタグ id ではないため対象外（DESIGN §3.1）。(b) アトミック性: --cascade で生成される新 id を含む全新 id を先に計算し既存との衝突を検査してから適用し、途中失敗は全ロールバックして半壊させない。(c) case 差のみの改名（例 abc→Abc）は macOS 既定の case-insensitive FS で同名 case バリアントへの直接 rename が不安定なため、一時中間名を経由して確実に処理する。--cascade は old を id プレフィックスに持つ子孫を parentIds ベースの真の子孫集合として洗い、各 id の \u003cold\u003e→\u003cnew\u003e プレフィックス置換で新 id を決め、複数階層を1コマンドで改名する。--cascade 無しの単体 rename はその1タグの id だけを変え、子の parentIds は張替えるが子の id プレフィックスは変えない。",
+  "at": "2026-07-14T07:37:37Z"
+}

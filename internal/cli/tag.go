@@ -10,6 +10,7 @@ func newTagCmd() *cobra.Command {
 	cmd.AddCommand(newTagCreateCmd())
 	cmd.AddCommand(newTagListCmd())
 	cmd.AddCommand(newTagEditCmd())
+	cmd.AddCommand(newTagRenameCmd())
 	cmd.AddCommand(newTagRmCmd())
 	return cmd
 }
