@@ -130,6 +130,7 @@ pmem show tx <id> [--resolve] [--json]
 pmem spec <subjectTag> [--json]
 pmem list [--facet <tagKind>] [--tag <id>] [--kind <k>] [--json]
 pmem rules [--tag <id> | --tx <id> | --facet <k>] [--sort chrono|target] [--json]
+pmem search <keyword> [--type tag|transition|vocab|decision] [--json]   # keyword で横断逆引き（id 未確定な入口）
 pmem lint [--json]
 pmem diff [<ref1> [<ref2>]] [--json]                       # 現在 vs ref1、または ref1 vs ref2（landed 監査）
 
