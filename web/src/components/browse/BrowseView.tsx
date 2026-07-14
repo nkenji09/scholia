@@ -393,6 +393,18 @@ export function BrowseView({
     cardRefs.current.get(id)?.scrollIntoView({ block: 'start' });
     closeDrawer();
   };
+  // Related-card tag links (a TagCard's parent link / child chip). Both point
+  // at another *tag* card on this same facet, so plain-click normally just
+  // scrolls to it in place (keeps the browsing context). But when the active
+  // filter has dropped that card from the list, cardRefs has no entry and the
+  // old scrollToCard's `?.scrollIntoView` silently no-op'd — and because the
+  // HashLink already preventDefault'd, its href never fired either, so the
+  // click did nothing. Falling back to the target's canonical route (the same
+  // #/spec/<tagId> the link's href points at, via the existing onGoToTag =
+  // openTagSpec) makes the click always reach its target — in-place scroll is
+  // just the optimization for when the card is already on screen (deep-linking:
+  // a plain click still honors the link's href; scroll-else-navigate decision).
+  const scrollOrGoToTag = (tagId: string) => (cardRefs.current.has(tagId) ? scrollToCard(tagId) : onGoToTag(tagId));
   // Fold/unfold a subtree in the 見出し index and persist it (依頼1). Doesn't
   // close the drawer — you fold *from* the rail, so closing would be
   // self-defeating (same reasoning as removeFilter/kindFacet).
@@ -480,8 +492,8 @@ export function BrowseView({
                 else cardRefs.current.delete(id);
               }}
               onFilterSelf={() => addFilter({ type: 'tag', id })}
-              onSelectParent={scrollToCard}
-              onSelectChild={scrollToCard}
+              onSelectParent={scrollOrGoToTag}
+              onSelectChild={scrollOrGoToTag}
               onSelectSpec={onGoToSpec}
             />
           );
