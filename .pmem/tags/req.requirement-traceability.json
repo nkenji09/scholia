@@ -2,5 +2,8 @@
   "id": "req.requirement-traceability",
   "name": "要件トレーサビリティ",
   "kind": "requirement",
+  "parentIds": [
+    "req.auxiliary-features"
+  ],
   "description": "**As a** 「この要件は実装で満たされているか」を確認したい開発者/AIエージェント/レビュアー\n**I want** requirement タグから、それを満たす transition を逆引きしたい\n**so that** 要件が実装されているか、実装が要件のどれに対応するかを追跡できる\n\n### 受け入れ基準\n- transition に requirement タグを付けると、そのタグから逆引きできる（`pmem list --tag \u003cid\u003e` 等）\n- 実効タグ（vocab継承＋祖先展開）を通じて、子requirementのタグ付けでも親requirementの検索にヒットする\n- 充足する transition が 0 件の requirement は `requirement-gap` lint で warn される"
 }

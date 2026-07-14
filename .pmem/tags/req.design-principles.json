@@ -1,0 +1,6 @@
+{
+  "id": "req.design-principles",
+  "name": "設計原理",
+  "kind": "requirement",
+  "description": "プロダクト全体の根本方針"
+}

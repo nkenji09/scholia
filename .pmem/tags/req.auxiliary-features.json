@@ -1,0 +1,6 @@
+{
+  "id": "req.auxiliary-features",
+  "name": "補助機能",
+  "kind": "requirement",
+  "description": "記録・評価・検証を支える補助的な機能"
+}

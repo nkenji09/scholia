@@ -2,5 +2,8 @@
   "id": "req.git-native",
   "name": "git-as-DB で衝突を人が直せる形にする",
   "kind": "requirement",
+  "parentIds": [
+    "req.design-principles"
+  ],
   "description": "**As a** 複数人/複数エージェントが並行して記録を追記するプロジェクトの開発者\n**I want** 追記（行を足す）が衝突せず、修正（行を直す）も小さなテキスト衝突で人間が解決できるようにしたい\n**so that** バイナリDBのような「マージできない」状態を避けつつ、DBのような分割不要の利点を得られる\n\n### 受け入れ基準\n- 新しい transition/tag/vocab/decision の追加は新規ファイル追加になり、他の追記と衝突しない\n- 既存レコードの編集は該当ファイルのみの小さな diff になる\n- decisions は配列JSONでなく1件1ファイルなので、複数人の同時追記でも衝突しない"
 }

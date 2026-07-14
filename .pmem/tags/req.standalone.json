@@ -2,5 +2,8 @@
   "id": "req.standalone",
   "name": "スタンドアロン・単一バイナリで動く",
   "kind": "requirement",
+  "parentIds": [
+    "req.non-functional"
+  ],
   "description": "**As a** 任意の言語/CI環境でこのツールを使いたい開発者\n**I want** ランタイム依存ゼロの単一バイナリとして pmem を配布・実行したい\n**so that** 対象repoの言語やloom等の外部ツールに依存せず、どのプロジェクトでも同じように使える\n\n### 受け入れ基準\n- `go build` で単一の実行可能ファイルが生成される（追加ランタイムのインストール不要）\n- `.pmem/` はプレーンなJSONで、pmemバイナリなしでも中身が読める\n- ビューアも `//go:embed` で同一バイナリに焼き込まれ、別プロセス/別ランタイムを要求しない"
 }

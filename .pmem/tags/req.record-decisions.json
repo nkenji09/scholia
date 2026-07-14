@@ -2,5 +2,8 @@
   "id": "req.record-decisions",
   "name": "意思決定の記録を蓄積する",
   "kind": "requirement",
+  "parentIds": [
+    "req.auxiliary-features"
+  ],
   "description": "**As a** 振る舞いについて判断を下した開発者/AIエージェント\n**I want** 「この振る舞いは検討済みで、これが正しい」という判断を why 付きで記録したい\n**so that** 次に同じ場所を触るときに、過去の判断を読み込んでから作業できる\n\n### 受け入れ基準\n- `pmem decide --on \u003ctransition|tag\u003e:\u003cid\u003e --why \u003ctext\u003e` で 1 件の decision が追記される\n- decision は消えない・上書きされない（append-only。訂正は新しい decision を追加する）\n- `pmem rules` でその対象に紐づく decision 一覧を後から読める"
 }

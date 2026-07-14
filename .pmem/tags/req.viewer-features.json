@@ -1,0 +1,6 @@
+{
+  "id": "req.viewer-features",
+  "name": "ビューア機能",
+  "kind": "requirement",
+  "description": "ビューアが提供する主要な閲覧機能"
+}
