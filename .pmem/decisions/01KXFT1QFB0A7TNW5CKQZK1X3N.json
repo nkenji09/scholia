@@ -1,0 +1,11 @@
+{
+  "id": "01KXFT1QFB0A7TNW5CKQZK1X3N",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.deep-linking"
+  },
+  "why": "直前 decision 01KXFQMTTXHE2BWJ0Y476GKPPA（ref 126b672・SpecCard の tag/vocab に filter ⊕ と詳細 ↗ \u003ca\u003e を『外側に併置』しアイコン限定でクリック領域化）の presentation を改訂し supersede する。中核原理は保持: (1) filter は \u003cbutton\u003e のままで『遷移ではない』を維持し item3（ref 37beef9）の filter 除外条項を破らない、(2) 詳細オープンは実 \u003ca href\u003e（routeHash・語彙→#/vocab/\u003cid\u003e、タグ→#/spec/\u003cid\u003e）で deep-linking の『focus は共有可能 URL』を SpecCard にも及ぼす。変えたのは見せ方だけ: 外側に ⊕/↗ の2アイコンを並置するとタグ多数（own/derived が複数）や長いタグ名/語彙ラベルで chip 行が破綻する実機欠陥が出たため、アフォーダンスを各タグ/語彙の末尾に置く単一の ⋮ kebab メニュー（項目=『検索条件に追加』＝filter／『リンク先を開く』＝詳細）に集約する。⋮ は各 chip の footprint をアイコン1つぶんしか増やさず折返しても崩れない。アクセシブルに新設した KebabMenu（role=menu/menuitem・aria-haspopup/expanded・↑↓/Home/End/Esc/外側クリック・フォーカスをトリガへ戻す）で実装。旧 01KXFQMTTX… は append-only で残す。",
+  "changed": "SpecCard の tag/vocab アフォーダンスを外側 ⊕/↗ 2アイコン併置から末尾の単一 ⋮ メニューへ集約（presentation 改訂）",
+  "ref": "6c3fd75",
+  "at": "2026-07-14T07:56:45Z"
+}
