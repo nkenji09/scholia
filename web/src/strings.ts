@@ -84,9 +84,9 @@ const ja = {
     otherKind: 'その他',
     // コンポ別モード（vocab-view-p2 → combobox-unify）: コンボボックスで
     // コンポーネント（facetKinds タグ）を選ぶと、その subject に属す遷移が参照する
-    // 語彙だけを category→kind ツリーで表示する。`component` はサジェストの種別
-    // バッジ／絞り込みチップの接頭ラベルに使う（tag/owner チップと差別化）。
-    component: 'コンポーネント',
+    // 語彙だけを category→kind ツリーで表示する。サジェストの種別バッジ／絞り込み
+    // チップの接頭ラベルは、選択タグの kind を tagKindLabels で解決する
+    // （lookups.tagKindLabel）— 単一の「コンポーネント」ハードコードは廃止済み。
     subjectEmpty: (name: string) => `${name} に属す遷移が参照する語彙はありません`,
     // 索引の表示モード切替（vocab-tree-mode）: モードA=category×kind の分類ツリー、
     // モードB=消費 transition 文脈ツリー。索引ヘッダ右端のトグルのラベル。
@@ -381,7 +381,6 @@ const en: Strings = {
     loading: 'loading…',
     categoryLabel: (c) => ({ action: FLOW_TRIGGER_EN, condition: FLOW_GIVEN_EN, effect: FLOW_RESULT_EN } as Record<string, string>)[c] || c,
     otherKind: 'Other',
-    component: 'Component',
     subjectEmpty: (name) => `No vocab referenced by transitions under ${name}`,
     treeModeCategory: 'Category',
     treeModeTransition: 'Context',

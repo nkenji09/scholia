@@ -39,5 +39,11 @@
   "roots": [],
   "viewer": {
     "port": 4577
-  }
+  },
+  "tagKindLabels": {
+    "concern": "関心",
+    "requirement": "要件",
+    "subject": "コンポーネント"
+  },
+  "display": {}
 }

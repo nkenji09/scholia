@@ -73,7 +73,9 @@ export function VocabView({
   onSearchChange,
 }: Props) {
   const t = useT();
-  const { tagById } = useLookups();
+  // tagKindLabel: facet チップ/サジェストの種別ラベルを選択タグの kind から解決
+  // （②・combobox の facet kind を反映。単一の「コンポーネント」ハードコードを廃す）。
+  const { tagById, tagKindLabel } = useLookups();
   const { closeDrawer } = useDrawer();
   const [vocab, setVocab] = useState<VocabEntry[] | null>(null);
   const [transitions, setTransitions] = useState<Transition[]>([]);
@@ -323,11 +325,19 @@ export function VocabView({
   // 誤表示を避けるため index を空にする（vocab 一覧側は subjectVocab で既に表示）。
   const scopeTransitions = subject ? subjectTransitions : transitions;
   const modeBReady = !subject || subjectTransitions !== null;
+  // モードB のノード名＝その transition の action vocab の label（WHEN 句）。全
+  // vocab（scope に依らず読み込み済の base list）から引くので subject モードでも
+  // 解決できる。未解決（稀）は undefined → buildTransitionVocabIndex が id へ落とす。
+  const vocabLabelById = new Map(vocab.map((v) => [v.id, v.label]));
   const indexItems =
     indexMode === 'transition'
       ? buildTransitionVocabIndex({
           transitions:
-            modeBReady && scopeTransitions ? scopeTransitions.map((tx) => ({ id: tx.id, refs: [tx.action, ...tx.given, ...tx.then] })) : [],
+            modeBReady && scopeTransitions
+              ? // ノード=action(きっかけ) なので leaf の refs からは action を落とし、
+                // 前提(given)＋結果(then) のみを leaf 化する（①）。
+                scopeTransitions.map((tx) => ({ id: tx.id, label: vocabLabelById.get(tx.action), refs: [...tx.given, ...tx.then] }))
+              : [],
           // 母集合＝可視 vocab（mode A の leaves と同源）。検索/カテゴリ/タグの
           // 絞り込みがそのまま索引に効く。leaf の色は役割（きっかけ/前提/結果）＝
           // vocab.category の色。
@@ -369,7 +379,10 @@ export function VocabView({
       ? [
           {
             label: subjectName,
-            prefix: t.vocab.component,
+            // 接頭ラベル＝選択タグの kind（tagKindLabels）。facetKinds は
+            // subject/requirement/concern なので、要件/関心 facet なら「要件」「関心」と
+            // 出す（②・単一「コンポーネント」ハードコードを廃す）。未設定 kind は素の id。
+            prefix: tagKindLabel(tagById.get(subject)?.kind),
             color: kindColor(tagById.get(subject)?.kind),
             onRemove: () => setSubject(''),
           },
@@ -417,7 +430,9 @@ export function VocabView({
     ...Array.from(tagById.values())
       .filter((tag) => isFacetTag(tag.kind) && tag.id !== subject)
       .sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id))
-      .map((tag) => ({ id: tag.id, label: tag.name || tag.id, color: kindColor(tag.kind), kindLabel: t.vocab.component, onSelect: () => setSubject(tag.id) })),
+      // 種別バッジ＝その facet タグの kind ラベル（tagKindLabels）。requirement/
+      // concern の facet タグにも一律「コンポーネント」と出さない（②）。
+      .map((tag) => ({ id: tag.id, label: tag.name || tag.id, color: kindColor(tag.kind), kindLabel: tagKindLabel(tag.kind), onSelect: () => setSubject(tag.id) })),
     // (2) タグ（二次フィルタ）: facetKinds 以外のタグで wouldMatchAny を通るもの。
     // facetKinds 分は (1) に回すので排他になり二重表示しない。選択は AND フィルタ。
     ...Array.from(tagById.values())
