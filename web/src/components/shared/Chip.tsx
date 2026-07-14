@@ -33,10 +33,17 @@ interface Props {
       badge — the design reference doesn't mark those). */
   filterable?: boolean;
   title?: string;
+  /** Opt-in slot rendered inside the pill, after children (e.g. SpecCard's ⋮
+      affordance menu) — kept out of `children` so the "tag の外側にボタンを
+      置かない" 原則 is the default for any future trailing content, not
+      something each caller has to remember to nest correctly. Only wired up
+      on the non-clickable (span) chip; no caller needs it on the button
+      variant yet. */
+  trailing?: ComponentChildren;
   children: ComponentChildren;
 }
 
-export function Chip({ color = 'var(--lm-text-dim)', onClick, onRemove, filterable, title, children }: Props) {
+export function Chip({ color = 'var(--lm-text-dim)', onClick, onRemove, filterable, title, trailing, children }: Props) {
   const t = useT();
   const style = { '--chip-color': color } as JSX.CSSProperties;
   if (onClick) {
@@ -55,6 +62,7 @@ export function Chip({ color = 'var(--lm-text-dim)', onClick, onRemove, filterab
           <Icon name="x" size={11} />
         </button>
       )}
+      {trailing}
     </span>
   );
 }
