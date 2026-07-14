@@ -1,5 +1,7 @@
 # product-memory (`pmem`)
 
+[![test](https://github.com/nkenji09/product-memory/actions/workflows/test.yml/badge.svg)](https://github.com/nkenji09/product-memory/actions/workflows/test.yml)
+
 **A foundation for accumulating product decisions and their reasoning (why), linked to implementation changes, so they can be evaluated later.**
 
 `pmem` is a CLI tool that records the detailed behavior of components and flows not as free-form text, but as **combinations of a controlled vocabulary**.
