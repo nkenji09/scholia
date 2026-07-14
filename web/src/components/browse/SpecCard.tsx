@@ -6,6 +6,8 @@ import { Chip, kindColor } from '../shared/Chip';
 import { CommentButton } from '../comments/CommentButton';
 import { useComments } from '../comments/useComments';
 import { Icon } from '../shared/Icon';
+import { HashLink } from '../shared/HashLink';
+import { routeHash } from '../../router';
 import { CollapsibleSection } from '../shared/CollapsibleSection';
 
 interface Props {
@@ -18,9 +20,44 @@ interface Props {
   // 結果(Then)スロットの owner チップ廃止に伴い未使用だが、呼び出し側
   // (BrowseView) は並行トラックの領域で今回触らないため prop は残す。
   onFilterOwner: (owner: string) => void;
+  /** ↗ 詳細リンクの平打ち左クリック時に走る SPA 内遷移（card-detail-link）。
+      語彙 → 語彙フォーカス（#/vocab/<id>）、タグ → タグ詳細（#/spec/<id>）。
+      modified/中クリックは HashLink 側で preventDefault せず別タブに委ねる。 */
+  onGoToVocab: (id: string) => void;
+  onGoToTag: (id: string) => void;
 }
 
-export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab, onFilterTag }: Props) {
+// filter（⊕）と詳細リンク（↗）の2アイコンだけをクリック領域にする affordance 対
+// （card-detail-link）。ラベル本体は非クリックの <span> に退避し、誤タップを避け
+// つつ deep-linking を SpecCard の tag/vocab へ延長する（item3 除外条項の精緻化：
+// filter は button のまま「遷移ではない」を保ち、遷移は別の専用 <a href> で提供）。
+// ⊕/↗ とも最小 44×44 CSS px 相当のタップターゲット（CSS 側 padding で確保）。
+function SpecAffordances({
+  onFilter,
+  filterLabel,
+  detailHref,
+  onNavigate,
+  detailLabel,
+}: {
+  onFilter: () => void;
+  filterLabel: string;
+  detailHref: string;
+  onNavigate: () => void;
+  detailLabel: string;
+}) {
+  return (
+    <span class="spec-affordances">
+      <button type="button" class="spec-affordance-btn spec-filter-btn" onClick={onFilter} aria-label={filterLabel} title={filterLabel}>
+        <Icon name="plus" size={15} class="filter-plus-icon" />
+      </button>
+      <HashLink class="spec-affordance-btn spec-detail-link" href={detailHref} onNavigate={onNavigate} ariaLabel={detailLabel} title={detailLabel}>
+        <Icon name="external-link" size={14} />
+      </HashLink>
+    </span>
+  );
+}
+
+export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab, onFilterTag, onGoToVocab, onGoToTag }: Props) {
   const t = useT();
   const { tagById } = useLookups();
   const { changedTransitionIds, addedTransitionIds } = usePendingDiff();
@@ -93,10 +130,16 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
           </span>
           <CommentButton recordType="transition" recordId={detail.id} recordTitle={detail.actionLabel || detail.action} anchor="action" anchorLabel={t.flow.trigger} />
         </div>
-        <button type="button" class="spec-card-action" onClick={() => onFilterVocab(detail.action)} title={t.browse.clickToFilter}>
-          {detail.actionLabel || detail.action}
-          <Icon name="plus" size={13} class="filter-plus-icon" />
-        </button>
+        <div class="spec-card-action">
+          <span class="spec-card-action-label">{detail.actionLabel || detail.action}</span>
+          <SpecAffordances
+            onFilter={() => onFilterVocab(detail.action)}
+            filterLabel={t.browse.clickToFilter}
+            detailHref={routeHash({ view: 'vocab', vocabId: detail.action })}
+            onNavigate={() => onGoToVocab(detail.action)}
+            detailLabel={t.browse.openDetail}
+          />
+        </div>
       </div>
 
       <div class="spec-card-slot">
@@ -109,10 +152,16 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
         {(detail.given || []).length === 0 && <span class="dim spec-card-empty-given">{t.flow.noGiven}</span>}
         <div class="spec-card-given-list">
           {(detail.given || []).map((id, i) => (
-            <button key={id} type="button" class="spec-card-cond-row" onClick={() => onFilterVocab(id)} title={t.browse.clickToFilter}>
+            <div key={id} class="spec-card-cond-row">
               <span class="spec-card-cond-label">{(detail.givenLabels || [])[i] || id}</span>
-              <Icon name="plus" size={13} class="filter-plus-icon" />
-            </button>
+              <SpecAffordances
+                onFilter={() => onFilterVocab(id)}
+                filterLabel={t.browse.clickToFilter}
+                detailHref={routeHash({ view: 'vocab', vocabId: id })}
+                onNavigate={() => onGoToVocab(id)}
+                detailLabel={t.browse.openDetail}
+              />
+            </div>
           ))}
         </div>
       </div>
@@ -128,10 +177,14 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
           {(detail.then || []).map((id, i) => (
             <div key={id} class="spec-card-cond-row">
               <span class="spec-card-then-n dim">{i + 1}</span>
-              <button type="button" class="spec-card-cond-label-btn" onClick={() => onFilterVocab(id)} title={t.browse.clickToFilter}>
-                <span class="spec-card-cond-label">{(detail.thenLabels || [])[i] || id}</span>
-                <Icon name="plus" size={13} class="filter-plus-icon" />
-              </button>
+              <span class="spec-card-cond-label">{(detail.thenLabels || [])[i] || id}</span>
+              <SpecAffordances
+                onFilter={() => onFilterVocab(id)}
+                filterLabel={t.browse.clickToFilter}
+                detailHref={routeHash({ view: 'vocab', vocabId: id })}
+                onNavigate={() => onGoToVocab(id)}
+                detailLabel={t.browse.openDetail}
+              />
             </div>
           ))}
         </div>
@@ -150,16 +203,19 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
           </div>
           <div class="spec-card-chip-row">
             {own.map((et) => (
-              <Chip
-                key={et.id}
-                color={kindColor(tagById.get(et.id)?.kind)}
-                onClick={() => onFilterTag(et.id)}
-                filterable
-                title={t.browse.provenanceLabel(et.sources)}
-              >
-                {tagById.get(et.id)?.name || et.id}
-                {provenanceBadge(et) && <span class="tag-provenance-badge">{provenanceBadge(et)}</span>}
-              </Chip>
+              <span key={et.id} class="spec-tag-item">
+                <Chip color={kindColor(tagById.get(et.id)?.kind)} title={t.browse.provenanceLabel(et.sources)}>
+                  {tagById.get(et.id)?.name || et.id}
+                  {provenanceBadge(et) && <span class="tag-provenance-badge">{provenanceBadge(et)}</span>}
+                </Chip>
+                <SpecAffordances
+                  onFilter={() => onFilterTag(et.id)}
+                  filterLabel={t.browse.clickToFilter}
+                  detailHref={routeHash({ view: 'spec', tagId: et.id })}
+                  onNavigate={() => onGoToTag(et.id)}
+                  detailLabel={t.browse.openDetail}
+                />
+              </span>
             ))}
           </div>
         </div>
@@ -173,16 +229,19 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
         <CollapsibleSection recordId={detail.id} section="derived" count={derived.length} icon="tags" label={t.browse.derivedHeading} defaultOpen={false}>
           <div class="spec-card-chip-row">
             {derived.map((et) => (
-              <Chip
-                key={et.id}
-                color={kindColor(tagById.get(et.id)?.kind)}
-                onClick={() => onFilterTag(et.id)}
-                filterable
-                title={t.browse.provenanceLabel(et.sources)}
-              >
-                {tagById.get(et.id)?.name || et.id}
-                <span class="tag-provenance-badge">{t.browse.provenanceLabel(et.sources)}</span>
-              </Chip>
+              <span key={et.id} class="spec-tag-item">
+                <Chip color={kindColor(tagById.get(et.id)?.kind)} title={t.browse.provenanceLabel(et.sources)}>
+                  {tagById.get(et.id)?.name || et.id}
+                  <span class="tag-provenance-badge">{t.browse.provenanceLabel(et.sources)}</span>
+                </Chip>
+                <SpecAffordances
+                  onFilter={() => onFilterTag(et.id)}
+                  filterLabel={t.browse.clickToFilter}
+                  detailHref={routeHash({ view: 'spec', tagId: et.id })}
+                  onNavigate={() => onGoToTag(et.id)}
+                  detailLabel={t.browse.openDetail}
+                />
+              </span>
             ))}
           </div>
         </CollapsibleSection>

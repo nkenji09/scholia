@@ -135,6 +135,9 @@ const ja = {
     derivedHeading: '継承タグ',
     derivedHint: 'vocab継承＋親タグ展開の実効タグ',
     clickToFilter: 'クリックで検索条件に追加',
+    // ↗ 詳細リンク（card-detail-link）。filter（⊕）とは別の専用アンカーで、
+    // 平打ち=SPA遷移／Cmd・Ctrl・中クリック=別タブ／右クリック=リンクコピー。
+    openDetail: '詳細を開く（Cmd/Ctrl+クリックで別タブ）',
     // 実効タグの由来ラベル（gap G11）。own/vocab/ancestor は複数同時成立しうる
     // ので順に連結する — バックエンドの EffectiveTag.sources をそのまま表示
     // するだけで、フロントは由来を再計算しない（§9）。
@@ -423,6 +426,7 @@ const en: Strings = {
     derivedHeading: 'Inherited tags',
     derivedHint: 'Effective tags from vocab inheritance + parent tag expansion',
     clickToFilter: 'Click to add as a search condition',
+    openDetail: 'Open details (⌘/Ctrl-click for a new tab)',
     provenanceSourceLabel: { own: 'direct', vocab: 'via vocab', ancestor: 'via ancestor' } as Record<TagSource, string>,
     provenanceLabel: (sources) => sources.map((s) => en.browse.provenanceSourceLabel[s]).join(' + '),
     fetchWarning: (n) => `${n} item(s) failed to load (the cards shown are fine — reload to retry)`,

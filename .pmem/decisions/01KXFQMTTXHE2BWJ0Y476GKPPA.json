@@ -1,0 +1,11 @@
+{
+  "id": "01KXFQMTTXHE2BWJ0Y476GKPPA",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.deep-linking"
+  },
+  "why": "item3（ref 37beef9）の『クリックで絞り込む filter 操作は遷移ではないので対象外』という除外条項を精緻化する。(a) filter（⊕）は従来どおり \u003cbutton\u003e のまま＝『遷移ではない』を保ち、item3 の除外を破らない。その上で filter とは別の専用 ↗ \u003ca href\u003e（HashLink・routeHash で語彙→#/vocab/\u003cid\u003e、タグ→#/spec/\u003cid\u003e）を足し、deep-linking の『focus は共有可能 URL』原則を SpecCard の tag/vocab にも及ぼす（Cmd/Ctrl/中クリックで別タブ・平打ちは SPA 遷移・別タブでも復元）。よって既存 deep-linking decision（settle 後の単発操作も URL 反映・item3 のアンカー化）と非矛盾で、その延長にあたる。(b) 併せて filter のクリック領域をアイコン（⊕）限定に絞る UX 判断を確定する：ラベルテキストを非クリックの span 化して行/チップ全体のフィルタ誤タップを排し、⊕・↗ とも最小 44×44 CSS px 相当のタップターゲットを padding/min-size で確保、↗ は常時低コントラスト→hover/focus で濃くして静止時ノイズを抑える。",
+  "changed": "SpecCard の tag/vocab に詳細を開く ↗ \u003ca\u003e リンクを併置（filter は button のまま維持）",
+  "ref": "126b672",
+  "at": "2026-07-14T07:14:46Z"
+}

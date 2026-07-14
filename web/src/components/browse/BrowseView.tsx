@@ -44,6 +44,11 @@ interface Props {
   initialFocusTagId?: string;
   initialFocusTxId?: string;
   onGoToSpec: (txId: string) => void;
+  /** SpecCard の ↗ 詳細リンク（card-detail-link）の平打ち左クリック時の SPA
+      内遷移。語彙→語彙フォーカス、タグ→タグ詳細。specs facet の SpecCard での
+      み使用（tags facet の TagCard は自前の HashLink を持つため不要）。 */
+  onGoToVocab: (id: string) => void;
+  onGoToTag: (id: string) => void;
   /** Current search state as reflected in the URL (router.ts's Route.search*
       fields) — '' / 'all' / '' when the URL carries none. Read once per
       mount/reset and on external (Back/Forward) change; see the two sync
@@ -134,6 +139,8 @@ export function BrowseView({
   initialFocusTagId,
   initialFocusTxId,
   onGoToSpec,
+  onGoToVocab,
+  onGoToTag,
   searchQuery,
   searchKindFacet,
   searchFiltersEncoded,
@@ -584,6 +591,8 @@ export function BrowseView({
             onFilterVocab={(id) => addFilter({ type: 'vocab', id })}
             onFilterTag={(id) => addFilter({ type: 'tag', id })}
             onFilterOwner={(owner) => addFilter({ type: 'owner', id: owner })}
+            onGoToVocab={onGoToVocab}
+            onGoToTag={onGoToTag}
           />
         ))}
         {visibleTombstones.map((tx) => (

@@ -672,25 +672,23 @@
   letter-spacing: 0.03em;
 }
 
+/* card-detail-link: action は行全体クリックの button をやめ、非クリックの
+   ラベル span + affordance 対（⊕/↗）を横並びにした flex 行。ラベルは flex:1 で
+   伸ばし、given/then と同様に affordances を右端に揃える。 */
 .spec-card-action {
-  display: inline-flex;
-  align-items: baseline;
+  display: flex;
+  align-items: center;
   gap: 8px;
-  align-self: flex-start;
-  border: none;
-  background: transparent;
-  padding: 4px 8px;
-  margin: -4px -8px;
-  border-radius: var(--r-md);
+}
+
+.spec-card-action-label {
+  flex: 1;
+  min-width: 0;
   font-size: var(--fs-xl);
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--lm-text-strong);
-  text-align: left;
-}
-
-.spec-card-action:hover {
-  background: var(--lm-s2);
+  overflow-wrap: anywhere;
 }
 
 .spec-card-empty-given {
@@ -706,14 +704,14 @@
   padding-left: 2px;
 }
 
+/* card-detail-link: 行全体クリックの button をやめ、非クリックの div に。
+   ラベルは span（.spec-card-cond-label）で、クリック領域は末尾の ⊕/↗ のみ。
+   affordances が 44px 高なので align-items:center で単一行ラベルを中央に。 */
 .spec-card-cond-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 9px;
-  border: none;
-  background: transparent;
-  text-align: left;
-  padding: 5px var(--sp-2);
+  padding: 0 var(--sp-2);
   margin: 0 calc(var(--sp-2) * -1);
   border-radius: var(--r-sm);
   color: var(--lm-text);
@@ -721,33 +719,10 @@
   line-height: 1.5;
 }
 
-.spec-card-cond-row:hover {
-  background: var(--lm-s2);
-}
-
 .spec-card-cond-label {
   flex: 1;
   min-width: 0;
-}
-
-/* Then-row's vocab label + owner pill are separate clickable elements
-   (vocab-filter vs owner-filter) living inside one .spec-card-cond-row —
-   this is the vocab-label part, laid out like the row itself used to be
-   as a whole button (see SpecCard.tsx's then-list for why it split). */
-.spec-card-cond-label-btn {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  flex: 1;
-  min-width: 0;
-  border: none;
-  background: transparent;
-  padding: 0;
-  margin: 0;
-  text-align: left;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
+  overflow-wrap: anywhere;
 }
 
 .spec-card-then-n {
@@ -770,6 +745,69 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+/* card-detail-link: タグは非クリックの pill（Chip）+ その隣に ⊕/↗ affordance を
+   置いた1グループ。affordances を pill の内側に入れると 44px タップターゲットが
+   pill を肥大させるため、pill の外・横に並置する。 */
+.spec-tag-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* ⊕（フィルタ追加）と ↗（詳細を開く）の2アイコンだけをクリック領域にする対。
+   両者は独立したクリック領域で、各ボタン自身が 44px 幅ぶんの離隔を生む。 */
+.spec-affordances {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+/* ⊕/↗ 共通: 最小 44×44 CSS px 相当のタップターゲット（padding ではなく
+   min-width/height で確保）。既定は透明で、hover/focus 時のみ淡い背景。 */
+.spec-affordance-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.spec-affordance-btn:hover,
+.spec-affordance-btn:focus-visible {
+  background: var(--lm-s2);
+}
+
+.spec-affordance-btn:focus-visible {
+  outline: 2px solid var(--lm-primary-strong);
+  outline-offset: -2px;
+}
+
+/* ⊕ は既存 filter-plus-icon の見た目（primary・opacity 0.5）を維持し、
+   hover/focus で濃く。 */
+.spec-filter-btn:hover .filter-plus-icon,
+.spec-filter-btn:focus-visible .filter-plus-icon {
+  opacity: 1;
+}
+
+/* ↗ は常時薄く（低コントラスト）→ hover/focus で濃く。静止時のノイズを抑える。 */
+.spec-detail-link {
+  color: var(--lm-text-dim);
+  opacity: 0.5;
+}
+
+.spec-detail-link:hover,
+.spec-detail-link:focus-visible {
+  color: var(--lm-text);
+  opacity: 1;
 }
 
 .spec-card-derived {

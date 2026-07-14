@@ -19,6 +19,9 @@ interface Props {
   onNavigate: () => void;
   class?: string;
   title?: string;
+  /** Accessible name for the link — needed when the visible content is an
+      icon only (aria-hidden), so the <a> would otherwise have no name. */
+  ariaLabel?: string;
   children: ComponentChildren;
 }
 
@@ -26,7 +29,7 @@ interface Props {
 // same targets that plain-click navigate within the SPA also support Cmd/Ctrl+
 // click (new tab), middle-click, and right-click "copy link" — the deep-linking
 // contract (any focus is a shareable URL) extended to the links themselves.
-export function HashLink({ href, onNavigate, class: className, title, children }: Props) {
+export function HashLink({ href, onNavigate, class: className, title, ariaLabel, children }: Props) {
   const onClick = (e: MouseEvent) => {
     // Modified/middle click → leave the browser's default link handling alone.
     if (isModifiedClick(e)) return;
@@ -35,7 +38,7 @@ export function HashLink({ href, onNavigate, class: className, title, children }
     onNavigate();
   };
   return (
-    <a href={href} class={className} title={title} onClick={onClick}>
+    <a href={href} class={className} title={title} aria-label={ariaLabel} onClick={onClick}>
       {children}
     </a>
   );

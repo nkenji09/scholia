@@ -108,6 +108,8 @@ export function App() {
           initialFocusTagId={route.tagId}
           initialFocusTxId={route.txId}
           onGoToSpec={openTransition}
+          onGoToVocab={openVocabEntry}
+          onGoToTag={openTagSpec}
           {...browseSearchProps}
         />
       )}
@@ -124,9 +126,9 @@ export function App() {
         />
       )}
       {view === 'spec' && (
-        <BrowseView scrollKey="spec" facet="tags" initialFocusTagId={route.tagId} onGoToSpec={openTransition} {...browseSearchProps} />
+        <BrowseView scrollKey="spec" facet="tags" initialFocusTagId={route.tagId} onGoToSpec={openTransition} onGoToVocab={openVocabEntry} onGoToTag={openTagSpec} {...browseSearchProps} />
       )}
-      {view === 'tags' && <BrowseView scrollKey="tags" facet="tags" onGoToSpec={openTransition} {...browseSearchProps} />}
+      {view === 'tags' && <BrowseView scrollKey="tags" facet="tags" onGoToSpec={openTransition} onGoToVocab={openVocabEntry} onGoToTag={openTagSpec} {...browseSearchProps} />}
       {view === 'config' && <ConfigView />}
       <CommentPanel onGoto={gotoComment} />
     </>
