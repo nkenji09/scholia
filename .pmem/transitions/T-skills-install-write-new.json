@@ -1,0 +1,15 @@
+{
+  "id": "T-skills-install-write-new",
+  "action": "act.user.skills-install",
+  "given": [
+    "cond.skills-scope-resolved",
+    "cond.skills-target-absent"
+  ],
+  "then": [
+    "eff.storage.write-skill-file"
+  ],
+  "tags": [
+    "req.skill-distribution",
+    "subject.cli"
+  ]
+}

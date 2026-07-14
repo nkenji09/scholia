@@ -1,0 +1,10 @@
+{
+  "id": "01KXEVDGZ6580H6T1V8SFYFPYM",
+  "target": {
+    "type": "tag",
+    "id": "req.skill-distribution.no-clobber"
+  },
+  "why": "既定は既存ファイルを上書きしない（利用者の手変更を消さない）。上書きは --force を明示したときだけ（T-skills-install-force-overwrite）。",
+  "changed": "spec 起票（実装前・prospective）: T-skills-install-skip-existing の guard 効果",
+  "at": "2026-07-13T23:01:26Z"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "01KXEVDGYY0KJV2GBMJHT1RAGK",
+  "target": {
+    "type": "tag",
+    "id": "req.skill-distribution"
+  },
+  "why": "対象スコープの既定は --project（\u003ccwd\u003e/.claude/skills）＝狭く安全。--user（~/.claude/skills）は opt-in。広いスコープを既定にしない。",
+  "changed": "spec 起票（実装前・prospective）: given cond.skills-scope-resolved",
+  "at": "2026-07-13T23:01:26Z"
+}
