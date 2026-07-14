@@ -38,6 +38,11 @@ export interface Route {
   searchQuery?: string;
   searchKindFacet?: string;
   searchFilters?: string;
+  /** VocabView's コンポ別モード subject (a tag id), carried as the `s` query
+      param so vocab's browse state round-trips like tags/specs do
+      (view-state-continuity). Vocab-only — tags/specs BrowseView never sets
+      it, so the param is simply absent there. */
+  searchSubject?: string;
 }
 
 const VIEWS: ViewName[] = ['home', 'browse', 'vocab', 'spec', 'tags', 'config'];
@@ -88,8 +93,12 @@ export function parseRoute(hash: string): Route {
     const params = new URLSearchParams(queryString);
     const q = params.get('q');
     const k = params.get('k');
+    const s = params.get('s');
     if (q) route.searchQuery = q;
     if (k) route.searchKindFacet = k;
+    // `s` (vocab subject) is a plain tag id — truthy-check like q/k (an
+    // absent/empty subject means グローバル mode, which carries no param).
+    if (s) route.searchSubject = s;
     // `f` uses has()/empty-string, not truthy-check like q/k above: an
     // explicit `f=` (user cleared every filter chip) must round-trip as ''
     // and stay distinct from "no `f` param at all" (BrowseView's
@@ -120,6 +129,9 @@ export function routeHash(route: Route): string {
   const params = new URLSearchParams();
   if (route.searchQuery) params.set('q', route.searchQuery);
   if (route.searchKindFacet && route.searchKindFacet !== 'all') params.set('k', route.searchKindFacet);
+  // '' (グローバル mode) is subject's default — omitting it keeps a mode-less
+  // vocab state from dirtying the URL, same treatment as 'all' kindFacet.
+  if (route.searchSubject) params.set('s', route.searchSubject);
   // Explicit '' must still emit `f=` (see parseRoute) — only a fully-absent
   // searchFilters (undefined) omits the param.
   if (route.searchFilters !== undefined) params.set('f', route.searchFilters);

@@ -7,6 +7,8 @@ import type { Config, Transition, VocabEntry } from '../types';
 import { BrowseRail } from './browse/BrowseRail';
 import type { ConditionChip, KindOption, SuggestionItem } from './browse/BrowseRail';
 import type { FilterCondition } from './browse/filters';
+import { encodeFilters, decodeFilters } from './browse/filters';
+import type { SearchStateChange } from './browse/BrowseView';
 import {
   buildCategoryKindIndex,
   buildTransitionVocabIndex,
@@ -19,12 +21,28 @@ import {
 import { VocabCard } from './browse/VocabCard';
 import { CommentButton } from './comments/CommentButton';
 import { kindColor, OWNER_COLOR } from './shared/Chip';
+import { useScrollRestore } from '../scrollRestore';
 
 interface Props {
+  /** Per-view sessionStorage key for scroll continuity (always 'vocab'). */
+  scrollKey: string;
   onSelectTx: (id: string) => void;
   /** Vocab entry to scroll to on mount (router's #/vocab/<id>) — used by the
       comment panel's "位置へ移動" on vocab comments. */
   initialFocusId?: string;
+  /** Vocab's browse state as reflected in the URL (view-state-continuity), so
+      往復/reload/バック restore it the same way BrowseView's tags/specs do.
+      categoryFacet rides the shared `k` param, subject the vocab-only `s`,
+      filters the shared `f` codec (tag/owner conditions). */
+  searchQuery: string;
+  searchCategoryFacet: string;
+  /** undefined = no `f` param (filters default to []); a string decodes to the
+      active tag/owner conditions. */
+  searchFiltersEncoded: string | undefined;
+  searchSubject: string;
+  /** Fired (debounced) on local query/facet/filters/subject change so the
+      caller mirrors it into the URL (shared with BrowseView via App). */
+  onSearchChange: (state: SearchStateChange) => void;
 }
 
 // Order/labels match the design's きっかけ→前提→結果 grammar (2026-07-11
@@ -44,7 +62,16 @@ function usedBy(v: VocabEntry, transitions: Transition[]): Transition[] {
 // facet-tree kind, membership in v.tags instead of tagMatchesFilters'
 // descendant-tree walk — don't fit that shared machinery), it just borrows
 // the same rail/card *presentation*.
-export function VocabView({ onSelectTx, initialFocusId }: Props) {
+export function VocabView({
+  scrollKey,
+  onSelectTx,
+  initialFocusId,
+  searchQuery,
+  searchCategoryFacet,
+  searchFiltersEncoded,
+  searchSubject,
+  onSearchChange,
+}: Props) {
   const t = useT();
   const { tagById } = useLookups();
   const { closeDrawer } = useDrawer();
@@ -62,13 +89,15 @@ export function VocabView({ onSelectTx, initialFocusId }: Props) {
   // 再訪時に保つ（既存の collapse 永続と同系）。
   const [indexMode, setIndexMode] = useState<VocabIndexMode>(() => loadIndexMode());
 
-  const [query, setQuery] = useState('');
-  const [categoryFacet, setCategoryFacet] = useState('all');
+  // Seeded from the URL (view-state-continuity) so a reload / deep link lands
+  // with this view's search already applied — see the sync effects below.
+  const [query, setQuery] = useState(() => searchQuery || '');
+  const [categoryFacet, setCategoryFacet] = useState(() => searchCategoryFacet || 'all');
   // コンポ別モード（vocab-view-p2）: '' = グローバル（全語彙・Phase 1）、subject
   // タグ id = その subject に属す遷移が参照する導出語彙。導出は Go 側
   // （GET /api/vocab?subject=…）に委ね、ここは差し替えた集合を Phase 1 と同じ
   // buildCategoryKindIndex で描くだけ。null は導出結果の読み込み中。
-  const [subject, setSubject] = useState('');
+  const [subject, setSubject] = useState(() => searchSubject || '');
   const [subjectVocab, setSubjectVocab] = useState<VocabEntry[] | null>(null);
   // モードB（vocab-tree-mode）の scope transitions: subject が選ばれたら、その
   // subject の実効タグを持つ遷移（VocabBySubject と同じ per-component 導出の
@@ -80,10 +109,55 @@ export function VocabView({ onSelectTx, initialFocusId }: Props) {
   // shape BrowseView.tsx uses for its own facets, but this page still keeps
   // its own local filter state/matching (see the class comment below for
   // why Vocab doesn't just become a third BrowseView facet).
-  const [filters, setFilters] = useState<FilterCondition[]>([]);
+  const [filters, setFilters] = useState<FilterCondition[]>(() =>
+    searchFiltersEncoded !== undefined ? decodeFilters(searchFiltersEncoded) : [],
+  );
 
   const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
   const scrollTarget = useRef<string | null>(initialFocusId || null);
+
+  // Content-aware setFilters: bail out (keep the same array reference) when the
+  // decoded value already matches, so the adopt effect below doesn't hand React
+  // a fresh-but-equal array every run (same guard BrowseView uses).
+  const setFiltersIfChanged = (next: FilterCondition[]) =>
+    setFilters((prev) => (encodeFilters(prev) === encodeFilters(next) ? prev : next));
+
+  // Adopt search pushed in from *outside* this component (Back/Forward →
+  // hashchange → new props). Runs on mount too, but the useState seeds above
+  // already match, so it's a no-op there.
+  useEffect(() => {
+    setQuery(searchQuery || '');
+    setCategoryFacet(searchCategoryFacet || 'all');
+    setSubject(searchSubject || '');
+    setFiltersIfChanged(searchFiltersEncoded !== undefined ? decodeFilters(searchFiltersEncoded) : []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, searchCategoryFacet, searchSubject, searchFiltersEncoded]);
+
+  // Push local query/facet/filters/subject back out to the URL, but only when
+  // local state genuinely diverges from what the URL already encodes (echo /
+  // seed guard) — mirrors BrowseView's url-sync push. Deps are LOCAL state
+  // only; the URL props are read in-body so an external navigation doesn't
+  // schedule a spurious push of stale local state.
+  useEffect(() => {
+    const urlFiltersEncoded = searchFiltersEncoded !== undefined ? searchFiltersEncoded : '';
+    const localFiltersEncoded = encodeFilters(filters);
+    if (
+      query === (searchQuery || '') &&
+      categoryFacet === (searchCategoryFacet || 'all') &&
+      subject === (searchSubject || '') &&
+      localFiltersEncoded === urlFiltersEncoded
+    ) {
+      return;
+    }
+    // Empty filters carry no `f` param (clean URL); vocab has no focus-tag
+    // default to preserve, so '' always means "no filters".
+    const nextFiltersEncoded = localFiltersEncoded === '' ? undefined : localFiltersEncoded;
+    const id = setTimeout(() => {
+      onSearchChange({ query, kindFacet: categoryFacet, filtersEncoded: nextFiltersEncoded, subject });
+    }, 350);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, categoryFacet, filters, subject]);
 
   // Re-arm the scroll target if a comment's "位置へ移動" jumps here while
   // VocabView is already mounted (same pattern as BrowseView's per-facet
@@ -157,6 +231,13 @@ export function VocabView({ onSelectTx, initialFocusId }: Props) {
       scrollTarget.current = null;
     }
   });
+
+  // Restore this view's saved scroll once its cards are loaded — unless a
+  // focused entry (#/vocab/<id> jump) will scrollIntoView instead
+  // (view-state-continuity). Ready = the active list resolved (subject mode
+  // waits for its derived vocab; global mode just needs the base list).
+  const contentReady = subject ? !!subjectVocab : !!vocab;
+  useScrollRestore(scrollKey, contentReady, !!initialFocusId);
 
   // Same close-on-select rule as BrowseView.tsx: addFilter/scroll-to close
   // the narrow-viewport drawer, kindFacet/removeFilter/query don't.

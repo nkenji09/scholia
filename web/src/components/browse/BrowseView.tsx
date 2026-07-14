@@ -19,6 +19,7 @@ import { buildFolderIndex, loadCollapsed, saveCollapsed } from './indexTree';
 import { kindColor, OWNER_COLOR } from '../shared/Chip';
 import { CommentButton } from '../comments/CommentButton';
 import { Icon } from '../shared/Icon';
+import { useScrollRestore } from '../../scrollRestore';
 
 export interface SearchStateChange {
   query: string;
@@ -28,9 +29,17 @@ export interface SearchStateChange {
       (incl. '') = write `f=<v>` (an explicit '' records "user cleared every
       filter", which must override the focus-tag default on reload — 条件2). */
   filtersEncoded: string | undefined;
+  /** VocabView's コンポ別モード subject (the `s` param). BrowseView never sets
+      it — this field only exists so App's shared onSearchChange can carry
+      vocab's extra axis through the same handler (view-state-continuity). */
+  subject?: string;
 }
 
 interface Props {
+  /** Per-view sessionStorage key for scroll continuity — the route.view name
+      ('tags' | 'browse' | 'spec'), distinct so each nav destination keeps its
+      own scroll position (view-state-continuity). */
+  scrollKey: string;
   facet: 'tags' | 'specs';
   initialFocusTagId?: string;
   initialFocusTxId?: string;
@@ -120,6 +129,7 @@ function deriveFilters(searchFiltersEncoded: string | undefined, initialFocusTag
 }
 
 export function BrowseView({
+  scrollKey,
   facet,
   initialFocusTagId,
   initialFocusTxId,
@@ -344,6 +354,11 @@ export function BrowseView({
   const tagsReady = facet === 'tags' && tagsSettled;
   const specsReady = facet === 'specs' && specsSettled;
   const failedCount = facet === 'tags' ? tagsFailedCount : specsFailedCount;
+
+  // Restore this view's saved scroll once its cards have loaded — unless a
+  // focused record (comment jump / #/spec/<id>) is going to scrollIntoView
+  // instead, which takes precedence (view-state-continuity, scroll-restore).
+  useScrollRestore(scrollKey, tagsReady || specsReady, !!(initialFocusTagId || initialFocusTxId));
 
   useEffect(() => {
     const id = scrollTarget.current;
