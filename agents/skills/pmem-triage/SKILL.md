@@ -31,7 +31,9 @@ description: 既存 spec（pmem の decision／transition）に照らして、in
 > に従う**（スキルのベースディレクトリ起点）。以下は薄い呼び口。
 
 1. **該当 spec を特定する**——input が触る挙動を支配している decision と transition を引く。方針を根拠づける材料。
+   id や領域がまだ分からないときは、まず `pmem search` で keyword から候補レコードを逆引きし、そこから rules/show/decision list で正確な集合を詰める。
    ```
+   pmem search <keyword> [--type tag|transition|vocab|decision] [--json]  # id 未確定なら逆引きの入口（read-only）
    pmem rules --tag <領域>          # 自身＋祖先タグへの decisions＝守るべき規則の全集合
    pmem show tag <id> / pmem show tx <id> --resolve    # 現状の契約
    pmem decision list --on tag:<id>|transition:<id>    # その対象ちょうどの決定（完全一致）
