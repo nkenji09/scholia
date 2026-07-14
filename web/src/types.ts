@@ -183,6 +183,12 @@ export interface SpecEntry {
 export interface SpecReport {
   tag: Tag;
   entries: SpecEntry[];
+  // このタグ自体を target とする decision（§3.5 cross-cutting）。Go 側の
+  // render.SpecReport.TagDecisions（omitempty）と同期。tag が transition を
+  // 持つか（entries が空か）に関係なく常に載る第一級レコード。従来は entries を
+  // flatMap して拾っていたが、0-tx タグでは entries が空で完全に消えていた
+  // （tag-decision-visibility）。該当なしは省略される。
+  tagDecisions?: Decision[];
   // このタグを直接持つ語彙（VocabEntry.Tags 逆引き・H3 の関連語彙）。Go 側の
   // render.SpecReport.RelatedVocab（omitempty）と同期。該当なしは省略される。
   relatedVocab?: VocabEntry[];

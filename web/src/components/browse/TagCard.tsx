@@ -53,10 +53,13 @@ export function TagCard({ tag, report, isGap, parents, children, cardRef, onFilt
   // H3: このタグを直接持つ語彙（Go 側 render.SpecReport.RelatedVocab・
   // VocabEntry.Tags の逆引き）。関連仕様の"上"に常時開きで出す。
   const relatedVocab = report?.relatedVocab || [];
-  // このタグ自身に直接ぶら下がる decision のみ（祖先/子孫タグの cross-cutting は
-  // 出さない）。Go 側 render.Spec は subject タグの decision しか埋めないが、
-  // target.id を明示照合して「そのレコード自身の意思決定だけ」を保証する。
-  const tagDecisions = dedupeDecisions(entries.flatMap((e) => (e.decisions || []).filter((d) => d.target.type === 'tag' && d.target.id === tag.id)));
+  // このタグ自身に直接ぶら下がる decision（own-only・祖先/子孫の cross-cutting は
+  // 出さない・req.comfortable-viewer.decision-display）。Go 側 render.SpecReport の
+  // トップレベル tagDecisions を読む。従来は entries を flatMap して拾っていたが、
+  // transition を持たないタグでは entries が空で decision が完全に消えていた
+  // （tag-decision-visibility）。target.id 明示照合は「そのレコード自身の意思決定
+  // だけ」を保証する保険として残す。
+  const tagDecisions = dedupeDecisions((report?.tagDecisions || []).filter((d) => d.target.type === 'tag' && d.target.id === tag.id));
   // §8.8 P5 vocab/tag（generalized from SpecCard's hasUncommentedChange・
   // §8.3）: see VocabCard.tsx's identical comment.
   const hasUncommentedChange = changedTagIds.has(tag.id) && !comments.some((c) => c.recordType === 'tag' && c.recordId === tag.id);
@@ -168,6 +171,10 @@ export function TagCard({ tag, report, isGap, parents, children, cardRef, onFilt
           count={tagDecisions.length}
           icon="gavel"
           label={t.browse.relatedDecisions}
+          // decision はタグの核となる履歴なので件数しきい値で隠さず既定展開。
+          // 特に「【不採用】」判断のように「一番残したい履歴」を折りたたまない
+          // （tag-decision-visibility）。localStorage 済みのユーザー操作は従来通り最優先。
+          defaultOpen={true}
           extra={
             <CommentButton recordType="tag" recordId={tag.id} recordTitle={tag.name || tag.id} anchor="decisions" anchorLabel={t.browse.relatedDecisions} />
           }
