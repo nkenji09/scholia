@@ -106,7 +106,14 @@ pmem view   # opens at http://127.0.0.1:4577
 
 The viewer includes tag-hierarchy navigation, requirement traceability, and an evaluation drawer that checks uncommitted changes against past decisions.
 
-> (TODO: viewer screenshot)
+## Screenshots
+
+The viewer running against this repository's own `.pmem/` records (dogfooding).
+
+| | |
+|---|---|
+| ![Tag tree](docs/images/tag-tree.png) Tag index tree, grouped by category (requirement / concern / component) | ![Spec card](docs/images/spec-card.png) A transition spec card — trigger, given, result, tags, and its decision |
+| ![Tag decisions](docs/images/tag-decisions.png) A requirement tag's user story, related specs, and accumulated decisions | ![Home](docs/images/home.png) Home — requirement traceability and recent decisions at a glance |
 
 ## Records are written through the CLI
 

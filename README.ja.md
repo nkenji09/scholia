@@ -105,7 +105,14 @@ pmem view   # http://127.0.0.1:4577 で開く
 
 ビューアは、タグ階層のナビ、要件トレーサビリティ、そして未コミットの変更を過去の decision と突き合わせる評価ドロワーを備える。
 
-> （TODO: viewer のスクリーンショット）
+## スクリーンショット
+
+本リポジトリ自身の `.pmem/` レコード（dogfooding）に対してビューアを動かした画面。
+
+| | |
+|---|---|
+| ![タグツリー](docs/images/tag-tree.png) タグのインデックスツリー（要件・関心・コンポーネントのカテゴリで分類） | ![仕様カード](docs/images/spec-card.png) 遷移の仕様カード（trigger・given・result・タグ・付随する decision） |
+| ![タグの意思決定](docs/images/tag-decisions.png) 要件タグのユーザーストーリー・関連仕様・積み上がった意思決定 | ![ホーム](docs/images/home.png) ホーム（要件トレーサビリティと直近の意思決定を一目で） |
 
 ## レコードは CLI 経由で書く
 
