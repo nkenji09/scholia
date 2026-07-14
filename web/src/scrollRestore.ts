@@ -61,36 +61,70 @@ function writeSaved(view: string, top: number): void {
  * (and rAF would stall anyway when the tab is backgrounded). A short
  * setTimeout re-apply covers card bodies (markdown/spec detail) that finish
  * laying out a beat later and could otherwise clamp the first attempt.
+ *
+ * Saving is gated on the restore having run (`restored`). This is essential:
+ * while a view is still loading it renders a short placeholder, so the scrollY
+ * inherited from the previous view clamps to ~0 and fires a `scroll` event. On
+ * a slow view (tags settles 47 spec fetches, well past the 100ms save debounce)
+ * that clamp would otherwise persist `0` before the restore — gated on `ready`
+ * — ever reads it, destroying the saved position. So pre-restore scroll events
+ * (clamp / layout, never the user) are ignored, and the restore reads the
+ * position captured at mount rather than a possibly-clobbered sessionStorage.
  */
 export function useScrollRestore(view: string, ready: boolean, skipRestore = false): void {
-  // Last observed scrollY. Seeded lazily from the saved value so an unmount
-  // that happens before any scroll event doesn't clobber a real saved position
-  // with a stale 0.
-  const latest = useRef<number | null>(null);
+  // Position to restore, captured during the first render — before any effect
+  // runs and before the loading-clamp scroll's debounce could overwrite
+  // sessionStorage. The restore reads THIS, not a fresh readSaved().
+  const targetRef = useRef<number | null>(null);
+  const captured = useRef(false);
+  if (!captured.current) {
+    targetRef.current = readSaved(view);
+    captured.current = true;
+  }
+
+  // Last observed scrollY (only tracked once saving is enabled).
+  const latest = useRef<number>(targetRef.current ?? 0);
   const restored = useRef(false);
 
   useEffect(() => {
-    if (latest.current === null) latest.current = readSaved(view) ?? 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const onScroll = () => {
+      // Ignore clamp/layout scrolls that fire before the restore has run — only
+      // the user's own scrolling (after restore) should be persisted.
+      if (!restored.current) return;
       latest.current = window.scrollY;
       if (timer) clearTimeout(timer);
-      timer = setTimeout(() => writeSaved(view, latest.current ?? 0), 100);
+      timer = setTimeout(() => writeSaved(view, latest.current), 100);
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
       window.removeEventListener('scroll', onScroll);
       if (timer) clearTimeout(timer);
-      writeSaved(view, latest.current ?? 0);
+      // Flush the last user position on leave — but only if the restore ran
+      // (saving was enabled). Leaving mid-load must not overwrite the saved
+      // value with a pre-restore clamp of 0.
+      if (restored.current) writeSaved(view, latest.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
 
   useEffect(() => {
-    if (!ready || restored.current || skipRestore) return;
-    restored.current = true;
-    const target = readSaved(view) ?? 0;
+    if (!ready || restored.current) return;
+    if (skipRestore) {
+      // A focused record (comment jump / #/spec|vocab/<id>) will scrollIntoView
+      // instead — don't fight it. Just enable saving from here so the user's
+      // subsequent scrolling is remembered.
+      latest.current = window.scrollY;
+      restored.current = true;
+      return;
+    }
+    const target = targetRef.current ?? 0;
     latest.current = target;
+    // Enable saving as the final act, so the scrollTo below (and any user
+    // scroll after) is persisted, but nothing before it was.
+    restored.current = true;
+    // With no saved position, reset to the top: the window scroll is shared
+    // across views, so this stops the previous view's position from bleeding in.
     window.scrollTo(0, target);
     if (target === 0) return;
     // Re-apply once after layout settles: some card bodies grow a beat after
