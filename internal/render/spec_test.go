@@ -60,13 +60,74 @@ func TestSpec_ResolvesLabelsAndAttachesDecisions(t *testing.T) {
 		t.Fatalf("ThenLabels = %v", e.ThenLabels)
 	}
 
-	// 遷移自身の decision (d1) と subjectTag の decision (d2) の両方が付く。関係ない d3 は付かない。
+	// entry には遷移自身の decision (d1) だけが付く。subjectTag の decision (d2) は
+	// トップレベル TagDecisions へ移り、entries には混ざらない（tag-decision-visibility）。
 	var gotIDs []string
 	for _, d := range e.Decisions {
 		gotIDs = append(gotIDs, d.ID)
 	}
-	if len(gotIDs) != 2 || gotIDs[0] != "d1" || gotIDs[1] != "d2" {
-		t.Fatalf("Decisions ids = %v, want [d1 d2]", gotIDs)
+	if len(gotIDs) != 1 || gotIDs[0] != "d1" {
+		t.Fatalf("entry Decisions ids = %v, want [d1] (transition-own only)", gotIDs)
+	}
+
+	// subjectTag (subject.auth) 自体の decision (d2) はトップレベルに載る。関係ない d3 は載らない。
+	var tagIDs []string
+	for _, d := range report.TagDecisions {
+		tagIDs = append(tagIDs, d.ID)
+	}
+	if len(tagIDs) != 1 || tagIDs[0] != "d2" {
+		t.Fatalf("TagDecisions ids = %v, want [d2]", tagIDs)
+	}
+}
+
+// tag-decision-visibility の核: transition を持たないタグでも、その tag を target と
+// する decision はトップレベル TagDecisions に載る（entries=0 でも消えない）。
+func TestSpec_TagDecisionsSurfaceWithZeroTransitions(t *testing.T) {
+	snap := testSnapshot()
+	// transition を一切持たない要件タグ（例: 「実装しない」判断を刻んだ leaf）。
+	snap.Tags = append(snap.Tags, model.Tag{ID: "req.not-implemented", Name: "不採用要件", Kind: "requirement"})
+	snap.Decisions = append(snap.Decisions, model.Decision{
+		ID:     "d4",
+		Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "req.not-implemented"},
+		Why:    "【不採用】この要件は実装しない",
+		At:     "2026-01-04T00:00:00Z",
+	})
+	ix := index.Build(snap)
+
+	report, err := Spec(snap, ix, "req.not-implemented")
+	if err != nil {
+		t.Fatalf("Spec: %v", err)
+	}
+	if len(report.Entries) != 0 {
+		t.Fatalf("Entries = %+v, want none (tag has no transitions)", report.Entries)
+	}
+	if len(report.TagDecisions) != 1 || report.TagDecisions[0].ID != "d4" {
+		t.Fatalf("TagDecisions = %+v, want [d4] surfaced despite zero transitions", report.TagDecisions)
+	}
+}
+
+// WriteText は entries=0 でもタグ decision をトップレベル decisions セクションに出す。
+func TestWriteText_TagDecisionsVisibleWithZeroTransitions(t *testing.T) {
+	snap := testSnapshot()
+	snap.Tags = append(snap.Tags, model.Tag{ID: "req.not-implemented", Name: "不採用要件", Kind: "requirement"})
+	snap.Decisions = append(snap.Decisions, model.Decision{
+		ID:     "d4",
+		Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "req.not-implemented"},
+		Why:    "【不採用】この要件は実装しない",
+		At:     "2026-01-04T00:00:00Z",
+	})
+	ix := index.Build(snap)
+	report, err := Spec(snap, ix, "req.not-implemented")
+	if err != nil {
+		t.Fatalf("Spec: %v", err)
+	}
+
+	var buf bytes.Buffer
+	WriteText(&buf, report)
+	out := buf.String()
+
+	if !strings.Contains(out, "decisions:") || !strings.Contains(out, "【不採用】この要件は実装しない") {
+		t.Fatalf("WriteText で 0-tx タグの decision が出ていない:\n%s", out)
 	}
 }
 
