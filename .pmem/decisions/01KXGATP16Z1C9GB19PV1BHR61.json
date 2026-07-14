@@ -1,0 +1,10 @@
+{
+  "id": "01KXGATP16Z1C9GB19PV1BHR61",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.decision-display"
+  },
+  "why": "tag の decision は、その tag が transition を持つかに関係なく、常に tag カードに表示する。SpecReport にトップレベルの tagDecisions フィールドを持たせ、Spec() が decisionsForTarget(DecisionTargetTag, subjectTag) の結果をそこへ入れる（entries が 0 件でも入る）。web TagCard は entries[].decisions を漁るのをやめ report.tagDecisions を読む。理由=決定（特に「【不採用】＝実装しない」判断）は transition を持たないタグに付くことが多く、entries 経由の従来実装では TransitionsByTag が 0 件のタグの decision が貼る先を失い完全に消えていた（一番残したい履歴が一番確実に消える）。可視性が「たまたま transition があるか」に依存してはならない。既存 decision 818960c（own-only 表示・target がそのタグ自身の decision だけ）とは非矛盾で、own-only を保ったまま可視性を transition 非依存にする補完である。",
+  "changed": "decision の可視性を transition の有無から分離（SpecReport トップレベル tagDecisions）",
+  "at": "2026-07-14T12:50:00Z"
+}
