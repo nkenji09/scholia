@@ -1,0 +1,5 @@
+{
+  "id": "cond.rename-new-ids-collide",
+  "category": "condition",
+  "label": "rename 先 id（cascade 生成分を含む）のいずれかが既存タグと衝突する"
+}
