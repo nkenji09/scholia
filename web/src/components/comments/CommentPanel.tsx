@@ -75,7 +75,7 @@ export function CommentPanel({ onGoto }: Props) {
     cancelCreateTask,
     saveNewTask,
   } = useComments();
-  const { changedTransitionIds, changedVocabIds, changedTagIds, refresh: refreshPendingDiff } = usePendingDiff();
+  const { changedTransitionIds, changedVocabIds, changedTagIds, addedTransitionIds, addedVocabIds, addedTagIds, refresh: refreshPendingDiff } = usePendingDiff();
 
   // 削除（提案）（change-cockpit-design-v3.md §8.8 P5・M-5「削除」・G-1′
   // 拡張）: composer が transition を指しているときだけ出るトグル。
@@ -167,12 +167,16 @@ export function CommentPanel({ onGoto }: Props) {
   // Set it consults changes (transition/vocab/tag each has its own pending-
   // diff Set from usePendingDiff()); 'page' comments never qualify (a page
   // isn't a .pmem record with a diff).
-  const isProposalComment = (c: DisplayComment) => {
-    if (c.recordType === 'transition') return changedTransitionIds.has(c.recordId);
-    if (c.recordType === 'vocab') return changedVocabIds.has(c.recordId);
-    if (c.recordType === 'tag') return changedTagIds.has(c.recordId);
+  // #32 A是正: 「pending change」は changed だけでなく added（main に無い
+  // 新規レコード）も含む — ProposalCard/RecordDiffCard 側が added を
+  // after-only で描画できるようになったのに合わせ、ここで added* Set も見る。
+  const hasPendingChange = (recordType: DisplayComment['recordType'], recordId: string) => {
+    if (recordType === 'transition') return changedTransitionIds.has(recordId) || addedTransitionIds.has(recordId);
+    if (recordType === 'vocab') return changedVocabIds.has(recordId) || addedVocabIds.has(recordId);
+    if (recordType === 'tag') return changedTagIds.has(recordId) || addedTagIds.has(recordId);
     return false;
   };
+  const isProposalComment = (c: DisplayComment) => hasPendingChange(c.recordType, c.recordId);
 
   // Proposal comments (change + comment) group to the front (§8.2/§8.8),
   // most-recently-updated first within each group (stable sort keeps the
@@ -263,11 +267,11 @@ export function CommentPanel({ onGoto }: Props) {
                 <span class="dim">›</span>
                 <span class="dim">{composer.anchorLabel}</span>
               </div>
-              {composer.recordType === 'transition' && changedTransitionIds.has(composer.recordId) && <ProposalCard txId={composer.recordId} />}
-              {composer.recordType === 'vocab' && changedVocabIds.has(composer.recordId) && (
+              {composer.recordType === 'transition' && hasPendingChange('transition', composer.recordId) && <ProposalCard txId={composer.recordId} />}
+              {composer.recordType === 'vocab' && hasPendingChange('vocab', composer.recordId) && (
                 <RecordDiffCard recordType="vocab" recordId={composer.recordId} />
               )}
-              {composer.recordType === 'tag' && changedTagIds.has(composer.recordId) && <RecordDiffCard recordType="tag" recordId={composer.recordId} />}
+              {composer.recordType === 'tag' && hasPendingChange('tag', composer.recordId) && <RecordDiffCard recordType="tag" recordId={composer.recordId} />}
               {/* 削除（提案）（§8.8 P5・M-5「削除」・G-1′ 拡張）: どの
                   transition ドロワーからでも出せる（変更の有無を問わない）
                   — ProposalCard 上の「反映」と違い下書きを持たず、確定を

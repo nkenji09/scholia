@@ -537,6 +537,19 @@
   margin-left: auto;
 }
 
+/* #32 A是正: added（main に無い新規レコード）の diff カードは changed 用の
+   赤系「未コミット」バッジと区別し、SpecCard の card-added-proposal/
+   spec-card-added-badge と同じ緑系トーンに揃える（§3 の3種別表で「追加」
+   は一貫して緑）。 */
+.proposal-card-added {
+  border-color: var(--lm-success-strong);
+}
+
+.proposal-card-badge-added {
+  color: var(--lm-success-strong);
+  border: 1px dashed var(--lm-success-strong);
+}
+
 .proposal-card-note {
   font-size: var(--fs-3xs);
   margin: 0 0 var(--sp-3);

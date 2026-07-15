@@ -58,7 +58,7 @@ function cloneTransition(t: Transition): Transition {
 
 export function ProposalCard({ txId }: Props) {
   const t = useT();
-  const { unavailable, getChange, refresh } = usePendingDiff();
+  const { unavailable, getChange, getAddedTransition, refresh } = usePendingDiff();
   const { vocabById, tagById, vocabLabel, tagName } = useLookups();
 
   // Refetch when the drawer's focus lands on a (possibly different)
@@ -68,6 +68,10 @@ export function ProposalCard({ txId }: Props) {
   useEffect(refresh, [txId]);
 
   const change = getChange(txId);
+  // #32 A是正: main に無い新規 transition（before が存在しない）は
+  // getChange では拾えない — transitions.added[] 側から引き、
+  // after-only（全項目「追加」）の read-only カードを描画する。
+  const addedTx = !change ? getAddedTransition(txId) : undefined;
 
   const [draft, setDraft] = useState<Transition | null>(null);
   const [saving, setSaving] = useState(false);
@@ -94,6 +98,62 @@ export function ProposalCard({ txId }: Props) {
   if (unavailable === 'error') {
     return <p class="proposal-card-note dim">{t.comments.proposalUnavailableError}</p>;
   }
+
+  if (addedTx) {
+    return (
+      <div class="proposal-card proposal-card-added">
+        <div class="proposal-card-head">
+          <Icon name="git-compare" size={14} />
+          <span class="proposal-card-title">{t.comments.proposalHeading}</span>
+          <span class="proposal-card-badge proposal-card-badge-added">{t.comments.proposalAddedBadge}</span>
+        </div>
+
+        <div class="proposal-row">
+          <span class="proposal-row-key">{t.flow.trigger}</span>
+          <span class="proposal-row-atoms">
+            <Atom kind="add">{vocabLabel(addedTx.action)}</Atom>
+          </span>
+        </div>
+
+        <div class="proposal-row">
+          <span class="proposal-row-key">{t.flow.given}</span>
+          <span class="proposal-row-atoms">
+            {addedTx.given.length === 0 && <span class="dim">{t.flow.noGiven}</span>}
+            {addedTx.given.map((id) => (
+              <Atom key={id} kind="add">
+                {vocabLabel(id)}
+              </Atom>
+            ))}
+          </span>
+        </div>
+
+        <div class="proposal-row">
+          <span class="proposal-row-key">{t.flow.result}</span>
+          <span class="proposal-row-atoms">
+            {addedTx.then.map((id) => (
+              <Atom key={id} kind="add">
+                {vocabLabel(id)}
+              </Atom>
+            ))}
+          </span>
+        </div>
+
+        {(addedTx.tags || []).length > 0 && (
+          <div class="proposal-row">
+            <span class="proposal-row-key">{t.browse.tagsHeading}</span>
+            <span class="proposal-row-atoms">
+              {(addedTx.tags || []).map((id) => (
+                <Atom key={id} kind="add">
+                  {tagName(id)}
+                </Atom>
+              ))}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (!change || !draft) return null;
 
   const dirty =

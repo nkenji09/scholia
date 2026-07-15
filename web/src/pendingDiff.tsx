@@ -28,6 +28,12 @@ interface PendingDiff {
       but not at base — the subject spec list decorates these as a green
       "新規 Transition（提案）" card (§3's 3-種別表). */
   addedTransitionIds: Set<string>;
+  /** #32 A是正: `addedTransitionIds` に属する transition の全内容（after
+      のみ・before は存在しない）。ProposalCard の after-only（全追加）描画
+      が working-tree の現在値を取るのに使う — useLookups().transitionById
+      は起動時 1 回のキャッシュで新規追加を拾えないことがあるため、必ず
+      pending diff（refresh() で都度取り直す）側から引く。 */
+  getAddedTransition: (txId: string) => Transition | undefined;
   /** §8.8 P5・M-5「削除」: full records (base-side) of transitions present
       at base but removed from the working tree — these no longer resolve
       via GET /api/transitions/{id}, so the tombstone card renders straight
@@ -40,10 +46,14 @@ interface PendingDiff {
   getVocabChange: (id: string) => DiffChange<VocabEntry> | undefined;
   /** §8.8 P5・M-5「追加/削除」の vocab 版（addedTransitionIds/removedTransitions と対称）。 */
   addedVocabIds: Set<string>;
+  /** #32 A是正: getAddedTransition の vocab 版。 */
+  getAddedVocab: (id: string) => VocabEntry | undefined;
   removedVocab: VocabEntry[];
   changedTagIds: Set<string>;
   getTagChange: (id: string) => DiffChange<Tag> | undefined;
   addedTagIds: Set<string>;
+  /** #32 A是正: getAddedTransition の tag 版。 */
+  getAddedTag: (id: string) => Tag | undefined;
   removedTags: Tag[];
   /** Bumped on every refresh() — a plain re-render trigger other views
       (BrowseView's specs-facet transition list) key their own refetch off
@@ -102,6 +112,9 @@ export function PendingDiffProvider({ children }: { children: ComponentChildren 
   const getChange = (txId: string) => result?.transitions.changed?.find((c) => c.id === txId);
   const getVocabChange = (id: string) => result?.vocab.changed?.find((c) => c.id === id);
   const getTagChange = (id: string) => result?.tags.changed?.find((c) => c.id === id);
+  const getAddedTransition = (txId: string) => result?.transitions.added?.find((tx) => tx.id === txId);
+  const getAddedVocab = (id: string) => result?.vocab.added?.find((v) => v.id === id);
+  const getAddedTag = (id: string) => result?.tags.added?.find((tg) => tg.id === id);
 
   const value: PendingDiff = {
     ready,
@@ -109,14 +122,17 @@ export function PendingDiffProvider({ children }: { children: ComponentChildren 
     changedTransitionIds,
     getChange,
     addedTransitionIds,
+    getAddedTransition,
     removedTransitions,
     changedVocabIds,
     getVocabChange,
     addedVocabIds,
+    getAddedVocab,
     removedVocab,
     changedTagIds,
     getTagChange,
     addedTagIds,
+    getAddedTag,
     removedTags,
     version,
     refresh: load,

@@ -104,7 +104,7 @@ function TextRow({ label, before, after }: { label: string; before?: string; aft
 // （P2/P3）はそのまま再利用。
 export function RecordDiffCard({ recordType, recordId }: Props) {
   const t = useT();
-  const { unavailable, getVocabChange, getTagChange, refresh } = usePendingDiff();
+  const { unavailable, getVocabChange, getTagChange, getAddedVocab, getAddedTag, refresh } = usePendingDiff();
   const { tagName } = useLookups();
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -117,41 +117,52 @@ export function RecordDiffCard({ recordType, recordId }: Props) {
     return <p class="proposal-card-note dim">{t.comments.proposalUnavailableError}</p>;
   }
 
-  const head = (children: ComponentChildren) => (
-    <div class="proposal-card">
+  const head = (isAdded: boolean, children: ComponentChildren) => (
+    <div class={'proposal-card' + (isAdded ? ' proposal-card-added' : '')}>
       <div class="proposal-card-head">
         <Icon name="git-compare" size={14} />
         <span class="proposal-card-title">{t.comments.proposalHeading}</span>
-        <span class="proposal-card-badge">{t.comments.proposalUncommitted}</span>
+        <span class={'proposal-card-badge' + (isAdded ? ' proposal-card-badge-added' : '')}>
+          {isAdded ? t.comments.proposalAddedBadge : t.comments.proposalUncommitted}
+        </span>
       </div>
       {children}
     </div>
   );
 
+  // #32 A是正: main に無い新規レコード（before が存在しない）は
+  // getVocabChange/getTagChange では拾えない — vocab.added[]/tags.added[]
+  // 側から引く。ScalarRow/SetRow/TextRow は before が undefined でも
+  // 「全項目 added」として描画できる（before 側の分岐が素通りするだけ）ので、
+  // 変更後カードと同じ行コンポーネントをそのまま再利用できる。
   if (recordType === 'vocab') {
     const change = getVocabChange(recordId);
-    if (!change) return null;
-    const { before, after } = change;
+    const after = change?.after ?? getAddedVocab(recordId);
+    if (!after) return null;
+    const before = change?.before;
     return head(
+      !change,
       <>
-        <ScalarRow label={t.comments.recordDiffLabelField} before={before.label} after={after.label} />
-        <ScalarRow label={t.comments.recordDiffKindField} before={before.kind} after={after.kind} />
-        <ScalarRow label={t.vocab.owner} before={before.owner} after={after.owner} />
-        <TextRow label={t.comments.recordDiffDescriptionField} before={before.description} after={after.description} />
+        <ScalarRow label={t.comments.recordDiffLabelField} before={before?.label} after={after.label} />
+        <ScalarRow label={t.comments.recordDiffKindField} before={before?.kind} after={after.kind} />
+        <ScalarRow label={t.vocab.owner} before={before?.owner} after={after.owner} />
+        <TextRow label={t.comments.recordDiffDescriptionField} before={before?.description} after={after.description} />
       </>,
     );
   }
 
   const change = getTagChange(recordId);
-  if (!change) return null;
-  const { before, after } = change;
+  const after = change?.after ?? getAddedTag(recordId);
+  if (!after) return null;
+  const before = change?.before;
   return head(
+    !change,
     <>
-      <ScalarRow label={t.comments.recordDiffNameField} before={before.name} after={after.name} />
-      <ScalarRow label={t.comments.recordDiffKindField} before={before.kind} after={after.kind} />
+      <ScalarRow label={t.comments.recordDiffNameField} before={before?.name} after={after.name} />
+      <ScalarRow label={t.comments.recordDiffKindField} before={before?.kind} after={after.kind} />
       <SetRow
         label={t.comments.recordDiffParentsField}
-        before={before.parentIds || []}
+        before={before?.parentIds || []}
         after={after.parentIds || []}
         resolveLabel={tagName}
         emptyLabel={t.comments.recordDiffNoParents}
