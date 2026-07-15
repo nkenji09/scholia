@@ -134,6 +134,11 @@ pmem lint [--json]
 pmem diff [<ref1> [<ref2>]] [--json]                       # 現在 vs ref1、または ref1 vs ref2（landed 監査）
 
 # ビューア
-pmem view [--port <p>]
+pmem view [--port <p>] [--host <h>]
 pmem export --html <dir>
 ```
+
+`pmem view` は既定 `127.0.0.1`（ローカル専用）。LAN 公開（スマホ等で見る）は `--host 0.0.0.0` 等の明示指定が
+要る opt-in（`pmem view --help` が真値）。レビュー提示（deep-link route。DESIGN §7・hash ルーティング）:
+タグ spec=`#/spec/<tagId>`、transition=`#/browse/tx/<txId>`（tag と組み合わせ可: `#/browse/tag/<tagId>/tx/<txId>`）、
+vocab=`#/vocab/<id>`（実ルートの正本は `web/src/router.ts`）。
