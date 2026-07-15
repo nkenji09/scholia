@@ -1,6 +1,11 @@
 package cli
 
-import "testing"
+import (
+	"errors"
+	"net"
+	"strings"
+	"testing"
+)
 
 // TestIsLocalHost covers the boundary --host's LAN-exposure warning fires
 // on (2026-07-11 handoff: opt-in --host flag). `view`'s RunE itself blocks
@@ -38,5 +43,47 @@ func TestViewCmd_HostFlagDefaultsToLoopback(t *testing.T) {
 	}
 	if f.DefValue != "127.0.0.1" {
 		t.Fatalf("--host default = %q, want 127.0.0.1 (default behavior must stay unchanged)", f.DefValue)
+	}
+}
+
+// TestClassifyListenErr_PortInUse drives a real EADDRINUSE by binding the
+// same port twice, then checks the resulting error names the cause (port
+// in use) and the next step (--port / stop the other process), per
+// §T-view-start-port-in-use.
+func TestClassifyListenErr_PortInUse(t *testing.T) {
+	first, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to bind first listener: %v", err)
+	}
+	defer first.Close()
+
+	_, bindErr := net.Listen("tcp", first.Addr().String())
+	if bindErr == nil {
+		t.Fatal("expected second Listen on the same address to fail")
+	}
+
+	port := first.Addr().(*net.TCPAddr).Port
+	got := classifyListenErr(bindErr, port)
+	if got == nil {
+		t.Fatal("classifyListenErr returned nil for a real bind failure")
+	}
+	if !strings.Contains(got.Error(), "使用中です") || !strings.Contains(got.Error(), "--port") {
+		t.Errorf("classifyListenErr(EADDRINUSE) = %q, want a message naming the cause (使用中) and the next step (--port)", got.Error())
+	}
+}
+
+// TestClassifyListenErr_OtherErr checks non-EADDRINUSE bind failures (e.g.
+// permission denied) still get a clear, non-nil error instead of being
+// mistaken for port contention.
+func TestClassifyListenErr_OtherErr(t *testing.T) {
+	got := classifyListenErr(errors.New("permission denied"), 80)
+	if got == nil {
+		t.Fatal("classifyListenErr returned nil for a generic bind failure")
+	}
+	if strings.Contains(got.Error(), "使用中です") {
+		t.Errorf("classifyListenErr(generic err) = %q, should not claim port is in use", got.Error())
+	}
+	if !strings.Contains(got.Error(), "bind に失敗しました") {
+		t.Errorf("classifyListenErr(generic err) = %q, want it to say bind failed", got.Error())
 	}
 }
