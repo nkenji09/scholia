@@ -1,0 +1,5 @@
+{
+  "id": "cond.install-source-goinstall",
+  "category": "condition",
+  "label": "導入方式が source / go install のとき（version=dev、または runtime/debug.ReadBuildInfo がモジュール由来/GOBIN 配下を示す）"
+}
