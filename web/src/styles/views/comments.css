@@ -575,6 +575,10 @@
   flex-wrap: wrap;
   gap: 5px;
   align-items: center;
+  /* Grid items default to min-width:auto, so without this a single long
+     (nowrap) atom's min-content width forces the 1fr track — and the
+     whole row — past the drawer's fixed width instead of wrapping. */
+  min-width: 0;
 }
 
 .proposal-atom {
@@ -584,6 +588,7 @@
   border-radius: var(--r-sm);
   background: var(--lm-s2);
   color: var(--lm-text);
+  max-width: 100%;
 }
 
 .proposal-atom-add {
@@ -655,7 +660,10 @@
 }
 
 .proposal-atom-label {
-  white-space: nowrap;
+  /* Long vocab/effect labels (esp. Japanese, no spaces to break on) must
+     wrap within the pill rather than push it past the drawer's fixed
+     width — nowrap was fine for short labels but overflowed on long ones. */
+  overflow-wrap: anywhere;
 }
 
 /* Dim only the text, not the move/remove controls next to it — putting
