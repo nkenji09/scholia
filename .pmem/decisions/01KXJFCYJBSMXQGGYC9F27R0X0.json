@@ -1,0 +1,10 @@
+{
+  "id": "01KXJFCYJBSMXQGGYC9F27R0X0",
+  "target": {
+    "type": "transition",
+    "id": "T-viewer-proposal-card-added"
+  },
+  "why": "採用(#32): D新規要件 req.evaluate-change.proposal-card を新設し、added レコードのコメントドロワーは提案を『action/given/then を全追加(after-only・緑)』の構造化 diff カードとして描画する、を正本化する。現状 CommentPanel の isProposalComment は changed 集合(changedTransition/Vocab/TagIds)のみ参照し added を判定に入れないため、added レコードのドロワーには提案カードが出ずコメント本文だけになる欠落がある。D新規提案は必ず added transition を作る=最頻ケースで評価コックピットの中核(構造化カード)が欠落するため、この挙動を正本化して実装(web/src)を後追いで適合させる。",
+  "ref": "01KXJDH286ADQN02QVA1B99AR1",
+  "at": "2026-07-15T08:48:22Z"
+}

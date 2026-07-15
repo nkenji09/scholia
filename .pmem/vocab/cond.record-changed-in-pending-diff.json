@@ -1,0 +1,5 @@
+{
+  "id": "cond.record-changed-in-pending-diff",
+  "category": "condition",
+  "label": "そのレコードが pending diff(作業ツリー vs main)で変更(changed)されている"
+}
