@@ -135,6 +135,28 @@ type Config struct {
 	// fall back to a default display value (see
 	// web/src/components/layout/Header.tsx) rather than showing nothing.
 	Branch string `json:"branch,omitempty"`
+	// SourceRefs is additive, optional config for the source-reference
+	// scanner/rewriter (`pmem {tag|vocab|tx} rename --rewrite-refs`,
+	// `pmem refs scan|rewrite`). nil (the DefaultConfig()/omitted-field
+	// case) means "use built-in defaults": scan the whole project root,
+	// no extra excludes beyond the always-excluded .pmem/.git/_workspace/
+	// .concierge (those are not configurable). This intentionally does
+	// NOT reuse Roots — Roots is a separate, still-unwired concept
+	// (extra *record* discovery roots, see the field below) and a past
+	// decision on req.record-maintenance already ruled it out of scope
+	// for rename's reference integrity, to avoid conflating record
+	// discovery with source scanning under one setting.
+	SourceRefs *SourceRefs `json:"sourceRefs,omitempty"`
+}
+
+// SourceRefs scopes where `pmem refs scan|rewrite` and rename's implicit
+// source scan look for id references, additive to Config so existing
+// config.json files decode unchanged (a nil SourceRefs is indistinguishable
+// from an absent field). Scan/Exclude are project-root-relative path
+// prefixes.
+type SourceRefs struct {
+	Scan    []string `json:"scan,omitempty"`
+	Exclude []string `json:"exclude,omitempty"`
 }
 
 // DefaultConfig は `pmem init` が書き出す既定値（§3.6 の例そのまま）。
