@@ -1,0 +1,5 @@
+{
+  "id": "cond.vocab-exists",
+  "category": "condition",
+  "label": "編集対象の vocab が実在する"
+}
