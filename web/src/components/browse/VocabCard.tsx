@@ -10,6 +10,7 @@ import { Icon } from '../shared/Icon';
 import type { IconName } from '../shared/Icon';
 import { CollapsibleSection } from '../shared/CollapsibleSection';
 import { HashLink } from '../shared/HashLink';
+import { KebabMenu } from '../shared/KebabMenu';
 import { routeHash } from '../../router';
 
 interface Props {
@@ -27,7 +28,7 @@ const CATEGORY_ICON: Record<VocabEntry['category'], IconName> = {
   effect: 'arrow-right-to-line',
 };
 
-// Mirrors TagCard's layout (kind badge → filterable name/id → description →
+// Mirrors TagCard's layout (kind badge → name/id → description →
 // card-sections) so Vocab reads as the same design language as タグ/仕様
 // rather than its own bespoke list — see .concierge/decision.md's tweaks2
 // handoff §4. Several classnames (tag-card-head/-badges/-name/-id,
@@ -66,13 +67,13 @@ export function VocabCard({ entry, uses, cardRef, onFilterTag, onFilterOwner, on
           <span class="tag-card-spacer" />
           <CommentButton recordType="vocab" recordId={entry.id} recordTitle={entry.label} anchor="card" anchorLabel={t.comments.cardAnchorLabel} />
         </div>
-        {/* Unlike TagCard's name (clicking narrows to a tag's subtree —
-            meaningful because tags nest), a vocab entry has no hierarchy to
-            drill into: filtering "to just this one entry" would be a
-            no-op AND-condition on the card you're already looking at. So
-            this is a plain heading, not a filter button — the design's +
-            mark is reserved for clicks that actually narrow something
-            (the tag chips below). */}
+        {/* Unlike TagCard's name (its ⋮ narrows to this tag — meaningful
+            because tags nest and have their own #/spec/<id> page), a vocab
+            entry has no hierarchy to drill into: filtering "to just this
+            one entry" or reopening its own #/vocab/<id> would be a no-op
+            on the card you're already looking at. So this stays a plain
+            heading with no ⋮ — the affordance is reserved for the owner/
+            tag chips below, which actually narrow or link elsewhere. */}
         <span class="tag-card-name vocab-card-name">{entry.label}</span>
       </div>
 
@@ -93,7 +94,15 @@ export function VocabCard({ entry, uses, cardRef, onFilterTag, onFilterOwner, on
             </span>
           </div>
           <div class="spec-card-chip-row">
-            <Chip color={OWNER_COLOR} onClick={() => onFilterOwner(entry.owner!)} filterable>
+            <Chip
+              color={OWNER_COLOR}
+              trailing={
+                <KebabMenu
+                  triggerLabel={t.browse.menuTrigger}
+                  items={[{ key: 'filter', label: t.browse.menuAddFilter, icon: 'plus', onSelect: () => onFilterOwner(entry.owner!) }]}
+                />
+              }
+            >
               {entry.owner}
             </Chip>
           </div>
@@ -112,7 +121,19 @@ export function VocabCard({ entry, uses, cardRef, onFilterTag, onFilterOwner, on
           </div>
           <div class="spec-card-chip-row">
             {tags.map((id) => (
-              <Chip key={id} color={kindColor(tagById.get(id)?.kind)} onClick={() => onFilterTag(id)} filterable>
+              <Chip
+                key={id}
+                color={kindColor(tagById.get(id)?.kind)}
+                trailing={
+                  <KebabMenu
+                    triggerLabel={t.browse.menuTrigger}
+                    items={[
+                      { key: 'filter', label: t.browse.menuAddFilter, icon: 'plus', onSelect: () => onFilterTag(id) },
+                      { key: 'open', label: t.browse.menuOpenLink, icon: 'external-link', href: routeHash({ view: 'spec', tagId: id }) },
+                    ]}
+                  />
+                }
+              >
                 {tagById.get(id)?.name || id}
               </Chip>
             ))}

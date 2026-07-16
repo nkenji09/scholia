@@ -7,13 +7,6 @@
    handful of fields unique to a vocab entry (sub-kind) get rules of their
    own here. */
 
-/* Overrides .tag-card-name's button hover for the non-interactive heading
-   VocabCard uses it as (see VocabCard.tsx for why it isn't a filter
-   button). */
-.vocab-card-name:hover {
-  background: transparent;
-}
-
 .vocab-card-kind {
   font-family: var(--lm-font-mono);
   font-size: var(--fs-2xs);

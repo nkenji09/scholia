@@ -10,6 +10,7 @@ import { Icon } from '../shared/Icon';
 import type { IconName } from '../shared/Icon';
 import { CollapsibleSection } from '../shared/CollapsibleSection';
 import { HashLink } from '../shared/HashLink';
+import { KebabMenu } from '../shared/KebabMenu';
 import { routeHash } from '../../router';
 
 // VocabCard と同じ category→アイコン対応（きっかけ/前提/結果 = action/
@@ -79,9 +80,7 @@ export function TagCard({ tag, report, isGap, parents, children, cardRef, onFilt
       )}
       <div class="tag-card-head">
         <div class="tag-card-badges">
-          <Chip color={kindColor(tag.kind)} onClick={onFilterSelf}>
-            {tag.kind ? tagKindLabel(tag.kind) : '?'}
-          </Chip>
+          <Chip color={kindColor(tag.kind)}>{tag.kind ? tagKindLabel(tag.kind) : '?'}</Chip>
           {parents.length > 0 && (
             <span class="tag-card-parents dim">
               <Icon name="corner-down-right" size={13} />
@@ -105,10 +104,16 @@ export function TagCard({ tag, report, isGap, parents, children, cardRef, onFilt
           )}
           <CommentButton recordType="tag" recordId={tag.id} recordTitle={tag.name || tag.id} anchor="card" anchorLabel={t.comments.cardAnchorLabel} />
         </div>
-        <button type="button" class="tag-card-name" onClick={onFilterSelf} title={t.browse.clickToFilter}>
-          {tag.name || tag.id}
-          <Icon name="plus" size={13} class="filter-plus-icon" />
-        </button>
+        <div class="tag-card-name-row">
+          <span class="tag-card-name">{tag.name || tag.id}</span>
+          <KebabMenu
+            triggerLabel={t.browse.menuTrigger}
+            items={[
+              { key: 'filter', label: t.browse.menuAddFilter, icon: 'plus', onSelect: onFilterSelf },
+              { key: 'open', label: t.browse.menuOpenLink, icon: 'external-link', href: routeHash({ view: 'spec', tagId: tag.id }) },
+            ]}
+          />
+        </div>
       </div>
 
       {tag.description && (

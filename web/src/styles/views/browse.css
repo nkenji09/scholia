@@ -516,25 +516,25 @@
   background: var(--lm-success-weak);
 }
 
-.tag-card-name {
-  display: inline-flex;
-  align-items: baseline;
+/* card-affordance-menu: タグ名行。ラベルは非クリックの見出し（flex:1 で
+   伸ばす）、末尾に⋮アフォーダンス（検索条件に追加／リンク先を開く）。以前は
+   ラベル自体がフィルタボタンだったが、kind バッジの直接クリックと導線が
+   二重化していたため⋮へ一本化（VocabCard の見出し＋trailing chip 群と
+   同じ形）。 */
+.tag-card-name-row {
+  display: flex;
+  align-items: center;
   gap: 8px;
-  align-self: flex-start;
-  border: none;
-  background: transparent;
-  padding: 4px 8px;
-  margin: -4px -8px;
-  border-radius: var(--r-md);
+}
+
+.tag-card-name {
+  flex: 1;
+  min-width: 0;
   font-size: var(--fs-xl);
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--lm-text-strong);
-  text-align: left;
-}
-
-.tag-card-name:hover {
-  background: var(--lm-s2);
+  overflow-wrap: anywhere;
 }
 
 .tag-card-body {
