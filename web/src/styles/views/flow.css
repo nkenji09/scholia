@@ -144,11 +144,14 @@
 }
 
 /* Node colors reuse the app's existing 前提/結果 grammar (--t-giv/--t-then —
-   the same tokens SpecCard's slot labels use), plus an alarming amber
-   overlay for genuine cross-transition ambiguity (overlap) layered on top
-   of the clickable effNode base (結果 nodes are the diagram's only link
-   target — see buildDiagram's header comment). mermaid's own classDef can't
-   express these (its style grammar rejects var()/color-mix()), so
+   the same tokens SpecCard's slot labels use). 結果 nodes are always green
+   (the diagram's only link target — see buildDiagram's header comment):
+   overlap and subset-shadow are shown as labeled dotted edges between
+   (still green) nodes instead of node-color overrides — a red/amber
+   override used to read as "this result is broken", when in fact both
+   results stay legitimate; only their relative priority is undefined (and
+   .pmem has no field to declare one). mermaid's own classDef can't express
+   var() colors (its style grammar rejects CSS functions), so
    `class <node> <name>` in the diagram source only attaches plain SVG
    classes — the actual colors live here, in real CSS, which supports var()
    (and stays light/dark aware automatically since this SVG is inserted into
@@ -203,12 +206,9 @@
 .flow-diagram foreignObject {
   overflow: visible;
 }
-.flow-diagram .overlapNode rect,
-.flow-diagram .overlapNode polygon {
-  fill: var(--lm-warning-weak) !important;
-  stroke: var(--lm-warning) !important;
-  stroke-width: 2px !important;
-}
+/* gapNode: total-gap marker, placed on its rightful branch in the tree now
+   (user request) — links to the missing condition's vocab entry, since
+   there is no transition to link to. */
 .flow-diagram .gapNode rect,
 .flow-diagram .gapNode polygon {
   fill: var(--lm-error-weak) !important;

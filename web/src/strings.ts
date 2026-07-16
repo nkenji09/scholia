@@ -118,12 +118,18 @@ const ja = {
     zoomIn: '拡大',
     zoomOut: '縮小',
     zoomReset: 'リセット',
-    // 点線の辺自体に付くラベル（buildDiagram 参照）。赤枠は「壊れている」に
-    // 見えるとの指摘を受け、subset-shadow はノード色を持たず辺のラベルのみで
-    // 表現する（両方の結果とも正常・優先順位が決まっていないだけ）。
+    // 点線の辺自体に付くラベル（buildDiagram 参照）。結果ノードは色を持たず
+    // 辺のラベルのみで関係を表現する（両方の結果とも正常な遷移で、赤枠に
+    // すると「壊れている」に見えるとの指摘を反映）。優先順位を定義する
+    // 仕組みは .pmem に存在しないため「優先順位未定義」という、決められるのに
+    // 決めていないかのような表現は使わない。
     coOccur: '同時に発生',
-    legendSubsetShadow: '点線＝同時に発生する組み合わせ（優先順位未定義）',
-    legendOverlap: '枠線＝重なり（優先順位未定義）',
+    legendSubsetShadow: '点線(片矢印)＝同時に発生する組み合わせ',
+    // 抜け（total-gap）マーカー。この前提を明示的に持つ遷移が1つもない、
+    // 決定木の本来あるべき枝に配置し、該当する条件の語彙ページへリンクする
+    // （遷移が存在しないので遷移詳細へはリンクできない）。
+    gapLabel: '未定義',
+    legendGap: '赤＝未定義（この前提を明示的に持つ遷移がない）',
   },
   // BROWSE(タグ/仕様) — 旧 Browse(3ペイン)/TagsView(ツリー)/SpecView を検索
   // レール＋カード一覧の1つの型に統合した画面（.concierge/decision.md A-2）。
@@ -440,8 +446,9 @@ const en: Strings = {
     zoomOut: 'Zoom out',
     zoomReset: 'Reset',
     coOccur: 'Occurs together',
-    legendSubsetShadow: 'Dotted line = fires together (priority undefined)',
-    legendOverlap: 'Border = overlap (priority undefined)',
+    legendSubsetShadow: 'Dotted line (one-way) = fires together',
+    gapLabel: 'Undefined',
+    legendGap: 'Red = undefined (no transition explicitly requires this)',
   },
   browse: {
     searchPlaceholder: 'Search by keyword or tag',

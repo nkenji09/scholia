@@ -3,7 +3,7 @@ import { api } from '../api';
 import { useT } from '../i18n';
 import { useLookups } from '../lookups';
 import { routeHash } from '../router';
-import type { FlowOverlap, FlowReport } from '../types';
+import type { FlowReport } from '../types';
 
 interface Props {
   actionId?: string;
@@ -51,13 +51,11 @@ interface Props {
 // deduped across transitions, unlike conditions), because a single click
 // target must resolve to exactly one transition.
 //
-// overlap is matched per-leaf (cell) against report.overlaps' own per-cell
-// transitions list, not just "this transition overlaps somewhere" — a
-// transition free on some axis can appear at several leaves and only
-// genuinely contends at some of them. subset-shadow is matched per shared
-// leaf too: a proper-subset transition is looser on some axis than its
-// superset (so it's "free" and appears at every leaf the superset does),
-// so an edge is drawn at every leaf where both occur.
+// subset-shadow is matched per shared leaf: a proper-subset transition is
+// looser on some axis than its superset (so it's "free" and appears at
+// every leaf the superset does), so an edge is drawn at every leaf where
+// both occur. report.overlaps (contending transitions sharing a cell) is
+// deliberately not drawn at all — see the comment at its former call site.
 //
 // When the action has no declared axes at all, there is no tree to build —
 // falls back to the flat given→junction→then shape (every given condition
@@ -67,9 +65,16 @@ function buildDiagram(
   label: (id: string) => string,
   resultLabel: string,
   coOccurLabel: string,
-): { def: string; txByToken: Map<string, string> } {
+  gapLabel: string,
+): { def: string; txByToken: Map<string, string>; gapVocabByToken: Map<string, string> } {
   const lines: string[] = ['flowchart TD'];
   const txByToken = new Map<string, string>();
+  // token -> the missing condition's vocab id, for gap markers (see below) —
+  // there is no transition to link to (a total-gap is *missing* coverage),
+  // so gap markers link to the missing condition's own vocab entry instead
+  // (user request: put the marker where it belongs in the tree, with a
+  // link, rather than a floating unlinked box).
+  const gapVocabByToken = new Map<string, string>();
 
   const undeclared = new Set(report.scope?.undeclaredGiven ?? []);
   const rowById = new Map((report.matrix.rows ?? []).map((r) => [r.transitionId, r]));
@@ -102,7 +107,7 @@ function buildDiagram(
   // is matched against it with `compatible` (partial match) rather than
   // requiring every axis, since a transition that exited early never has
   // values for axes it doesn't care about.
-  function renderTail(fromToken: string, known: Record<string, string>, txId: string, overlapEntries: FlowOverlap[]) {
+  function renderTail(fromToken: string, known: Record<string, string>, txId: string) {
     const row = rowById.get(txId);
     if (!row) return;
     let cur = fromToken;
@@ -119,29 +124,19 @@ function buildDiagram(
       cur = ct;
     }
 
-    const isOverlap = overlapEntries.some((o) => (o.transitions ?? []).includes(txId) && compatible(o.cell ?? {}, known));
-
     // 結果 collapses to ONE clickable node per transition occurrence — not
     // one per effect (user feedback: showing every effect's full sentence
     // made the diagram noisy; the full given/then text is still available
     // via `pmem flow`, so the diagram only needs a link, not the content).
-    // Subset-shadow gets no node color of its own (user feedback: red read
-    // as "this is broken", but two transitions firing together because one
-    // given is a proven subset of the other isn't an error — it's simply
-    // undefined *priority*) — only overlap (genuine cross-transition
-    // ambiguity) still gets the amber highlight. The subset-shadow edge
-    // itself carries a "同時に発生" label instead (see below).
-    const then = row.then ?? [];
-    const nodeLabel = then.length > 1 ? `${resultLabel}（${then.length}件）` : resultLabel;
+    // 結果 nodes are always green (user feedback: node-color overrides for
+    // subset-shadow/overlap read as "this is broken", but neither is an
+    // error — they're simply undefined *priority*). Both relationships are
+    // shown as labeled dotted edges between the (still green) nodes instead
+    // — see the subset-shadow/overlap edge-drawing code below.
     const rt = nextId('r');
     txByToken.set(rt, txId);
-    lines.push(`  ${rt}["${esc(nodeLabel)}"]`);
-    // Separate `class` statements, not a space/comma-joined list — mermaid's
-    // flowchart `class` directive embeds a joined list as one literal SVG
-    // class token rather than splitting it, so it would silently never
-    // match any CSS selector.
+    lines.push(`  ${rt}["${esc(resultLabel)}"]`);
     lines.push(`  class ${rt} effNode`);
-    if (isOverlap) lines.push(`  class ${rt} overlapNode`);
     lines.push(`  ${cur} --> ${rt}`);
 
     if (!terminalsByTx.has(txId)) terminalsByTx.set(txId, []);
@@ -149,20 +144,22 @@ function buildDiagram(
   }
 
   const axes = report.axes ?? [];
+  // "axisId=value" set, for placing a gap marker exactly on the branch it's
+  // about (see the axis-value loop below) instead of a floating unlinked
+  // box elsewhere in the diagram (user request).
+  const totalGapSet = new Set((report.totalGaps ?? []).map((g) => `${g.axisId}=${g.value}`));
 
   if (axes.length === 0) {
     // No declared axes: every given condition is "free" by definition (no
     // axis exists to structure it) — flat given→junction→then per
     // transition, same shape as the axis-tree's own no-axis leaf tail.
-    const overlapEntries = report.overlaps ?? [];
     for (const row of report.matrix.rows ?? []) {
       const hub = nextId('h');
       lines.push(`  ${hub}((" "))`);
       lines.push(`  class ${hub} txHub`);
-      renderTail(hub, {}, row.transitionId, overlapEntries);
+      renderTail(hub, {}, row.transitionId);
     }
   } else {
-    const overlapEntries = report.overlaps ?? [];
     // Mirrors internal/flow/analyze.go's axisSpan: pinned to whichever of
     // the axis's values this transition's given actually lists; if none,
     // "free" — compatible with every value of that axis.
@@ -180,9 +177,10 @@ function buildDiagram(
     // check-flag`, axis.update.mode alone) was appearing repeated under
     // every unrelated install/platform/status combination it doesn't care
     // about. Only transitions still pinning something ahead cause a branch;
-    // an axis value with zero such transitions isn't drawn (nothing new to
-    // show there — anything that already applied was attached at the
-    // junction above, before branching, and applies to every value alike).
+    // an axis value with zero such transitions AND no gap on it isn't drawn
+    // (nothing new to show there — anything that already applied was
+    // attached at the junction above, before branching, and applies to
+    // every value alike).
     function walk(pendingTxIds: string[], axisIndex: number, parentToken: string | null, edgeLabel: string | null, known: Record<string, string>) {
       const resolvedNow: string[] = [];
       const stillPending: string[] = [];
@@ -197,7 +195,7 @@ function buildDiagram(
       lines.push(`  ${hub}((" "))`);
       lines.push(`  class ${hub} txHub`);
       if (parentToken) lines.push(`  ${parentToken} -->|"${esc(edgeLabel ?? '')}"| ${hub}`);
-      for (const txId of resolvedNow) renderTail(hub, known, txId, overlapEntries);
+      for (const txId of resolvedNow) renderTail(hub, known, txId);
       if (stillPending.length === 0) return;
 
       // Next axis at least one still-pending transition actually pins —
@@ -214,8 +212,21 @@ function buildDiagram(
       lines.push(`  ${hub} --> ${decision}`);
       for (const value of axis.values) {
         const childTxIds = stillPending.filter((id) => axisSpan(rowById.get(id)!, axis).has(value));
-        if (childTxIds.length === 0) continue;
-        walk(childTxIds, axisIdx + 1, decision, label(value), { ...known, [axis.id]: value });
+        const isGap = totalGapSet.has(`${axis.id}=${value}`);
+        if (childTxIds.length === 0 && !isGap) continue;
+        // Gap marker sits as its own sibling right on this branch — this is
+        // exactly the branch the missing value belongs to, not a floating
+        // box elsewhere. Still-pending transitions that are merely "free"
+        // on this axis (not gaps themselves) can share the same branch, so
+        // both the marker and the recursive walk can coexist here.
+        if (isGap) {
+          const gapToken = nextId('g');
+          gapVocabByToken.set(gapToken, value);
+          lines.push(`  ${gapToken}["${esc(gapLabel)}"]`);
+          lines.push(`  class ${gapToken} gapNode`);
+          lines.push(`  ${decision} -->|"${esc(label(value))}"| ${gapToken}`);
+        }
+        if (childTxIds.length > 0) walk(childTxIds, axisIdx + 1, decision, label(value), { ...known, [axis.id]: value });
       }
     }
     walk(
@@ -246,18 +257,11 @@ function buildDiagram(
     }
   }
 
-  // total-gaps: a distinct, non-clickable "missing coverage" marker node per
-  // gap (there is no transition to click through to). Left as standalone
-  // markers, not integrated into the tree — a gap is about one axis VALUE
-  // never being specifically pinned by any transition, which doesn't map to
-  // one specific tree path (other transitions can still cover that value's
-  // cells by being "free" on that axis).
-  let gi = 0;
-  for (const g of report.totalGaps ?? []) {
-    const token = `gap_${gi++}`;
-    lines.push(`  ${token}["⚠ ${esc(`${label(g.value)}\n(${g.axisId})`)}"]`);
-    lines.push(`  class ${token} gapNode`);
-  }
+  // overlap (report.overlaps: contending transitions sharing a declared-axis
+  // cell) is deliberately NOT drawn as an edge — user feedback: with several
+  // transitions contending in the same cell, the resulting dotted-line mesh
+  // made the diagram "極端に見づらい" (extremely hard to read). The same
+  // information is still always available via `pmem flow`/`pmem gaps`.
 
   // No classDef color declarations here — mermaid's classDef style-value
   // grammar rejects CSS functions like var()/color-mix() (only plain
@@ -268,7 +272,7 @@ function buildDiagram(
   // flow.css targeting those class names directly — real CSS supports
   // var() natively, mermaid's DSL doesn't.
 
-  return { def: lines.join('\n'), txByToken };
+  return { def: lines.join('\n'), txByToken, gapVocabByToken };
 }
 
 export function FlowView({ actionId }: Props) {
@@ -412,7 +416,7 @@ export function FlowView({ actionId }: Props) {
     const host = diagramRef.current;
     if (!host || !report || (report.matrix.rows ?? []).length === 0) return;
     let cancelled = false;
-    const { def, txByToken } = buildDiagram(report, vocabLabel, t.flow.result, t.flow.coOccur);
+    const { def, txByToken, gapVocabByToken } = buildDiagram(report, vocabLabel, t.flow.result, t.flow.coOccur, t.flow.gapLabel);
     import('mermaid')
       .then(({ default: mermaid }) => {
         if (cancelled) return;
@@ -463,21 +467,32 @@ export function FlowView({ actionId }: Props) {
           // we do). Rather than depend on the exact affix scheme, match each
           // of our known transition tokens as a delimited substring of the
           // node id — robust to the diagramId prefix and any trailing index.
+          const findToken = (raw: string, map: Map<string, string>): string | undefined => {
+            for (const [token, id] of map) {
+              if (raw.includes('flowchart-' + token + '-') || raw.endsWith('flowchart-' + token)) return id;
+            }
+            return undefined;
+          };
           const nodes = diagramRef.current.querySelectorAll<SVGGElement>('g.node');
           nodes.forEach((node) => {
             const raw = node.id || '';
-            let hit: string | undefined;
-            for (const [token, txId] of txByToken) {
-              if (raw.includes('flowchart-' + token + '-') || raw.endsWith('flowchart-' + token)) {
-                hit = txId;
-                break;
-              }
-            }
-            if (!hit) return;
+            const txHit = findToken(raw, txByToken);
+            // Gap markers have no transition to link to (a total-gap is
+            // *missing* coverage) — they link to the missing condition's own
+            // vocab entry instead (user request: put the marker where it
+            // belongs in the tree, with a real link, not a floating
+            // unlinked box).
+            const gapHit = txHit ? undefined : findToken(raw, gapVocabByToken);
+            const target = txHit
+              ? routeHash({ view: 'browse', txId: txHit })
+              : gapHit
+                ? routeHash({ view: 'vocab', vocabId: gapHit })
+                : undefined;
+            if (!target) return;
             node.style.cursor = 'pointer';
             node.classList.add('flow-node-clickable');
-            // Diagram result nodes open in a new tab (user feedback) — this
-            // is the only navigable content on the page (the matrix
+            // Diagram result/gap nodes open in a new tab (user feedback) —
+            // this is the only navigable content on the page (the matrix
             // table/scope-disclosure text sections were removed), and
             // opening in a new tab keeps the diagram itself in place while
             // checking transitions one at a time.
@@ -489,7 +504,7 @@ export function FlowView({ actionId }: Props) {
                 suppressClickRef.current = false;
                 return;
               }
-              window.open(routeHash({ view: 'browse', txId: hit }), '_blank', 'noopener');
+              window.open(target, '_blank', 'noopener');
             });
           });
         });
@@ -583,7 +598,7 @@ export function FlowView({ actionId }: Props) {
               <span class="flow-legend-swatch" style={{ color: 'var(--t-then)' }} /> {t.flow.legendClickable}
             </span>
             <span>
-              <span class="flow-legend-swatch" style={{ color: 'var(--lm-warning)' }} /> {t.flow.legendOverlap}
+              <span class="flow-legend-swatch" style={{ color: 'var(--lm-error)' }} /> {t.flow.legendGap}
             </span>
             <span>{t.flow.legendSubsetShadow}</span>
           </div>
