@@ -1,0 +1,14 @@
+{
+  "id": "01KXMRBB447FDSRPH6ZAWVC7W2",
+  "target": {
+    "type": "tag",
+    "id": "axis.update.status"
+  },
+  "why": "バージョン状態軸（GitHub 最新リリースと現在版の関係）を update の正本として採用。値={cond.update-available, cond.update-up-to-date}、新しいか同一かの二値で全ケースを尽くすため total=true。Level1＝軸宣言＋タグ付与のみ・given 不変。完全修飾 given 書き換えは Level2 の別 decision（axis.update.install の decision 参照）。",
+  "changed": "axis.update.status 新設(total=true)＋cond.update-available/up-to-date にタグ付与",
+  "ref": "#39 design-options §6.1",
+  "at": "2026-07-16T06:03:15Z",
+  "commits": [
+    "6f3f10a8f6beef0278173640a6b4eb496541ac30"
+  ]
+}

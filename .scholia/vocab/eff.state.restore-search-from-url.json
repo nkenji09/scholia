@@ -1,0 +1,7 @@
+{
+  "id": "eff.state.restore-search-from-url",
+  "category": "effect",
+  "label": "URL(hash) からそのビューの検索条件/フィルタを復元する",
+  "kind": "state",
+  "owner": "viewer-web"
+}

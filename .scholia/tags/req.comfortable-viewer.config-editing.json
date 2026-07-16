@@ -1,0 +1,9 @@
+{
+  "id": "req.comfortable-viewer.config-editing",
+  "name": "設定を理解して安全に編集できる",
+  "kind": "requirement",
+  "parentIds": [
+    "req.comfortable-viewer"
+  ],
+  "description": "**As a** プロジェクトの分類軸（タグ種別・facet軸）を立ち上げ・調整する利用者\n**I want** ビューアの設定画面でconfig.jsonの各項目を意味の説明付きで見て、安全に編集したい\n**so that** lint・要件トレーサビリティ・facetナビ全体に波及する重要設定を、意味を理解した上で間違いなく変更できる\n\n### 受け入れ基準\n- tagKinds/facetKinds/traceabilityKinds/roots/viewer.portを、それぞれ何を意味し変えると何に影響するかの説明付きで編集できる\n- pmemVersion/kinds（condition/action/effect）/idPrefixは読み取り専用項目であり、表示のみで編集不可であることが明示される\n- サーバモード（`pmem view`）では上記編集可能項目を保存でき、保存の成功／バリデーションエラーのフィードバックがある\n- 静的版（`pmem export --html`のfile://で開く1ファイルHTML）では全項目が読み取り専用になり、意図的な閲覧専用であることが伝わる"
+}

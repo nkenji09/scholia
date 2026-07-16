@@ -1,0 +1,6 @@
+{
+  "id": "act.user.toggle-section",
+  "category": "action",
+  "label": "セクションを開閉／カードに focus",
+  "kind": "user"
+}

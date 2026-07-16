@@ -1,0 +1,14 @@
+{
+  "id": "01KXM9VN3FPGE5C2APBTNRWGHA",
+  "target": {
+    "type": "tag",
+    "id": "req.evaluate-change.adopt-cleanup"
+  },
+  "why": "採用(#35 D-新規): adopt/reject を第一級操作として『decision 昇格（採用=why・却下=理由を append）＋昇格元コメント削除』を1操作で束ねる要件を正本化する。狙いは『decide の後に手で review rm する』消し忘れを原理的に無くし、役目を終えたコメントを溜めず『コメント=会話/揮発 vs decision=記憶/永続』の層分けを保つこと（annotations『コメント=揮発性ローカル情報』・評価コックピット決定 01KX6DGMZKQ76747WQ7WC74X0H『評価結果=decision(永続)』に整合）。rev2 で adopt/reject を束ね操作へ昇格し AI review・人コメント両対応に拡げ、bare review rm は escape hatch として併設。rev3 で viewer のサーバ/静的モード分岐を Lens1 で洗い出し受け入れ基準の『モード分岐』節に集約。rev4(最終・正)で純 viewer 遷移 T-comment-* の given cond.viewer-server-mode を純前提化し（label から『静的モードでは書込 API 不可』の結果表現を除去）、静的モードの帰結=導線非表示は given 未充足で発火しない意味論で表れるため given でなく本タグの受け入れ基準に結果/挙動(!isStaticMode gate の Reject・DELETE /api/reviews 継承)として保持する（modeling-principles §3: condition に effect を混ぜない）。過去に『adopt でコメントを残す』と決めた decision は無く C 矛盾でなく D 新規。",
+  "changed": "req.evaluate-change 配下に adopt-cleanup 要件を新設（受け入れ基準＋モード分岐節）",
+  "ref": "#35",
+  "at": "2026-07-16T01:50:01Z",
+  "commits": [
+    "80b8090a53ded7039482eb0698a58c794c71cb92"
+  ]
+}

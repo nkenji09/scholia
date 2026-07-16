@@ -1,0 +1,10 @@
+{
+  "id": "01KXF5713J4SZ1NA7RQVDXZVHT",
+  "target": {
+    "type": "tag",
+    "id": "req.design-principles"
+  },
+  "why": "requirement を『設計原理／主要機能（ビューア）／補助機能（記録・評価・検証）／非機能』の4ルートに再分類。理由: 従来 requirement 直下に10ルートがフラットに並び、プロダクト設計原理（atoms-derive/git-native 等）と個別機能要件（comfortable-viewer 等）が同層で混在し可読性が低かった。タグ id は不変・parentIds のみで階層を足すので参照は無傷。",
+  "ref": "fd3a9b0",
+  "at": "2026-07-14T01:52:39Z"
+}

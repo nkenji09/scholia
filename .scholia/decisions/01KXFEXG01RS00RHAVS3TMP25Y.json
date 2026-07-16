@@ -1,0 +1,10 @@
+{
+  "id": "01KXFEXG01RS00RHAVS3TMP25Y",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.vocab-tree-mode"
+  },
+  "why": "モードB の transition ノードを raw id（T-xxx）ではなく、その transition の action vocab の label（WHEN 句＝『…したとき』）で表示する。理由: transition レコードは {id,action,given,then} で人間可読な label 欄を持たないため、代表名には action vocab（きっかけ）の label を借りるのが最も文脈を表す。action がノード名＝きっかけになる以上、leaf に action を重ねて出すと冗長なので leaf からは action を落とし、leaf は given(前提)＋then(結果) のみにする（ノード=きっかけ・leaf=前提/結果 の役割分担）。action vocab が解決できない稀ケースは transition id にフォールバックし、索引から行が消えない（退行回避）。",
+  "changed": "buildTransitionVocabIndex の transition ノード名を raw id から action vocab の label に変更。transitions 入力に label? を追加し呼び出し側で vocabLabelById.get(tx.action) を渡す。leaf の refs から action を落とし given+then のみ leaf 化。未解決 action は id フォールバック。",
+  "at": "2026-07-14T04:42:12Z"
+}

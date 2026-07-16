@@ -1,0 +1,10 @@
+{
+  "id": "01KXFEJ8HZWGTE6D7FHA5W9PS0",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.view-state-continuity"
+  },
+  "why": "スクロール位置の保存は、ビューのローディング中に document 高さが縮んで前ビューのスクロールが 0 に clamp される『レイアウト由来のスクロールイベント』を無視し、利用者の意図的スクロールのみを sessionStorage に永続する。復元は enter 時に mount でキャプチャした保存値から行い、復元が完了するまで保存を抑止する。理由: clamp-0 が debounce 保存で焼き込まれ、settle の遅いビュー（タグ47件）で復元より先に着地して保存値を破壊する race を防ぐため（クリーンルームレビューが実機で検出）。",
+  "ref": "d3a2629",
+  "at": "2026-07-14T04:36:04Z"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "eff.state.tree-mode-persist",
+  "category": "effect",
+  "label": "選択した索引モードを localStorage に永続する",
+  "kind": "state",
+  "owner": "viewer-web"
+}

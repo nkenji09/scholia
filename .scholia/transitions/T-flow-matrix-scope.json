@@ -1,0 +1,17 @@
+{
+  "id": "T-flow-matrix-scope",
+  "action": "act.user.flow",
+  "given": [
+    "cond.index-built"
+  ],
+  "then": [
+    "eff.emit.action-condition-matrix",
+    "eff.emit.scope-disclosure",
+    "eff.log.action-flow-report"
+  ],
+  "tags": [
+    "req.action-flow.visualize",
+    "req.action-flow.scope-honesty",
+    "subject.cli"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "id": "T-flow-remainder-default",
+  "action": "act.user.flow",
+  "given": [
+    "cond.index-built",
+    "cond.remainder-default-declared"
+  ],
+  "then": [
+    "eff.emit.acknowledged-remainder",
+    "eff.log.action-flow-report"
+  ],
+  "tags": [
+    "req.action-flow.acknowledged-remainder",
+    "subject.cli"
+  ]
+}

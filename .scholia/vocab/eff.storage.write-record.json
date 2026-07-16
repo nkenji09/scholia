@@ -1,0 +1,10 @@
+{
+  "id": "eff.storage.write-record",
+  "category": "effect",
+  "label": ".pmem/**/\u003cid\u003e.json を atomic write する",
+  "kind": "storage",
+  "owner": "pmem-core",
+  "tags": [
+    "concern.git-friendliness"
+  ]
+}

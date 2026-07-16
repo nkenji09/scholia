@@ -1,0 +1,9 @@
+{
+  "id": "01KXFK6V81TEDF3340AFGA08WG",
+  "target": {
+    "type": "transition",
+    "id": "T-cli-search"
+  },
+  "why": "search は read-only 派生（rules/spec/list/diff と同様）——記録を保存せず、フラット保存やデータモデルは一切変えない。検索は起動時に構築される in-memory index（cond.index-built）上の query であり、index/派生は捨てても再生成できるという req.atoms-derive/git-native の原理に沿う（then は eff.log のみ・storage 効果を持たない）。--type/--json 等の詳細フラグは実装フェーズで詰める（この decision は挙動の輪郭＝read-only な横断キーワード探索であることを固定する）。",
+  "at": "2026-07-14T05:57:13Z"
+}

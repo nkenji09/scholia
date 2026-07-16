@@ -1,0 +1,14 @@
+{
+  "id": "01KXM6H6XT66TEGJGFSCSCDPG0",
+  "target": {
+    "type": "transition",
+    "id": "T-viewer-vocab-menu-filter"
+  },
+  "why": "採用(#38 D-新規): 語彙カードの直接フィルタ Chip（owner ピル onFilterOwner／参照タグ Chip onFilterTag）を、SpecCard と同じ per-chip ケバブ項目『検索条件に追加』へ集約する。効果は共有 addFilter（type=tag または type=owner）。ケース: 語彙ラベル自体はフィルタ対象にしない——自分1件へ絞るのは no-op な AND 条件（VocabCard 既存設計 L69-76 踏襲）ゆえ⋮は filterable な chip 群にのみ付ける。owner は正準ルートを持たないため owner の⋮は『検索条件に追加』のみ（『リンク先を開く』なし）。",
+  "changed": "act.user.select-menu-filter→eff.state.add-to-filter の transition を新設（VocabCard の owner/参照タグ chip フィルタを per-chip ⋮に集約）",
+  "ref": "#38",
+  "at": "2026-07-16T00:51:53Z",
+  "commits": [
+    "314b6782e0050a9f57ac5eab6384afe8dd534218"
+  ]
+}

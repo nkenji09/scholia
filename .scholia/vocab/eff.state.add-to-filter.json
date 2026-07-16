@@ -1,0 +1,7 @@
+{
+  "id": "eff.state.add-to-filter",
+  "category": "effect",
+  "label": "対象（タグまたは owner）を検索条件の AND フィルタに追加する（既存と重複する条件は追加しない）",
+  "kind": "state",
+  "description": "BrowseView.addFilter を呼び、対象（type=tag のタグ id／type=owner の owner 文字列）を検索条件の AND フィルタ集合に追加する。既に同 type・同 id の条件があれば追加しない（重複ガード）。SpecCard・TagCard・VocabCard で共有する単一の addFilter 経路。URL への反映は既存の url-sync 遷移（act.user.change-search→eff.state.url-sync）が担う。"
+}

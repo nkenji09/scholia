@@ -1,0 +1,13 @@
+{
+  "id": "01KXG8QRCXMG70PBW32R9ETCA7",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.deep-linking"
+  },
+  "why": "タグカードの関連カードリンク（親タグ・下位タグの chip）の平打ち左クリックは、対象カードが現在の絞り込み一覧に描画されていれば従来どおり in-place スクロール（文脈維持）、未描画なら対象の正準ルート（href と同一＝#/spec/\u003ctagId\u003e、既存 onGoToTag=openTagSpec を流用）へ SPA 遷移する。従来は HashLink が平打ちで preventDefault→onSelectParent/onSelectChild=scrollToCard を呼ぶだけで、絞り込みで子/親カードが cardRefs に無いと scrollIntoView が undefined?. で no-op になり href 遷移も走らず『何も起きない』欠陥があった。これを『関連カードをクリックしたら必ず対象へ辿り着く』へ是正する。判定は描画済みカードの ref マップ cardRefs.current.has(id) で行い、in-place スクロールは対象が今の一覧にある時の最適化に留める。非矛盾: item3（ref 37beef9）の一般則『平打ち=SPA その場遷移／リンクは href を尊重』の延長で、これまで平打ちが href を尊重できず no-op していた穴を塞ぐだけ。deep-linking の『focus は共有可能 URL』も保つ（別タブ=modified クリックの HashLink 既定は不変）。view-state-continuity にも非矛盾（対象が一覧にある通常時は従来のスクロール保持のまま）。scrollToCard を共用する他経路（見出しレール onSelect・spec 行 onSelectSpec）は対象が常に描画済み（レールは visible から生成／spec 行は onGoToSpec でクロス facet 遷移）で no-op しないため対象外。",
+  "changed": "関連カードリンクを scroll-if-present-else-navigate 化（親/子タグの no-op 是正）",
+  "at": "2026-07-14T12:13:27Z",
+  "commits": [
+    "d327d4c"
+  ]
+}

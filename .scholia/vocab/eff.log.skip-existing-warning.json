@@ -1,0 +1,7 @@
+{
+  "id": "eff.log.skip-existing-warning",
+  "category": "effect",
+  "label": "既存の利用者ファイルを上書きせず、スキップした旨の警告を出力する",
+  "kind": "log",
+  "owner": "pmem-core"
+}

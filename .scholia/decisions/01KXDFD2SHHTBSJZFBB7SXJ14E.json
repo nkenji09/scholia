@@ -1,0 +1,11 @@
+{
+  "id": "01KXDFD2SHHTBSJZFBB7SXJ14E",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.deep-linking"
+  },
+  "why": "reset/settle effect の依存整合: 同一ビュー内で txId/tagId だけ変わる再フォーカス（コメントパネルからの jump 等）で、specsSettled/tagsSettled を false のままにして「loading…」無限にしてはならない。再フォーカス時は settled を維持する。\n\n理由: 根因は reset effect と settle effect の依存配列不一致（G1）。card-decisions のコメントパネル経由 E2E で gotoComment→無限 loading が実際に起きた。settle 状態機械の依存整合を仕様として固定し、将来この依存配列を「整理」して再発させないための歯止め。",
+  "changed": "同一ビュー再フォーカスの loading 無限を修正（G1）",
+  "ref": "03890cb",
+  "at": "2026-07-13T10:12:14Z"
+}

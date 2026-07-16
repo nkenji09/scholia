@@ -1,0 +1,5 @@
+{
+  "id": "cond.review-exists",
+  "category": "condition",
+  "label": "指定した提案コメント(.pmem/reviews/\u003cid\u003e.json)が実在する"
+}

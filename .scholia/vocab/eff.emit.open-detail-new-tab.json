@@ -1,0 +1,7 @@
+{
+  "id": "eff.emit.open-detail-new-tab",
+  "category": "effect",
+  "label": "対象タグの正準ルート #/spec/\u003ctagId\u003e を別タブ（target=_blank rel=noopener）で開く",
+  "kind": "emit",
+  "description": "共有 KebabMenu の link item（実 \u003ca href target=_blank rel=noopener\u003e）で、対象タグの正準詳細ルート #/spec/\u003ctagId\u003e を新規タブに開く。別タブ側では routeHash からの deep-linking が focus を復元する。平打ちでも別タブを既定にするのは SpecCard の『リンク先を開く』決定（01KXFT24RXR7Q0Z4XJVY9CZ264）に準拠——レビュー中の現在ビュー（スクロール/展開/絞り込み）を保ったまま参照先を覗くため。"
+}

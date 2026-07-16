@@ -1,0 +1,6 @@
+{
+  "id": "act.user.change-search",
+  "category": "action",
+  "label": "検索条件/アンカーを変更",
+  "kind": "user"
+}

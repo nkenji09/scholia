@@ -1,0 +1,13 @@
+{
+  "id": "01KXJFCYJH2S9TAYDDSCWTZ52B",
+  "target": {
+    "type": "transition",
+    "id": "T-viewer-proposal-card-changed"
+  },
+  "why": "採用(#32): added と対で req.evaluate-change.proposal-card 配下の changed 側の契約を固定する。changed(既存レコードの変更)提案はドロワーにフィールド単位の before/after 差分カードで描画する(既存実装 CommentPanel は既に満たす=A是正ではなく既存挙動の正本化)。出力形が実行時状態で after-only緑(added) vs before/after(changed) に分岐するため、両者を排他遷移に割って表し(出力が分岐するなら分割)、added の欠落を直す際に changed 側の契約もここで固定して並べて評価できるようにする。",
+  "ref": "01KXJDH28CFQ4AT2GVH965GYKB",
+  "at": "2026-07-15T08:48:22Z",
+  "commits": [
+    "4acca111732a0216f1b137beb2dd60a892e12d14"
+  ]
+}

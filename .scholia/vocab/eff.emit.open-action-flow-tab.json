@@ -1,0 +1,7 @@
+{
+  "id": "eff.emit.open-action-flow-tab",
+  "category": "effect",
+  "label": "別タブで きっかけのフロー図ビュー(#/flow/\u003caction\u003e) を開く",
+  "kind": "emit",
+  "owner": "仕様カードのケバブ（viewer）"
+}

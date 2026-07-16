@@ -1,0 +1,14 @@
+{
+  "id": "01KXMRBB3PYJZMEXS7JTQQPP8D",
+  "target": {
+    "type": "tag",
+    "id": "axis.update.install"
+  },
+  "why": "act.user.update の実 given 4軸割り（install/platform/status/mode）のうち導入経路軸を update の正本として採用。値={cond.install-release-binary, cond.install-source-goinstall}、version文字列の由来で排他かつ全ケースを尽くすため total=true。旗艦テスト TestAnalyze_FlagshipUpdateReconstructionSurfacesKnownOverlap と同じ4分割を実 records に写した。★スコープ＝Level1（軸宣言＋既存条件へのタグ付与のみ・遷移の given は不変・挙動追加のみ）。Level2〔given を disjoint な完全修飾に書き換え、flow view で検出される重なり11件を解消〕は flow view 確認後に別 decision として提案する（本 decision には含めない）。",
+  "changed": "axis.update.install 新設(total=true)＋cond.install-release-binary/source-goinstall にタグ付与",
+  "ref": "#39 design-options §6.1",
+  "at": "2026-07-16T06:03:15Z",
+  "commits": [
+    "6f3f10a8f6beef0278173640a6b4eb496541ac30"
+  ]
+}

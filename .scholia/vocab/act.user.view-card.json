@@ -1,0 +1,6 @@
+{
+  "id": "act.user.view-card",
+  "category": "action",
+  "label": "タグ/仕様カードを表示",
+  "kind": "user"
+}

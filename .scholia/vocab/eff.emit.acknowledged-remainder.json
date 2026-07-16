@@ -1,0 +1,7 @@
+{
+  "id": "eff.emit.acknowledged-remainder",
+  "category": "effect",
+  "label": "action ごとに1つだけ許す scoped な default（残余の受け皿）遷移を、author 明示 cell とは別枠で報告し、coverage には決して数えない",
+  "kind": "emit",
+  "owner": "フロー解析器（viewer/CLI 共有）"
+}

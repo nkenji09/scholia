@@ -1,0 +1,9 @@
+{
+  "id": "req.comfortable-viewer.deep-linking",
+  "name": "URL 状態同期（deep-linking）",
+  "kind": "requirement",
+  "parentIds": [
+    "req.comfortable-viewer"
+  ],
+  "description": "**As a** ビューアの利用者\n**I want** 検索条件やアンカーが URL に載り、reload/バックで同じ状態に戻ってほしい\n**so that** 今見ている状態をそのまま共有・復元できる\n\n### 受け入れ基準\n- 検索条件(q/k/f)・focus した tag/tx/vocab が URL に反映される\n- reload/ブラウザバックで同じ検索条件・同じ場所を復元する\n- settle 後の単発1操作も URL に載る\n- 同一ビュー内の再フォーカスで loading 無限にならない"
+}

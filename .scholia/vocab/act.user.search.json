@@ -1,0 +1,6 @@
+{
+  "id": "act.user.search",
+  "category": "action",
+  "label": "pmem search を実行",
+  "kind": "user"
+}

@@ -1,0 +1,6 @@
+{
+  "id": "req.non-functional",
+  "name": "非機能要件",
+  "kind": "requirement",
+  "description": "配布・単独性など非機能に関する要件"
+}

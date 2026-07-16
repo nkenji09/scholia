@@ -1,0 +1,11 @@
+{
+  "id": "01KXFT24RXR7Q0Z4XJVY9CZ264",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.deep-linking"
+  },
+  "why": "item3 decision 01KXFK3Q1NY9J8Q7FX14T31N7K（ref 37beef9）はページ内遷移リンクの一般則を『平打ち左クリック=SPA その場遷移／modified（Cmd/Ctrl/Shift/中）=ブラウザ既定で別タブ』と定める。本件の SpecCard の『リンク先を開く』（tag/vocab の詳細オープン）は、この一般則から意図的に分岐し既定で別タブ（実 \u003ca href target=_blank rel=noopener\u003e）とする。why: このリンクの用途は『レビュー中に今見ている仕様ビュー（スクロール位置・展開状態・絞り込み）を保ったまま参照先の tag/vocab 詳細を覗く』ことにあり、その場遷移だと現在のレビュー文脈を失う。ゆえに平打ちでも別タブを既定にするのが用途に合う。依然として実 \u003ca\u003e なので Cmd/中/右クリックも従来どおり機能し（右クリックでリンクコピー等）、別タブ側で routeHash（語彙→#/vocab/\u003cid\u003e、タグ→#/spec/\u003cid\u003e）から deep-linking が復元する。item3 を cite: 一般則は不変で、SpecCard の詳細オープンという特定用途にのみ既定別タブの例外を意識的に定義する（非矛盾）。関連: presentation 集約は同時記録の ⋮ メニュー decision（01KXFT1QFB0A7TNW5CKQZK1X3N）。",
+  "changed": "SpecCard の『リンク先を開く』の既定動作を別タブ（target=_blank）に定める（item3 一般則の意識的な例外）",
+  "ref": "6c3fd75",
+  "at": "2026-07-14T07:56:59Z"
+}

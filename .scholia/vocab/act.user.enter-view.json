@@ -1,0 +1,6 @@
+{
+  "id": "act.user.enter-view",
+  "category": "action",
+  "label": "メインメニューからビューを開いた/戻ったとき",
+  "kind": "user"
+}

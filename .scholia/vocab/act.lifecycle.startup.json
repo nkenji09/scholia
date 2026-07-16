@@ -1,0 +1,6 @@
+{
+  "id": "act.lifecycle.startup",
+  "category": "action",
+  "label": "CLI/ビューア起動",
+  "kind": "lifecycle"
+}

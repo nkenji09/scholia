@@ -1,0 +1,9 @@
+{
+  "id": "req.comfortable-viewer.view-state-continuity",
+  "name": "ビュー往復での状態保持（view-state-continuity）",
+  "kind": "requirement",
+  "parentIds": [
+    "req.comfortable-viewer"
+  ],
+  "description": "**As a** ビューアの利用者\n**I want** タグ/語彙/仕様のビューを往復しても、各ビューで見ていた場所（スクロール位置）と検索条件が保たれてほしい\n**so that** メインメニューを行き来しても、読んでいた文脈を失わずに読み進められる\n\n### 受け入れ基準\n- 別ビューへ移動して戻ると、そのビューの検索条件/フィルタが URL(hash) から復元される（reload/ブラウザバック含む）\n- 別ビューへ移動して戻ると、そのビューのスクロール位置が sessionStorage 保持の位置へ復元される\n- スクロール位置は sessionStorage（同一タブのセッション単位・reload をまたいで残り、タブを閉じると消える・URL には載せない）に保持する\n- reload 時は URL の検索条件＋sessionStorage のスクロール位置で view がそのまま復元される\n- タグ/語彙/仕様の3ビューは各自の状態を独立に保持し、往復で互いの状態を壊さない\n\n### 関連（重複しない・関係づけ）\n- `req.comfortable-viewer.deep-linking` の兄弟/延長。deep-linking は「検索条件・アンカーを URL に載せ reload/バックで復元」。本要件はそれを **ビュー往復（別ビューへ移動して戻る）** まで広げ、さらに **スクロール位置は sessionStorage 保持** で扱う点が固有。検索条件の URL 復元は両要件が共有する境界。"
+}

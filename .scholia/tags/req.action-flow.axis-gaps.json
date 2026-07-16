@@ -1,0 +1,9 @@
+{
+  "id": "req.action-flow.axis-gaps",
+  "name": "軸注釈(axis タグ＋total)で 抜け(L-total)と 重なり(条件付き disjointness)を検出する",
+  "kind": "requirement",
+  "parentIds": [
+    "req.action-flow"
+  ],
+  "description": "**軸は config の kind ではなく tag レコードで表す**（§7.1・config kind 爆発を回避）：全体設定に tagKind 「axis」 を1回足すだけ／1軸＝1枚の axis タグ／「total」（必ず1値が真か否か）は軸タグ自身が持つ／条件は軸タグを貼って『その軸の値』になる（**多重所属可**）。宣言軸の直積を有界列挙し、買うのは**ちょうど2つ**——(a) **L-total**＝全域軸の片値の前提が欠落する『抜け』（唯一 clean に sound・complement 漏れ検出）、(b) **宣言条件付き pairwise-disjointness**＝『重なり』を宣言軸に相対的に sound に flag。**product-coverage を網羅証明と称さない**。健全性は『軸排他』というモデルが検査できない前提に依存するため、同一軸の複数値の同時 given・total 軸の値未 materialize を lint で監視するのが前提条件（design-options §6.3-2・§7.1）。"
+}

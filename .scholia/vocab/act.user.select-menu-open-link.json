@@ -1,0 +1,7 @@
+{
+  "id": "act.user.select-menu-open-link",
+  "category": "action",
+  "label": "カードのケバブメニューで『リンク先を開く（別タブ）』を選んだとき",
+  "kind": "user",
+  "description": "タグカード／語彙カードの各アフォーダンス末尾のケバブメニュー（⋮）を開き、項目『リンク先を開く（別タブ）』を選択したとき。SpecCard の tag/vocab と同じ共有 KebabMenu（link item＝実 \u003ca href target=_blank\u003e）。"
+}

@@ -1,0 +1,6 @@
+{
+  "id": "act.user.tx-add",
+  "category": "action",
+  "label": "pmem tx add を実行",
+  "kind": "user"
+}

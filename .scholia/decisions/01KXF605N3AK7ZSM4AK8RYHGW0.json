@@ -1,0 +1,9 @@
+{
+  "id": "01KXF605N3AK7ZSM4AK8RYHGW0",
+  "target": {
+    "type": "transition",
+    "id": "T-viewer-vocab-tree-mode-b-compose"
+  },
+  "why": "モードB は消費 transition を橋渡しにすると『コンポーネント階層 → transition → vocab』で深くなりがちなので、上位のコンポーネント/タグ階層はツリーに展開せずコンボボックス selector（faceted-nav で単一化した検索コンボ＝VocabBySubject のスコープ切替）に寄せ、ツリー本体は選択スコープ内の『Transition → 参照 vocab（色バッジ leaf）』の 2〜3 層に畳む。深い階層は既定折りたたみ（既存 collapsible-section の永続機構を再利用し新規の折りたたみ語彙を増やさない）。どの transition にも消費されない vocab は『未使用』バケットに集約して、消費文脈を持たない vocab がツリーに散らばらないようにする。理由: 橋渡しで階層を得る以上そのまま出すと段数が増え探索性が落ちるため、上位軸を selector に外出しして畳む深さ制御が要る。",
+  "at": "2026-07-14T02:06:23Z"
+}

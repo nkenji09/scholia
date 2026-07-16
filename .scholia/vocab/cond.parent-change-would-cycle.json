@@ -1,0 +1,5 @@
+{
+  "id": "cond.parent-change-would-cycle",
+  "category": "condition",
+  "label": "変更後の parentIds がタグ自身への循環を作る"
+}

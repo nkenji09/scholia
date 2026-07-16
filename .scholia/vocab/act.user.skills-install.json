@@ -1,0 +1,6 @@
+{
+  "id": "act.user.skills-install",
+  "category": "action",
+  "label": "pmem skills install を実行",
+  "kind": "user"
+}

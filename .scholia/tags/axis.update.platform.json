@@ -1,0 +1,7 @@
+{
+  "id": "axis.update.platform",
+  "name": "更新: プラットフォーム軸（unix 自己置換可 / windows）",
+  "kind": "axis",
+  "description": "act.user.update の分岐条件のうち「実行 OS がバイナリ自己置換をサポートするか」を束ねる軸。値＝{cond.platform-unix-self-replaceable, cond.platform-windows}。実行 OS は darwin/linux/windows のいずれか一つであり、既存2条件がその区別を尽くすとして total=true（darwin/linuxをunix-self-replaceableに畳んでいるのは既存 vocab の粒度をそのまま踏襲＝Level 1では変えない）。#39 design-options §6.1 の4軸割りの1つ。",
+  "total": true
+}

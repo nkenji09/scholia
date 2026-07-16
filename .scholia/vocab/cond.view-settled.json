@@ -1,0 +1,5 @@
+{
+  "id": "cond.view-settled",
+  "category": "condition",
+  "label": "ビューの初期ロードが settle 済み"
+}

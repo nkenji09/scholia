@@ -1,0 +1,11 @@
+{
+  "id": "01KXESDDXZDMRXX7CBVB9P9V9T",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.faceted-nav"
+  },
+  "why": "語彙ページの faceted 絞り込み UI は単一のコンボボックスに統一する(独立した subject select を廃止)。コンポーネント(facetKind のタグ)はサジェストからの選択で per-component 導出ビュー(VocabBySubject)へのモード切替とし、vocab.tags による AND フィルタにはしない — vocab にコンポタグを撒く誤帰属を避ける faceted-nav decision の帰結。二次的なタグ/owner は従来どおり AND フィルタ、active なコンポは除去可能チップで表し x でグローバル復帰。理由: 絞り込みコントロールが複数(検索コンボ＋コンポ別 select)あると利用者がどれが何を絞るか掴めず発見性が下がる(実地で混乱が生じた)。1入力に集約し、コンポーネントは打って選ぶで導出ビューへ入れる。",
+  "changed": "VocabView のサジェストを3系統(コンポーネント=facetKind / タグ / owner・排他)に再構成しコンポーネント選択を setSubject のモード切替に。BrowseRail の subject select を廃止。active コンポは conditions 先頭の除去可能チップで表現。",
+  "ref": "783570a",
+  "at": "2026-07-13T22:26:26Z"
+}

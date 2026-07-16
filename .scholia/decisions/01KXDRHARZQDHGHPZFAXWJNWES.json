@@ -1,0 +1,11 @@
+{
+  "id": "01KXDRHARZQDHGHPZFAXWJNWES",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.faceted-nav"
+  },
+  "why": "vocab（構成部品）の分類軸は intrinsic な category×kind（全 vocab が必ず持つ）とし、tag は二次的な横断フィルタに降格する。理由: タグは可変・多対多で、共有プリミティブに component/requirement タグを撒くと使う遷移がタグを継承して別コンポへ誤帰属する（偽の影響）。ゆえにタグ未付与は正しい運用であり、タグでツリー化すると大量の未分類に落ちる。vocab は必ず category×kind を持つのでこれで全件分類でき未分類が消える。ビューアは tag 階層だけでなく intrinsic 属性（tag の kind 階層／vocab の category×kind）でインデックスツリーを組めるべき、という共通根の一実装。加えてコンポ別ビューは subject→（実効タグに subject を含む遷移）→参照 vocab→kind で導出でき、タグ無しで per-component に見られる（共有語彙は該当全コンポに正しく出る）。vocab の同一性=実装同一性という meta-decision（concern.traceability に既存）の帰結。",
+  "changed": "語彙ドロワーの既定ツリーを buildFolderIndex(タグ階層)→buildCategoryKindIndex(category→kind) に差し替え、tag を二次フィルタに降格。加えて VocabBySubject(Action/Given/Then 収集)＋/api/vocab?subject= でコンポ別モードを追加。",
+  "ref": "356605f",
+  "at": "2026-07-13T12:51:51Z"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "T-viewer-tags-menu-open-detail",
+  "action": "act.user.select-menu-open-link",
+  "given": [],
+  "then": [
+    "eff.emit.open-detail-new-tab"
+  ],
+  "tags": [
+    "req.comfortable-viewer.deep-linking",
+    "subject.viewer.tags"
+  ]
+}

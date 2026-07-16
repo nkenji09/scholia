@@ -1,0 +1,10 @@
+{
+  "id": "01KXF5EF61CJGTTHJH2PS93ED9",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.view-state-continuity"
+  },
+  "why": "保持先を2つに分ける。(1) 検索条件/フィルタ → URL(hash) に per view で載せる。理由: 検索条件は『共有したい・reload/ブラウザバックで復元したい』性質があり URL に載る価値がある（deep-linking と同じ boundary。restore-from-url は url-sync の read 方向で重複でなく補完）。(2) スクロール位置 → sessionStorage（同一タブのセッション単位・タブを閉じると消える・共有や恒久化はしない）に view 単位のキーで保持し、ビュー復帰時に復元。理由: スクロール位置は共有対象でなく、URL に載せると URL が汚れ share/back の意味を壊す。sessionStorage は同一タブ内では reload をまたいで残り、タブを閉じると消える粒度で、まさにこの用途（そのタブでの閲覧文脈）に合う。この使い分けにより、reload 時は URL の検索条件＋sessionStorage のスクロール位置で view がそのまま復元され、リンク共有は検索条件だけを運ぶ（スクロールはタブセッション限りで運ばない）という一貫した挙動になる。3ビューはそれぞれ view 単位のキーで独立に保持し、往復で互いを壊さない。",
+  "changed": "検索条件は URL(hash)、スクロール位置は sessionStorage（同一タブ・reload 越えて残りタブを閉じると消える）に分けて保持",
+  "at": "2026-07-14T01:56:43Z"
+}

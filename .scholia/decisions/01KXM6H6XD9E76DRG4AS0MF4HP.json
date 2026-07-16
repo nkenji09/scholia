@@ -1,0 +1,14 @@
+{
+  "id": "01KXM6H6XD9E76DRG4AS0MF4HP",
+  "target": {
+    "type": "transition",
+    "id": "T-viewer-tags-menu-filter"
+  },
+  "why": "採用(#38 D-新規): タグカードの自己フィルタ導線（現状は tag-card-name ボタン＋kind バッジの直接クリック＝onFilterSelf）を、カード頭の単一ケバブメニュー項目『検索条件に追加』に集約する。重複導線を作らない（直接ボタンは廃し⋮に一本化）。効果は既存 addFilter（type=tag・自タグ・重複ガードあり）で不変。URL 反映は既存 T-viewer-tags-url-sync が担うため then には含めない。純クライアント操作で mode 非依存＝given なし。faceted-nav の addFilter 経路は変えず導線 UI だけを⋮へ集約する（faceted-nav decision と非矛盾・その導線整理）。",
+  "changed": "act.user.select-menu-filter→eff.state.add-to-filter の transition を新設（TagCard 自己フィルタを⋮項目に集約）",
+  "ref": "#38",
+  "at": "2026-07-16T00:51:53Z",
+  "commits": [
+    "314b6782e0050a9f57ac5eab6384afe8dd534218"
+  ]
+}

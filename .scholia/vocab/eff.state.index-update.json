@@ -1,0 +1,7 @@
+{
+  "id": "eff.state.index-update",
+  "category": "effect",
+  "label": "in-memory index を再構築する",
+  "kind": "state",
+  "owner": "pmem-core"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "01KXMGHNN3NZQ4JNNFC9F1WR8T",
+  "target": {
+    "type": "transition",
+    "id": "T-flow-remainder-default"
+  },
+  "why": "acknowledged-remainder の CLI 発火挙動を採用。given=cond.index-built ∧ cond.remainder-default-declared のとき eff.emit.acknowledged-remainder を author 明示 cell とは別枠で出す（coverage には数えない）。req.action-flow.acknowledged-remainder の挙動具現。",
+  "at": "2026-07-16T03:46:54Z"
+}

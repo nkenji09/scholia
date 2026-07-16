@@ -1,0 +1,5 @@
+{
+  "id": "cond.remainder-default-declared",
+  "category": "condition",
+  "label": "解析対象 action に、残余の受け皿として宣言された scoped default 遷移が1つ存在する"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "req.action-flow.acknowledged-remainder",
+  "name": "fallback は coverage に数えない acknowledged-remainder default を1つだけ許す",
+  "kind": "requirement",
+  "parentIds": [
+    "req.action-flow"
+  ],
+  "description": "action ごとに宣言的 default 遷移を1つ許すが、それは (a) 自身の decision（『残り全部が本当に Y』を署名）を持ち、(b) author 明示 cell とは**別枠で報告**され、(c) **決して coverage に数えない**。catch-all が全未被覆 cell を吸収して『常に no gaps』になる gap 検出の破壊を防ぐため。『specifics 全部=tier0／default=tier1』の一段 tier 境界＝ arbitrary pairwise priority(案F)より遥かに小さい degenerate priority（design-options §6.3-4・§7.4 条件付き）。"
+}

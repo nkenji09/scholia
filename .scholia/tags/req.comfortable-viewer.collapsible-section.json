@@ -1,0 +1,9 @@
+{
+  "id": "req.comfortable-viewer.collapsible-section",
+  "name": "セクション開閉の focus×永続×閾値",
+  "kind": "requirement",
+  "parentIds": [
+    "req.comfortable-viewer"
+  ],
+  "description": "**As a** カード内の長いセクションを畳みたい利用者\n**I want** 開閉状態が保たれ、focus 時だけ開き、多い時は既定で畳まれてほしい\n**so that** 情報量の多いカードを自分のペースで読める\n\n### 受け入れ基準\n- 明示的に閉じた状態は localStorage で永続する\n- focus はマウント後の変化でのみセクションを開く（マウント時に開かない）\n- 5件以上のセクションは既定で折りたたむ"
+}

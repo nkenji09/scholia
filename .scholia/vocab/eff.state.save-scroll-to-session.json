@@ -1,0 +1,7 @@
+{
+  "id": "eff.state.save-scroll-to-session",
+  "category": "effect",
+  "label": "現在のスクロール位置を sessionStorage へ保存する",
+  "kind": "state",
+  "owner": "viewer-web"
+}

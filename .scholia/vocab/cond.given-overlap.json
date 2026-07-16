@@ -1,0 +1,5 @@
+{
+  "id": "cond.given-overlap",
+  "category": "condition",
+  "label": "同一 action の2つの transition の given が、宣言軸上で同じ cell を取り合う（互いに部分集合でない重なり＝優先順位が未定義）"
+}

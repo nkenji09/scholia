@@ -1,0 +1,5 @@
+{
+  "id": "cond.total-axis-value-missing",
+  "category": "condition",
+  "label": "全域(total=true)と宣言された軸のうち、ある値(条件)を given に持つ transition が同じ action に1つも存在しない"
+}

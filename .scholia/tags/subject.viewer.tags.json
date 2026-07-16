@@ -1,0 +1,8 @@
+{
+  "id": "subject.viewer.tags",
+  "name": "タグページ",
+  "kind": "subject",
+  "parentIds": [
+    "subject.viewer"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "id": "req.evaluate-change.discovery",
+  "name": "キーワードから該当記録を逆引き探索する",
+  "kind": "requirement",
+  "parentIds": [
+    "req.evaluate-change"
+  ],
+  "description": "**As a** 変更を評価する/triage する人・AIエージェント\n**I want** id を知らなくてもキーワードから pmem 記録（tag/transition/vocab/decision）を横断検索したい\n**so that** 「この input はどの decision/transition が支配しているか」の入り口を、生ファイル grep ではなく CLI で辿れる\n\n### 受け入れ基準\n- `pmem search \u003ckeyword\u003e` が tag の id/name・vocab の id/label・transition の id・decision の why 等を横断検索する\n- 該当を型別（tag/transition/vocab/decision）に id と一致箇所付きで列挙する\n- `--type \u003ctag|transition|vocab|decision\u003e`・`--json` で絞り込み・機械可読化できる（詳細フラグは実装で詰める）\n- read-only（保存しない・データモデルやフラット保存は不変）"
+}

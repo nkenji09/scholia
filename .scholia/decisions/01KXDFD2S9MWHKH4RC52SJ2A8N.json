@@ -1,0 +1,11 @@
+{
+  "id": "01KXDFD2S9MWHKH4RC52SJ2A8N",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.deep-linking"
+  },
+  "why": "settled セマンティクス: 検索条件(q/k/f)・アンカー（focus した tag/tx/vocab）は URL に反映し、reload/ブラウザバックで同じ検索条件・同じ場所を復元する（要件B）。settle 後の単発1操作も URL に載せる。初期 settle 中の空振り書き込みは echo ガードで防ぐ（A-1）が、settle 済みなら1操作でも反映する。\n\n理由: deep-linking の価値は「今見ている状態をそのまま共有・復元できる」こと。settle 後の操作が URL に載らないと復元が1操作ぶんズレる。",
+  "changed": "settle 後の単発操作も URL 反映",
+  "ref": "14da61d",
+  "at": "2026-07-13T10:12:14Z"
+}

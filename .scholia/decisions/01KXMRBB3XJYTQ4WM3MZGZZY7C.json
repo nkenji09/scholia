@@ -1,0 +1,14 @@
+{
+  "id": "01KXMRBB3XJYTQ4WM3MZGZZY7C",
+  "target": {
+    "type": "tag",
+    "id": "axis.update.platform"
+  },
+  "why": "プラットフォーム軸（実行 OS がバイナリ自己置換をサポートするか）を update の正本として採用。値={cond.platform-unix-self-replaceable, cond.platform-windows}、実行 OS は一意で既存2条件が区別を尽くすため total=true。darwin/linux を unix-self-replaceable に畳む粒度は既存 vocab をそのまま踏襲（Level1 では変えない）。Level1＝軸宣言＋タグ付与のみ・given 不変。完全修飾 given への書き換えは Level2 の別 decision（[[axis.update.install の decision]] 参照）。",
+  "changed": "axis.update.platform 新設(total=true)＋cond.platform-unix-self-replaceable/windows にタグ付与",
+  "ref": "#39 design-options §6.1",
+  "at": "2026-07-16T06:03:15Z",
+  "commits": [
+    "6f3f10a8f6beef0278173640a6b4eb496541ac30"
+  ]
+}

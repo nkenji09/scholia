@@ -1,0 +1,9 @@
+{
+  "id": "01KXMGHNM9BJNHNQTMNASE1XPC",
+  "target": {
+    "type": "transition",
+    "id": "T-flow-subset-shadow"
+  },
+  "why": "subset-shadow signal の CLI 発火挙動を採用。given=cond.given-subset ∧ cond.index-built のとき eff.emit.subset-shadow を出す。Given(A)⊊Given(B) の多重被覆を宣言なし・100% sound に surface する（req.action-flow.subset-shadow の挙動具現）。",
+  "at": "2026-07-16T03:46:54Z"
+}

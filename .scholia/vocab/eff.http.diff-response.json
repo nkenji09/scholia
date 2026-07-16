@@ -1,0 +1,7 @@
+{
+  "id": "eff.http.diff-response",
+  "category": "effect",
+  "label": "diff 結果を JSON で返す",
+  "kind": "http",
+  "owner": "viewer-server"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "01KXF605MTKS73CQ08ATD9TH1Z",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.vocab-tree-mode"
+  },
+  "why": "モードB は vocab に直接タグを振らず、『vocab →（消費）→ transition →（タグ）→ コンポーネント階層』と消費 transition を橋渡しにして階層位置を得る。ゆえに faceted-nav decision（req.comfortable-viewer.faceted-nav・2026-07-13 356605f/783570a）が category×kind を vocab の主軸に据えた理由——tag は可変・多対多で共有プリミティブに component/requirement タグを撒くと使う遷移が誤継承し偽の影響を生む・タグでツリー化すると大量の未分類に落ちる——に抵触しない（vocab のタグ付けを一切増やさない）。モードB は faceted-nav が示した per-component 導出（subject→実効タグに subject を含む遷移→参照 vocab）の延長であり、category×kind の置換ではなく共存する追加レンズ。したがって faceted-nav decision の意識的な改訂ではなく非矛盾。逆引き（使用箇所＝真の影響集合。既存 TransitionsByVocab / pmem show vocab）が『未使用』判定と『transition→vocab』導出の土台。",
+  "at": "2026-07-14T02:06:23Z"
+}

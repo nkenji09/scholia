@@ -1,0 +1,7 @@
+{
+  "id": "eff.state.tree-mode-b-structure",
+  "category": "effect",
+  "label": "選択スコープ内で『Transition → その transition が参照する vocab（色バッジ付き leaf）』の階層に構成する",
+  "kind": "state",
+  "owner": "viewer-web"
+}

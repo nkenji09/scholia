@@ -1,0 +1,9 @@
+{
+  "id": "01KXMGHNMQB1HPQMA7VMXMJ2VD",
+  "target": {
+    "type": "transition",
+    "id": "T-flow-axis-total-gap"
+  },
+  "why": "L-total（抜け）検出の CLI 発火挙動を採用。given=cond.axis-declared ∧ cond.index-built ∧ cond.total-axis-value-missing のとき eff.emit.axis-product-cells で直積を列挙し eff.emit.total-axis-gap を出す。全域(total)軸の片値の前提が欠落する『抜け』＝唯一 clean に sound な gap signal（complement 漏れ検出）。req.action-flow.axis-gaps の L-total 挙動具現。",
+  "at": "2026-07-16T03:46:54Z"
+}

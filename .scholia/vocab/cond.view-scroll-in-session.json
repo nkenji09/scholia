@@ -1,0 +1,5 @@
+{
+  "id": "cond.view-scroll-in-session",
+  "category": "condition",
+  "label": "そのビューのスクロール位置が sessionStorage に保持されている"
+}

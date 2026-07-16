@@ -1,0 +1,6 @@
+{
+  "id": "concern.data-integrity",
+  "name": "データ整合性",
+  "kind": "concern",
+  "description": "壊れた/宙ぶらりんな参照を持つ記録を作らせない、という横断的な不変条件"
+}

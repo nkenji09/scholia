@@ -1,0 +1,5 @@
+{
+  "id": "cond.given-subset",
+  "category": "condition",
+  "label": "同一 action で、ある transition の given が別の transition の given の真部分集合になっている（Given(A)⊊Given(B)）"
+}

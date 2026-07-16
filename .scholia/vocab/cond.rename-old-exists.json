@@ -1,0 +1,5 @@
+{
+  "id": "cond.rename-old-exists",
+  "category": "condition",
+  "label": "rename 元タグが実在する"
+}

@@ -1,0 +1,5 @@
+{
+  "id": "cond.skills-target-absent",
+  "category": "condition",
+  "label": "対象パスに同名スキルファイルが未存在"
+}

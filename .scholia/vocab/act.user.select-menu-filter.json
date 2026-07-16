@@ -1,0 +1,7 @@
+{
+  "id": "act.user.select-menu-filter",
+  "category": "action",
+  "label": "カードのケバブメニューで『検索条件に追加』を選んだとき",
+  "kind": "user",
+  "description": "タグカード／語彙カードの各アフォーダンス末尾のケバブメニュー（⋮）を開き、項目『検索条件に追加』を選択したとき。SpecCard の tag/vocab チップと同じ共有 KebabMenu を用いる（menuitem 選択）。"
+}

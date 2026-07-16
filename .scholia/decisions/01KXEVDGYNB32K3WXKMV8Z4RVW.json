@@ -1,0 +1,10 @@
+{
+  "id": "01KXEVDGYNB32K3WXKMV8Z4RVW",
+  "target": {
+    "type": "tag",
+    "id": "req.skill-distribution"
+  },
+  "why": "embed→コピー方式を採用し symlink を不採用。理由: .claude に相対 symlink を張るのは Windows 等で cross-platform に脆弱、git 管理された symlink も壊れやすい。embed 由来のコピーなら go install 後どこでも動く。",
+  "changed": "spec 起票（実装前・prospective）: add T-skills-install-* / eff.storage.write-skill-file",
+  "at": "2026-07-13T23:01:26Z"
+}

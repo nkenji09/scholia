@@ -1,0 +1,12 @@
+{
+  "id": "T-viewer-vocab-menu-filter",
+  "action": "act.user.select-menu-filter",
+  "given": [],
+  "then": [
+    "eff.state.add-to-filter"
+  ],
+  "tags": [
+    "req.comfortable-viewer.faceted-nav",
+    "subject.viewer.vocab"
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "id": "act.user.leave-view",
+  "category": "action",
+  "label": "別のビューへ移動したとき",
+  "kind": "user"
+}

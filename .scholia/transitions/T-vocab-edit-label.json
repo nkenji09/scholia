@@ -1,0 +1,14 @@
+{
+  "id": "T-vocab-edit-label",
+  "action": "act.user.vocab-edit",
+  "given": [
+    "cond.vocab-exists"
+  ],
+  "then": [
+    "eff.storage.update-vocab-label"
+  ],
+  "tags": [
+    "req.record-maintenance",
+    "subject.cli"
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "id": "T-viewer-vocab-collapsible",
+  "action": "act.user.toggle-section",
+  "given": [
+    "cond.index-built"
+  ],
+  "then": [
+    "eff.state.section-visibility"
+  ],
+  "tags": [
+    "req.comfortable-viewer.collapsible-section",
+    "subject.viewer.vocab"
+  ]
+}

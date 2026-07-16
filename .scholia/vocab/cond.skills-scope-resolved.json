@@ -1,0 +1,5 @@
+{
+  "id": "cond.skills-scope-resolved",
+  "category": "condition",
+  "label": "対象スコープが --project（既定）か --user opt-in で確定"
+}
