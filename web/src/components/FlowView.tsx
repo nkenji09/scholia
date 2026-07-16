@@ -7,7 +7,6 @@ import type { FlowOverlap, FlowReport } from '../types';
 
 interface Props {
   actionId?: string;
-  onGoToTransition: (txId: string) => void;
 }
 
 // ── mermaid click-navigation approach: (a) post-process the rendered SVG ──
@@ -67,12 +66,11 @@ function buildDiagram(
   report: FlowReport,
   label: (id: string) => string,
   resultLabel: string,
+  coOccurLabel: string,
 ): { def: string; txByToken: Map<string, string> } {
   const lines: string[] = ['flowchart TD'];
   const txByToken = new Map<string, string>();
 
-  const subsetSubset = new Set(report.subsetShadows?.map((s) => s.subset) ?? []);
-  const subsetSuperset = new Set(report.subsetShadows?.map((s) => s.superset) ?? []);
   const undeclared = new Set(report.scope?.undeclaredGiven ?? []);
   const rowById = new Map((report.matrix.rows ?? []).map((r) => [r.transitionId, r]));
 
@@ -122,28 +120,28 @@ function buildDiagram(
     }
 
     const isOverlap = overlapEntries.some((o) => (o.transitions ?? []).includes(txId) && compatible(o.cell ?? {}, known));
-    const isSubset = subsetSubset.has(txId);
-    const isSuperset = subsetSuperset.has(txId);
 
     // 結果 collapses to ONE clickable node per transition occurrence — not
     // one per effect (user feedback: showing every effect's full sentence
-    // made the diagram noisy; the matrix table above already has the full
-    // given/then text, so the diagram only needs a link, not the content).
+    // made the diagram noisy; the full given/then text is still available
+    // via `pmem flow`, so the diagram only needs a link, not the content).
+    // Subset-shadow gets no node color of its own (user feedback: red read
+    // as "this is broken", but two transitions firing together because one
+    // given is a proven subset of the other isn't an error — it's simply
+    // undefined *priority*) — only overlap (genuine cross-transition
+    // ambiguity) still gets the amber highlight. The subset-shadow edge
+    // itself carries a "同時に発生" label instead (see below).
     const then = row.then ?? [];
     const nodeLabel = then.length > 1 ? `${resultLabel}（${then.length}件）` : resultLabel;
     const rt = nextId('r');
     txByToken.set(rt, txId);
     lines.push(`  ${rt}["${esc(nodeLabel)}"]`);
-    // One `class` statement per class name — mermaid's flowchart `class`
-    // directive embeds a comma-joined list as a single literal SVG class
-    // token rather than splitting it into separate space-separated classes,
-    // so a comma-joined list silently never matches any CSS selector.
-    // Separate statements avoid that trap.
-    const classes: string[] = ['effNode'];
-    if (isOverlap) classes.push('overlapNode');
-    if (isSubset) classes.push('subsetNode');
-    if (isSuperset) classes.push('supersetNode');
-    for (const c of classes) lines.push(`  class ${rt} ${c}`);
+    // Separate `class` statements, not a space/comma-joined list — mermaid's
+    // flowchart `class` directive embeds a joined list as one literal SVG
+    // class token rather than splitting it, so it would silently never
+    // match any CSS selector.
+    lines.push(`  class ${rt} effNode`);
+    if (isOverlap) lines.push(`  class ${rt} overlapNode`);
     lines.push(`  ${cur} --> ${rt}`);
 
     if (!terminalsByTx.has(txId)) terminalsByTx.set(txId, []);
@@ -233,16 +231,17 @@ function buildDiagram(
   // multi-fire: any world satisfying superset's given also fires subset),
   // drawn between every pair of compatible occurrences (a subset transition
   // is looser and typically exits earlier/shallower than its superset — see
-  // `compatible` above). No per-edge text label — every subset-shadow edge
-  // means the same thing, so a repeated label is just noise; the
-  // single-arrowhead direction plus the legend carry the meaning instead.
+  // `compatible` above). Labeled "同時に発生" (not an error — both results
+  // are legitimate, they just always happen together with no declared
+  // priority between them — user feedback after the plain-red styling read
+  // as "this is broken").
   for (const s of report.subsetShadows ?? []) {
     const supOccurrences = terminalsByTx.get(s.superset);
     const subOccurrences = terminalsByTx.get(s.subset);
     if (!supOccurrences || !subOccurrences) continue;
     for (const sup of supOccurrences) {
       for (const sub of subOccurrences) {
-        if (compatible(sup.known, sub.known)) lines.push(`  ${sup.token} -.-> ${sub.token}`);
+        if (compatible(sup.known, sub.known)) lines.push(`  ${sup.token} -.->|"${esc(coOccurLabel)}"| ${sub.token}`);
       }
     }
   }
@@ -272,7 +271,7 @@ function buildDiagram(
   return { def: lines.join('\n'), txByToken };
 }
 
-export function FlowView({ actionId, onGoToTransition }: Props) {
+export function FlowView({ actionId }: Props) {
   const t = useT();
   // `ready` (not `vocabLabel` itself, which is a fresh closure every render)
   // is in the diagram effect's deps below: vocabLabel falls back to the raw
@@ -321,9 +320,30 @@ export function FlowView({ actionId, onGoToTransition }: Props) {
     setZoom(fitZoomRef.current);
     setPan({ x: 0, y: 0 });
   };
+  // Cursor-centered zoom (ctrl/cmd+wheel), matching the reference pattern
+  // the user pointed at: the content-space point under the cursor is
+  // computed BEFORE the zoom, then pan is adjusted so that same point stays
+  // under the cursor AFTER the zoom — a plain scale-in-place (what this used
+  // to do) makes the diagram visibly drift away from the cursor as you
+  // zoom. A plain wheel (no modifier) is left alone entirely — no
+  // preventDefault, no zoom — so scrolling the page past the diagram works
+  // normally instead of being captured by the viewport.
   const onWheelZoom = (e: WheelEvent) => {
+    if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
-    setZoom((z) => clampZoom(z - e.deltaY * 0.001));
+    const viewport = viewportRef.current;
+    const factor = e.deltaY > 0 ? 0.92 : 1.08;
+    const newZoom = clampZoom(zoom * factor);
+    if (newZoom === zoom) return;
+    if (viewport) {
+      const rect = viewport.getBoundingClientRect();
+      const cursorX = e.clientX - rect.left;
+      const cursorY = e.clientY - rect.top;
+      const contentX = (cursorX - pan.x) / zoom;
+      const contentY = (cursorY - pan.y) / zoom;
+      setPan({ x: cursorX - contentX * newZoom, y: cursorY - contentY * newZoom });
+    }
+    setZoom(newZoom);
   };
   const onPointerDownPan = (e: PointerEvent) => {
     dragState.current = { startX: e.clientX, startY: e.clientY, panX: pan.x, panY: pan.y, dragging: false };
@@ -386,7 +406,7 @@ export function FlowView({ actionId, onGoToTransition }: Props) {
     const host = diagramRef.current;
     if (!host || !report || (report.matrix.rows ?? []).length === 0) return;
     let cancelled = false;
-    const { def, txByToken } = buildDiagram(report, vocabLabel, t.flow.result);
+    const { def, txByToken } = buildDiagram(report, vocabLabel, t.flow.result, t.flow.coOccur);
     import('mermaid')
       .then(({ default: mermaid }) => {
         if (cancelled) return;
@@ -450,11 +470,11 @@ export function FlowView({ actionId, onGoToTransition }: Props) {
             if (!hit) return;
             node.style.cursor = 'pointer';
             node.classList.add('flow-node-clickable');
-            // Diagram result nodes open in a new tab (user feedback) — the
-            // matrix table's transition links above stay same-tab (existing
-            // in-app navigation via onGoToTransition), since the diagram is
-            // the exploratory view you want to keep in place while checking
-            // transitions one at a time.
+            // Diagram result nodes open in a new tab (user feedback) — this
+            // is the only navigable content on the page (the matrix
+            // table/scope-disclosure text sections were removed), and
+            // opening in a new tab keeps the diagram itself in place while
+            // checking transitions one at a time.
             node.addEventListener('click', () => {
               // A click that's really the tail end of a pan drag (see
               // suppressClickRef above) must not open a tab — consume the
@@ -499,23 +519,7 @@ export function FlowView({ actionId, onGoToTransition }: Props) {
   // `?? []` at every read site defends against that without touching
   // analyze.go's analysis logic.
   const rows = report.matrix.rows ?? [];
-  const conditions = report.matrix.conditions ?? [];
   const empty = rows.length === 0;
-  const scope = report.scope;
-  const declaredAxes = scope.declaredAxes ?? [];
-  const undeclaredGiven = scope.undeclaredGiven ?? [];
-  const outOfGuarantee = scope.outOfGuarantee ?? [];
-  const subsetShadows = report.subsetShadows ?? [];
-  const totalGaps = report.totalGaps ?? [];
-  const overlaps = report.overlaps ?? [];
-  const axes = report.axes ?? [];
-  const remainder = report.remainder ?? [];
-
-  const cellLabel = (cell: Record<string, string>) =>
-    Object.keys(cell)
-      .sort()
-      .map((k) => `${k}=${vocabLabel(cell[k])}`)
-      .join(', ');
 
   return (
     <main class="flow-view">
@@ -527,190 +531,59 @@ export function FlowView({ actionId, onGoToTransition }: Props) {
       {empty ? (
         <p class="dim flow-empty">{t.flow.emptyAction}</p>
       ) : (
-        <>
-          {/* 1. Matrix — every transition, every distinct given condition. */}
-          <section class="flow-section">
-            <h2 class="flow-section-heading">{t.flow.matrixHeading}</h2>
-            <p class="flow-conditions">
-              <span class="dim">{t.flow.matrixConditionsLabel}: </span>
-              {conditions.length === 0 ? t.flow.matrixNoConditions : conditions.map((c) => vocabLabel(c)).join('、')}
-            </p>
-            <div class="flow-matrix-scroll">
-              <table class="flow-matrix">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th style={{ color: 'var(--t-giv)' }}>{t.flow.given}</th>
-                    <th style={{ color: 'var(--t-then)' }}>{t.flow.result}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => {
-                    const given = row.given ?? [];
-                    const then = row.then ?? [];
-                    return (
-                      <tr key={row.transitionId}>
-                        <td>
-                          <button type="button" class="flow-tx-link" onClick={() => onGoToTransition(row.transitionId)}>
-                            {row.transitionId}
-                          </button>
-                        </td>
-                        <td>{given.length ? given.map((g) => vocabLabel(g)).join(' ∧ ') : <span class="dim">{t.flow.noGiven}</span>}</td>
-                        <td>{then.length ? then.map((th) => vocabLabel(th)).join('、') : <span class="dim">{t.flow.noResult}</span>}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+        // Mermaid diagram (rendered by the effect above) is this view's only
+        // content — the matrix/scope-disclosure text sections that used to
+        // sit alongside it were removed (decision 01KXN6G0R4DSXEVV86K8W0CZYW
+        // amending T-viewer-action-flow-render's then to mermaid-only): the
+        // fine print went unread in the viewer, and the same
+        // req.action-flow.scope-honesty text is still always available via
+        // `pmem flow`/`pmem gaps` for AI/CLI use. Edges carry no repeated
+        // per-edge text label (every subset-shadow edge means the same
+        // thing) — the legend states the convention once instead. Pan/zoom:
+        // ctrl/cmd+wheel to zoom (cursor-centered), drag to pan.
+        <section class="flow-section flow-diagram-section">
+          <div class="flow-diagram-toolbar">
+            <div class="flow-zoom-controls">
+              <button type="button" onClick={() => setZoom((z) => clampZoom(z - 0.2))} aria-label={t.flow.zoomOut}>
+                −
+              </button>
+              <span class="flow-zoom-level">{Math.round(zoom * 100)}%</span>
+              <button type="button" onClick={() => setZoom((z) => clampZoom(z + 0.2))} aria-label={t.flow.zoomIn}>
+                ＋
+              </button>
+              <button type="button" onClick={resetView}>
+                {t.flow.zoomReset}
+              </button>
             </div>
-          </section>
-
-          {/* 3. Mermaid diagram (rendered by the effect above). Edges carry no
-              repeated per-edge text label (every subset-shadow edge means the
-              same thing) — this legend states the convention once instead.
-              Pan/zoom: wheel to zoom, drag to pan (user feedback — mermaid's
-              own layout can outgrow the viewport for busy actions). */}
-          <section class="flow-section">
-            <div class="flow-diagram-toolbar">
-              <h2 class="flow-section-heading">{t.flow.diagramHeading(report.actionLabel || report.action)}</h2>
-              <div class="flow-zoom-controls">
-                <button type="button" onClick={() => setZoom((z) => clampZoom(z - 0.2))} aria-label={t.flow.zoomOut}>
-                  −
-                </button>
-                <span class="flow-zoom-level">{Math.round(zoom * 100)}%</span>
-                <button type="button" onClick={() => setZoom((z) => clampZoom(z + 0.2))} aria-label={t.flow.zoomIn}>
-                  ＋
-                </button>
-                <button type="button" onClick={resetView}>
-                  {t.flow.zoomReset}
-                </button>
-              </div>
-            </div>
-            <div
-              ref={viewportRef}
-              class="flow-diagram-viewport"
-              onWheel={onWheelZoom}
-              onPointerDown={onPointerDownPan}
-              onPointerMove={onPointerMovePan}
-              onPointerUp={onPointerUpPan}
-              onPointerLeave={onPointerUpPan}
-            >
-              <div class="flow-diagram-canvas" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
-                <div ref={diagramRef} class="flow-diagram" />
-              </div>
-            </div>
-            <div class="flow-diagram-legend">
-              <span>
-                <span class="flow-legend-swatch" style={{ color: 'var(--t-giv)' }} /> {t.flow.given}
-              </span>
-              <span>
-                <span class="flow-legend-swatch" style={{ color: 'var(--t-then)' }} /> {t.flow.legendClickable}
-              </span>
-              <span>
-                <span class="flow-legend-swatch" style={{ color: 'var(--lm-warning)' }} /> {t.flow.legendOverlap}
-              </span>
-              <span>{t.flow.legendSubsetShadow}</span>
-            </div>
-          </section>
-        </>
-      )}
-
-      {/* 2. Scope disclosure — ALWAYS rendered, even when every list is empty
-          (honesty-first: never a bare "no gaps"). Signal counts appear next to
-          what was actually checked. */}
-      <section class="flow-section flow-scope">
-        <h2 class="flow-section-heading">{t.flow.scopeHeading}</h2>
-
-        <div class="flow-scope-row">
-          <span class="dim">{t.flow.scopeDeclaredAxes}: </span>
-          {declaredAxes.length ? declaredAxes.join('、') : t.flow.scopeNone}
-        </div>
-        <div class="flow-scope-row">
-          <span class="dim">{t.flow.scopeUndeclaredGiven}: </span>
-          {undeclaredGiven.length ? undeclaredGiven.map((c) => vocabLabel(c)).join('、') : t.flow.scopeNone}
-        </div>
-        {scope.hasRemainder && <div class="flow-scope-row">{t.flow.scopeHasRemainder}</div>}
-
-        {/* subset-shadow / gaps / overlaps — captioned with their counts even
-            when zero, so emptiness is stated, never silently omitted. */}
-        <div class="flow-signal">
-          <span class="flow-signal-heading">{t.flow.subsetShadowHeading(subsetShadows.length)}</span>
-          {subsetShadows.length > 0 && (
-            <ul>
-              {subsetShadows.map((s) => (
-                <li key={`${s.subset}<${s.superset}`} class="flow-signal-subset">
-                  {t.flow.subsetShadowRow(s.subset, s.superset)}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div class="flow-signal">
-          <span class="flow-signal-heading">{t.flow.totalGapsHeading(totalGaps.length)}</span>
-          {totalGaps.length > 0 && (
-            <ul>
-              {totalGaps.map((g) => (
-                <li key={`${g.axisId}=${g.value}`} class="flow-signal-gap">
-                  {t.flow.totalGapRow(g.axisId, vocabLabel(g.value))}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div class="flow-signal">
-          <span class="flow-signal-heading">{t.flow.overlapsHeading(overlaps.length)}</span>
-          {overlaps.length > 0 && (
-            <ul>
-              {overlaps.map((o, i) => (
-                <li key={i} class="flow-signal-overlap">
-                  {t.flow.overlapRow(cellLabel(o.cell ?? {}), (o.transitions ?? []).join('、'))}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {/* Declared axes / cell count — listed here (not crammed into the
-            diagram) so larger cell products stay readable. */}
-        <div class="flow-signal">
-          <span class="flow-signal-heading">{t.flow.axesHeading(axes.length)}</span>
-          {axes.length === 0 ? (
-            <p class="dim flow-axes-empty">{t.flow.axesEmpty}</p>
-          ) : (
-            <>
-              <ul>
-                {axes.map((a) => (
-                  <li key={a.id}>{t.flow.axisRow(a.id, a.name, a.total, (a.values ?? []).map((v) => vocabLabel(v)).join('、'))}</li>
-                ))}
-              </ul>
-              <p class="dim">{t.flow.cellCountLabel(report.cells?.length ?? 0)}</p>
-            </>
-          )}
-        </div>
-
-        {remainder.length > 0 && (
-          <div class="flow-signal">
-            <span class="flow-signal-heading">{t.flow.remainderHeading(remainder.length)}</span>
-            <ul>
-              {remainder.map((r) => (
-                <li key={r.transitionId}>
-                  <button type="button" class="flow-tx-link" onClick={() => onGoToTransition(r.transitionId)}>
-                    {r.transitionId}
-                  </button>
-                </li>
-              ))}
-            </ul>
           </div>
-        )}
-
-        <ul class="flow-out-of-guarantee">
-          {outOfGuarantee.map((line, i) => (
-            <li key={i}>{line}</li>
-          ))}
-        </ul>
-      </section>
+          <div
+            ref={viewportRef}
+            class="flow-diagram-viewport"
+            title={t.flow.zoomHint}
+            onWheel={onWheelZoom}
+            onPointerDown={onPointerDownPan}
+            onPointerMove={onPointerMovePan}
+            onPointerUp={onPointerUpPan}
+            onPointerLeave={onPointerUpPan}
+          >
+            <div class="flow-diagram-canvas" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
+              <div ref={diagramRef} class="flow-diagram" />
+            </div>
+          </div>
+          <div class="flow-diagram-legend">
+            <span>
+              <span class="flow-legend-swatch" style={{ color: 'var(--t-giv)' }} /> {t.flow.given}
+            </span>
+            <span>
+              <span class="flow-legend-swatch" style={{ color: 'var(--t-then)' }} /> {t.flow.legendClickable}
+            </span>
+            <span>
+              <span class="flow-legend-swatch" style={{ color: 'var(--lm-warning)' }} /> {t.flow.legendOverlap}
+            </span>
+            <span>{t.flow.legendSubsetShadow}</span>
+          </div>
+        </section>
+      )}
     </main>
   );
 }

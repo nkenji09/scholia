@@ -1,13 +1,13 @@
 /* #/flow/<action> — action-scoped flow diagram view
-   (T-viewer-action-flow-render). Honesty-first: every section states its own
-   scope; gap/overlap/subset-shadow signals use an alarming-but-not-garish
-   warm palette distinct from the neutral trigger/given/result colors. */
+   (T-viewer-action-flow-render). The mermaid diagram is this view's only
+   content (decision 01KXN6G0R4DSXEVV86K8W0CZYW amended
+   T-viewer-action-flow-render's then to mermaid-only — the matrix/
+   scope-disclosure text sections that used to sit alongside it went unread;
+   the same text is still always available via `pmem flow`/`pmem gaps`). */
 
 .flow-view {
   padding: var(--sp-6) var(--sp-4) var(--sp-8);
   overflow-y: auto;
-  max-width: 940px;
-  margin: 0 auto;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -49,44 +49,12 @@
   flex-direction: column;
   gap: var(--sp-3);
 }
-
-.flow-section-heading {
-  margin: 0;
-  font-size: var(--fs-md);
-  font-weight: 600;
-  color: var(--lm-text-strong);
-}
-
-.flow-conditions {
-  margin: 0;
-  font-size: var(--fs-xs);
+.flow-diagram-section {
+  width: 100%;
 }
 
 .flow-empty {
   margin: 0;
-}
-
-/* ── Matrix table ── */
-.flow-matrix-scroll {
-  overflow-x: auto;
-  max-width: 100%;
-}
-.flow-matrix {
-  border-collapse: collapse;
-  width: 100%;
-  font-size: var(--fs-xs);
-}
-.flow-matrix th,
-.flow-matrix td {
-  border: 1px solid var(--lm-border);
-  padding: var(--sp-2) var(--sp-3);
-  text-align: left;
-  vertical-align: top;
-}
-.flow-matrix th {
-  background: var(--lm-s2);
-  font-weight: 600;
-  white-space: nowrap;
 }
 
 .flow-tx-link {
@@ -108,7 +76,7 @@
 .flow-diagram-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--sp-3);
   flex-wrap: wrap;
 }
@@ -143,7 +111,7 @@
    handlers. */
 .flow-diagram-viewport {
   position: relative;
-  height: 480px;
+  height: 640px;
   overflow: hidden;
   border: 1px solid var(--lm-border);
   border-radius: var(--r-md);
@@ -176,19 +144,20 @@
 }
 
 /* Node colors reuse the app's existing 前提/結果 grammar (--t-giv/--t-then —
-   the same tokens SpecCard's slot labels use), plus alarming amber/red
-   overlays for the honesty signals layered on top of the clickable effNode
-   base (結果 nodes are the diagram's only link target — see buildDiagram's
-   header comment). mermaid's own classDef can't express these
-   (its style grammar rejects var()/color-mix()), so `class <node> <name>`
-   in the diagram source only attaches plain SVG classes — the actual colors
-   live here, in real CSS, which supports var() (and stays light/dark aware
-   automatically since this SVG is inserted into the themed document).
-   !important is deliberate: mermaid always injects its own <style> block as
-   part of the rendered SVG markup itself (theme:'neutral's baked-in node
-   fill/stroke), inserted into the document later than this stylesheet — at
-   equal selector specificity the later-inserted rule wins the cascade, so
-   without !important mermaid's built-in colors silently win every time. */
+   the same tokens SpecCard's slot labels use), plus an alarming amber
+   overlay for genuine cross-transition ambiguity (overlap) layered on top
+   of the clickable effNode base (結果 nodes are the diagram's only link
+   target — see buildDiagram's header comment). mermaid's own classDef can't
+   express these (its style grammar rejects var()/color-mix()), so
+   `class <node> <name>` in the diagram source only attaches plain SVG
+   classes — the actual colors live here, in real CSS, which supports var()
+   (and stays light/dark aware automatically since this SVG is inserted into
+   the themed document). !important is deliberate: mermaid always injects
+   its own <style> block as part of the rendered SVG markup itself
+   (theme:'neutral's baked-in node fill/stroke), inserted into the document
+   later than this stylesheet — at equal selector specificity the
+   later-inserted rule wins the cascade, so without !important mermaid's
+   built-in colors silently win every time. */
 .flow-diagram .condNode rect,
 .flow-diagram .condNode polygon {
   fill: var(--lm-warning-weak) !important;
@@ -240,16 +209,6 @@
   stroke: var(--lm-warning) !important;
   stroke-width: 2px !important;
 }
-.flow-diagram .subsetNode rect,
-.flow-diagram .subsetNode polygon {
-  fill: var(--lm-error-weak) !important;
-  stroke: var(--lm-error) !important;
-  stroke-dasharray: 4 2 !important;
-}
-.flow-diagram .supersetNode rect,
-.flow-diagram .supersetNode polygon {
-  stroke: var(--lm-error) !important;
-}
 .flow-diagram .gapNode rect,
 .flow-diagram .gapNode polygon {
   fill: var(--lm-error-weak) !important;
@@ -276,66 +235,4 @@
   height: 10px;
   border-radius: 2px;
   border: 1.5px solid currentColor;
-}
-
-/* ── Scope disclosure (always rendered) ── */
-.flow-scope {
-  border-color: var(--lm-border-strong);
-}
-.flow-scope-row {
-  font-size: var(--fs-xs);
-  line-height: 1.6;
-}
-
-.flow-signal {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-1);
-}
-.flow-signal-heading {
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  color: var(--lm-text-strong);
-}
-.flow-signal ul {
-  margin: 0;
-  padding-left: var(--sp-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-1);
-}
-.flow-signal li {
-  font-size: var(--fs-xs);
-  line-height: 1.5;
-}
-
-/* warm signal colors — alarming but not garish. */
-.flow-signal-gap {
-  color: var(--lm-error);
-}
-.flow-signal-overlap {
-  color: var(--lm-warning);
-}
-.flow-signal-subset {
-  color: var(--lm-error);
-}
-
-.flow-axes-empty {
-  margin: 0;
-  font-size: var(--fs-xs);
-}
-
-.flow-out-of-guarantee {
-  margin: var(--sp-2) 0 0;
-  padding-left: var(--sp-5);
-  border-top: 1px dashed var(--lm-border);
-  padding-top: var(--sp-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-1);
-}
-.flow-out-of-guarantee li {
-  font-size: var(--fs-2xs);
-  color: var(--lm-text-muted);
-  line-height: 1.5;
 }

@@ -130,7 +130,7 @@ export function App() {
         <BrowseView scrollKey="spec" facet="tags" initialFocusTagId={route.tagId} onGoToSpec={openTransition} onGoToVocab={openVocabEntry} onGoToTag={openTagSpec} {...browseSearchProps} />
       )}
       {view === 'tags' && <BrowseView scrollKey="tags" facet="tags" onGoToSpec={openTransition} onGoToVocab={openVocabEntry} onGoToTag={openTagSpec} {...browseSearchProps} />}
-      {view === 'flow' && <FlowView actionId={route.actionId} onGoToTransition={openTransition} />}
+      {view === 'flow' && <FlowView actionId={route.actionId} />}
       {view === 'config' && <ConfigView />}
       <CommentPanel onGoto={gotoComment} />
     </>

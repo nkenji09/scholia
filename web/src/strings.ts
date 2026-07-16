@@ -104,48 +104,27 @@ const ja = {
     noGiven: '無条件（前提なし）',
     // action の ⋮ メニュー項目（T-viewer-action-flow-link）。別タブでフロー図を開く。
     menuShowFlow: 'フロー図を表示',
-    // #/flow/<action> ビュー（T-viewer-action-flow-render）。見出し・空表示・
-    // キャプションは internal/flow/text.go の CLI 文言に揃える（UI 一貫性）。
+    // #/flow/<action> ビュー（T-viewer-action-flow-render）。マトリクス／
+    // scope-disclosure のテキスト節は viewer から削除済み（decision
+    // 01KXN6G0R4DSXEVV86K8W0CZYW・#39 フォローアップ）— 同じ情報は
+    // `pmem flow`/`pmem gaps` で引き続き見られる。図がこのビューの唯一の
+    // コンテンツ。
     viewTitle: (label: string) => `${label} のフロー`,
     loading: '読み込み中…',
     emptyAction: 'この action を持つ遷移はありません。',
-    // マトリクス節（可視化・網羅を主張しない）。
-    matrixHeading: 'マトリクス（可視化・網羅を主張しない）',
-    matrixConditionsLabel: '条件',
-    matrixNoConditions: '（given 条件なし）',
-    // 図（transition ノード・抜け/重なり/subset-shadow のマーカー）。
-    diagramHeading: (actionLabel: string) => `図: ${actionLabel}（クリックで遷移詳細へ）`,
-    diagramNoTransitions: '（描画する遷移がありません）',
     diagramError: '図の描画に失敗しました。',
     // 凡例。矢印は同じ意味の繰り返しラベルを持たせず、ここで一括して説明する。
     legendClickable: '結果（クリックで遷移詳細へ）',
     zoomIn: '拡大',
     zoomOut: '縮小',
     zoomReset: 'リセット',
-    legendSubsetShadow: '点線矢印(片方向) = subset-shadow（⊊・優先順位未定義の証明可能な重複）',
-    legendOverlap: '枠線 = 重なり（宣言軸に相対的な ambiguity・詳細は下の一覧を参照）',
-    // subset-shadow（証明可能な重複）。
-    subsetShadowHeading: (n: number) => `subset-shadow（証明可能な重複）: ${n} 件`,
-    subsetShadowRow: (subset: string, superset: string) => `${subset} ⊊ ${superset}: ${superset} が発火する world では ${subset} も必ず発火します（優先順位未定義）`,
-    // 抜け（L-total・唯一 clean に sound）。
-    totalGapsHeading: (n: number) => `抜け（L-total・唯一 clean に sound）: ${n} 件`,
-    totalGapRow: (axisId: string, value: string) => `軸 ${axisId}: 値 ${value} を given に持つ遷移が1つもありません`,
-    // 重なり（宣言軸に相対的に sound な ambiguity）。
-    overlapsHeading: (n: number) => `重なり（宣言軸に相対的に sound な ambiguity）: ${n} 件`,
-    overlapRow: (cell: string, txs: string) => `cell ${cell}: ${txs} が同じ状況を取り合っています（優先順位未定義）`,
-    // 宣言軸・cell（直積・有界）。
-    axesHeading: (n: number) => `宣言軸: ${n} 件`,
-    axesEmpty: 'この action の given に axis タグを持つ条件がありません（軸注釈による gap 検出は範囲外）。',
-    axisRow: (id: string, name: string, total: boolean, values: string) => `${id}（${name}・${total ? 'total=true' : 'total=false'}）: 値=${values}`,
-    cellCountLabel: (n: number) => `cell 数（宣言軸の直積・有界）: ${n}`,
-    // acknowledged-remainder（coverage に数えない）。
-    remainderHeading: (n: number) => `acknowledged-remainder（coverage に数えない）: ${n} 件`,
-    // scope-disclosure（保証の外・削れない必須項目）。空でも常に描く。
-    scopeHeading: 'scope-disclosure（保証の外・削れない必須項目）',
-    scopeDeclaredAxes: '列挙した軸',
-    scopeUndeclaredGiven: "don't-care 扱いの条件（軸未宣言の given）",
-    scopeNone: '（なし）',
-    scopeHasRemainder: 'acknowledged-remainder あり（別枠報告・coverage 外）',
+    zoomHint: 'ドラッグでパン・Ctrl/Cmd+ホイールでズーム',
+    // 点線の辺自体に付くラベル（buildDiagram 参照）。赤枠は「壊れている」に
+    // 見えるとの指摘を受け、subset-shadow はノード色を持たず辺のラベルのみで
+    // 表現する（両方の結果とも正常・優先順位が決まっていないだけ）。
+    coOccur: '同時に発生',
+    legendSubsetShadow: '点線＝同時に発生する組み合わせ（優先順位未定義）',
+    legendOverlap: '枠線＝重なり（優先順位未定義）',
   },
   // BROWSE(タグ/仕様) — 旧 Browse(3ペイン)/TagsView(ツリー)/SpecView を検索
   // レール＋カード一覧の1つの型に統合した画面（.concierge/decision.md A-2）。
@@ -456,34 +435,15 @@ const en: Strings = {
     viewTitle: (label) => `${label} flow`,
     loading: 'Loading…',
     emptyAction: 'No transitions carry this action.',
-    matrixHeading: 'Matrix (visualization — does not claim exhaustiveness)',
-    matrixConditionsLabel: 'Conditions',
-    matrixNoConditions: '(no given conditions)',
-    diagramHeading: (actionLabel: string) => `Diagram: ${actionLabel} (click a node for the transition detail)`,
-    diagramNoTransitions: '(no transitions to draw)',
     diagramError: 'Failed to render the diagram.',
     legendClickable: 'Result (click for the transition detail)',
     zoomIn: 'Zoom in',
     zoomOut: 'Zoom out',
     zoomReset: 'Reset',
-    legendSubsetShadow: 'Dotted arrow (one-way) = subset-shadow (⊊, provable duplication, priority undefined)',
-    legendOverlap: 'Border = overlap (ambiguity relative to declared axes — see the list below for detail)',
-    subsetShadowHeading: (n) => `subset-shadow (provable duplication): ${n}`,
-    subsetShadowRow: (subset, superset) => `${subset} ⊊ ${superset}: any world where ${superset} fires also fires ${subset} (priority undefined)`,
-    totalGapsHeading: (n) => `Gaps (L-total — the only cleanly sound signal): ${n}`,
-    totalGapRow: (axisId, value) => `axis ${axisId}: no transition has value ${value} in its given`,
-    overlapsHeading: (n) => `Overlaps (sound relative to declared axes): ${n}`,
-    overlapRow: (cell, txs) => `cell ${cell}: ${txs} contend for the same situation (priority undefined)`,
-    axesHeading: (n) => `Declared axes: ${n}`,
-    axesEmpty: 'No condition in this action’s given carries an axis tag (axis-based gap detection is out of scope).',
-    axisRow: (id, name, total, values) => `${id} (${name}, ${total ? 'total=true' : 'total=false'}): values=${values}`,
-    cellCountLabel: (n) => `cells (bounded product of declared axes): ${n}`,
-    remainderHeading: (n) => `acknowledged-remainder (not counted toward coverage): ${n}`,
-    scopeHeading: 'scope-disclosure (outside the guarantee — mandatory, never omitted)',
-    scopeDeclaredAxes: 'Enumerated axes',
-    scopeUndeclaredGiven: "Conditions treated as don't-care (given with no declared axis)",
-    scopeNone: '(none)',
-    scopeHasRemainder: 'acknowledged-remainder present (reported separately, outside coverage)',
+    zoomHint: 'Drag to pan, Ctrl/Cmd+scroll to zoom',
+    coOccur: 'Occurs together',
+    legendSubsetShadow: 'Dotted line = fires together (priority undefined)',
+    legendOverlap: 'Border = overlap (priority undefined)',
   },
   browse: {
     searchPlaceholder: 'Search by keyword or tag',
