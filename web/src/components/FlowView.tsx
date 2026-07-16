@@ -61,7 +61,11 @@ interface Props {
 // When the action has no declared axes at all, there is no tree to build —
 // falls back to the flat given→junction→then shape (every given condition
 // is then implicitly "free" since no axis exists to structure it).
-function buildDiagram(report: FlowReport, label: (id: string) => string): { def: string; txByToken: Map<string, string> } {
+function buildDiagram(
+  report: FlowReport,
+  label: (id: string) => string,
+  resultLabel: string,
+): { def: string; txByToken: Map<string, string> } {
   const lines: string[] = ['flowchart TD'];
   const txByToken = new Map<string, string>();
 
@@ -102,29 +106,30 @@ function buildDiagram(report: FlowReport, label: (id: string) => string): { def:
     const isOverlap = overlapTxAtLeaf.has(txId);
     const isSubset = subsetSubset.has(txId);
     const isSuperset = subsetSuperset.has(txId);
-    let terminal = cur;
-    let ei = 0;
-    for (const e of row.then ?? []) {
-      const et = nextId('r');
-      txByToken.set(et, txId);
-      lines.push(`  ${et}["${esc(label(e))}"]`);
-      // One `class` statement per class name — mermaid's flowchart `class`
-      // directive embeds a comma-joined list as a single literal SVG class
-      // token rather than splitting it into separate space-separated
-      // classes, so a comma-joined list silently never matches any CSS
-      // selector. Separate statements avoid that trap.
-      const classes: string[] = ['effNode'];
-      if (isOverlap) classes.push('overlapNode');
-      if (isSubset) classes.push('subsetNode');
-      if (isSuperset) classes.push('supersetNode');
-      for (const c of classes) lines.push(`  class ${et} ${c}`);
-      lines.push(`  ${cur} --> ${et}`);
-      if (ei === 0) terminal = et;
-      ei++;
-    }
+
+    // 結果 collapses to ONE clickable node per transition occurrence — not
+    // one per effect (user feedback: showing every effect's full sentence
+    // made the diagram noisy; the matrix table above already has the full
+    // given/then text, so the diagram only needs a link, not the content).
+    const then = row.then ?? [];
+    const nodeLabel = then.length > 1 ? `${resultLabel}（${then.length}件）` : resultLabel;
+    const rt = nextId('r');
+    txByToken.set(rt, txId);
+    lines.push(`  ${rt}["${esc(nodeLabel)}"]`);
+    // One `class` statement per class name — mermaid's flowchart `class`
+    // directive embeds a comma-joined list as a single literal SVG class
+    // token rather than splitting it into separate space-separated classes,
+    // so a comma-joined list silently never matches any CSS selector.
+    // Separate statements avoid that trap.
+    const classes: string[] = ['effNode'];
+    if (isOverlap) classes.push('overlapNode');
+    if (isSubset) classes.push('subsetNode');
+    if (isSuperset) classes.push('supersetNode');
+    for (const c of classes) lines.push(`  class ${rt} ${c}`);
+    lines.push(`  ${cur} --> ${rt}`);
 
     if (!terminalsByTx.has(txId)) terminalsByTx.set(txId, new Map());
-    terminalsByTx.get(txId)!.set(leafKey, terminal);
+    terminalsByTx.get(txId)!.set(leafKey, rt);
   }
 
   const axes = report.axes ?? [];
@@ -331,7 +336,7 @@ export function FlowView({ actionId, onGoToTransition }: Props) {
     const host = diagramRef.current;
     if (!host || !report || (report.matrix.rows ?? []).length === 0) return;
     let cancelled = false;
-    const { def, txByToken } = buildDiagram(report, vocabLabel);
+    const { def, txByToken } = buildDiagram(report, vocabLabel, t.flow.result);
     import('mermaid')
       .then(({ default: mermaid }) => {
         if (cancelled) return;
