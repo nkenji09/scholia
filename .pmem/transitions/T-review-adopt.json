@@ -1,0 +1,16 @@
+{
+  "id": "T-review-adopt",
+  "action": "act.user.review-adopt",
+  "given": [
+    "cond.review-exists"
+  ],
+  "then": [
+    "eff.storage.append-decision",
+    "eff.storage.delete-review"
+  ],
+  "tags": [
+    "req.evaluate-change.adopt-cleanup",
+    "subject.cli",
+    "subject.viewer.drawer"
+  ]
+}

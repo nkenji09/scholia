@@ -1,0 +1,14 @@
+{
+  "id": "T-cli-review-rm",
+  "action": "act.user.review-rm",
+  "given": [
+    "cond.review-exists"
+  ],
+  "then": [
+    "eff.storage.delete-review"
+  ],
+  "tags": [
+    "req.evaluate-change.adopt-cleanup",
+    "subject.cli"
+  ]
+}
