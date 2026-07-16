@@ -150,6 +150,10 @@
   background: var(--lm-bg);
   cursor: grab;
   touch-action: none;
+  /* Dragging to pan must not also start a native text-selection drag over
+     node labels (user feedback). */
+  user-select: none;
+  -webkit-user-select: none;
 }
 .flow-diagram-viewport:active {
   cursor: grabbing;

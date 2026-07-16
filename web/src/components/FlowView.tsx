@@ -296,7 +296,22 @@ export function FlowView({ actionId, onGoToTransition }: Props) {
   // for a small diagram (mermaid sizes its <svg> tightly to content).
   const fitZoomRef = useRef(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const dragState = useRef<{ startX: number; startY: number; panX: number; panY: number } | null>(null);
+  // `dragging` tracks whether the pointer has moved past DRAG_THRESHOLD
+  // since pointerdown — NOT set on pointerdown itself. Calling
+  // setPointerCapture unconditionally on every pointerdown (the original
+  // implementation) redirects the eventual pointerup/click to the
+  // *capturing* element (the viewport) rather than whatever node is under
+  // the pointer, per the Pointer Events spec — so a plain click (press,
+  // release, no movement) never reached a node's own click listener at all
+  // (user feedback: "単純にクリックしても遷移しない"). Capture is now only
+  // engaged once real dragging is confirmed, so a plain click's pointerup/
+  // click naturally targets and fires on the actual node underneath.
+  const dragState = useRef<{ startX: number; startY: number; panX: number; panY: number; dragging: boolean } | null>(null);
+  // Set for one tick after a real drag ends, so the click a browser may
+  // still synthesize on release doesn't get misread as a navigation click
+  // on whatever node happens to be under the pointer at that moment.
+  const suppressClickRef = useRef(false);
+  const DRAG_THRESHOLD = 4;
   const ZOOM_MIN = 0.3;
   // ZOOM_MAX allows the fit-to-viewport zoom to go well past 100% for a
   // genuinely small diagram — see fitZoomRef above.
@@ -311,15 +326,23 @@ export function FlowView({ actionId, onGoToTransition }: Props) {
     setZoom((z) => clampZoom(z - e.deltaY * 0.001));
   };
   const onPointerDownPan = (e: PointerEvent) => {
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    dragState.current = { startX: e.clientX, startY: e.clientY, panX: pan.x, panY: pan.y };
+    dragState.current = { startX: e.clientX, startY: e.clientY, panX: pan.x, panY: pan.y, dragging: false };
   };
   const onPointerMovePan = (e: PointerEvent) => {
     const drag = dragState.current;
     if (!drag) return;
-    setPan({ x: drag.panX + (e.clientX - drag.startX), y: drag.panY + (e.clientY - drag.startY) });
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    if (!drag.dragging) {
+      if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+      drag.dragging = true;
+      // Only now claim the pointer — a plain click never reaches this line.
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    }
+    setPan({ x: drag.panX + dx, y: drag.panY + dy });
   };
   const onPointerUpPan = () => {
+    if (dragState.current?.dragging) suppressClickRef.current = true;
     dragState.current = null;
   };
 
@@ -432,7 +455,16 @@ export function FlowView({ actionId, onGoToTransition }: Props) {
             // in-app navigation via onGoToTransition), since the diagram is
             // the exploratory view you want to keep in place while checking
             // transitions one at a time.
-            node.addEventListener('click', () => window.open(routeHash({ view: 'browse', txId: hit }), '_blank', 'noopener'));
+            node.addEventListener('click', () => {
+              // A click that's really the tail end of a pan drag (see
+              // suppressClickRef above) must not open a tab — consume the
+              // flag and bail instead of navigating.
+              if (suppressClickRef.current) {
+                suppressClickRef.current = false;
+                return;
+              }
+              window.open(routeHash({ view: 'browse', txId: hit }), '_blank', 'noopener');
+            });
           });
         });
       })
