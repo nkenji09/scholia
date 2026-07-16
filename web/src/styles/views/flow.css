@@ -195,6 +195,15 @@
   fill: var(--lm-success-weak) !important;
   stroke: var(--t-then) !important;
 }
+/* axisNode: the decision-tree diamond that tests one declared axis
+   (Yes/No-style branch on that axis's value) — --t-act (the app's
+   きっかけ/action color) reused here to mark it as a structural decision
+   point, distinct from 前提(amber)/結果(green). */
+.flow-diagram .axisNode polygon,
+.flow-diagram .axisNode rect {
+  fill: color-mix(in srgb, var(--t-act) 14%, transparent) !important;
+  stroke: var(--t-act) !important;
+}
 /* txHub: the unlabeled per-transition routing junction (small dot) — not a
    visible "step" (a transition has no human label of its own, only its bare
    id, which read as noise as a diagram node — user feedback), not

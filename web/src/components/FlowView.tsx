@@ -19,127 +19,208 @@ interface Props {
 // override (its signature is (id, text, container?)), so approach (b)'s
 // native `click ... href` directive would require a global initialize() with
 // a looser securityLevel — which is exactly the cross-mount race we avoid.
-// Instead we encode each transition's id into a sanitized node token, render
-// to an SVG string, then walk the SVG DOM and attach a real click handler
-// (calling onGoToTransition) to each transition node before inserting it.
+// Instead we generate a plain sequential node token per node and keep a
+// token→transitionId map (txByToken), render to an SVG string, then walk
+// the SVG DOM and attach a real click handler (calling onGoToTransition) to
+// each mapped node before inserting it.
 // Diagram source is built from .pmem-derived ids only (never free text), so
 // no untrusted HTML reaches mermaid regardless.
 
-// mermaid node ids must be simple identifiers; map an arbitrary id to a safe
-// token and keep the reverse mapping so SVG post-processing can recover the
-// real transition/gap id.
-function sanitize(id: string): string {
-  return id.replace(/[^a-zA-Z0-9]/g, '_');
-}
-
 // Build a flowchart definition plus a token→transitionId map for the clickable
-// transition nodes. Gap nodes are non-clickable (there is no transition to
-// link to — a total-gap is *missing* coverage) so they carry no map entry.
+// 結果 nodes. Gap nodes are non-clickable (there is no transition to link to
+// — a total-gap is *missing* coverage) so they carry no map entry.
 //
-// Layout: a layered 前提(given)→結果(then) graph. Each transition routes
-// through an unlabeled junction node (small dot, not clickable, not a
-// separate visible "step") purely so mermaid can group that transition's
-// given/then together and so subset-shadow edges have somewhere to anchor —
-// a transition has no human label of its own (only its bare `T-xxx` id),
-// and showing that id as if it were a meaningful step read as noise (user
-// feedback: "Transition のステップは表示の必要がない"). Instead 結果(then)
-// nodes themselves are the clickable link → #/browse/tx/<id> ("結果のステップを
-// Transition へのリンクに"): every occurrence of an effect is its own node
-// scoped to the transition that produced it (NOT deduped across
-// transitions, unlike 前提), because a single click target must resolve to
-// exactly one transition — two different transitions producing the
-// "same" effect id would be ambiguous if they shared one node. mermaid's
-// dagre layout still ranks a TD flowchart by graph distance from the roots
-// (given-condition nodes, no incoming edges) down to the sinks (then/effect
-// nodes, no outgoing edges), so 結果 nodes consistently collect at the
-// bottom without manual positioning.
+// Layout: a DECISION TREE over the declared axes (user design, #39 dogfood
+// round 3) — one diamond per axis, branching Yes/No-style on that axis's
+// value; transitions sharing the same axis values share the same path.
+// report.cells already IS this tree's leaf set (the bounded product of
+// declared axes computed server-side) — building the tree is just grouping
+// `cells` by axis value one axis at a time (walk()), never re-deriving the
+// analysis itself. At each leaf, every covering transition (cell.
+// transitions) gets its own tail: any given condition NOT covered by a
+// declared axis ("free"/don't-care, report.scope.undeclaredGiven) becomes a
+// non-branching parallelogram passthrough step — still a real, visible
+// precondition, just not part of the Yes/No decision structure — followed
+// by that transition's 結果(then) node(s), the diagram's only clickable
+// link → #/browse/tx/<id> (results, not the transition itself, are the
+// link: a transition has no human label of its own, only its bare `T-xxx`
+// id, and showing that as if it were a meaningful step read as noise — user
+// feedback: "Transition のステップは表示の必要がない"). Each occurrence of an
+// effect is its own node scoped to the transition that produced it (not
+// deduped across transitions, unlike conditions), because a single click
+// target must resolve to exactly one transition.
+//
+// overlap is matched per-leaf (cell) against report.overlaps' own per-cell
+// transitions list, not just "this transition overlaps somewhere" — a
+// transition free on some axis can appear at several leaves and only
+// genuinely contends at some of them. subset-shadow is matched per shared
+// leaf too: a proper-subset transition is looser on some axis than its
+// superset (so it's "free" and appears at every leaf the superset does),
+// so an edge is drawn at every leaf where both occur.
+//
+// When the action has no declared axes at all, there is no tree to build —
+// falls back to the flat given→junction→then shape (every given condition
+// is then implicitly "free" since no axis exists to structure it).
 function buildDiagram(report: FlowReport, label: (id: string) => string): { def: string; txByToken: Map<string, string> } {
   const lines: string[] = ['flowchart TD'];
   const txByToken = new Map<string, string>();
 
   const subsetSubset = new Set(report.subsetShadows?.map((s) => s.subset) ?? []);
   const subsetSuperset = new Set(report.subsetShadows?.map((s) => s.superset) ?? []);
-  const overlapTx = new Set<string>();
-  for (const o of report.overlaps ?? []) for (const tx of o.transitions ?? []) overlapTx.add(tx);
+  const undeclared = new Set(report.scope?.undeclaredGiven ?? []);
+  const rowById = new Map((report.matrix.rows ?? []).map((r) => [r.transitionId, r]));
 
   const esc = (s: string) => s.replace(/"/g, "'");
-  const condToken = (id: string) => 'c_' + sanitize(id);
+  let counter = 0;
+  const nextId = (prefix: string) => `${prefix}${counter++}`;
 
-  const seenCond = new Set<string>();
+  // transitionId -> (leafKey -> representative terminal node token), for
+  // drawing subset-shadow edges between occurrences that share a leaf.
+  const terminalsByTx = new Map<string, Map<string, string>>();
 
-  for (const row of report.matrix.rows ?? []) {
-    const hub = 'tx_' + sanitize(row.transitionId);
-    // Unlabeled junction — a small dot (mermaid circle shape), not part of
-    // txByToken (not clickable itself; see header comment).
-    lines.push(`  ${hub}((" "))`);
-    lines.push(`  class ${hub} txHub`);
-
-    // 前提(given) → junction: each given-condition node feeds this
-    // transition. An unconditional transition (no given) simply has no
-    // incoming edge — it's already a root, which is correct (no precondition
-    // to wait on).
+  // A free/undeclared-given passthrough chain, then this transition's 結果
+  // node(s), hung off `fromToken` (a leaf junction or, in the no-axes
+  // fallback, the transition's own hub). `overlapTxAtLeaf` scopes the amber
+  // overlap highlight to just this occurrence.
+  function renderTail(fromToken: string, leafKey: string, txId: string, overlapTxAtLeaf: Set<string>) {
+    const row = rowById.get(txId);
+    if (!row) return;
+    let cur = fromToken;
     for (const g of row.given ?? []) {
-      const ct = condToken(g);
-      if (!seenCond.has(ct)) {
-        seenCond.add(ct);
-        // Parallelogram (mermaid's `[/"text"/]` shape) for 前提 — the
-        // conventional flowchart shape for a precondition/input, distinct
-        // from the rectangular 結果 nodes.
-        lines.push(`  ${ct}[/"${esc(label(g))}"/]`);
-        lines.push(`  class ${ct} condNode`);
-      }
-      lines.push(`  ${ct} --> ${hub}`);
+      if (!undeclared.has(g)) continue;
+      const ct = nextId('f');
+      // Parallelogram (mermaid's `[/"text"/]` shape) — same shape as a
+      // declared-axis precondition, but a plain single-in/single-out
+      // passthrough (no branching): it's a real precondition, just outside
+      // the Yes/No decision structure since it has no declared axis.
+      lines.push(`  ${ct}[/"${esc(label(g))}"/]`);
+      lines.push(`  class ${ct} condNode`);
+      lines.push(`  ${cur} --> ${ct}`);
+      cur = ct;
     }
 
-    // junction → 結果(then): one node per (transition, effect) — not
-    // deduped across transitions, since each is this specific transition's
-    // clickable link target (see header comment on the ambiguity that would
-    // create if shared).
+    const isOverlap = overlapTxAtLeaf.has(txId);
+    const isSubset = subsetSubset.has(txId);
+    const isSuperset = subsetSuperset.has(txId);
+    let terminal = cur;
     let ei = 0;
     for (const e of row.then ?? []) {
-      const et = hub + '_e' + ei++;
-      txByToken.set(et, row.transitionId);
+      const et = nextId('r');
+      txByToken.set(et, txId);
       lines.push(`  ${et}["${esc(label(e))}"]`);
-
       // One `class` statement per class name — mermaid's flowchart `class`
       // directive embeds a comma-joined list as a single literal SVG class
       // token rather than splitting it into separate space-separated
       // classes, so a comma-joined list silently never matches any CSS
       // selector. Separate statements avoid that trap.
       const classes: string[] = ['effNode'];
-      if (overlapTx.has(row.transitionId)) classes.push('overlapNode');
-      if (subsetSubset.has(row.transitionId)) classes.push('subsetNode');
-      if (subsetSuperset.has(row.transitionId)) classes.push('supersetNode');
+      if (isOverlap) classes.push('overlapNode');
+      if (isSubset) classes.push('subsetNode');
+      if (isSuperset) classes.push('supersetNode');
       for (const c of classes) lines.push(`  class ${et} ${c}`);
-
-      lines.push(`  ${hub} --> ${et}`);
+      lines.push(`  ${cur} --> ${et}`);
+      if (ei === 0) terminal = et;
+      ei++;
     }
+
+    if (!terminalsByTx.has(txId)) terminalsByTx.set(txId, new Map());
+    terminalsByTx.get(txId)!.set(leafKey, terminal);
+  }
+
+  const axes = report.axes ?? [];
+  const cells = report.cells ?? [];
+
+  if (axes.length === 0 || cells.length === 0) {
+    // No declared axes: every given condition is "free" by definition (no
+    // axis exists to structure it) — flat given→junction→then per
+    // transition, same shape as the axis-tree's own no-axis leaf tail.
+    // Overlap has no per-cell scoping to consult here (there are no axes/
+    // cells at all), so every transition that overlaps anywhere is flagged.
+    const overlapAnywhere = new Set<string>();
+    for (const o of report.overlaps ?? []) for (const t of o.transitions ?? []) overlapAnywhere.add(t);
+    // Constant leafKey ('') for every transition here — there is no
+    // cell/leaf concept without declared axes, so subset-shadow's
+    // leaf-matching below (see the axis-tree branch) must treat every
+    // transition as occurring at the same single "leaf" for pairs to match
+    // and draw an edge at all (each transition's own id would never equal
+    // another's, so a per-transition key would silently draw zero edges).
+    for (const row of report.matrix.rows ?? []) {
+      const hub = nextId('h');
+      lines.push(`  ${hub}((" "))`);
+      lines.push(`  class ${hub} txHub`);
+      renderTail(hub, '', row.transitionId, overlapAnywhere);
+    }
+  } else {
+    const overlapEntries = report.overlaps ?? [];
+    const cellMatches = (a: Record<string, string>, b: Record<string, string> | undefined) => {
+      if (!b) return false;
+      for (const k of Object.keys(a)) if (a[k] !== b[k]) return false;
+      return true;
+    };
+    const leafKeyOf = (values: Record<string, string>) =>
+      Object.keys(values)
+        .sort()
+        .map((k) => `${k}=${values[k]}`)
+        .join(';');
+
+    // Group `cells` by axis value one axis at a time — report.cells is
+    // already the full bounded product computed server-side (productCells),
+    // so grouping it recreates the decision tree exactly; no re-derivation.
+    function walk(subset: typeof cells, axisIndex: number, parentToken: string | null, edgeLabel: string | null) {
+      if (axisIndex >= axes.length) {
+        const cell = subset[0];
+        if (!cell) return;
+        const leafKey = leafKeyOf(cell.values ?? {});
+        const leaf = nextId('h');
+        lines.push(`  ${leaf}((" "))`);
+        lines.push(`  class ${leaf} txHub`);
+        if (parentToken) lines.push(`  ${parentToken} -->|"${esc(edgeLabel ?? '')}"| ${leaf}`);
+        const overlapHere = new Set<string>();
+        for (const o of overlapEntries) if (cellMatches(o.cell ?? {}, cell.values)) for (const t of o.transitions ?? []) overlapHere.add(t);
+        for (const txId of cell.transitions ?? []) renderTail(leaf, leafKey, txId, overlapHere);
+        return;
+      }
+      const axis = axes[axisIndex];
+      const decision = nextId('d');
+      lines.push(`  ${decision}{"${esc(axis.name)}"}`);
+      lines.push(`  class ${decision} axisNode`);
+      if (parentToken) lines.push(`  ${parentToken} -->|"${esc(edgeLabel ?? '')}"| ${decision}`);
+      const byValue = new Map<string, typeof cells>();
+      for (const cell of subset) {
+        const v = cell.values?.[axis.id];
+        if (v === undefined) continue;
+        if (!byValue.has(v)) byValue.set(v, []);
+        byValue.get(v)!.push(cell);
+      }
+      for (const [v, group] of byValue) walk(group, axisIndex + 1, decision, label(v));
+    }
+    walk(cells, 0, null, null);
   }
 
   // subset-shadow: a one-directional dotted edge superset → subset (proven
-  // multi-fire: any world satisfying superset's given also fires subset).
-  // Anchored on the junctions (still meaningful graph nodes even though
-  // unlabeled). No per-edge text label — every subset-shadow edge means the
-  // same thing, so a repeated label is just noise; the single-arrowhead
-  // direction plus the legend under the diagram carry the meaning instead.
+  // multi-fire: any world satisfying superset's given also fires subset),
+  // drawn at every leaf where both occur (a subset transition is looser on
+  // some axis, so it's "free" there and appears at every leaf its superset
+  // does — see header comment). No per-edge text label — every
+  // subset-shadow edge means the same thing, so a repeated label is just
+  // noise; the single-arrowhead direction plus the legend carry the meaning
+  // instead.
   for (const s of report.subsetShadows ?? []) {
-    const subset = 'tx_' + sanitize(s.subset);
-    const superset = 'tx_' + sanitize(s.superset);
-    lines.push(`  ${superset} -.-> ${subset}`);
+    const supTerminals = terminalsByTx.get(s.superset);
+    const subTerminals = terminalsByTx.get(s.subset);
+    if (!supTerminals || !subTerminals) continue;
+    for (const [leafKey, supToken] of supTerminals) {
+      const subToken = subTerminals.get(leafKey);
+      if (subToken) lines.push(`  ${supToken} -.-> ${subToken}`);
+    }
   }
 
-  // overlap is NOT drawn as edges — with many contending transitions
-  // (act.user.update-scale actions) a pairwise edge per cell explodes into a
-  // dense criss-cross that overwhelms the diagram (user feedback during
-  // #39 dogfood verification). Overlap is still sound signal, but it's
-  // surfaced two other ways instead: the amber overlapNode border/fill on
-  // every contending transition's 結果 nodes (`class` assignment above), and
-  // the full per-cell detail in the scope-disclosure section's 重なり list
-  // below — the diagram stays a readable given→then graph plus the rarer
-  // subset-shadow edges only.
-
   // total-gaps: a distinct, non-clickable "missing coverage" marker node per
-  // gap (there is no transition to click through to).
+  // gap (there is no transition to click through to). Left as standalone
+  // markers, not integrated into the tree — a gap is about one axis VALUE
+  // never being specifically pinned by any transition, which doesn't map to
+  // one specific tree path (other transitions can still cover that value's
+  // cells by being "free" on that axis).
   let gi = 0;
   for (const g of report.totalGaps ?? []) {
     const token = `gap_${gi++}`;
