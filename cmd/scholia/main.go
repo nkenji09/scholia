@@ -1,4 +1,4 @@
-// Command scholia is the product-memory CLI entrypoint.
+// Command scholia is the CLI entrypoint.
 package main
 
 import (

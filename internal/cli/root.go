@@ -14,7 +14,7 @@ var dirFlag string
 func newRootCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "scholia",
-		Short:         "product-memory — AI 向けコンテキスト保存支援ツール",
+		Short:         "scholia — AI 向けコンテキスト保存支援ツール",
 		SilenceUsage:  true,
 		SilenceErrors: false,
 	}

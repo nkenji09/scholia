@@ -192,7 +192,7 @@ func DefaultConfig() Config {
 		Display: DisplayConfig{
 			ProductName: "scholia",
 			Tagline:     "記録を、読みたくなる形で。",
-			Intro:       "product-memory は、プロダクトの意思決定・要件・振る舞いを原子（遷移）として記録し、構造は派生（query）で見るためのツールです。",
+			Intro:       "scholia は、プロダクトの意思決定・要件・振る舞いを原子（遷移）として記録し、構造は派生（query）で見るためのツールです。",
 		},
 	}
 }
