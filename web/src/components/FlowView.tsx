@@ -32,20 +32,25 @@ interface Props {
 // — a total-gap is *missing* coverage) so they carry no map entry.
 //
 // Layout: a DECISION TREE over the declared axes (user design, #39 dogfood
-// round 3) — one diamond per axis, branching Yes/No-style on that axis's
-// value; transitions sharing the same axis values share the same path.
-// report.cells already IS this tree's leaf set (the bounded product of
-// declared axes computed server-side) — building the tree is just grouping
-// `cells` by axis value one axis at a time (walk()), never re-deriving the
-// analysis itself. At each leaf, every covering transition (cell.
-// transitions) gets its own tail: any given condition NOT covered by a
-// declared axis ("free"/don't-care, report.scope.undeclaredGiven) becomes a
-// non-branching parallelogram passthrough step — still a real, visible
-// precondition, just not part of the Yes/No decision structure — followed
-// by that transition's 結果(then) node(s), the diagram's only clickable
-// link → #/browse/tx/<id> (results, not the transition itself, are the
-// link: a transition has no human label of its own, only its bare `T-xxx`
-// id, and showing that as if it were a meaningful step read as noise — user
+// round 3+4) — each diamond tests ONE axis Yes/No-style on its value, but a
+// hub can fan out into several SIBLING diamonds (one per axis some pending
+// transition actually pins as its first relevant axis), not just one — a
+// transition that doesn't pin an axis is never routed through that axis's
+// branches (walk() in the axes.length>0 branch groups by first-pinned-axis,
+// not "the next axis anyone here pins"). A transition nested inside an
+// axis's branch reads as conditioned on that axis even when it never
+// declared that precondition — user feedback after `T-update-already-
+// latest` (no platform given) appeared under the windows branch alongside
+// `T-update-guide-windows` (which genuinely requires windows): "その軸を
+// 気にしないなら別の木になるべき". At each leaf, every covering transition
+// gets its own tail: any given condition NOT covered by a declared axis
+// ("free"/don't-care, report.scope.undeclaredGiven) becomes a non-branching
+// parallelogram passthrough step — still a real, visible precondition,
+// just not part of the Yes/No decision structure — followed by that
+// transition's 結果(then) node(s), the diagram's only clickable link →
+// #/browse/tx/<id> (results, not the transition itself, are the link: a
+// transition has no human label of its own, only its bare `T-xxx` id, and
+// showing that as if it were a meaningful step read as noise — user
 // feedback: "Transition のステップは表示の必要がない"). Each occurrence of an
 // effect is its own node scoped to the transition that produced it (not
 // deduped across transitions, unlike conditions), because a single click
@@ -169,64 +174,76 @@ function buildDiagram(
     };
     const isPinnedOnAxis = (row: { given?: string[] }, axis: (typeof axes)[number]) => (row.given ?? []).some((g) => axis.values.includes(g));
 
-    // Walk axes only as far as each transition actually needs. At every
-    // step, transitions that don't pin ANY remaining axis exit immediately
-    // (their 結果 hangs directly off the current junction) instead of being
-    // dragged through irrelevant further branches — user feedback: a
-    // transition pinning only one axis (act.user.update's `cond.update-
-    // check-flag`, axis.update.mode alone) was appearing repeated under
-    // every unrelated install/platform/status combination it doesn't care
-    // about. Only transitions still pinning something ahead cause a branch;
-    // an axis value with zero such transitions AND no gap on it isn't drawn
-    // (nothing new to show there — anything that already applied was
-    // attached at the junction above, before branching, and applies to
-    // every value alike).
+    // Walk axes only as far as each transition actually needs, and only
+    // under the axis it actually pins. Group pending transitions by the
+    // FIRST axis (>= axisIndex, in declared order) each one pins — a
+    // transition that pins no further axis at all resolves right here (its
+    // 結果 hangs directly off the current junction); one that pins some
+    // later axis but not this one is NOT swept into this axis's branches
+    // (the previous design's "free = compatible with every value" rule) —
+    // it skips straight to its own first-pinned axis and gets its own
+    // sibling diamond there instead. User feedback: a transition nested
+    // inside an axis's Yes/No branch reads as "conditioned on that axis"
+    // even when it never declared that condition (`T-update-already-latest`
+    // has no platform given, yet appeared under the windows branch
+    // alongside `T-update-guide-windows`, which genuinely requires
+    // windows) — "その軸を気にしないなら別の木になるべき". So a hub can now
+    // fan out into MULTIPLE sibling diamonds (one per axis some pending
+    // transition's first-pinned axis actually is), not just one.
     function walk(pendingTxIds: string[], axisIndex: number, parentToken: string | null, edgeLabel: string | null, known: Record<string, string>) {
-      const resolvedNow: string[] = [];
-      const stillPending: string[] = [];
-      for (const txId of pendingTxIds) {
-        const row = rowById.get(txId);
-        if (!row) continue;
-        const pinsFurther = axes.slice(axisIndex).some((a) => isPinnedOnAxis(row, a));
-        (pinsFurther ? stillPending : resolvedNow).push(txId);
-      }
-
       const hub = nextId('h');
       lines.push(`  ${hub}((" "))`);
       lines.push(`  class ${hub} txHub`);
       if (parentToken) lines.push(`  ${parentToken} -->|"${esc(edgeLabel ?? '')}"| ${hub}`);
-      for (const txId of resolvedNow) renderTail(hub, known, txId);
-      if (stillPending.length === 0) return;
 
-      // Next axis at least one still-pending transition actually pins —
-      // skips axes nobody here cares about instead of branching on them for
-      // nothing.
-      let axisIdx = axisIndex;
-      while (axisIdx < axes.length && !stillPending.some((id) => isPinnedOnAxis(rowById.get(id)!, axes[axisIdx]))) axisIdx++;
-      if (axisIdx >= axes.length) return;
-
-      const axis = axes[axisIdx];
-      const decision = nextId('d');
-      lines.push(`  ${decision}{"${esc(axis.name)}"}`);
-      lines.push(`  class ${decision} axisNode`);
-      lines.push(`  ${hub} --> ${decision}`);
-      for (const value of axis.values) {
-        const childTxIds = stillPending.filter((id) => axisSpan(rowById.get(id)!, axis).has(value));
-        const isGap = totalGapSet.has(`${axis.id}=${value}`);
-        if (childTxIds.length === 0 && !isGap) continue;
-        // Gap marker sits as its own sibling right on this branch — this is
-        // exactly the branch the missing value belongs to, not a floating
-        // box elsewhere. Still-pending transitions that are merely "free"
-        // on this axis (not gaps themselves) can share the same branch, so
-        // both the marker and the recursive walk can coexist here.
-        if (isGap) {
-          const gapToken = nextId('g');
-          gapVocabByToken.set(gapToken, value);
-          lines.push(`  ${gapToken}["${esc(gapLabel)}"]`);
-          lines.push(`  class ${gapToken} gapNode`);
-          lines.push(`  ${decision} -->|"${esc(label(value))}"| ${gapToken}`);
+      const groups = new Map<number, string[]>();
+      for (const txId of pendingTxIds) {
+        const row = rowById.get(txId);
+        if (!row) continue;
+        let firstIdx = -1;
+        for (let i = axisIndex; i < axes.length; i++) {
+          if (isPinnedOnAxis(row, axes[i])) {
+            firstIdx = i;
+            break;
+          }
         }
-        if (childTxIds.length > 0) walk(childTxIds, axisIdx + 1, decision, label(value), { ...known, [axis.id]: value });
+        if (firstIdx === -1) {
+          renderTail(hub, known, txId);
+        } else {
+          if (!groups.has(firstIdx)) groups.set(firstIdx, []);
+          groups.get(firstIdx)!.push(txId);
+        }
+      }
+      if (groups.size === 0) return;
+
+      // Ascending axis order purely for stable, readable output — sibling
+      // diamonds don't depend on one another.
+      for (const axisIdx of Array.from(groups.keys()).sort((a, b) => a - b)) {
+        const axis = axes[axisIdx];
+        const txIds = groups.get(axisIdx)!;
+        const decision = nextId('d');
+        lines.push(`  ${decision}{"${esc(axis.name)}"}`);
+        lines.push(`  class ${decision} axisNode`);
+        lines.push(`  ${hub} --> ${decision}`);
+        for (const value of axis.values) {
+          // Every txId here pins this axis (it's their first-pinned axis),
+          // so axisSpan never falls back to "free = all values" — only the
+          // values actually declared.
+          const childTxIds = txIds.filter((id) => axisSpan(rowById.get(id)!, axis).has(value));
+          const isGap = totalGapSet.has(`${axis.id}=${value}`);
+          if (childTxIds.length === 0 && !isGap) continue;
+          // Gap marker sits as its own sibling right on this branch — this
+          // is exactly the branch the missing value belongs to, not a
+          // floating box elsewhere.
+          if (isGap) {
+            const gapToken = nextId('g');
+            gapVocabByToken.set(gapToken, value);
+            lines.push(`  ${gapToken}["${esc(gapLabel)}"]`);
+            lines.push(`  class ${gapToken} gapNode`);
+            lines.push(`  ${decision} -->|"${esc(label(value))}"| ${gapToken}`);
+          }
+          if (childTxIds.length > 0) walk(childTxIds, axisIdx + 1, decision, label(value), { ...known, [axis.id]: value });
+        }
       }
     }
     walk(
