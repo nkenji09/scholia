@@ -104,20 +104,156 @@
   color: var(--lm-primary-strong);
 }
 
-/* ── Mermaid diagram ── */
+/* ── Mermaid diagram (pan/zoom viewport) ── */
+.flow-diagram-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+.flow-zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.flow-zoom-controls button {
+  border: 1px solid var(--lm-border);
+  background: var(--lm-s1);
+  border-radius: var(--r-sm);
+  padding: 2px 9px;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  color: var(--lm-text-strong);
+}
+.flow-zoom-controls button:hover {
+  background: var(--lm-s2);
+}
+.flow-zoom-level {
+  font-size: var(--fs-2xs);
+  color: var(--lm-text-dim);
+  min-width: 3.5em;
+  text-align: center;
+}
+
+/* Fixed-height clipped viewport; the canvas inside is what actually pans
+   (translate) and zooms (scale) via inline style, so the SVG itself is never
+   resized/reflowed by mermaid — only its container moves. touch-action:none
+   stops the browser's own touch-scroll/pinch from fighting the pointer drag
+   handlers. */
+.flow-diagram-viewport {
+  position: relative;
+  height: 480px;
+  overflow: hidden;
+  border: 1px solid var(--lm-border);
+  border-radius: var(--r-md);
+  background: var(--lm-bg);
+  cursor: grab;
+  touch-action: none;
+}
+.flow-diagram-viewport:active {
+  cursor: grabbing;
+}
+.flow-diagram-canvas {
+  display: inline-block;
+  transform-origin: 0 0;
+}
 .flow-diagram {
-  overflow-x: auto;
-  max-width: 100%;
+  padding: var(--sp-4);
 }
 .flow-diagram svg {
-  max-width: 100%;
-  height: auto;
+  display: block;
 }
 .flow-node-clickable {
   cursor: pointer;
 }
 .flow-node-clickable:hover {
   filter: brightness(0.96);
+}
+
+/* Node colors reuse the app's existing きっかけ/前提/結果 grammar
+   (--t-act/--t-giv/--t-then — the same tokens SpecCard's slot labels use),
+   plus alarming amber/red overlays for the honesty signals layered on top
+   of the clickable txNode base. mermaid's own classDef can't express these
+   (its style grammar rejects var()/color-mix()), so `class <node> <name>`
+   in the diagram source only attaches plain SVG classes — the actual colors
+   live here, in real CSS, which supports var() (and stays light/dark aware
+   automatically since this SVG is inserted into the themed document).
+   !important is deliberate: mermaid always injects its own <style> block as
+   part of the rendered SVG markup itself (theme:'neutral's baked-in node
+   fill/stroke), inserted into the document later than this stylesheet — at
+   equal selector specificity the later-inserted rule wins the cascade, so
+   without !important mermaid's built-in colors silently win every time. */
+.flow-diagram .condNode rect,
+.flow-diagram .condNode polygon {
+  fill: var(--lm-warning-weak) !important;
+  stroke: var(--t-giv) !important;
+}
+.flow-diagram .effNode rect,
+.flow-diagram .effNode polygon {
+  fill: var(--lm-success-weak) !important;
+  stroke: var(--t-then) !important;
+}
+.flow-diagram .txNode rect,
+.flow-diagram .txNode polygon {
+  fill: color-mix(in srgb, var(--t-act) 14%, transparent) !important;
+  stroke: var(--t-act) !important;
+  stroke-width: 1.5px !important;
+}
+/* No font-weight override on txNode labels: mermaid sizes each node's
+   <foreignObject> to fit the label at its ORIGINAL (regular) weight, and an
+   SVG foreignObject clips overflow by default (unlike normal HTML) — a
+   bolder font renders wider than that box and gets silently clipped
+   (observed: "T-update-already-latest" rendering as "...-lates", missing
+   its last character, even though the underlying text content was intact).
+   overflow:visible on the foreignObject is a defense-in-depth backstop for
+   the same failure mode from any other source (e.g. a wider substituted
+   font on a machine without the exact font mermaid measured against). */
+.flow-diagram foreignObject {
+  overflow: visible;
+}
+.flow-diagram .overlapNode rect,
+.flow-diagram .overlapNode polygon {
+  fill: var(--lm-warning-weak) !important;
+  stroke: var(--lm-warning) !important;
+  stroke-width: 2px !important;
+}
+.flow-diagram .subsetNode rect,
+.flow-diagram .subsetNode polygon {
+  fill: var(--lm-error-weak) !important;
+  stroke: var(--lm-error) !important;
+  stroke-dasharray: 4 2 !important;
+}
+.flow-diagram .supersetNode rect,
+.flow-diagram .supersetNode polygon {
+  stroke: var(--lm-error) !important;
+}
+.flow-diagram .gapNode rect,
+.flow-diagram .gapNode polygon {
+  fill: var(--lm-error-weak) !important;
+  stroke: var(--lm-error) !important;
+  stroke-width: 2px !important;
+}
+
+.flow-diagram-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-2xs);
+  color: var(--lm-text-muted);
+}
+.flow-diagram-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.flow-legend-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1.5px solid currentColor;
 }
 
 /* ── Scope disclosure (always rendered) ── */
