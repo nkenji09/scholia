@@ -332,7 +332,13 @@ export function FlowView({ actionId }: Props) {
     if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
     const viewport = viewportRef.current;
-    const factor = e.deltaY > 0 ? 0.92 : 1.08;
+    // Gentle, magnitude-normalized step (user feedback: the previous flat
+    // ±8%-per-event step felt too fast and overshot). A single mouse-wheel
+    // notch (|deltaY| ≈ 100) still moves at most ~3%; smaller trackpad
+    // deltas move proportionally less, instead of the same big jump either
+    // device sends.
+    const step = Math.min(Math.abs(e.deltaY), 100) / 100;
+    const factor = 1 + (e.deltaY > 0 ? -1 : 1) * step * 0.03;
     const newZoom = clampZoom(zoom * factor);
     if (newZoom === zoom) return;
     if (viewport) {
@@ -559,7 +565,6 @@ export function FlowView({ actionId }: Props) {
           <div
             ref={viewportRef}
             class="flow-diagram-viewport"
-            title={t.flow.zoomHint}
             onWheel={onWheelZoom}
             onPointerDown={onPointerDownPan}
             onPointerMove={onPointerMovePan}

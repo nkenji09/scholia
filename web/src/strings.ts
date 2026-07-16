@@ -118,7 +118,6 @@ const ja = {
     zoomIn: '拡大',
     zoomOut: '縮小',
     zoomReset: 'リセット',
-    zoomHint: 'ドラッグでパン・Ctrl/Cmd+ホイールでズーム',
     // 点線の辺自体に付くラベル（buildDiagram 参照）。赤枠は「壊れている」に
     // 見えるとの指摘を受け、subset-shadow はノード色を持たず辺のラベルのみで
     // 表現する（両方の結果とも正常・優先順位が決まっていないだけ）。
@@ -440,7 +439,6 @@ const en: Strings = {
     zoomIn: 'Zoom in',
     zoomOut: 'Zoom out',
     zoomReset: 'Reset',
-    zoomHint: 'Drag to pan, Ctrl/Cmd+scroll to zoom',
     coOccur: 'Occurs together',
     legendSubsetShadow: 'Dotted line = fires together (priority undefined)',
     legendOverlap: 'Border = overlap (priority undefined)',
