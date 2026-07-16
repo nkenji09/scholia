@@ -569,16 +569,19 @@ export function FlowView({ actionId }: Props) {
       {empty ? (
         <p class="dim flow-empty">{t.flow.emptyAction}</p>
       ) : (
-        // Mermaid diagram (rendered by the effect above) is this view's only
-        // content — the matrix/scope-disclosure text sections that used to
-        // sit alongside it were removed (decision 01KXN6G0R4DSXEVV86K8W0CZYW
-        // amending T-viewer-action-flow-render's then to mermaid-only): the
-        // fine print went unread in the viewer, and the same
-        // req.action-flow.scope-honesty text is still always available via
-        // `pmem flow`/`pmem gaps` for AI/CLI use. Edges carry no repeated
-        // per-edge text label (every subset-shadow edge means the same
-        // thing) — the legend states the convention once instead. Pan/zoom:
-        // ctrl/cmd+wheel to zoom (cursor-centered), drag to pan.
+        // Mermaid diagram (rendered by the effect above) is this view's main
+        // content — the multi-line matrix/scope-disclosure text sections
+        // that used to sit alongside it were removed (decision
+        // 01KXN6G0R4DSXEVV86K8W0CZYW amending T-viewer-action-flow-render's
+        // then to mermaid-only): the fine print went unread in the viewer,
+        // and the same req.action-flow.scope-honesty text is still always
+        // available via `pmem flow`/`pmem gaps` for AI/CLI use. A one-line
+        // caveat below the legend still stands in for scope-honesty at
+        // viewer granularity (review MAJOR-A) — see flow-scope-caveat below.
+        // Edges carry no repeated per-edge text label (every subset-shadow
+        // edge means the same thing) — the legend states the convention
+        // once instead. Pan/zoom: ctrl/cmd+wheel to zoom (cursor-centered),
+        // drag to pan.
         <section class="flow-section flow-diagram-section">
           <div class="flow-diagram-toolbar">
             <div class="flow-zoom-controls">
@@ -619,6 +622,13 @@ export function FlowView({ actionId }: Props) {
             </span>
             <span>{t.flow.legendSubsetShadow}</span>
           </div>
+          {/* scope-honesty（req.action-flow.scope-honesty）を viewer 側で
+              果たす一行 caveat（レビュー MAJOR-A 対応・ユーザー承認済み
+              方針）。フルの scope-disclosure（保証の外を多行で開示）は
+              CLI（`pmem flow`/`pmem gaps`）側の役目のまま — viewer は
+              決定木だけを見た読者に「宣言軸＝完全な区別集合」という
+              false confidence を与えないための最小限の一文で足りる。 */}
+          <p class="flow-scope-caveat">{t.flow.scopeCaveat}</p>
         </section>
       )}
     </main>

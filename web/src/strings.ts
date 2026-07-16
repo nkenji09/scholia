@@ -130,6 +130,12 @@ const ja = {
     // （遷移が存在しないので遷移詳細へはリンクできない）。
     gapLabel: '未定義',
     legendGap: '赤＝未定義（この前提を明示的に持つ遷移がない）',
+    // scope-honesty（req.action-flow.scope-honesty）を viewer 側で果たす
+    // 一行 caveat（レビュー MAJOR-A 対応）。CLI（`pmem flow`/`pmem gaps`）の
+    // フル scope-disclosure ほど詳しくする必要はなく、「宣言軸＝完全な区別
+    // 集合」と読者に誤読させない最小限の注意書きで足りる、というのが
+    // decision の骨子（why は T-viewer-action-flow-render 側に記録）。
+    scopeCaveat: '※ この図は宣言軸のみに基づく整理です。網羅は保証しません（全量は pmem flow）',
   },
   // BROWSE(タグ/仕様) — 旧 Browse(3ペイン)/TagsView(ツリー)/SpecView を検索
   // レール＋カード一覧の1つの型に統合した画面（.concierge/decision.md A-2）。
@@ -449,6 +455,7 @@ const en: Strings = {
     legendSubsetShadow: 'Dotted line (one-way) = fires together',
     gapLabel: 'Undefined',
     legendGap: 'Red = undefined (no transition explicitly requires this)',
+    scopeCaveat: '※ This diagram reflects declared axes only. Coverage is not guaranteed (see `pmem flow` for the full picture).',
   },
   browse: {
     searchPlaceholder: 'Search by keyword or tag',

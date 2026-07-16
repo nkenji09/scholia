@@ -236,3 +236,12 @@
   border-radius: 2px;
   border: 1.5px solid currentColor;
 }
+
+/* scope-honesty の一行 caveat（レビュー MAJOR-A 対応）。凡例と並ぶ位置に、
+   凡例よりわずかに控えめなトーンで常時表示 — 目立たせすぎず、しかし
+   決定木だけ見た読者が読み飛ばせない程度の存在感を保つ。 */
+.flow-scope-caveat {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-2xs);
+  color: var(--lm-text-dim);
+}
