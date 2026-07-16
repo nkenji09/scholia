@@ -328,6 +328,43 @@ func TestAnalyze_OverlapSurvivesWhenOnlyOnePairIsSubsetShadow(t *testing.T) {
 	}
 }
 
+// TestAnalyze_SubsetShadowDetectsEmptyGivenAsProperSubset reproduces the
+// #39 follow-up minor fix: isProperSubset used to short-circuit to false
+// whenever the candidate subset's given was empty, missing that the empty
+// set fires in every world and is therefore a proper subset of any
+// non-empty given — a remainder-less transition with no given shadows every
+// other transition of the action. Equal (both empty) given sets must still
+// be excluded as not proper.
+func TestAnalyze_SubsetShadowDetectsEmptyGivenAsProperSubset(t *testing.T) {
+	txs := []model.Transition{
+		{ID: "T-always", Action: "act.a", Given: nil, Then: []string{"eff.a"}},
+		{ID: "T-x", Action: "act.a", Given: []string{"cond.x"}, Then: []string{"eff.b"}},
+	}
+	snap, ix := buildAnalyzeFixture(txs, nil, nil)
+
+	r := Analyze(snap, ix, "act.a")
+	if len(r.SubsetShadows) != 1 {
+		t.Fatalf("SubsetShadows = %+v, want exactly 1", r.SubsetShadows)
+	}
+	got := r.SubsetShadows[0]
+	if got.Subset != "T-always" || got.Superset != "T-x" {
+		t.Fatalf("SubsetShadows[0] = %+v, want Subset=T-always Superset=T-x", got)
+	}
+}
+
+func TestAnalyze_SubsetShadowIgnoresTwoEmptyGivenSets(t *testing.T) {
+	txs := []model.Transition{
+		{ID: "T-1", Action: "act.a", Given: nil, Then: []string{"eff.a"}},
+		{ID: "T-2", Action: "act.a", Given: nil, Then: []string{"eff.b"}},
+	}
+	snap, ix := buildAnalyzeFixture(txs, nil, nil)
+
+	r := Analyze(snap, ix, "act.a")
+	if len(r.SubsetShadows) != 0 {
+		t.Fatalf("two empty-given transitions are equal, not proper-subset: got %+v", r.SubsetShadows)
+	}
+}
+
 func TestAnalyze_ProductCellsAreBoundedNotTwoToTheN(t *testing.T) {
 	// 3 axes with 2 values each => 2*2*2 = 8 cells, never 2^(number of
 	// individual conditions used, which here is 6) and never counting

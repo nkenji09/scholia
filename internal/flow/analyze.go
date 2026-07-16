@@ -216,8 +216,12 @@ func subsetShadows(txs []model.Transition) []SubsetShadow {
 	return out
 }
 
+// isProperSubset reports whether a is a strict subset of b. The empty set is
+// a proper subset of any non-empty set — a transition with no given fires in
+// every world and therefore shadows every other transition of the action —
+// so len(a)==0 only short-circuits when b is also empty (equal, not proper).
 func isProperSubset(a, b []string) bool {
-	if len(a) == 0 || len(a) >= len(b) {
+	if len(b) == 0 || len(a) >= len(b) {
 		return false
 	}
 	bSet := make(map[string]bool, len(b))
