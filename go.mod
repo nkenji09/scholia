@@ -1,4 +1,4 @@
-module github.com/nkenji09/product-memory
+module github.com/nkenji09/scholia
 
 go 1.26.5
 

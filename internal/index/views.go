@@ -3,8 +3,8 @@ package index
 import (
 	"sort"
 
-	"github.com/nkenji09/product-memory/internal/model"
-	"github.com/nkenji09/product-memory/internal/store"
+	"github.com/nkenji09/scholia/internal/model"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 // FacetTreeNode is the tag-tree shape for sidebar navigation (§3.8 faceted

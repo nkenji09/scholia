@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nkenji09/product-memory/internal/store"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 func withFakeEditor(t *testing.T, capture func(editorCmd string) string) {

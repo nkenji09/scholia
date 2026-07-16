@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nkenji09/product-memory/internal/store"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 // --kind 省略時の既定/必須化（handoff: tag-kind 衛生）。

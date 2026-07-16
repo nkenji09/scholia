@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/nkenji09/product-memory/internal/index"
+	"github.com/nkenji09/scholia/internal/index"
 )
 
 func TestListTransitions_NoFilter(t *testing.T) {

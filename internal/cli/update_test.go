@@ -65,7 +65,7 @@ func TestUpdate_SourceInstallGuidesGoInstallAndDoesNotReplace(t *testing.T) {
 	if called {
 		t.Fatalf("fetchLatestTag should not be called for source install")
 	}
-	if !strings.Contains(out, "go install github.com/nkenji09/product-memory/cmd/pmem@latest") {
+	if !strings.Contains(out, "go install github.com/nkenji09/scholia/cmd/pmem@latest") {
 		t.Fatalf("output missing go install guidance:\n%s", out)
 	}
 }

@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/nkenji09/product-memory/internal/model"
+	"github.com/nkenji09/scholia/internal/model"
 )
 
 // VocabRenameResult summarizes a `pmem vocab rename` (§6).

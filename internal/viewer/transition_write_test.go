@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/nkenji09/product-memory/internal/lint"
-	"github.com/nkenji09/product-memory/internal/model"
+	"github.com/nkenji09/scholia/internal/lint"
+	"github.com/nkenji09/scholia/internal/model"
 )
 
 // seedConditionVocab adds a condition-category vocab entry to newTestHandler's

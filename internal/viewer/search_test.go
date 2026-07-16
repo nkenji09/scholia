@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nkenji09/product-memory/internal/index"
+	"github.com/nkenji09/scholia/internal/index"
 )
 
 func TestGetSearch_MatchesEffectiveTagIDOrName(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/nkenji09/product-memory/internal/store"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 var dirFlag string

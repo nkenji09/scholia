@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/nkenji09/product-memory/internal/lint"
-	"github.com/nkenji09/product-memory/internal/model"
+	"github.com/nkenji09/scholia/internal/lint"
+	"github.com/nkenji09/scholia/internal/model"
 )
 
 // TestDeleteTransition_RemovesFile locks in §8.8 P5's「削除」write: the

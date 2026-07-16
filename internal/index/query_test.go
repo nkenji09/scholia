@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/nkenji09/product-memory/internal/model"
-	"github.com/nkenji09/product-memory/internal/store"
+	"github.com/nkenji09/scholia/internal/model"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 // testSnapshotWithDecisions reuses the fixture from index_test.go (T-1 tagged

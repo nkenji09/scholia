@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/nkenji09/product-memory/internal/model"
-	"github.com/nkenji09/product-memory/internal/store"
+	"github.com/nkenji09/scholia/internal/model"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 // newTestHandler builds a viewer HTTP handler over a freshly seeded .pmem in

@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nkenji09/product-memory/internal/model"
-	"github.com/nkenji09/product-memory/internal/store"
+	"github.com/nkenji09/scholia/internal/model"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 // setSourceRefsConfig sets config.sourceRefs for dir's store — there is no

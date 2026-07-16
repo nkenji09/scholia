@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/nkenji09/product-memory/internal/model"
+	"github.com/nkenji09/scholia/internal/model"
 )
 
 func TestPostDecision_CreatesDecisionFile(t *testing.T) {

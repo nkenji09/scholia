@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/nkenji09/product-memory/internal/refs"
+	"github.com/nkenji09/scholia/internal/refs"
 )
 
 func newTxRenameCmd() *cobra.Command {

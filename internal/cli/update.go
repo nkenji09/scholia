@@ -22,7 +22,7 @@ import (
 
 const (
 	updateRepoOwner  = "nkenji09"
-	updateRepoName   = "product-memory"
+	updateRepoName   = "scholia"
 	updateAPILatest  = "https://api.github.com/repos/" + updateRepoOwner + "/" + updateRepoName + "/releases/latest"
 	updateDownload   = "https://github.com/" + updateRepoOwner + "/" + updateRepoName + "/releases/latest/download/"
 	updateGoInstall  = "go install github.com/" + updateRepoOwner + "/" + updateRepoName + "/cmd/pmem@latest"

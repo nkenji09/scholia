@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	skills "github.com/nkenji09/product-memory/agents/skills"
+	skills "github.com/nkenji09/scholia/agents/skills"
 )
 
 // newSkillsCmd は Claude Code 向けスキル（agents/skills/ を embed したもの）を

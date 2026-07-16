@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/nkenji09/product-memory/internal/model"
+	"github.com/nkenji09/scholia/internal/model"
 )
 
 // seedTag is a small helper to save a tag with parents.

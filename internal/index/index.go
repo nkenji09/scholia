@@ -8,8 +8,8 @@ package index
 import (
 	"sort"
 
-	"github.com/nkenji09/product-memory/internal/model"
-	"github.com/nkenji09/product-memory/internal/store"
+	"github.com/nkenji09/scholia/internal/model"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 // Index is the in-memory derived index (§3.9). It is read-only: callers get

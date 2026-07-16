@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/nkenji09/product-memory/internal/index"
-	"github.com/nkenji09/product-memory/internal/model"
+	"github.com/nkenji09/scholia/internal/index"
+	"github.com/nkenji09/scholia/internal/model"
 )
 
 // vocabUsage は vocab を参照する transition 1 件と、参照しているスロット

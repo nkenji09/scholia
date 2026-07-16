@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nkenji09/product-memory/internal/store"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 // commits 無しの旧 decision ファイルが無改修で読める（後方互換・§3.5）。

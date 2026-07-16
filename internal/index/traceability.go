@@ -1,6 +1,6 @@
 package index
 
-import "github.com/nkenji09/product-memory/internal/model"
+import "github.com/nkenji09/scholia/internal/model"
 
 // TraceabilityEntry is one requirement-traceability row (§7): a tag of a
 // traceabilityKind, the transitions that satisfy it, and whether it's a gap

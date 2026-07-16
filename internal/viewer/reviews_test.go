@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/nkenji09/product-memory/internal/review"
+	"github.com/nkenji09/scholia/internal/review"
 )
 
 // GET /api/reviews は .pmem/reviews/ に書かれたレビューを read-only で返す（§8.4）。

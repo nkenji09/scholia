@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/nkenji09/product-memory/internal/render"
+	"github.com/nkenji09/scholia/internal/render"
 )
 
 func newExportCmd() *cobra.Command {

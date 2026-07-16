@@ -1,6 +1,6 @@
 # product-memory (`pmem`)
 
-[![test](https://github.com/nkenji09/product-memory/actions/workflows/test.yml/badge.svg)](https://github.com/nkenji09/product-memory/actions/workflows/test.yml)
+[![test](https://github.com/nkenji09/scholia/actions/workflows/test.yml/badge.svg)](https://github.com/nkenji09/scholia/actions/workflows/test.yml)
 
 **A foundation for accumulating product decisions and their reasoning (why), linked to implementation changes, so they can be evaluated later.**
 
@@ -47,7 +47,7 @@ To see what an actual record looks like, try `pmem spec` and `pmem view` from th
 Quick install (darwin/linux) — downloads the latest release and installs the `pmem` binary:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/nkenji09/product-memory/main/packaging/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/nkenji09/scholia/main/packaging/install.sh | sh
 ```
 
 This installs into `$PMEM_INSTALL_DIR` (default: `~/.local/bin`); add it to your `PATH` if it isn't already.
@@ -55,7 +55,7 @@ This installs into `$PMEM_INSTALL_DIR` (default: `~/.local/bin`); add it to your
 If you have Go, `go install` works instead:
 
 ```sh
-go install github.com/nkenji09/product-memory/cmd/pmem@latest
+go install github.com/nkenji09/scholia/cmd/pmem@latest
 ```
 
 Prebuilt binaries (darwin/linux/windows × amd64/arm64) are also available from GitHub Releases — on Windows, use `go install` or grab the release zip directly.
@@ -73,9 +73,9 @@ pmem update --check    # report whether an update is available, without download
 Other install methods update the same way you installed:
 
 ```sh
-go install github.com/nkenji09/product-memory/cmd/pmem@latest   # go install
+go install github.com/nkenji09/scholia/cmd/pmem@latest   # go install
 npm i -g product-memory@latest                                  # npm
-curl -fsSL https://raw.githubusercontent.com/nkenji09/product-memory/main/packaging/install.sh | sh  # install.sh, re-run
+curl -fsSL https://raw.githubusercontent.com/nkenji09/scholia/main/packaging/install.sh | sh  # install.sh, re-run
 ```
 
 On Windows, `pmem update` reports that self-replace isn't possible and points to the same options above.
@@ -158,7 +158,7 @@ Claude Code skills (`pmem` / `pmem-change` / `pmem-triage` / `pmem-config-setup`
 **A. As a Claude Code plugin (recommended for Claude Code users).** Add this repository as a plugin marketplace and install the `pmem` plugin. The skills are then namespaced as `/pmem:pmem`, `/pmem:pmem-change`, etc.
 
 ```
-/plugin marketplace add nkenji09/product-memory
+/plugin marketplace add nkenji09/scholia
 /plugin install pmem@product-memory
 ```
 

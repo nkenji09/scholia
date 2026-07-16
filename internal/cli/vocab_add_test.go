@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nkenji09/product-memory/internal/store"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 func TestCLI_VocabAddDescription(t *testing.T) {

@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/nkenji09/product-memory/internal/flow"
-	"github.com/nkenji09/product-memory/internal/index"
+	"github.com/nkenji09/scholia/internal/flow"
+	"github.com/nkenji09/scholia/internal/index"
 )
 
 func newFlowCmd() *cobra.Command {

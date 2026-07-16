@@ -10,7 +10,7 @@ import (
 )
 
 // これらはリリースビルド時に goreleaser が ldflags(-X)で上書きする。
-// 変数パスは .goreleaser.yaml の -X github.com/nkenji09/product-memory/internal/cli.<name> と厳密一致させること。
+// 変数パスは .goreleaser.yaml の -X github.com/nkenji09/scholia/internal/cli.<name> と厳密一致させること。
 // 既定値 "dev"（version）／空（commit・date）のままなら未注入とみなし、
 // runtime/debug.ReadBuildInfo に fallback する（model: T-version-report-buildinfo）。
 var (

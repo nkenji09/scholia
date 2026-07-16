@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/nkenji09/product-memory/internal/model"
+	"github.com/nkenji09/scholia/internal/model"
 )
 
 // RemoveVocabResult summarizes `pmem vocab rm` (§6).

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/nkenji09/product-memory/internal/review"
-	"github.com/nkenji09/product-memory/internal/store"
+	"github.com/nkenji09/scholia/internal/review"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 func registerReviewsRoute(mux *http.ServeMux, s *store.Store) {

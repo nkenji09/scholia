@@ -4,9 +4,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/nkenji09/product-memory/internal/index"
-	"github.com/nkenji09/product-memory/internal/model"
-	"github.com/nkenji09/product-memory/internal/store"
+	"github.com/nkenji09/scholia/internal/index"
+	"github.com/nkenji09/scholia/internal/model"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 // --- requirement-gap: traceabilityKinds のタグで、実効タグとして充足する遷移が 0 件 ---

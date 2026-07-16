@@ -5,11 +5,11 @@ import (
 	"os/exec"
 	"testing"
 
-	"github.com/nkenji09/product-memory/internal/diff"
-	"github.com/nkenji09/product-memory/internal/flow"
-	"github.com/nkenji09/product-memory/internal/model"
-	"github.com/nkenji09/product-memory/internal/render"
-	"github.com/nkenji09/product-memory/internal/store"
+	"github.com/nkenji09/scholia/internal/diff"
+	"github.com/nkenji09/scholia/internal/flow"
+	"github.com/nkenji09/scholia/internal/model"
+	"github.com/nkenji09/scholia/internal/render"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 func TestGetSpec(t *testing.T) {

@@ -4,7 +4,7 @@ package main
 import (
 	"os"
 
-	"github.com/nkenji09/product-memory/internal/cli"
+	"github.com/nkenji09/scholia/internal/cli"
 )
 
 func main() {

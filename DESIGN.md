@@ -505,7 +505,7 @@ product-memory/
   docs/  .goreleaser.yaml  go.mod
 ```
 
-- **module path**: `github.com/nkenji09/product-memory`（`go install …/cmd/pmem@latest` を成立させるため実 URL と一致）。
+- **module path**: `github.com/nkenji09/scholia`（`go install …/cmd/pmem@latest` を成立させるため実 URL と一致）。
 - CLI は **cobra**。JSON は標準 `encoding/json`。ロジックは `internal/*` に集約し CLI とビューアが同じコアを呼ぶ（単一の真値）。
 
 ---
@@ -527,7 +527,7 @@ product-memory/
 
 - **バイナリ名**: `pmem`（npm/repo 名は `product-memory`）
 - **ストレージ**: `.pmem/`
-- **module path**: `github.com/nkenji09/product-memory`
+- **module path**: `github.com/nkenji09/scholia`
 - **ビューア既定ポート**: 4577
 
 ---

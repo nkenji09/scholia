@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/nkenji09/product-memory/internal/index"
-	"github.com/nkenji09/product-memory/internal/store"
+	"github.com/nkenji09/scholia/internal/index"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 func registerTraceabilityRoute(mux *http.ServeMux, s *store.Store) {

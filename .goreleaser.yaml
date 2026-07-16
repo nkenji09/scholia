@@ -16,9 +16,9 @@ builds:
     # 変数パスは internal/cli/version.go の var (version/commit/date) と厳密一致させること。
     ldflags:
       - -s -w
-      - -X github.com/nkenji09/product-memory/internal/cli.version={{.Version}}
-      - -X github.com/nkenji09/product-memory/internal/cli.commit={{.Commit}}
-      - -X github.com/nkenji09/product-memory/internal/cli.date={{.Date}}
+      - -X github.com/nkenji09/scholia/internal/cli.version={{.Version}}
+      - -X github.com/nkenji09/scholia/internal/cli.commit={{.Commit}}
+      - -X github.com/nkenji09/scholia/internal/cli.date={{.Date}}
     goos:
       - darwin
       - linux
@@ -47,5 +47,5 @@ snapshot:
 release:
   github:
     owner: nkenji09
-    name: product-memory
+    name: scholia
   draft: true

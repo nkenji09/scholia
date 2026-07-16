@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/nkenji09/product-memory/internal/model"
+	"github.com/nkenji09/scholia/internal/model"
 )
 
 // refSnapshot is the .pmem/ records read from a git ref via `git ls-tree` /

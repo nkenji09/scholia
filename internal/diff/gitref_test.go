@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/nkenji09/product-memory/internal/store"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 // gitTestRepo は t.TempDir() に git リポジトリ + `pmem init` 済みの .pmem/ を用意する。

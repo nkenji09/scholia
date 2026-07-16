@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nkenji09/product-memory/internal/store"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 // run は cobra コマンドをテスト用に直接実行するヘルパ（バイナリを介さない統合スモーク）。

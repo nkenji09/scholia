@@ -3,9 +3,9 @@ package viewer
 import (
 	"net/http"
 
-	"github.com/nkenji09/product-memory/internal/index"
-	"github.com/nkenji09/product-memory/internal/model"
-	"github.com/nkenji09/product-memory/internal/store"
+	"github.com/nkenji09/scholia/internal/index"
+	"github.com/nkenji09/scholia/internal/model"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 func registerRulesRoute(mux *http.ServeMux, s *store.Store) {

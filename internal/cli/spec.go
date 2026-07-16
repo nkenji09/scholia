@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/nkenji09/product-memory/internal/index"
-	"github.com/nkenji09/product-memory/internal/render"
+	"github.com/nkenji09/scholia/internal/index"
+	"github.com/nkenji09/scholia/internal/render"
 )
 
 func newSpecCmd() *cobra.Command {

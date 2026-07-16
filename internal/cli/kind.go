@@ -3,7 +3,7 @@ package cli
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/nkenji09/product-memory/internal/model"
+	"github.com/nkenji09/scholia/internal/model"
 )
 
 func newKindCmd() *cobra.Command {

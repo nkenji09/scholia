@@ -46,7 +46,7 @@ flowchart LR
 クイックインストール（darwin/linux）：最新リリースを取得して `pmem` バイナリを入れる。
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/nkenji09/product-memory/main/packaging/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/nkenji09/scholia/main/packaging/install.sh | sh
 ```
 
 `$PMEM_INSTALL_DIR`（既定: `~/.local/bin`）配下に入る。PATH に無ければ追加すること。
@@ -54,7 +54,7 @@ curl -fsSL https://raw.githubusercontent.com/nkenji09/product-memory/main/packag
 Go がある環境なら `go install` でも入る。
 
 ```sh
-go install github.com/nkenji09/product-memory/cmd/pmem@latest
+go install github.com/nkenji09/scholia/cmd/pmem@latest
 ```
 
 プレビルドのバイナリ（darwin/linux/windows × amd64/arm64）も GitHub Releases から入手できる（Windows は `go install` かリリース zip を利用）。
@@ -138,7 +138,7 @@ Claude Code 向けのスキル（`pmem` / `pmem-change` / `pmem-triage` / `pmem-
 **A. Claude Code プラグインとして（Claude Code 利用者に推奨）。** このリポジトリをプラグインマーケットプレイスとして追加し、`pmem` プラグインをインストールする。スキルは `/pmem:pmem`・`/pmem:pmem-change` のように名前空間化される。
 
 ```
-/plugin marketplace add nkenji09/product-memory
+/plugin marketplace add nkenji09/scholia
 /plugin install pmem@product-memory
 ```
 

@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/nkenji09/product-memory/internal/diff"
-	"github.com/nkenji09/product-memory/internal/flow"
-	"github.com/nkenji09/product-memory/internal/lint"
-	"github.com/nkenji09/product-memory/internal/render"
-	"github.com/nkenji09/product-memory/internal/store"
+	"github.com/nkenji09/scholia/internal/diff"
+	"github.com/nkenji09/scholia/internal/flow"
+	"github.com/nkenji09/scholia/internal/lint"
+	"github.com/nkenji09/scholia/internal/render"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 func registerDerivedRoutes(mux *http.ServeMux, s *store.Store) {

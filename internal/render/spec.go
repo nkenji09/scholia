@@ -5,9 +5,9 @@ import (
 	"io"
 	"strings"
 
-	"github.com/nkenji09/product-memory/internal/index"
-	"github.com/nkenji09/product-memory/internal/model"
-	"github.com/nkenji09/product-memory/internal/store"
+	"github.com/nkenji09/scholia/internal/index"
+	"github.com/nkenji09/scholia/internal/model"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 // SpecEntry は spec レポート内の 1 遷移分（§3.8 の "WHEN action GIVEN given THEN then" 表示）。

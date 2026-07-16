@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/nkenji09/product-memory/internal/refs"
-	"github.com/nkenji09/product-memory/internal/store"
+	"github.com/nkenji09/scholia/internal/refs"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 // renameRefsFlags are the --rewrite-refs/--no-refs flags shared by

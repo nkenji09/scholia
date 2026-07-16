@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/nkenji09/product-memory/internal/model"
-	"github.com/nkenji09/product-memory/internal/review"
+	"github.com/nkenji09/scholia/internal/model"
+	"github.com/nkenji09/scholia/internal/review"
 )
 
 // newReviewCmd は AI/人の提案コメント（レビュー）を .pmem/reviews/ に書く経路

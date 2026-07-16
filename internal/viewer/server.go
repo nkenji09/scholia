@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nkenji09/product-memory/internal/store"
-	webdist "github.com/nkenji09/product-memory/web"
+	"github.com/nkenji09/scholia/internal/store"
+	webdist "github.com/nkenji09/scholia/web"
 )
 
 // NewHandler builds the HTTP handler for `pmem view`: the JSON API under

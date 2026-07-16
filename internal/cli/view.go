@@ -14,7 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/nkenji09/product-memory/internal/viewer"
+	"github.com/nkenji09/scholia/internal/viewer"
 )
 
 // isLocalHost reports whether host is a loopback-only bind address — the

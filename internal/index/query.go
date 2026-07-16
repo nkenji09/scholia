@@ -3,8 +3,8 @@ package index
 import (
 	"fmt"
 
-	"github.com/nkenji09/product-memory/internal/model"
-	"github.com/nkenji09/product-memory/internal/store"
+	"github.com/nkenji09/scholia/internal/model"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 // FacetNode is a facet-tree node with the transitions that land on it

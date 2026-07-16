@@ -6,8 +6,8 @@ package index
 import (
 	"sort"
 
-	"github.com/nkenji09/product-memory/internal/model"
-	"github.com/nkenji09/product-memory/internal/store"
+	"github.com/nkenji09/scholia/internal/model"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 // TagSource names one of the three paths (§3.7) a tag can become effective

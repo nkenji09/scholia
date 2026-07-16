@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"sort"
 
-	"github.com/nkenji09/product-memory/internal/model"
-	"github.com/nkenji09/product-memory/internal/store"
+	"github.com/nkenji09/scholia/internal/model"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 // Change は同一 id で内容が変わったレコード 1 件（vocab/tag/decision の "changed" 用）。

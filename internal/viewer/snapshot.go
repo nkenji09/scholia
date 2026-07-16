@@ -1,8 +1,8 @@
 package viewer
 
 import (
-	"github.com/nkenji09/product-memory/internal/index"
-	"github.com/nkenji09/product-memory/internal/store"
+	"github.com/nkenji09/scholia/internal/index"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 // loadIndexed reloads .pmem fresh for each request so the viewer always

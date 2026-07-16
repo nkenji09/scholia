@@ -11,13 +11,13 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/nkenji09/product-memory/internal/diff"
-	"github.com/nkenji09/product-memory/internal/flow"
-	"github.com/nkenji09/product-memory/internal/index"
-	"github.com/nkenji09/product-memory/internal/lint"
-	"github.com/nkenji09/product-memory/internal/model"
-	"github.com/nkenji09/product-memory/internal/store"
-	webdist "github.com/nkenji09/product-memory/web"
+	"github.com/nkenji09/scholia/internal/diff"
+	"github.com/nkenji09/scholia/internal/flow"
+	"github.com/nkenji09/scholia/internal/index"
+	"github.com/nkenji09/scholia/internal/lint"
+	"github.com/nkenji09/scholia/internal/model"
+	"github.com/nkenji09/scholia/internal/store"
+	webdist "github.com/nkenji09/scholia/web"
 )
 
 // staticData is baked into the exported page as `window.__PMEM_STATIC__`
