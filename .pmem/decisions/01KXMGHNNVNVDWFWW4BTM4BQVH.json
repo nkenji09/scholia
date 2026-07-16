@@ -1,9 +1,0 @@
-{
-  "id": "01KXMGHNNVNVDWFWW4BTM4BQVH",
-  "target": {
-    "type": "tag",
-    "id": "req.action-flow.visualize"
-  },
-  "why": "マトリクス＋フロー図の可視化を『モデル変更ゼロのトラストの核』として採用（§6.3-1・§7.4）。既存の兄弟整合(pmem spec)を action 軸へ延長する形で 条件×transition マトリクスとフロー図を描く。結果ノードは transition 詳細(#/browse/tx/\u003cid\u003e)への実 a リンク。証明を主張せず可視化に留めるのが誠実さの核——非比較な重複や free 条件の分岐は human/AI に見せる。モデル変更ゼロで今すぐ出せる。",
-  "at": "2026-07-16T03:46:54Z"
-}

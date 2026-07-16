@@ -111,7 +111,7 @@ func EffectiveTagsWithProvenance(snap *store.Snapshot, t *model.Transition) []Ef
 }
 
 // TagAncestors returns tagID itself plus every ancestor reachable via
-// Tag.ParentIDs (sorted, deduplicated, cycle-safe). Used by `pmem rules
+// Tag.ParentIDs (sorted, deduplicated, cycle-safe). Used by `scholia rules
 // --tag` (§3.8): a decision on an ancestor tag also governs its descendants.
 func TagAncestors(snap *store.Snapshot, tagID string) []string {
 	closure := ancestorClosure(tagIndex(snap.Tags), map[string]bool{tagID: true})

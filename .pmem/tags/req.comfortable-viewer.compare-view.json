@@ -1,9 +1,0 @@
-{
-  "id": "req.comfortable-viewer.compare-view",
-  "name": "ブランチ vs main の比較ビュー",
-  "kind": "requirement",
-  "parentIds": [
-    "req.comfortable-viewer"
-  ],
-  "description": "**As a** PRやブランチの変更内容をビューアで確認したいレビュアー\n**I want** `pmem diff` の結果をビューア上で視覚的に見たい\n**so that** ターミナルのJSON出力を自分で読み解かなくても変更点を把握できる\n\n### 受け入れ基準\n- ビューアに比較ビュー画面があり、対象refを指定して差分を表示する\n- 語彙±・遷移±・then順序変更・decisions± が区別して表示される\n- CLIの `pmem diff --json` と同じデータソースを使う（ロジックの二重実装をしない）"
-}

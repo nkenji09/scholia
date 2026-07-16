@@ -59,7 +59,7 @@ type DecisionDiff struct {
 	Changed []Change[model.Decision] `json:"changed,omitempty"`
 }
 
-// Result は `pmem diff` の出力全体。
+// Result は `scholia diff` の出力全体。
 type Result struct {
 	Ref         string         `json:"ref"`
 	Vocab       VocabDiff      `json:"vocab"`
@@ -67,11 +67,11 @@ type Result struct {
 	Transitions TransitionDiff `json:"transitions"`
 	Decisions   DecisionDiff   `json:"decisions"`
 	// BaselineMissing は ref に既定値を使い（明示指定なし）、かつそのベースライン
-	// （HEAD のコミット or ref 上の .pmem）が単に存在しないためフォールバックした
+	// （HEAD のコミット or ref 上の .scholia）が単に存在しないためフォールバックした
 	// ことを示す（初回ユーザー向け。ユーザーが gitref を明示指定した場合はこの
 	// フォールバックは起きず、ベースライン欠落は通常どおりエラーになる）。
 	BaselineMissing bool `json:"baselineMissing,omitempty"`
-	// AfterRef は DiffRefs（ref 対 ref・2引数の `pmem diff A B`）でのみ設定される。
+	// AfterRef は DiffRefs（ref 対 ref・2引数の `scholia diff A B`）でのみ設定される。
 	// 空文字なら Diff（作業ツリー vs Ref）の従来経路であることを示す（後方互換の
 	// ための additive フィールド・0/1 引数の JSON 出力に影響しない）。
 	AfterRef string `json:"afterRef,omitempty"`
@@ -90,9 +90,9 @@ func (r Result) DecisionViolation() bool {
 	return len(r.Decisions.Removed) > 0 || len(r.Decisions.Changed) > 0
 }
 
-// Diff は現在の作業ツリー（s の .pmem/）と gitref（既定 "HEAD"）の semantic diff を計算する（§4）。
+// Diff は現在の作業ツリー（s の .scholia/）と gitref（既定 "HEAD"）の semantic diff を計算する（§4）。
 // ref を空文字にすると「ユーザーが gitref を明示指定していない」既定呼び出しとして扱われ、
-// ベースライン（HEAD のコミット or ref 上の .pmem）が単に存在しない場合はエラーにせず空
+// ベースライン（HEAD のコミット or ref 上の .scholia）が単に存在しない場合はエラーにせず空
 // ベースラインにフォールバックする（現在の全レコードが added として表示される）。ref を
 // 明示的に渡した場合はベースライン欠落も含めて従来どおりエラーを返す。
 func Diff(s *store.Store, ref string) (Result, error) {
@@ -134,10 +134,10 @@ func Diff(s *store.Store, ref string) (Result, error) {
 }
 
 // DiffRefs は2つの git ref 間（beforeRef vs afterRef）の semantic diff を計算する
-// （`pmem diff A B`・§4 R-2）。Diff と異なり両側とも明示的な ref であり作業ツリーを
-// 一切読まないため、「タスク粒度=commit」を成立させるコア（`pmem diff <commit>^ <commit>`
+// （`scholia diff A B`・§4 R-2）。Diff と異なり両側とも明示的な ref であり作業ツリーを
+// 一切読まないため、「タスク粒度=commit」を成立させるコア（`scholia diff <commit>^ <commit>`
 // でチェックアウト無しに1コミット分の変更を出せる）。どちらかの ref が解決できない・
-// ref 上に .pmem/ が無い場合は Diff の「既定 ref フォールバック」は適用されず、常に
+// ref 上に .scholia/ が無い場合は Diff の「既定 ref フォールバック」は適用されず、常に
 // エラーを返す（ユーザーが両方とも明示指定しているため typo を握り潰さない）。
 func DiffRefs(s *store.Store, beforeRef, afterRef string) (Result, error) {
 	repoRootResolved, relDir, err := repoRootAndRelDir(s)
@@ -159,8 +159,8 @@ func DiffRefs(s *store.Store, beforeRef, afterRef string) (Result, error) {
 	return result, nil
 }
 
-// repoRootAndRelDir は s の .pmem/ を含む git リポジトリのルート（シンボリックリンク
-// 解決済み）と、そのルートから .pmem/ への相対パスを返す（Diff / DiffRefs 共通の
+// repoRootAndRelDir は s の .scholia/ を含む git リポジトリのルート（シンボリックリンク
+// 解決済み）と、そのルートから .scholia/ への相対パスを返す（Diff / DiffRefs 共通の
 // リポジトリ解決ロジック）。
 func repoRootAndRelDir(s *store.Store) (repoRootResolved, relDir string, err error) {
 	projectRoot := filepath.Dir(s.Dir)
@@ -172,8 +172,8 @@ func repoRootAndRelDir(s *store.Store) (repoRootResolved, relDir string, err err
 	// （macOS の /var -> /private/var 等）。s.Dir 側も解決してから相対化しないと
 	// filepath.Rel が ".." だらけの誤った相対パスを作ってしまう。
 	repoRootResolved = resolveSymlinks(repoRoot)
-	pmemDirResolved := resolveSymlinks(s.Dir)
-	relDir, err = relToRepoRoot(repoRootResolved, pmemDirResolved)
+	scholiaDirResolved := resolveSymlinks(s.Dir)
+	relDir, err = relToRepoRoot(repoRootResolved, scholiaDirResolved)
 	if err != nil {
 		return "", "", err
 	}

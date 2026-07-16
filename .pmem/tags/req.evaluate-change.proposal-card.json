@@ -1,9 +1,0 @@
-{
-  "id": "req.evaluate-change.proposal-card",
-  "name": "提案を構造化 diff カードでドロワーに描画する",
-  "kind": "requirement",
-  "parentIds": [
-    "req.evaluate-change"
-  ],
-  "description": "**As a** 提案（作業ツリーの pending `.pmem` 変更）をレビューする人/AIエージェント\n**I want** レコードのコメントドロワーを開いたとき、その提案を action/given/then の構造化 diff カードとして見たい\n**so that** 追加(added)・変更(changed) いずれの提案も、テキストではなく構造で複雑性の増分を評価できる\n\n### 受け入れ基準\n- pending diff（作業ツリー vs main）で変更(changed)されたレコードのドロワーに、フィールド単位の before/after 差分カードが出る\n- pending diff で新規追加(added)されたレコードのドロワーに、action/given/then を『全追加(after-only)』として示す差分カードが出る\n- 追加・変更のどちらの提案も、コメント（提案本文＝why）と対で差分カードが表示される（DESIGN §7.1）"
-}

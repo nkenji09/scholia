@@ -24,7 +24,7 @@ func TestEnumerateFiles_WalkFallbackExcludesReservedDirs(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, root, "main.go", "package main\n")
 	writeFile(t, root, "sub/thing.go", "package sub\n")
-	writeFile(t, root, ".pmem/tags/req.foo.json", `{"id":"req.foo"}`)
+	writeFile(t, root, ".scholia/tags/req.foo.json", `{"id":"req.foo"}`)
 	writeFile(t, root, ".git/HEAD", "ref: refs/heads/main\n")
 	writeFile(t, root, "_workspace/note.md", "scratch\n")
 	writeFile(t, root, ".concierge/decision.md", "draft\n")
@@ -50,7 +50,7 @@ func TestEnumerateFiles_GitLsFilesHonorsGitignore(t *testing.T) {
 	writeFile(t, root, ".gitignore", "ignored.txt\n")
 	writeFile(t, root, "tracked.go", "package main\n")
 	writeFile(t, root, "ignored.txt", "should not appear\n")
-	writeFile(t, root, ".pmem/tags/req.foo.json", `{"id":"req.foo"}`)
+	writeFile(t, root, ".scholia/tags/req.foo.json", `{"id":"req.foo"}`)
 	runGitT(t, root, "add", "tracked.go", ".gitignore")
 
 	got, err := EnumerateFiles(root)

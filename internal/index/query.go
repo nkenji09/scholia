@@ -9,7 +9,7 @@ import (
 
 // FacetNode is a facet-tree node with the transitions that land on it
 // (§3.8 faceted hierarchy: a facet axis's tag nesting becomes a tree with
-// transitions at the leaves). CLI (`pmem list --facet`) and the viewer
+// transitions at the leaves). CLI (`scholia list --facet`) and the viewer
 // (`GET /api/transitions?facet=`) share this exact shape — including its
 // JSON field names — so both surfaces present the same derived view.
 type FacetNode struct {
@@ -86,7 +86,7 @@ func UntaggedTransitions(ix *Index, filtered []model.Transition, facet string) [
 	return out
 }
 
-// SelectRulesDecisions implements the `pmem rules` / `GET /api/rules`
+// SelectRulesDecisions implements the `scholia rules` / `GET /api/rules`
 // selector semantics (§3.8 rules: cross-cutting decisions aggregated by
 // target) — exactly one of tagID/txID/facet may be set by the caller:
 //   - txID: decisions on the transition itself, plus decisions on any tag in

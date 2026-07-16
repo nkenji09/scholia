@@ -34,10 +34,10 @@ func getConfigHandler(s *store.Store) http.HandlerFunc {
 
 // configPatch is the editable subset of model.Config the viewer may write
 // (§7: "ビューアで書けるのは config だけ"). It mirrors the same key set
-// `pmem config set` accepts (internal/cli/config.go configKey* constants),
+// `scholia config set` accepts (internal/cli/config.go configKey* constants),
 // plus TagKindLabels (2026-07-11 tweaks3 §2) and Display (2026-07-11
 // tweaks5 §1/§2, additive — see model.Config's doc comment);
-// pmemVersion/kinds/idPrefix/Branch are excluded the same way (Branch is
+// schemaVersion/kinds/idPrefix/Branch are excluded the same way (Branch is
 // derived, not a stored preference — never settable via PUT). Unlike
 // `config set` (one key per call), PUT replaces the whole editable object
 // at once to match a single edit-form submission (implementation decision,
@@ -74,7 +74,7 @@ func putConfigHandler(s *store.Store) http.HandlerFunc {
 			return
 		}
 
-		// tagKinds の除去は使用中の tag があれば拒否する（pmem config set と同等・DESIGN §6・config_set.go）。
+		// tagKinds の除去は使用中の tag があれば拒否する（scholia config set と同等・DESIGN §6・config_set.go）。
 		if removed := diffStrings(cfg.TagKinds, patch.TagKinds); len(removed) > 0 {
 			snap, err := s.LoadAll()
 			if err != nil {

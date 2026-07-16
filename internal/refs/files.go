@@ -14,12 +14,12 @@ import (
 // callers always get a SkipNote so the omission is visible in output.
 const maxScanFileSize = 5 * 1024 * 1024
 
-// alwaysExcludedDirs never carry source references worth scanning: .pmem/
+// alwaysExcludedDirs never carry source references worth scanning: .scholia/
 // is the record store itself (ids appear there as record content, not as
 // source references), .git/ is VCS internals, _workspace/ and .concierge/
 // are orchestration scratch that isn't part of the product.
 var alwaysExcludedDirs = map[string]bool{
-	".pmem":      true,
+	".scholia":   true,
 	".git":       true,
 	"_workspace": true,
 	".concierge": true,
@@ -32,7 +32,7 @@ type SkipNote struct {
 }
 
 // EnumerateFiles lists candidate source files under root (the project
-// root — the parent of .pmem/), honoring .gitignore via `git ls-files` when
+// root — the parent of .scholia/), honoring .gitignore via `git ls-files` when
 // git is available, falling back to a directory walk otherwise. Both paths
 // apply the always-excluded orchestration/store directories. Returned
 // paths are root-relative, "/"-separated, sorted.

@@ -1,5 +1,0 @@
-{
-  "id": "cond.view-search-in-url",
-  "category": "condition",
-  "label": "そのビューの検索条件/フィルタが URL(hash) に存在する"
-}

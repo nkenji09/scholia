@@ -1,9 +1,0 @@
-{
-  "id": "req.skill-distribution",
-  "name": "スキル配布",
-  "kind": "requirement",
-  "parentIds": [
-    "req.non-functional"
-  ],
-  "description": "embed した AI エージェント用スキルを利用者環境の .claude/skills へ materialize し、どのプロジェクトでも pmem の使い方（decision 記録ワークフロー）を知っている状態にする"
-}

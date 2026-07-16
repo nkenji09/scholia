@@ -1,6 +1,0 @@
-{
-  "id": "eff.storage.rewrite-tag-refs",
-  "category": "effect",
-  "label": "old→new のタグ参照を4箇所（他タグの parentIds・遷移の tags・語彙の tags・decision の target.id）で全て張り替える",
-  "owner": "pmem-core"
-}

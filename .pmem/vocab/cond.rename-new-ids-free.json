@@ -1,5 +1,0 @@
-{
-  "id": "cond.rename-new-ids-free",
-  "category": "condition",
-  "label": "rename 先 id（--cascade で生成される子孫 id を含む）が既存タグと衝突しない"
-}

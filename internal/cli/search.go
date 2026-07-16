@@ -36,8 +36,8 @@ type searchOutput struct {
 	Matches []searchMatch `json:"matches"`
 }
 
-// newSearchCmd は `pmem search` を新設する。id を知らなくても keyword から
-// pmem 記録（tag/transition/vocab/decision）を横断探索する read-only 派生
+// newSearchCmd は `scholia search` を新設する。id を知らなくても keyword から
+// scholia 記録（tag/transition/vocab/decision）を横断探索する read-only 派生
 // コマンド（decision 01K.. on tag:req.evaluate-change.discovery / T-cli-search）。
 // rules/list/diff 同様に in-memory snapshot 上の query であり、何も保存しない。
 func newSearchCmd() *cobra.Command {

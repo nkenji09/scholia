@@ -1,7 +1,0 @@
-{
-  "id": "eff.log.update-guide-goinstall",
-  "category": "effect",
-  "label": "自己置換せず、go install …/cmd/pmem@latest での更新手順を案内する",
-  "kind": "log",
-  "owner": "pmem-core"
-}

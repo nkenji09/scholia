@@ -83,8 +83,8 @@ func TestCLI_InitNoGitignoreSkipsGitignoreWrite(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, ".gitignore")); !os.IsNotExist(err) {
 		t.Fatalf(".gitignore should not be created with --no-gitignore, stat err=%v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".pmem")); err != nil {
-		t.Fatalf(".pmem should still be created with --no-gitignore: %v", err)
+	if _, err := os.Stat(filepath.Join(dir, ".scholia")); err != nil {
+		t.Fatalf(".scholia should still be created with --no-gitignore: %v", err)
 	}
 }
 
@@ -98,8 +98,8 @@ func TestCLI_InitWithoutFlagWritesGitignore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read .gitignore: %v", err)
 	}
-	if !strings.Contains(string(data), ".pmem/index.db") {
-		t.Fatalf(".gitignore should contain .pmem/index.db by default, got %q", string(data))
+	if !strings.Contains(string(data), ".scholia/index.db") {
+		t.Fatalf(".gitignore should contain .scholia/index.db by default, got %q", string(data))
 	}
 }
 

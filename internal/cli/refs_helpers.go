@@ -27,9 +27,9 @@ func (f *renameRefsFlags) register(cmd *cobra.Command) {
 		"ソース走査自体を省略する（rename のみ）")
 }
 
-// projectRoot returns the project root (parent of .pmem/) a Store was
+// projectRoot returns the project root (parent of .scholia/) a Store was
 // opened against. refs scanning/rewriting operates on source files outside
-// .pmem/, so it needs the root, not the store dir.
+// .scholia/, so it needs the root, not the store dir.
 func projectRoot(s *store.Store) string {
 	return filepath.Dir(s.Dir)
 }
@@ -37,7 +37,7 @@ func projectRoot(s *store.Store) string {
 // refsOptions loads config.sourceRefs (if set) and turns it into the
 // refs.Options that scope file discovery — the wiring that makes
 // config.json's sourceRefs.scan/exclude actually affect rename's implicit
-// scan and `pmem refs scan|rewrite` (there is no `pmem config set` key for
+// scan and `scholia refs scan|rewrite` (there is no `scholia config set` key for
 // it yet; setting it today means editing config.json directly or via the
 // store's Go API). A nil SourceRefs (the common case: unset) yields the
 // zero-value Options, which narrows nothing — identical to behavior
@@ -62,12 +62,12 @@ type renameOutput[T any] struct {
 }
 
 // applyRenameRefs runs the shared rename→refs behavior (handoff "挙動テーブ
-// ル") after a `.pmem` rename has already committed: with --no-refs, do
+// ル") after a `.scholia` rename has already committed: with --no-refs, do
 // nothing. Otherwise scan pairs' OldIDs in source; with --rewrite-refs,
 // apply the boundary-safe rewrite; otherwise only collect the dry-run
 // preview. Returns nil when refs scanning was skipped.
 //
-// The `.pmem` rename this runs after is already committed — fileTxn's
+// The `.scholia` rename this runs after is already committed — fileTxn's
 // scope ends there. Refs application is best-effort and never unwinds it;
 // a per-file write failure is reported (and the caller should exit
 // non-zero) but the rename stays in effect.
@@ -103,7 +103,7 @@ func printRenameRefsReport(cmd *cobra.Command, report *refs.Report, rewrite bool
 	if rewrite {
 		fmt.Fprintf(out, "ソース参照を書き換えました（%d 箇所・%d ファイル）\n", len(report.Matches), len(report.RewrittenFiles))
 		for _, f := range report.Failed {
-			fmt.Fprintf(out, "  失敗: %s: %s（rename 自体は確定済み・pmem refs rewrite で再実行可）\n", f.Path, f.Err)
+			fmt.Fprintf(out, "  失敗: %s: %s（rename 自体は確定済み・scholia refs rewrite で再実行可）\n", f.Path, f.Err)
 		}
 		return
 	}
@@ -112,15 +112,15 @@ func printRenameRefsReport(cmd *cobra.Command, report *refs.Report, rewrite bool
 		fmt.Fprintf(out, "  %s:%d: %s\n", m.Path, m.Line, m.Text)
 	}
 	for _, p := range uniqueRewriteSuggestions(report.Matches) {
-		fmt.Fprintf(out, "`pmem refs rewrite %s %s --apply` で置換できます\n", p.OldID, p.NewID)
+		fmt.Fprintf(out, "`scholia refs rewrite %s %s --apply` で置換できます\n", p.OldID, p.NewID)
 	}
 }
 
 // uniqueRewriteSuggestions collects the distinct rewrite pairs worth
 // suggesting to the user. Pairs where OldID == NewID are dropped — that
-// shape only occurs from `pmem refs scan`'s inventory read (ScanIDs uses
+// shape only occurs from `scholia refs scan`'s inventory read (ScanIDs uses
 // NewID=OldID as a placeholder Execute never uses in dry-run mode), where
-// there is no rename in progress, and printing `pmem refs rewrite X X
+// there is no rename in progress, and printing `scholia refs rewrite X X
 // --apply` would be a no-op suggestion nobody should ever run.
 func uniqueRewriteSuggestions(matches []refs.Match) []refs.Pair {
 	seen := map[refs.Pair]bool{}
@@ -140,13 +140,13 @@ func uniqueRewriteSuggestions(matches []refs.Match) []refs.Pair {
 }
 
 // refsFailedErr builds the non-zero-exit error for a rename command when
-// --rewrite-refs applied but left one or more files unwritten. The `.pmem`
+// --rewrite-refs applied but left one or more files unwritten. The `.scholia`
 // rename itself is unaffected (already committed).
 func refsFailedErr(report *refs.Report) error {
 	if report == nil || len(report.Failed) == 0 {
 		return nil
 	}
-	return fmt.Errorf("ソース書換に失敗したファイルがあります（%d 件。rename 自体は確定済み・pmem refs rewrite --apply で再実行可）", len(report.Failed))
+	return fmt.Errorf("ソース書換に失敗したファイルがあります（%d 件。rename 自体は確定済み・scholia refs rewrite --apply で再実行可）", len(report.Failed))
 }
 
 func encodeRenameJSON[T any](cmd *cobra.Command, rename T, report *refs.Report) error {

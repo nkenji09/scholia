@@ -11,7 +11,7 @@ import (
 	"github.com/nkenji09/scholia/internal/model"
 )
 
-// refSnapshot is the .pmem/ records read from a git ref via `git ls-tree` /
+// refSnapshot is the .scholia/ records read from a git ref via `git ls-tree` /
 // `git show` — the same shape as store.Snapshot minus the parts (Config,
 // IDMismatches) that diff doesn't compare (§4 only covers vocab/tag/
 // transition/decision).
@@ -30,9 +30,9 @@ const (
 )
 
 // baselineMissingError は「ref 自体は妥当な操作対象だが、ベースライン（HEAD の
-// コミット or ref 上の .pmem）が単に存在しない」ことを表す。既定 ref（ユーザーが
+// コミット or ref 上の .scholia）が単に存在しない」ことを表す。既定 ref（ユーザーが
 // gitref を明示指定していない）の場合、Diff はこれを空ベースラインへフォール
-// バックする（初回ユーザーが git init 直後 / .pmem 未コミットで詰まらないため）。
+// バックする（初回ユーザーが git init 直後 / .scholia 未コミットで詰まらないため）。
 // ユーザーが gitref を明示指定した場合は従来どおりエラーとして扱う（typo・実在
 // しない ref の握り潰しを避ける）。
 type baselineMissingError struct {
@@ -82,7 +82,7 @@ func verifyRef(repoRoot, ref string) error {
 
 // loadRefSnapshot は `git ls-tree -r <ref> -- <relDir>` で relDir 以下のファイル一覧を取り、
 // 各ファイルを `git show <ref>:<path>` で読んで unmarshal する。relDir は repoRoot からの
-// 相対パス（"/" 区切り）で、通常は ".pmem"。
+// 相対パス（"/" 区切り）で、通常は ".scholia"。
 func loadRefSnapshot(repoRoot, relDir, ref string) (refSnapshot, error) {
 	if err := verifyRef(repoRoot, ref); err != nil {
 		return refSnapshot{}, err
@@ -151,7 +151,7 @@ func loadRefSnapshot(repoRoot, relDir, ref string) (refSnapshot, error) {
 	return snap, nil
 }
 
-// relToRepoRoot は absDir（.pmem の絶対パス）を repoRoot からの "/" 区切り相対パスにする。
+// relToRepoRoot は absDir（.scholia の絶対パス）を repoRoot からの "/" 区切り相対パスにする。
 func relToRepoRoot(repoRoot, absDir string) (string, error) {
 	rel, err := filepath.Rel(repoRoot, absDir)
 	if err != nil {

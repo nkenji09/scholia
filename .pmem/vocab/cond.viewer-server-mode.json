@@ -1,5 +1,0 @@
-{
-  "id": "cond.viewer-server-mode",
-  "category": "condition",
-  "label": "viewer がサーバモード（pmem view）で稼働し書込 API（POST /api/decision・DELETE /api/reviews）が利用可能なとき"
-}

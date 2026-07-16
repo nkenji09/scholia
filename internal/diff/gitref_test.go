@@ -9,7 +9,7 @@ import (
 	"github.com/nkenji09/scholia/internal/store"
 )
 
-// gitTestRepo は t.TempDir() に git リポジトリ + `pmem init` 済みの .pmem/ を用意する。
+// gitTestRepo は t.TempDir() に git リポジトリ + `scholia init` 済みの .scholia/ を用意する。
 func gitTestRepo(t *testing.T) (dir string, s *store.Store) {
 	t.Helper()
 	if _, err := exec.LookPath("git"); err != nil {
@@ -55,7 +55,7 @@ func writeFile(t *testing.T, path, content string) {
 
 func TestDiff_NoChangesReportsEmpty(t *testing.T) {
 	dir, s := gitTestRepo(t)
-	writeFile(t, filepath.Join(dir, ".pmem", "vocab", "cond.a.json"), `{"id":"cond.a","category":"condition","label":"a"}`+"\n")
+	writeFile(t, filepath.Join(dir, ".scholia", "vocab", "cond.a.json"), `{"id":"cond.a","category":"condition","label":"a"}`+"\n")
 	commitAll(t, dir, "seed")
 
 	r, err := Diff(s, "")
@@ -72,10 +72,10 @@ func TestDiff_NoChangesReportsEmpty(t *testing.T) {
 
 func TestDiff_VocabAddedSinceRef(t *testing.T) {
 	dir, s := gitTestRepo(t)
-	writeFile(t, filepath.Join(dir, ".pmem", "vocab", "cond.a.json"), `{"id":"cond.a","category":"condition","label":"a"}`+"\n")
+	writeFile(t, filepath.Join(dir, ".scholia", "vocab", "cond.a.json"), `{"id":"cond.a","category":"condition","label":"a"}`+"\n")
 	commitAll(t, dir, "seed")
 
-	writeFile(t, filepath.Join(dir, ".pmem", "vocab", "cond.b.json"), `{"id":"cond.b","category":"condition","label":"b"}`+"\n")
+	writeFile(t, filepath.Join(dir, ".scholia", "vocab", "cond.b.json"), `{"id":"cond.b","category":"condition","label":"b"}`+"\n")
 
 	r, err := Diff(s, "HEAD")
 	if err != nil {
@@ -88,10 +88,10 @@ func TestDiff_VocabAddedSinceRef(t *testing.T) {
 
 func TestDiff_ThenReorderAcrossCommit(t *testing.T) {
 	dir, s := gitTestRepo(t)
-	txPath := filepath.Join(dir, ".pmem", "transitions", "T-1.json")
-	writeFile(t, filepath.Join(dir, ".pmem", "vocab", "act.a.json"), `{"id":"act.a","category":"action","label":"a"}`+"\n")
-	writeFile(t, filepath.Join(dir, ".pmem", "vocab", "eff.a.json"), `{"id":"eff.a","category":"effect","label":"a"}`+"\n")
-	writeFile(t, filepath.Join(dir, ".pmem", "vocab", "eff.b.json"), `{"id":"eff.b","category":"effect","label":"b"}`+"\n")
+	txPath := filepath.Join(dir, ".scholia", "transitions", "T-1.json")
+	writeFile(t, filepath.Join(dir, ".scholia", "vocab", "act.a.json"), `{"id":"act.a","category":"action","label":"a"}`+"\n")
+	writeFile(t, filepath.Join(dir, ".scholia", "vocab", "eff.a.json"), `{"id":"eff.a","category":"effect","label":"a"}`+"\n")
+	writeFile(t, filepath.Join(dir, ".scholia", "vocab", "eff.b.json"), `{"id":"eff.b","category":"effect","label":"b"}`+"\n")
 	writeFile(t, txPath, `{"id":"T-1","action":"act.a","given":[],"then":["eff.a","eff.b"]}`+"\n")
 	commitAll(t, dir, "seed")
 
@@ -112,7 +112,7 @@ func TestDiff_ThenReorderAcrossCommit(t *testing.T) {
 
 func TestDiff_DecisionRemovalIsFlaggedAsViolation(t *testing.T) {
 	dir, s := gitTestRepo(t)
-	decPath := filepath.Join(dir, ".pmem", "decisions", "d1.json")
+	decPath := filepath.Join(dir, ".scholia", "decisions", "d1.json")
 	writeFile(t, decPath, `{"id":"d1","target":{"type":"transition","id":"T-1"},"why":"why","at":"2026-01-01T00:00:00Z"}`+"\n")
 	commitAll(t, dir, "seed")
 
@@ -134,7 +134,7 @@ func TestDiff_DecisionRemovalIsFlaggedAsViolation(t *testing.T) {
 
 func TestDiff_UnknownRefIsClearError(t *testing.T) {
 	dir, s := gitTestRepo(t)
-	writeFile(t, filepath.Join(dir, ".pmem", "vocab", "cond.a.json"), `{"id":"cond.a","category":"condition","label":"a"}`+"\n")
+	writeFile(t, filepath.Join(dir, ".scholia", "vocab", "cond.a.json"), `{"id":"cond.a","category":"condition","label":"a"}`+"\n")
 	commitAll(t, dir, "seed")
 
 	if _, err := Diff(s, "does-not-exist"); err == nil {
@@ -153,26 +153,26 @@ func TestDiff_NotAGitRepoIsClearError(t *testing.T) {
 	}
 }
 
-func TestDiff_RefWithoutPmemDirIsClearError(t *testing.T) {
+func TestDiff_RefWithoutScholiaDirIsClearError(t *testing.T) {
 	dir, s := gitTestRepo(t)
-	// .pmem/ をまだ何もコミットしていない状態で commit を作る（.pmem 自体を含めない）。
+	// .scholia/ をまだ何もコミットしていない状態で commit を作る（.scholia 自体を含めない）。
 	writeFile(t, filepath.Join(dir, "README.md"), "hello\n")
 	runGitT(t, dir, "add", "README.md")
-	runGitT(t, dir, "commit", "-q", "-m", "no pmem yet")
+	runGitT(t, dir, "commit", "-q", "-m", "no scholia yet")
 
 	if _, err := Diff(s, "HEAD"); err == nil {
-		t.Fatalf("expected error when ref has no .pmem/ path")
+		t.Fatalf("expected error when ref has no .scholia/ path")
 	}
 }
 
-// gap G8: ベースライン（HEAD のコミット or ref 上の .pmem）が単に存在しない初回は、
+// gap G8: ベースライン（HEAD のコミット or ref 上の .scholia）が単に存在しない初回は、
 // gitref を明示指定していない既定呼び出し（ref==""）に限り graceful に空ベースライン
-// へフォールバックする（§4 pmem diff・DESIGN 矛盾なし）。
+// へフォールバックする（§4 scholia diff・DESIGN 矛盾なし）。
 
 func TestDiff_NoCommitsFallsBackToEmptyBaselineOnDefaultRef(t *testing.T) {
 	dir, s := gitTestRepo(t)
 	// git init 直後・commit 0（HEAD が解決できない）で作業ツリーにレコードがある状態。
-	writeFile(t, filepath.Join(dir, ".pmem", "vocab", "cond.a.json"), `{"id":"cond.a","category":"condition","label":"a"}`+"\n")
+	writeFile(t, filepath.Join(dir, ".scholia", "vocab", "cond.a.json"), `{"id":"cond.a","category":"condition","label":"a"}`+"\n")
 
 	r, err := Diff(s, "")
 	if err != nil {
@@ -189,20 +189,20 @@ func TestDiff_NoCommitsFallsBackToEmptyBaselineOnDefaultRef(t *testing.T) {
 	}
 }
 
-func TestDiff_PmemNotYetCommittedFallsBackToEmptyBaselineOnDefaultRef(t *testing.T) {
+func TestDiff_ScholiaNotYetCommittedFallsBackToEmptyBaselineOnDefaultRef(t *testing.T) {
 	dir, s := gitTestRepo(t)
-	// HEAD は存在するが .pmem/ をまだ git に含めていない（commit 済みなのは README のみ）。
+	// HEAD は存在するが .scholia/ をまだ git に含めていない（commit 済みなのは README のみ）。
 	writeFile(t, filepath.Join(dir, "README.md"), "hello\n")
 	runGitT(t, dir, "add", "README.md")
-	runGitT(t, dir, "commit", "-q", "-m", "no pmem yet")
-	writeFile(t, filepath.Join(dir, ".pmem", "vocab", "cond.a.json"), `{"id":"cond.a","category":"condition","label":"a"}`+"\n")
+	runGitT(t, dir, "commit", "-q", "-m", "no scholia yet")
+	writeFile(t, filepath.Join(dir, ".scholia", "vocab", "cond.a.json"), `{"id":"cond.a","category":"condition","label":"a"}`+"\n")
 
 	r, err := Diff(s, "")
 	if err != nil {
-		t.Fatalf("Diff: %v, want graceful fallback (no error) when ref has no .pmem/ yet", err)
+		t.Fatalf("Diff: %v, want graceful fallback (no error) when ref has no .scholia/ yet", err)
 	}
 	if !r.BaselineMissing {
-		t.Fatalf("BaselineMissing = false, want true when ref has no .pmem/")
+		t.Fatalf("BaselineMissing = false, want true when ref has no .scholia/")
 	}
 	if len(r.Vocab.Added) != 1 || r.Vocab.Added[0].ID != "cond.a" {
 		t.Fatalf("Vocab.Added = %+v, want [cond.a] (no baseline -> everything is added)", r.Vocab.Added)
@@ -211,21 +211,21 @@ func TestDiff_PmemNotYetCommittedFallsBackToEmptyBaselineOnDefaultRef(t *testing
 
 func TestDiff_ExplicitRefStillErrorsWhenNoCommits(t *testing.T) {
 	dir, s := gitTestRepo(t)
-	writeFile(t, filepath.Join(dir, ".pmem", "vocab", "cond.a.json"), `{"id":"cond.a","category":"condition","label":"a"}`+"\n")
+	writeFile(t, filepath.Join(dir, ".scholia", "vocab", "cond.a.json"), `{"id":"cond.a","category":"condition","label":"a"}`+"\n")
 
 	if _, err := Diff(s, "HEAD"); err == nil {
 		t.Fatalf("expected error for explicit HEAD ref even though it matches the default value — user explicitly asked for it")
 	}
 }
 
-// R-2: `pmem diff A B`（ref 対 ref）— タスク粒度=commit を成立させるコア。
+// R-2: `scholia diff A B`（ref 対 ref）— タスク粒度=commit を成立させるコア。
 
 func TestDiffRefs_VocabAddedBetweenTwoCommits(t *testing.T) {
 	dir, s := gitTestRepo(t)
-	writeFile(t, filepath.Join(dir, ".pmem", "vocab", "cond.a.json"), `{"id":"cond.a","category":"condition","label":"a"}`+"\n")
+	writeFile(t, filepath.Join(dir, ".scholia", "vocab", "cond.a.json"), `{"id":"cond.a","category":"condition","label":"a"}`+"\n")
 	commitAll(t, dir, "seed")
 
-	writeFile(t, filepath.Join(dir, ".pmem", "vocab", "cond.b.json"), `{"id":"cond.b","category":"condition","label":"b"}`+"\n")
+	writeFile(t, filepath.Join(dir, ".scholia", "vocab", "cond.b.json"), `{"id":"cond.b","category":"condition","label":"b"}`+"\n")
 	commitAll(t, dir, "add cond.b")
 
 	r, err := DiffRefs(s, "HEAD^", "HEAD")
@@ -240,20 +240,20 @@ func TestDiffRefs_VocabAddedBetweenTwoCommits(t *testing.T) {
 	}
 }
 
-// このテストが受け入れ条件1「実データで `pmem diff <commit>^ <commit>` が
+// このテストが受け入れ条件1「実データで `scholia diff <commit>^ <commit>` が
 // 『その commit の変更』を出せる」の実証（複数フィールドにまたがる変更を1コミットに
 // 含めても正しく検出できることまで確認する）。
 func TestDiffRefs_SingleCommitChangeAcrossFields(t *testing.T) {
 	dir, s := gitTestRepo(t)
-	txPath := filepath.Join(dir, ".pmem", "transitions", "T-1.json")
-	writeFile(t, filepath.Join(dir, ".pmem", "vocab", "act.a.json"), `{"id":"act.a","category":"action","label":"a"}`+"\n")
-	writeFile(t, filepath.Join(dir, ".pmem", "vocab", "eff.a.json"), `{"id":"eff.a","category":"effect","label":"a"}`+"\n")
-	writeFile(t, filepath.Join(dir, ".pmem", "vocab", "eff.b.json"), `{"id":"eff.b","category":"effect","label":"b"}`+"\n")
+	txPath := filepath.Join(dir, ".scholia", "transitions", "T-1.json")
+	writeFile(t, filepath.Join(dir, ".scholia", "vocab", "act.a.json"), `{"id":"act.a","category":"action","label":"a"}`+"\n")
+	writeFile(t, filepath.Join(dir, ".scholia", "vocab", "eff.a.json"), `{"id":"eff.a","category":"effect","label":"a"}`+"\n")
+	writeFile(t, filepath.Join(dir, ".scholia", "vocab", "eff.b.json"), `{"id":"eff.b","category":"effect","label":"b"}`+"\n")
 	writeFile(t, txPath, `{"id":"T-1","action":"act.a","given":[],"then":["eff.a","eff.b"]}`+"\n")
 	commitAll(t, dir, "seed")
 
 	// 1コミットに: 語彙追加 + 遷移の then 変更（順序変更のみ）をまとめて含める。
-	writeFile(t, filepath.Join(dir, ".pmem", "vocab", "cond.new.json"), `{"id":"cond.new","category":"condition","label":"new"}`+"\n")
+	writeFile(t, filepath.Join(dir, ".scholia", "vocab", "cond.new.json"), `{"id":"cond.new","category":"condition","label":"new"}`+"\n")
 	writeFile(t, txPath, `{"id":"T-1","action":"act.a","given":[],"then":["eff.b","eff.a"]}`+"\n")
 	commitAll(t, dir, "add cond.new + reorder T-1.then")
 
@@ -271,7 +271,7 @@ func TestDiffRefs_SingleCommitChangeAcrossFields(t *testing.T) {
 
 func TestDiffRefs_NoChangesReportsEmpty(t *testing.T) {
 	dir, s := gitTestRepo(t)
-	writeFile(t, filepath.Join(dir, ".pmem", "vocab", "cond.a.json"), `{"id":"cond.a","category":"condition","label":"a"}`+"\n")
+	writeFile(t, filepath.Join(dir, ".scholia", "vocab", "cond.a.json"), `{"id":"cond.a","category":"condition","label":"a"}`+"\n")
 	commitAll(t, dir, "seed")
 	runGitT(t, dir, "commit", "-q", "--allow-empty", "-m", "empty")
 
@@ -286,7 +286,7 @@ func TestDiffRefs_NoChangesReportsEmpty(t *testing.T) {
 
 func TestDiffRefs_UnknownBeforeRefIsError(t *testing.T) {
 	dir, s := gitTestRepo(t)
-	writeFile(t, filepath.Join(dir, ".pmem", "vocab", "cond.a.json"), `{"id":"cond.a","category":"condition","label":"a"}`+"\n")
+	writeFile(t, filepath.Join(dir, ".scholia", "vocab", "cond.a.json"), `{"id":"cond.a","category":"condition","label":"a"}`+"\n")
 	commitAll(t, dir, "seed")
 
 	if _, err := DiffRefs(s, "does-not-exist", "HEAD"); err == nil {
@@ -296,7 +296,7 @@ func TestDiffRefs_UnknownBeforeRefIsError(t *testing.T) {
 
 func TestDiffRefs_UnknownAfterRefIsError(t *testing.T) {
 	dir, s := gitTestRepo(t)
-	writeFile(t, filepath.Join(dir, ".pmem", "vocab", "cond.a.json"), `{"id":"cond.a","category":"condition","label":"a"}`+"\n")
+	writeFile(t, filepath.Join(dir, ".scholia", "vocab", "cond.a.json"), `{"id":"cond.a","category":"condition","label":"a"}`+"\n")
 	commitAll(t, dir, "seed")
 
 	if _, err := DiffRefs(s, "HEAD", "does-not-exist"); err == nil {
@@ -305,27 +305,27 @@ func TestDiffRefs_UnknownAfterRefIsError(t *testing.T) {
 }
 
 // 両側とも明示 ref なので、Diff の「既定 ref フォールバック」は適用されず、
-// ベースライン欠落（.pmem を含まない ref）は常にエラーになる。
-func TestDiffRefs_RefWithoutPmemDirIsError(t *testing.T) {
+// ベースライン欠落（.scholia を含まない ref）は常にエラーになる。
+func TestDiffRefs_RefWithoutScholiaDirIsError(t *testing.T) {
 	dir, s := gitTestRepo(t)
 	writeFile(t, filepath.Join(dir, "README.md"), "hello\n")
 	runGitT(t, dir, "add", "README.md")
-	runGitT(t, dir, "commit", "-q", "-m", "no pmem yet")
+	runGitT(t, dir, "commit", "-q", "-m", "no scholia yet")
 
-	writeFile(t, filepath.Join(dir, ".pmem", "vocab", "cond.a.json"), `{"id":"cond.a","category":"condition","label":"a"}`+"\n")
-	commitAll(t, dir, "add pmem")
+	writeFile(t, filepath.Join(dir, ".scholia", "vocab", "cond.a.json"), `{"id":"cond.a","category":"condition","label":"a"}`+"\n")
+	commitAll(t, dir, "add scholia")
 
 	if _, err := DiffRefs(s, "HEAD^", "HEAD"); err == nil {
-		t.Fatalf("expected error when before-ref has no .pmem/ (no fallback for explicit ref-vs-ref)")
+		t.Fatalf("expected error when before-ref has no .scholia/ (no fallback for explicit ref-vs-ref)")
 	}
 }
 
 func TestDiff_ValidBaselineOutputUnchangedByFallback(t *testing.T) {
 	dir, s := gitTestRepo(t)
-	writeFile(t, filepath.Join(dir, ".pmem", "vocab", "cond.a.json"), `{"id":"cond.a","category":"condition","label":"a"}`+"\n")
+	writeFile(t, filepath.Join(dir, ".scholia", "vocab", "cond.a.json"), `{"id":"cond.a","category":"condition","label":"a"}`+"\n")
 	commitAll(t, dir, "seed")
 
-	writeFile(t, filepath.Join(dir, ".pmem", "vocab", "cond.b.json"), `{"id":"cond.b","category":"condition","label":"b"}`+"\n")
+	writeFile(t, filepath.Join(dir, ".scholia", "vocab", "cond.b.json"), `{"id":"cond.b","category":"condition","label":"b"}`+"\n")
 
 	r, err := Diff(s, "")
 	if err != nil {

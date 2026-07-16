@@ -88,7 +88,7 @@ func newViewCmd() *cobra.Command {
 			if host == "127.0.0.1" {
 				displayHost = "localhost"
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "pmem view: http://%s:%d\n", displayHost, resolvedPort)
+			fmt.Fprintf(cmd.OutOrStdout(), "scholia view: http://%s:%d\n", displayHost, resolvedPort)
 
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 			defer stop()

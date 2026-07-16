@@ -1,6 +1,0 @@
-{
-  "id": "act.user.review-adopt",
-  "category": "action",
-  "label": "AI 提案コメント(review)を Adopt したとき（CLI pmem review adopt \u003cid\u003e / viewer ドロワー）",
-  "kind": "user"
-}

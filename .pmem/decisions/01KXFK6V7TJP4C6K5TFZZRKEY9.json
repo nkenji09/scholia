@@ -1,9 +1,0 @@
-{
-  "id": "01KXFK6V7TJP4C6K5TFZZRKEY9",
-  "target": {
-    "type": "tag",
-    "id": "req.evaluate-change.discovery"
-  },
-  "why": "triage の手順『input が触る挙動をどの decision/transition が支配しているか特定する』には、id を知らなくても keyword から記録に辿り着く入り口が要る。実運用ではコンシェルジュが id を知らず `ls .pmem/tags/ | grep` と生ファイルを grep して逃げた——これは『CLI を唯一のインターフェースにする』pmem の思想に反する smell。既存 CLI は id 前提の rules --tag/show/decision list --on しかなく keyword→記録の逆引きが無かった。よって逆引き探索を第一級コマンド `pmem search` として足す。req.evaluate-change の一系列（変更を評価する土台）＝該当 spec を特定する入り口として diff/rules-lookup の兄弟に置く。",
-  "at": "2026-07-14T05:57:13Z"
-}

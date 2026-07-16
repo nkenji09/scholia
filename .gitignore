@@ -3,7 +3,7 @@ _workspace/
 .concierge/
 
 # local build artifacts
-/pmem
+/scholia
 /dist/
-.pmem/index.db
-.pmem/reviews/
+.scholia/index.db
+.scholia/reviews/

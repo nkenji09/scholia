@@ -1,9 +1,0 @@
-{
-  "id": "req.record-decisions.transition",
-  "name": "遷移個別への意思決定",
-  "kind": "requirement",
-  "parentIds": [
-    "req.record-decisions"
-  ],
-  "description": "**As a** 特定の transition の実装判断をした開発者\n**I want** その transition 1件に対して why を記録したい\n**so that** 「なぜこの action/given/then の組み合わせにしたか」を後から追える\n\n### 受け入れ基準\n- `pmem decide --on transition:\u003cid\u003e --why ...` が成功する\n- `pmem show tx \u003cid\u003e` からその decision を辿れる\n- target が実在しない transition を指すと lint error（decision-target）になる"
-}

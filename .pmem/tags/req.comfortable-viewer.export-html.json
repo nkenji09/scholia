@@ -1,9 +1,0 @@
-{
-  "id": "req.comfortable-viewer.export-html",
-  "name": "静的HTMLへの書き出し",
-  "kind": "requirement",
-  "parentIds": [
-    "req.comfortable-viewer"
-  ],
-  "description": "**As a** サーバを立てずに記録を共有したい開発者\n**I want** `pmem export --html \u003cdir\u003e` で自己完結した静的HTMLを生成したい\n**so that** GitHub PagesやCI成果物として、pmemやサーバなしで誰でも記録を閲覧できる\n\n### 受け入れ基準\n- `pmem export --html \u003cdir\u003e` が指定ディレクトリに自己完結の静的サイトを生成する\n- 生成物はサーバプロセスなしでブラウザから直接開ける\n- facetナビ・詳細表示など `pmem view` と同等の閲覧体験を維持する"
-}

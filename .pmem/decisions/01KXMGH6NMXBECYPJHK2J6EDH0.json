@@ -1,9 +1,0 @@
-{
-  "id": "01KXMGH6NMXBECYPJHK2J6EDH0",
-  "target": {
-    "type": "transition",
-    "id": "T-flow-matrix-scope"
-  },
-  "why": "CLI flow の baseline transition を採用。given=index-built のみ＝マトリクス＋scope 印字＋report を常に出す baseline。viewer(T-viewer-action-flow-render) と eff.emit.action-condition-matrix / eff.emit.scope-disclosure を共有 vocab として持つ＝『解析は同一実装・surface だけ別（mermaid vs report）』を表現。baseline の given が gap-case tx の given の部分集合になるのは意図的合成（全 tx が発火して出力連結）であり ambiguity ではない。※実装同一性の確定・CLI 名（flow/gaps を1コマンドに束ねる vs pmem flow/pmem gaps に分ける・§7.5）は phase-boundary 原則により実装フェーズでユーザー確定に委ねる。",
-  "at": "2026-07-16T03:46:39Z"
-}

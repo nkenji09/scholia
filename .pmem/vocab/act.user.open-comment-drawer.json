@@ -1,6 +1,0 @@
-{
-  "id": "act.user.open-comment-drawer",
-  "category": "action",
-  "label": "レコードのコメントドロワーを開いたとき",
-  "kind": "user"
-}

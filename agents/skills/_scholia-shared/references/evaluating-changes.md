@@ -1,0 +1,129 @@
+# input を spec に照らして対応方針を選別する（evaluating-changes）
+
+このリファレンスは、**外から来た input（修正指示・実現したいこと・要望・レビューコメント）を、scholia の
+記録（transition の契約＋ decision の「なぜ」）を土台に「どう対応すべきか」を判定する手順**を扱う。
+[scholia スキル](../../scholia/SKILL.md)「これは何のためか」の 2 番目の目的＝**変更を評価する土台にする**を、
+実際の運用手順に落としたもの。
+
+scholia の記録は過去の意図（decision＝append-only）を蓄積したものなので、後から来た input を**過去の判断と
+突き合わせて**方針を決められる。ここが無いと、もっともらしいレビュー指摘に reactive patch するしかなく、
+「指摘 → 修正 → 別のエッジケースを壊す → 指摘 …」の**モグラ叩きループ**に陥る。それを避けるための判断層が
+これ（scholia の存在意義そのもの）。ただし過去 decision との整合だけでは「その変更が全ケースを覆っているか」は
+保証できない——分岐する軸・実装の枝を数え上げて網羅を確認するのは別の観点で、着地時の完了ゲート
+（[scholia-change スキル](../../scholia-change/SKILL.md) Case 2 手順 6）が担う。
+
+## triage は判断層——ここでは何も変更しない
+
+- **triage の産物は「対応方針 ＋ WHY ＋（記録が要るなら）decision の下書き」だけ。** `.scholia/` も実装コードも
+  **一切変更しない**。実行（`.scholia/` の編集・実装修正・decision の着地）は [scholia-change スキル](../../scholia-change/SKILL.md)
+  や実装セッションが担う。判断と実行を分けるのは、「言われるがまま直す」前に一度必ず spec に照らす関門を作るため。
+- **前例**: loom-spec の同名リファレンス（proposal を過去 decisions で判定する型）の scholia 版。あちらは after 版を
+  proposal ファイルで組んで `diff` を見せるが、scholia では**まだ何も作らない**——triage は判定だけで、diff を作って
+  見せる段（提案コメントの配送・pending diff）は scholia-change の実行フェーズに属する。
+
+## scope（入口・出口・実行は呼び口側）
+
+- **ここで扱うのは「判定そのもの」だけ**——scholia の記録を使って input の対応方針を選別する、プロジェクト非依存の手順。
+- **input の入口**（修正指示／要望／PR レビューコメント／バグ報告／設計レビュー …）と、**方針の出口**
+  （誰に返すか・どのセッションで実行するか）は**呼び口側**が担う。このリファレンスは出所を問わない
+  （「input」「変更提案」と抽象化して扱う）。
+- **scope 非依存**——input はコード修正でもデータでも機能でもよい。判定の対象は「その挙動を支配している scholia の
+  記録」。これは scholia-change が **scholia レコードの変更**に閉じるのと対照的で、triage は「そもそもどう対応するか」を
+  決める一段手前にいる。
+
+## 手順
+
+### 1. 該当 spec（支配している記録）を特定する
+
+input が触る挙動を、どの decision と transition が支配しているかを引く。**方針を spec に根拠づけるための材料集め**なので、
+ここを飛ばすと判定が「勘」になる。
+
+```
+scholia search <keyword> [--type tag|transition|vocab|decision] [--json]   # id/領域が未確定なら逆引きの入口（read-only）
+scholia rules --tag <領域>            # そのタグ自身＋祖先タグへの decisions＝守るべき規則の全集合
+scholia show tag <id>                 # タグ（要件）の現状
+scholia show tx <id> --resolve        # transition の現契約（action→given→then・vocab を解決して読む）
+scholia decision list --on tag:<id>            # その対象ちょうどに付いた decision（完全一致・祖先展開なし）
+scholia decision list --on transition:<id>
+scholia list --tag <領域>             # その領域に属する transition を横断列挙（input が跨る先を把握）
+```
+
+- **`rules --tag` と `decision list --on` の違いを意識する**——`rules` は**祖先タグへの決定まで含める**
+  （cross-cutting invariant を漏らさないため）。`decision list --on` は**その対象ちょうど**の決定だけ（完全一致）。
+  「守るべき規則の全集合」を見たいなら `rules`、「この 1 レコードの履歴」を見たいなら `decision list --on`。
+- **`scholia search` は id/領域が未確定なときの逆引きの入口**——tag/transition/vocab/decision を横断し、大小無視の
+  部分一致で keyword から候補レコードを出す（0 件は「該当なし」に縮退・read-only）。ただし横断に抜けがある——
+  **transition が持つ tags は検索対象外**（そのタグを持つ transition は transition 型としては出ない。タグ自身は
+  tag 型で出る）／**decision の対象（`--on` の tag/tx）も対象外**（`why`/`changed` の文面だけが対象）。よって
+  「そのタグを消費する transition の集合」は `scholia list --tag <id>`、「その対象への decision 履歴」は
+  `scholia decision list --on ...`、「守る規則の全集合（祖先展開込み）」は `scholia rules --tag ...` が正確に担う——
+  **search で入口を見つけ、正確な集合は既存コマンドで詰める**という使い分け。
+- input が複数領域に跨るなら、対象を取り違えないよう**先に全部洗い出す**。
+
+### 2. input を 5 分類する（判定表）
+
+引いた記録に照らして、input を次の 5 つのどれかに分類する。**分類が方針を決める**。
+
+| 分類 | 意味（記録との関係） | 方針 |
+|---|---|---|
+| **A 是正** | 実装が既存 spec を満たしていない（バグ／gap）。**spec は正しく、実装がズレている**。 | 実装を spec に適合させる。**spec 変更ではない**（decision は原則増やさない）。 |
+| **B 精緻化** | 過去 decision と **consistent** で、詳細・レンズ・観測可能性を足す。判断そのものは変えない。 | 実装を進め、**精緻化の decision を 1 件記録**（既存判断の敷衍）。 |
+| **C 矛盾** | 過去 decision と **衝突**する（過去に逆を意図的に決めている＝チェスタトンの垣根）。 | **止めてユーザーへ**。黙って上書きしない（下記「大原則」）。 |
+| **D 新規要件** | 既存 spec が**未カバー**（net-new・衝突する記録が無い）。 | spec を追加する（transition／tag／decision の新設）。 |
+| **E 却下** | 過去に検討して**却下済み**、または中核原理を壊す。 | 根拠 decision を挙げて**却下**（reject の decision を残す）。 |
+
+見分け方の勘所:
+
+- **A か B か D か**——まず「支配する decision があるか」。無ければ **D（新規）** か **A（実装バグ）**。ある場合、
+  input がその decision と **同じ方向を詳細化するなら B**、**逆を向くなら C**。実装だけが decision に追いつけて
+  いないなら **A**（decision も spec も直さない・実装を直す）。
+- **A と D の分かれ目**——「spec には既に書いてあるのに実装がやれていない」＝ A。「spec に書いてすらいない」＝ D。
+  A は decision を増やさない（既存 spec への回帰）。D は spec を足す。
+- **C の疑いは倒し切らない**——「衝突しているかも」で止め、ユーザーに渡すのが正しい。triage が独断で「まあ上書き
+  でいい」と判断しないこと（後述）。
+- **E と C の違い**——E は「過去に**この提案そのものを**検討して却下した／中核原理に反する」で、triage が根拠つきで
+  却下できる。C は「過去の**別の決定**と衝突する」で、改訂の是非は**ユーザーの意識的判断**に委ねる。
+
+### 3. 方針を出力する（何も変更しない）
+
+分類が決まったら、次の 3 点を出力する。**これが triage の成果物**で、ここで手を止める。
+
+1. **対応方針**——A〜E のどれで、具体的に何をするか（例:「A 是正。実装を transition `tx.X.y` の then に
+   合わせる。spec は変えない」）。
+2. **WHY**——なぜその方針か。**根拠となる decision / transition の id を必ず引用**する
+   （`file:line` のような不変でない参照は使わない・DESIGN §8）。C なら「衝突する decision `{id}`」を、
+   E なら「却下の根拠 decision `{id}`」を挙げる。
+3. **decision の下書き**（**B と D のときだけ**）——記録すべき decision の `--on` 対象・`--why` の文面を
+   下書きする（実データ由来のみ・捏造しない）。着地は scholia-change 側で `scholia decide` する。A は decision を
+   増やさない／C は止める／E は却下 decision を残すので、下書きは B・D に限る。
+
+出力後、方針に応じて渡す:
+
+- **A** → 実装セッションへ（spec は不変・実装を回帰させる）。
+- **B / D** → [scholia-change スキル](../../scholia-change/SKILL.md) へ。B は既存 decision の敷衍、D は新規 spec の
+  追加として、下書きした decision を着地させる。
+- **C** → ユーザーへ（下記）。
+- **E** → 却下を decision に残す（scholia-change の reject 手順）。次回同じ input が来たときの既決になる。
+
+## 大原則（これを外すと判定が記録として壊れる）
+
+- **C 矛盾は黙って上書きしない。** 過去に逆を意図的に決めているなら、それは「チェスタトンの垣根」——なぜその
+  決定をしたのか分からないまま壊さない。**改訂の是非はユーザーの意識的判断**に委ね、triage は「衝突する decision
+  `{id}` がある。どうするか」を提示して止まる。ここを自動で倒すと、append-only の記録が意味を失う。
+- **E 却下を「却下」の一言で済ませない。** 「検討済み・理由も妥当（decision `{id}` を引用）」「中核原理 X に
+  反する」等、**なぜ却下かを根拠つきで**述べる。一言却下は次回の再来を防げない。
+- **忠実に。捏造しない。** WHY も decision 下書きも**実データ由来のみ**（実際に引いた decision / transition）で書く。
+  根拠が揃っていないなら「材料不足で保留」と正直に書き、想像で埋めない。誤った根拠を残すと「検討済みの記録」という
+  scholia の信頼性を直接損なう。
+- **過去の decision を消す提案は却下の最有力根拠。** decision は append-only（消えない設計）。input が過去の
+  decision を無かったことにしようとしているなら、それだけで **E 寄り**に倒す（消すのではなく、上書きの意図なら
+  C としてユーザーへ）。
+
+## まとめ（判定のときの動き）
+
+1. `rules --tag` で守る規則、`show`／`decision list --on` で現契約と履歴、`list --tag` で波及先を把握する。
+2. input を **A 是正 / B 精緻化 / C 矛盾 / D 新規 / E 却下** に分類する（分類が方針を決める）。
+3. **方針 ＋ WHY（decision id 引用）＋（B/D なら）decision 下書き**を出力し、**何も変更せず**手を止める。
+4. A→実装／B・D→scholia-change／C→ユーザー／E→却下 decision、へ渡す。
+
+**spec に照らしてから決める。捏造しない。C は黙って上書きせずユーザーへ。却下でも根拠を残す。**

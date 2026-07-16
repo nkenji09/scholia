@@ -1,7 +1,0 @@
-{
-  "id": "eff.log.update-guide-manual",
-  "category": "effect",
-  "label": "自己置換せず、GitHub Releases からの手動DL（またはパッケージマネージャ）での更新を案内する",
-  "kind": "log",
-  "owner": "pmem-core"
-}

@@ -10,7 +10,7 @@ import (
 // FacetTreeNode is the tag-tree shape for sidebar navigation (§3.8 faceted
 // hierarchy) — a value-typed, JSON-friendly mirror of TagNode carrying no
 // transitions (those are fetched separately once a tag is selected). Shared
-// by the viewer's GET /api/facets handler and `pmem export --html`'s static
+// by the viewer's GET /api/facets handler and `scholia export --html`'s static
 // bake (§7) so both serialize the same derived tree.
 type FacetTreeNode struct {
 	Tag      model.Tag       `json:"tag"`
@@ -38,7 +38,7 @@ func SortedRulesFor(snap *store.Snapshot, tagID, txID, facet string) ([]model.De
 	return decisions, nil
 }
 
-// TransitionDetail mirrors `pmem show tx --resolve`'s output plus effective
+// TransitionDetail mirrors `scholia show tx --resolve`'s output plus effective
 // tags and the decisions on this transition itself — the detail panel's data
 // (§7). Shared by GET /api/transitions/{id} and the static export bake.
 type TransitionDetail struct {
@@ -54,7 +54,7 @@ type TransitionDetail struct {
 	// Rules は「この transition 自身に直接ぶら下がる decision」だけを載せる
 	// （祖先タグの cross-cutting decision は含めない）。カードは「そのレコード
 	// 自身の意思決定」を出す表示なので、cross-cutting 集約（§3.8・祖先展開）を
-	// 提供する `pmem rules` / GET /api/rules（SelectRulesDecisions）とは
+	// 提供する `scholia rules` / GET /api/rules（SelectRulesDecisions）とは
 	// 意図的に別扱い。append-only の保存は不変で、これは表示の絞り込み。
 	Rules []model.Decision `json:"rules,omitempty"`
 }

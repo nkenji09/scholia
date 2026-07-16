@@ -58,19 +58,19 @@ func seedExportStore(t *testing.T) *store.Store {
 	return s
 }
 
-// extractStaticPayload pulls the JSON assigned to window.__PMEM_STATIC__ out
+// extractStaticPayload pulls the JSON assigned to window.__SCHOLIA_STATIC__ out
 // of an exported index.html so tests can assert on the baked data directly.
 func extractStaticPayload(t *testing.T, html string) staticData {
 	t.Helper()
-	const marker = "window.__PMEM_STATIC__ = "
+	const marker = "window.__SCHOLIA_STATIC__ = "
 	start := strings.Index(html, marker)
 	if start == -1 {
-		t.Fatalf("window.__PMEM_STATIC__ assignment not found in output")
+		t.Fatalf("window.__SCHOLIA_STATIC__ assignment not found in output")
 	}
 	start += len(marker)
 	end := strings.Index(html[start:], ";\n</script>")
 	if end == -1 {
-		t.Fatalf("could not find end of window.__PMEM_STATIC__ assignment")
+		t.Fatalf("could not find end of window.__SCHOLIA_STATIC__ assignment")
 	}
 	var data staticData
 	if err := json.Unmarshal([]byte(html[start:start+end]), &data); err != nil {
@@ -94,8 +94,8 @@ func TestExportHTML_WritesSelfContainedIndexHTML(t *testing.T) {
 	}
 	html := string(raw)
 
-	if !strings.Contains(html, "window.__PMEM_STATIC__ = ") {
-		t.Fatal("exported index.html does not inline window.__PMEM_STATIC__")
+	if !strings.Contains(html, "window.__SCHOLIA_STATIC__ = ") {
+		t.Fatal("exported index.html does not inline window.__SCHOLIA_STATIC__")
 	}
 	if strings.Contains(html, `src="/assets`) || strings.Contains(html, `href="/assets`) {
 		t.Fatal("exported index.html still references separate /assets files — not self-contained for file://")
@@ -114,7 +114,7 @@ func TestExportHTML_WritesSelfContainedIndexHTML(t *testing.T) {
 	if strings.Contains(html, `<script type="module">`) {
 		t.Fatal("exported index.html inlines the SPA bundle as a literal <script type=\"module\"> — that fetch is blocked under file://")
 	}
-	if !strings.Contains(html, "pmem export: missing inlined module ") {
+	if !strings.Contains(html, "scholia export: missing inlined module ") {
 		t.Fatal("exported index.html does not inline the SPA bundle via the offline chunk resolver")
 	}
 

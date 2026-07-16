@@ -1,7 +1,0 @@
-{
-  "id": "eff.log.action-flow-report",
-  "category": "effect",
-  "label": "共有解析（マトリクス＋宣言軸の cell＋各 gap signal＋スコープ印字）を text/JSON(--json)で列挙する。素の『no gaps』は出さず、保証の外を必ず併記する",
-  "kind": "log",
-  "owner": "pmem flow（CLI）"
-}

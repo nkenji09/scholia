@@ -1,9 +1,0 @@
-{
-  "id": "act.user.decide",
-  "category": "action",
-  "label": "pmem decide を実行",
-  "kind": "user",
-  "tags": [
-    "concern.traceability"
-  ]
-}

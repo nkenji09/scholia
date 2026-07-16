@@ -17,7 +17,7 @@ func registerDecisionRoutes(mux *http.ServeMux, s *store.Store) {
 
 // decisionPostBody mirrors change-cockpit-design-v3.md §1's POST body
 // (Option A). Commits is always empty at adoption time (§8.5: the decision
-// is created with `commits[] 空`, filled in later by `pmem decision
+// is created with `commits[] 空`, filled in later by `scholia decision
 // add-commit` once a human commits) — accepted here rather than rejected so
 // the frontend can just always send `commits: []` per the design's body
 // example without a special case.
@@ -30,7 +30,7 @@ type decisionPostBody struct {
 }
 
 // postDecisionHandler serves POST /api/decision: the adopt flow's one write
-// (§8.5/§8.8 P4). It reuses `pmem decide`'s own path (internal/cli/decide.go)
+// (§8.5/§8.8 P4). It reuses `scholia decide`'s own path (internal/cli/decide.go)
 // — target validation, model.NewULID, store.SaveDecision — rather than a
 // second implementation of decision creation logic. append-only is enforced
 // by construction, not by a check here: every call mints a fresh ULID via
@@ -94,8 +94,8 @@ func postDecisionHandler(s *store.Store) http.HandlerFunc {
 
 // parseDecisionOn parses "transition:<id>" / "tag:<id>" — a duplicate of
 // internal/cli/decide.go's unexported parseDecisionOn. Not imported from
-// there: internal/cli already imports internal/viewer (view.go, for `pmem
-// view`/`pmem export`), so the reverse import would cycle. The two copies
+// there: internal/cli already imports internal/viewer (view.go, for `scholia
+// view`/`scholia export`), so the reverse import would cycle. The two copies
 // must be kept in sync if the --on/`on` grammar ever changes.
 func parseDecisionOn(on string) (targetType, targetID string, err error) {
 	if on == "" {

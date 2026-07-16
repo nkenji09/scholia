@@ -54,7 +54,7 @@ type SearchCandidate struct {
 
 // TransitionSearchDoc is a transition's full search corpus — every candidate
 // Search() would test a query against, precomputed. A static export bakes
-// this once (§7 pmem export --html) so a JS client can re-run the same
+// this once (§7 scholia export --html) so a JS client can re-run the same
 // per-candidate substring test per query without re-deriving effective tags
 // or vocab labels — the derivation (this function) stays the single source
 // of truth; only the trivial substring test itself is re-run client-side.

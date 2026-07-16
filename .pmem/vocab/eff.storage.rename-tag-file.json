@@ -1,6 +1,0 @@
-{
-  "id": "eff.storage.rename-tag-file",
-  "category": "effect",
-  "label": "tags/\u003cold\u003e.json を tags/\u003cnew\u003e.json に改名し中の id を \u003cnew\u003e に更新する（大小のみ異なる改名は一時中間名を経由する）",
-  "owner": "pmem-core"
-}

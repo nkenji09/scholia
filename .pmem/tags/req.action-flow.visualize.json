@@ -1,9 +1,0 @@
-{
-  "id": "req.action-flow.visualize",
-  "name": "マトリクス＋フロー図で可視化する（モデル変更ゼロのトラストの核）",
-  "kind": "requirement",
-  "parentIds": [
-    "req.action-flow"
-  ],
-  "description": "action-scoped の 条件×transition マトリクスとフロー図を、既存の兄弟整合(pmem spec)を action 軸へ延長する形で描く。結果ノードは transition 詳細(#/browse/tx/\u003cid\u003e)への実 a リンク。**証明を主張せず可視化に留める**のが誠実さの核——非比較な重複や free 条件の分岐は human/AI に『見せる』。モデル変更ゼロで今すぐ出せる（design-options §6.3-1・§7.4）。"
-}

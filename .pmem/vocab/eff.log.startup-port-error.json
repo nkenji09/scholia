@@ -1,7 +1,0 @@
-{
-  "id": "eff.log.startup-port-error",
-  "category": "effect",
-  "label": "port 使用中を示す明快なエラーを stderr に出し非ゼロ exit で終了",
-  "kind": "log",
-  "owner": "pmem view CLI"
-}

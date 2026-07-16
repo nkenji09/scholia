@@ -1,6 +1,0 @@
-{
-  "id": "eff.storage.rename-tag-subtree",
-  "category": "effect",
-  "label": "old を id プレフィックスに持つ子孫タグを全て新 id に改名し各々の参照も張り替える（複数階層を1コマンドで）",
-  "owner": "pmem-core"
-}

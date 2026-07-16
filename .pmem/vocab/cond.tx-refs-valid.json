@@ -1,5 +1,0 @@
-{
-  "id": "cond.tx-refs-valid",
-  "category": "condition",
-  "label": "action/given/then が参照する語彙が実在する"
-}

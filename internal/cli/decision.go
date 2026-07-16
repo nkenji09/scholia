@@ -3,7 +3,7 @@ package cli
 import "github.com/spf13/cobra"
 
 // newDecisionCmd は decision レコードそのものを操作するコマンド群（名詞）。
-// `pmem decide`（動詞・新規記録）とは別に切る — decision を無駄に増やさず
+// `scholia decide`（動詞・新規記録）とは別に切る — decision を無駄に増やさず
 // 実装来歴だけを結ぶための追加専用サブコマンドの置き場（§3.5）。
 func newDecisionCmd() *cobra.Command {
 	cmd := &cobra.Command{

@@ -1,9 +1,0 @@
-{
-  "id": "req.requirement-traceability.gap-detection",
-  "name": "未充足要件の検知",
-  "kind": "requirement",
-  "parentIds": [
-    "req.requirement-traceability"
-  ],
-  "description": "**As a** 要件の実装漏れを早期に見つけたい開発者/AIエージェント\n**I want** 「この要件、実はどの transition からも参照されていない」を自動で警告してほしい\n**so that** 要件を作っただけで満足せず、実装との紐付けができているかを継続的に確認できる\n\n### 受け入れ基準\n- `pmem lint` が `traceabilityKinds` に含まれる kind のタグを対象に、充足 transition 0件を warn する\n- warn は exit 1 にしない（error ではなく warn として区別される）\n- `pmem spec \u003csubjectTag\u003e` や `pmem list --facet requirement` で 0 件のタグが視覚的にわかる"
-}

@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// runSkills は pmem skills サブコマンドをテスト用に実行するヘルパ。
+// runSkills は scholia skills サブコマンドをテスト用に実行するヘルパ。
 // skills install は --dir を持たないルートコマンドなので run() は使わない。
 func runSkills(t *testing.T, args ...string) (string, error) {
 	t.Helper()
@@ -22,13 +22,13 @@ func runSkills(t *testing.T, args ...string) (string, error) {
 }
 
 // expectedSkillFiles は agents/skills/ 配下から embed されるはずのファイル一覧
-// （_pmem-shared を含む相対構造を保つこと自体を検証する）。
+// （_scholia-shared を含む相対構造を保つこと自体を検証する）。
 var expectedSkillFiles = []string{
-	filepath.Join("pmem", "SKILL.md"),
-	filepath.Join("pmem", "README.md"),
-	filepath.Join("pmem-change", "SKILL.md"),
-	filepath.Join("pmem-config-setup", "SKILL.md"),
-	filepath.Join("_pmem-shared", "references", "modeling-principles.md"),
+	filepath.Join("scholia", "SKILL.md"),
+	filepath.Join("scholia", "README.md"),
+	filepath.Join("scholia-change", "SKILL.md"),
+	filepath.Join("scholia-config-setup", "SKILL.md"),
+	filepath.Join("_scholia-shared", "references", "modeling-principles.md"),
 }
 
 func TestSkillsInstall_Project_MaterializesFiles(t *testing.T) {
@@ -60,16 +60,16 @@ func TestSkillsInstall_Project_MaterializesFiles(t *testing.T) {
 	}
 
 	// 元の SKILL.md 内容と一致すること（コピーが内容を変えていないことの確認）。
-	srcSkillMD, err := os.ReadFile(filepath.Join(cwd, "..", "..", "agents", "skills", "pmem", "SKILL.md"))
+	srcSkillMD, err := os.ReadFile(filepath.Join(cwd, "..", "..", "agents", "skills", "scholia", "SKILL.md"))
 	if err != nil {
 		t.Skipf("source SKILL.md not found relative to test (repo layout dependent): %v", err)
 	}
-	dstSkillMD, err := os.ReadFile(filepath.Join(skillsRoot, "pmem", "SKILL.md"))
+	dstSkillMD, err := os.ReadFile(filepath.Join(skillsRoot, "scholia", "SKILL.md"))
 	if err != nil {
 		t.Fatalf("dest SKILL.md missing: %v", err)
 	}
 	if string(srcSkillMD) != string(dstSkillMD) {
-		t.Fatalf("installed pmem/SKILL.md content differs from source")
+		t.Fatalf("installed scholia/SKILL.md content differs from source")
 	}
 }
 
@@ -88,7 +88,7 @@ func TestSkillsInstall_DefaultDoesNotOverwrite_ForceDoes(t *testing.T) {
 		t.Fatalf("first install failed: %v\noutput:\n%s", err, out)
 	}
 
-	target := filepath.Join(dir, ".claude", "skills", "pmem", "SKILL.md")
+	target := filepath.Join(dir, ".claude", "skills", "scholia", "SKILL.md")
 	// 展開後のファイルを改変し、次回既定実行で消えない（スキップされる）ことを確認する。
 	sentinel := []byte("LOCAL EDIT SENTINEL")
 	if err := os.WriteFile(target, sentinel, 0o644); err != nil {
@@ -160,7 +160,7 @@ func TestSkillsInstall_User_TargetsHomeDir(t *testing.T) {
 		t.Fatalf("skills install --user failed: %v\noutput:\n%s", err, out)
 	}
 
-	target := filepath.Join(fakeHome, ".claude", "skills", "pmem", "SKILL.md")
+	target := filepath.Join(fakeHome, ".claude", "skills", "scholia", "SKILL.md")
 	if _, err := os.Stat(target); err != nil {
 		t.Fatalf("expected %s to exist under fake HOME: %v", target, err)
 	}

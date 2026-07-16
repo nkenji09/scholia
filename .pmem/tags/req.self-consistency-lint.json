@@ -1,9 +1,0 @@
-{
-  "id": "req.self-consistency-lint",
-  "name": "記録の自己矛盾を検査する",
-  "kind": "requirement",
-  "parentIds": [
-    "req.auxiliary-features"
-  ],
-  "description": "**As a** 記録を追記し続けるプロジェクトの開発者/AIエージェント\n**I want** 新しく足した記録が既存の記録と矛盾していないかを機械的に検査したい\n**so that** 「早期バグ検知」としてではなく「記録の整合性」として、安心して記録を積み増せる\n\n### 受け入れ基準\n- `pmem lint` が vocab-ref/kind-valid/tag-ref/decision-target/empty-then/id-unique などの error を検出し、あれば exit 1\n- requirement-gap/ref-freshness などの warn は exit 0 のまま報告される\n- decision-coverage/unused-vocab などの info は情報提供のみで exit code に影響しない"
-}

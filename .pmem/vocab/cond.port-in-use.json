@@ -1,5 +1,0 @@
-{
-  "id": "cond.port-in-use",
-  "category": "condition",
-  "label": "起動 port が使用中"
-}

@@ -1,9 +1,0 @@
-{
-  "id": "01KXMGH6ND8N7CQ4A4J9JZPKM0",
-  "target": {
-    "type": "tag",
-    "id": "req.action-flow.acknowledged-remainder"
-  },
-  "why": "coverage に数えない scoped default を1つだけ許す設計を採用（論点D・§6.3-4）。catch-all default は全未被覆 cell を吸収して『常に no gaps』になり gap 検出を破壊する。だから許すのは action ごとに1つの scoped default だけで、(a) 自身の decision で『残り全部が本当に Y』を署名し、(b) author 明示 cell とは別枠で報告され、(c) 決して coverage に数えない。『specifics 全部=tier0／default=tier1』の一段 tier 境界＝degenerate priority。案F（arbitrary pairwise priority）棄却との整合：真の棄却理由は authoring 経済 vs 機械検査可能性の trade（DESIGN §8.2 が戒める drift）で、defeat でなく trade として当面棄却（中間 priority が実データで頻出したら再考）。",
-  "at": "2026-07-16T03:46:39Z"
-}

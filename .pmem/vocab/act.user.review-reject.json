@@ -1,6 +1,0 @@
-{
-  "id": "act.user.review-reject",
-  "category": "action",
-  "label": "AI 提案コメント(review)を Reject したとき（CLI pmem review reject \u003cid\u003e / viewer ドロワー）",
-  "kind": "user"
-}

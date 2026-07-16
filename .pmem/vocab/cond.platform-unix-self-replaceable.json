@@ -1,8 +1,0 @@
-{
-  "id": "cond.platform-unix-self-replaceable",
-  "category": "condition",
-  "label": "実行 OS が darwin/linux で、実行中バイナリを atomic rename で置換できるとき",
-  "tags": [
-    "axis.update.platform"
-  ]
-}

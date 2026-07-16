@@ -13,12 +13,12 @@ var dirFlag string
 
 func newRootCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:           "pmem",
+		Use:           "scholia",
 		Short:         "product-memory — AI 向けコンテキスト保存支援ツール",
 		SilenceUsage:  true,
 		SilenceErrors: false,
 	}
-	cmd.PersistentFlags().StringVar(&dirFlag, "dir", "", "プロジェクトルート（既定: .pmem を上方探索）")
+	cmd.PersistentFlags().StringVar(&dirFlag, "dir", "", "プロジェクトルート（既定: .scholia を上方探索）")
 
 	cmd.AddCommand(newInitCmd())
 	cmd.AddCommand(newKindCmd())
@@ -48,13 +48,13 @@ func newRootCmd() *cobra.Command {
 	return cmd
 }
 
-// Execute is the CLI entrypoint called from cmd/pmem/main.go.
+// Execute is the CLI entrypoint called from cmd/scholia/main.go.
 func Execute() error {
 	return newRootCmd().Execute()
 }
 
-// openStore は init 以外のコマンドが .pmem を解決する共通ヘルパ。
-// --dir があればそのプロジェクトルート直下の .pmem を、無ければ cwd から上方探索する（DESIGN に明記の無い実装判断）。
+// openStore は init 以外のコマンドが .scholia を解決する共通ヘルパ。
+// --dir があればそのプロジェクトルート直下の .scholia を、無ければ cwd から上方探索する（DESIGN に明記の無い実装判断）。
 func openStore() (*store.Store, error) {
 	if dirFlag != "" {
 		return store.Open(dirFlag)

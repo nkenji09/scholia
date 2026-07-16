@@ -84,7 +84,7 @@ func TestDiff_ThenReorderDetected(t *testing.T) {
 	}
 	gitCommitAllT(t, dir, "seed")
 
-	txPath := filepath.Join(dir, ".pmem", "transitions", "T-reorder.json")
+	txPath := filepath.Join(dir, ".scholia", "transitions", "T-reorder.json")
 	writeRawJSON(t, txPath, `{"id":"T-reorder","action":"act.submit","given":[],"then":["eff.second","eff.token"]}`)
 
 	out, err := run(t, dir, "diff")
@@ -100,7 +100,7 @@ func TestDiff_DecisionRemovalIsErrorExit(t *testing.T) {
 	dir := t.TempDir()
 	gitInitT(t, dir)
 	seedListFixture(t, dir)
-	decPath := filepath.Join(dir, ".pmem", "decisions", "d1.json")
+	decPath := filepath.Join(dir, ".scholia", "decisions", "d1.json")
 	writeRawJSON(t, decPath, `{"id":"d1","target":{"type":"transition","id":"T-happy"},"why":"why","at":"2026-01-01T00:00:00Z"}`)
 	gitCommitAllT(t, dir, "seed")
 
@@ -117,14 +117,14 @@ func TestDiff_DecisionRemovalIsErrorExit(t *testing.T) {
 	}
 }
 
-// gap G8: pmem diff はベースライン（.pmem）が無い初回でも詰まらない。
+// gap G8: scholia diff はベースライン（.scholia）が無い初回でも詰まらない。
 
 func TestDiff_NoCommitsIsGracefulOnFirstRun(t *testing.T) {
 	dir := t.TempDir()
 	gitInitT(t, dir)
 
 	if out, err := run(t, dir, "init"); err != nil {
-		t.Fatalf("pmem init: %v\n%s", err, out)
+		t.Fatalf("scholia init: %v\n%s", err, out)
 	}
 	if out, err := run(t, dir, "vocab", "add", "condition", "cond.a", "--label", "a"); err != nil {
 		t.Fatalf("vocab add: %v\n%s", err, out)
@@ -142,21 +142,21 @@ func TestDiff_NoCommitsIsGracefulOnFirstRun(t *testing.T) {
 	}
 }
 
-func TestDiff_PmemUncommittedIsGracefulOnFirstRun(t *testing.T) {
+func TestDiff_ScholiaUncommittedIsGracefulOnFirstRun(t *testing.T) {
 	dir := t.TempDir()
 	gitInitT(t, dir)
 
 	if out, err := run(t, dir, "init"); err != nil {
-		t.Fatalf("pmem init: %v\n%s", err, out)
+		t.Fatalf("scholia init: %v\n%s", err, out)
 	}
-	// .pmem は git add せず、README だけ commit して HEAD を作る。
+	// .scholia は git add せず、README だけ commit して HEAD を作る。
 	writeRawJSON(t, filepath.Join(dir, "README.md"), "hello")
 	cmd := exec.Command("git", "add", "README.md")
 	cmd.Dir = dir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git add README.md: %v\n%s", err, out)
 	}
-	cmd = exec.Command("git", "commit", "-q", "-m", "no pmem yet")
+	cmd = exec.Command("git", "commit", "-q", "-m", "no scholia yet")
 	cmd.Dir = dir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git commit: %v\n%s", err, out)
@@ -167,7 +167,7 @@ func TestDiff_PmemUncommittedIsGracefulOnFirstRun(t *testing.T) {
 
 	out, err := run(t, dir, "diff")
 	if err != nil {
-		t.Fatalf("expected diff to succeed (exit 0) when .pmem/ isn't committed yet: %v\n%s", err, out)
+		t.Fatalf("expected diff to succeed (exit 0) when .scholia/ isn't committed yet: %v\n%s", err, out)
 	}
 	if !strings.Contains(out, "ベースライン") {
 		t.Fatalf("expected a baseline-missing notice, got:\n%s", out)
@@ -189,7 +189,7 @@ func TestDiff_ExplicitInvalidRefStillErrors(t *testing.T) {
 	}
 }
 
-// R-2: `pmem diff A B`（ref 対 ref・2引数）。
+// R-2: `scholia diff A B`（ref 対 ref・2引数）。
 
 func TestDiff_TwoRefsShowsCommitDiff(t *testing.T) {
 	dir := t.TempDir()

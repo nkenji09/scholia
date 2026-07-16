@@ -1,7 +1,0 @@
-{
-  "id": "eff.storage.replace-binary",
-  "category": "effect",
-  "label": "検証済みバイナリで実行中バイナリを atomic に置換する（置換失敗時は元のバイナリを壊さない）",
-  "kind": "storage",
-  "owner": "pmem-core"
-}

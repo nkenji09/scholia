@@ -54,7 +54,7 @@ func TestResolveVersionInfo_FallbackNeverEmpty(t *testing.T) {
 	}
 }
 
-// pmem version コマンドが版を出力すること（既存コマンドに影響しない additive な追加）。
+// scholia version コマンドが版を出力すること（既存コマンドに影響しない additive な追加）。
 func TestVersionCmd_Human(t *testing.T) {
 	withInjected(t, "v1.2.3", "", "")
 
@@ -62,7 +62,7 @@ func TestVersionCmd_Human(t *testing.T) {
 	if err != nil {
 		t.Fatalf("version failed: %v\noutput:\n%s", err, out)
 	}
-	if !strings.Contains(out, "pmem v1.2.3") {
+	if !strings.Contains(out, "scholia v1.2.3") {
 		t.Fatalf("version output missing injected version:\n%s", out)
 	}
 }

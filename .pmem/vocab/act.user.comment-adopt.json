@@ -1,6 +1,0 @@
-{
-  "id": "act.user.comment-adopt",
-  "category": "action",
-  "label": "コメントドロワーで人コメントを Adopt したとき（viewer）",
-  "kind": "user"
-}

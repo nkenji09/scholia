@@ -1,5 +1,0 @@
-{
-  "id": "cond.index-built",
-  "category": "condition",
-  "label": "起動時に .pmem の in-memory index が構築済み"
-}

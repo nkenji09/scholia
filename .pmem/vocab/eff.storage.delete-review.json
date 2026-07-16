@@ -1,7 +1,0 @@
-{
-  "id": "eff.storage.delete-review",
-  "category": "effect",
-  "label": "指定した提案コメントの .pmem/reviews/\u003cid\u003e.json ファイルを削除する",
-  "kind": "storage",
-  "owner": "pmem-core"
-}

@@ -8,13 +8,13 @@ import (
 	"testing"
 )
 
-// snapshotDirModTimes walks dir/.pmem and records each file's mtime, so a
+// snapshotDirModTimes walks dir/.scholia and records each file's mtime, so a
 // caller can assert a command touched nothing (read-only).
 func snapshotDirModTimes(t *testing.T, dir string) map[string]int64 {
 	t.Helper()
-	pmemDir := filepath.Join(dir, ".pmem")
+	scholiaDir := filepath.Join(dir, ".scholia")
 	snap := make(map[string]int64)
-	err := filepath.Walk(pmemDir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(scholiaDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -24,7 +24,7 @@ func snapshotDirModTimes(t *testing.T, dir string) map[string]int64 {
 		return nil
 	})
 	if err != nil {
-		t.Fatalf("walk %s: %v", pmemDir, err)
+		t.Fatalf("walk %s: %v", scholiaDir, err)
 	}
 	return snap
 }
@@ -184,7 +184,7 @@ func TestSearch_JSONShapeIsStructured(t *testing.T) {
 	}
 }
 
-func TestSearch_ReadOnlyDoesNotChangePmemDir(t *testing.T) {
+func TestSearch_ReadOnlyDoesNotChangeScholiaDir(t *testing.T) {
 	dir := t.TempDir()
 	seedSearchFixture(t, dir)
 
@@ -194,7 +194,7 @@ func TestSearch_ReadOnlyDoesNotChangePmemDir(t *testing.T) {
 	}
 	after := snapshotDirModTimes(t, dir)
 	if len(before) != len(after) {
-		t.Fatalf("search changed the number of files under .pmem: before=%d after=%d", len(before), len(after))
+		t.Fatalf("search changed the number of files under .scholia: before=%d after=%d", len(before), len(after))
 	}
 	for path, mtime := range before {
 		if after[path] != mtime {

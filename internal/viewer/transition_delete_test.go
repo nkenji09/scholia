@@ -89,11 +89,11 @@ func TestDeleteTransition_InvalidIDRejected(t *testing.T) {
 }
 
 // TestDeleteTransition_ReferencedByDecisionConflict is the「参照整合」guard
-// the handoff calls out explicitly: `pmem lint`'s decision-target rule is
+// the handoff calls out explicitly: `scholia lint`'s decision-target rule is
 // SeverityError (verified via internal/lint), so deleting a transition a
-// decision still targets would leave `pmem lint` red. The viewer refuses
+// decision still targets would leave `scholia lint` red. The viewer refuses
 // (409) rather than cascading the deletion into the decision file the way
-// `pmem tx rm` does — nothing is removed, and the pre-existing decision
+// `scholia tx rm` does — nothing is removed, and the pre-existing decision
 // survives.
 func TestDeleteTransition_ReferencedByDecisionConflict(t *testing.T) {
 	h, s := newTestHandler(t)
@@ -118,7 +118,7 @@ func TestDeleteTransition_ReferencedByDecisionConflict(t *testing.T) {
 	}
 }
 
-// TestDeleteTransition_LintCleanAfterUnreferencedDelete confirms `pmem
+// TestDeleteTransition_LintCleanAfterUnreferencedDelete confirms `scholia
 // lint`（internal/lint.Run）stays clean once an unreferenced transition is
 // deleted — the handoff's「削除後 lint の挙動」check.
 func TestDeleteTransition_LintCleanAfterUnreferencedDelete(t *testing.T) {

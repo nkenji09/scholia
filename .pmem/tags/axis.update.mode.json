@@ -1,7 +1,0 @@
-{
-  "id": "axis.update.mode",
-  "name": "更新モード軸（確認だけ / 実更新）",
-  "kind": "axis",
-  "description": "**axis タグの実例**（旗艦 act.user.update 用）。model.Tag.Total=true＝軸の値のうち必ず1つが真（L-total 抜け検出の対象）。値＝この軸タグを貼った条件群：{cond.update-check-flag（確認だけ=--check）, cond.update-apply（実更新＝--check でない・complement・現状未 materialize＝design-options が指摘する欠落。lint complement-missing が警告する）}。条件への軸タグ付け（多重所属可）は既存 vocab.Tags[] で表現し追加のモデル変更は不要。実際の update ドメインへの軸付け（cond.update-apply の新設含む）は本タスクの実 update 記録の再 authoring は対象外——fixture で soundness を実証する（#39 実装フェーズ）。",
-  "total": true
-}

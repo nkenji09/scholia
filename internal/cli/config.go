@@ -20,9 +20,9 @@ func newConfigCmd() *cobra.Command {
 	return cmd
 }
 
-// configKeys are the keys `config get`/`config set` accept (§6). pmemVersion,
+// configKeys are the keys `config get`/`config set` accept (§6). schemaVersion,
 // kinds, idPrefix are excluded: version is not user-editable, kinds go
-// through `pmem kind set`, and idPrefix is a naming convention baked in at
+// through `scholia kind set`, and idPrefix is a naming convention baked in at
 // init rather than a runtime setting. tagKindLabels (2026-07-11 tweaks3 §2)
 // is additive to tagKinds, not a replacement for it — tagKinds alone still
 // decides which kinds are valid/declared.

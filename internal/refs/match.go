@@ -1,13 +1,13 @@
-// Package refs scans and rewrites source-code references to pmem ids —
-// separate from and outside `.pmem/` (§ handoff "rename × ソースコメント ID
-// 参照"). It never touches `.pmem/`; the ids it operates on are supplied by
+// Package refs scans and rewrites source-code references to scholia ids —
+// separate from and outside `.scholia/` (§ handoff "rename × ソースコメント ID
+// 参照"). It never touches `.scholia/`; the ids it operates on are supplied by
 // callers (typically the store's rename plan).
 package refs
 
 import "bytes"
 
 // isIDChar reports whether b belongs to the id-continuation character set
-// shared by every pmem id ([A-Za-z0-9._-]) — the same set rename.go's
+// shared by every scholia id ([A-Za-z0-9._-]) — the same set rename.go's
 // prefixSubstitute treats as "still part of the id" when deciding cascade
 // boundaries.
 func isIDChar(b byte) bool {

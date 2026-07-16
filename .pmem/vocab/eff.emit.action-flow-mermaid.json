@@ -1,8 +1,0 @@
-{
-  "id": "eff.emit.action-flow-mermaid",
-  "category": "effect",
-  "label": "共有解析（マトリクス＋宣言軸の cell＋各 gap signal）を mermaid フローチャートで描画し、結果ノードを該当 transition 詳細(#/browse/tx/\u003cid\u003e)への実リンクにする。抜け/subset-shadow は視覚的に強調する",
-  "kind": "emit",
-  "owner": "フローページ（viewer）",
-  "description": "共有解析（マトリクス＋宣言軸の cell＋各 gap signal）を mermaid フローチャートで描画し、結果ノードを該当 transition 詳細(#/browse/tx/\u003cid\u003e)への実リンクにする。抜け/subset-shadow は視覚的に強調する（重なりは辺で描くと見づらいため描画しない——detail は pmem flow/gaps 側）。凡例に「宣言軸のみ・網羅は保証しない」旨の一行 caveat を含む（decision 01KXNE5EF1N6PZ9ESSYC9S6BV2）。"
-}

@@ -1,11 +1,11 @@
 // Package review implements the AI-comment delivery sidecar under
-// .pmem/reviews/ (§8.4): a read-only overlay that lets AI/CLI attach a
+// .scholia/reviews/ (§8.4): a read-only overlay that lets AI/CLI attach a
 // proposal comment to a record without writing to browser localStorage.
 //
 // Reviews are deliberately not records: store.LoadAll only opens the four
 // fixed subdirectories (vocab/tags/transitions/decisions), so this package
-// reads/writes .pmem/reviews/ through its own path, invisible to LoadAll and
-// pmem lint (§8.4 grounding).
+// reads/writes .scholia/reviews/ through its own path, invisible to LoadAll and
+// scholia lint (§8.4 grounding).
 package review
 
 import (
@@ -26,7 +26,7 @@ const (
 	RecordTypeTag        = "tag"
 )
 
-// SourceAI is the default --source for `pmem review add` (§8.4: "AI は提案時に必ずコメントを付ける").
+// SourceAI is the default --source for `scholia review add` (§8.4: "AI は提案時に必ずコメントを付ける").
 const SourceAI = "ai"
 
 // RecordRef is the record a review comments on.
@@ -35,7 +35,7 @@ type RecordRef struct {
 	ID   string `json:"id"`
 }
 
-// Review is one proposal comment written to .pmem/reviews/<id>.json.
+// Review is one proposal comment written to .scholia/reviews/<id>.json.
 type Review struct {
 	ID        string    `json:"id"`
 	RecordRef RecordRef `json:"recordRef"`
@@ -44,14 +44,14 @@ type Review struct {
 	CreatedAt string    `json:"createdAt"` // RFC3339
 }
 
-func path(pmemDir, id string) string {
-	return filepath.Join(pmemDir, dirName, id+".json")
+func path(scholiaDir, id string) string {
+	return filepath.Join(scholiaDir, dirName, id+".json")
 }
 
-// Add atomically writes r to pmemDir/reviews/<r.ID>.json (tmp-file-then-rename,
+// Add atomically writes r to scholiaDir/reviews/<r.ID>.json (tmp-file-then-rename,
 // mirroring store.writeJSONAtomic).
-func Add(pmemDir string, r Review) error {
-	dir := filepath.Join(pmemDir, dirName)
+func Add(scholiaDir string, r Review) error {
+	dir := filepath.Join(scholiaDir, dirName)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func Add(pmemDir string, r Review) error {
 		os.Remove(tmpPath)
 		return err
 	}
-	if err := os.Rename(tmpPath, path(pmemDir, r.ID)); err != nil {
+	if err := os.Rename(tmpPath, path(scholiaDir, r.ID)); err != nil {
 		os.Remove(tmpPath)
 		return err
 	}
@@ -87,8 +87,8 @@ func Add(pmemDir string, r Review) error {
 // (cond.review-exists — adopt/reject/rm all check this before acting on an
 // id, so a clear "does not exist" error is what callers surface, not a raw
 // os.ErrNotExist).
-func Get(pmemDir, id string) (Review, error) {
-	data, err := os.ReadFile(path(pmemDir, id))
+func Get(scholiaDir, id string) (Review, error) {
+	data, err := os.ReadFile(path(scholiaDir, id))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return Review{}, fmt.Errorf("review %q が実在しません", id)
@@ -102,14 +102,14 @@ func Get(pmemDir, id string) (Review, error) {
 	return r, nil
 }
 
-// Delete removes pmemDir/reviews/<id>.json. It errors if the review doesn't
+// Delete removes scholiaDir/reviews/<id>.json. It errors if the review doesn't
 // exist (cond.review-exists) — adopt/reject call this only after the
 // decision it's being folded into has already been saved (§8.4/#35
 // T-review-adopt/-reject: append-decision then delete-review, in that
 // order, so a proposal's why is never lost); rm calls it directly as the
 // escape hatch (T-cli-review-rm: delete with no decision left behind).
-func Delete(pmemDir, id string) error {
-	if err := os.Remove(path(pmemDir, id)); err != nil {
+func Delete(scholiaDir, id string) error {
+	if err := os.Remove(path(scholiaDir, id)); err != nil {
 		if os.IsNotExist(err) {
 			return fmt.Errorf("review %q が実在しません", id)
 		}
@@ -118,11 +118,11 @@ func Delete(pmemDir, id string) error {
 	return nil
 }
 
-// List reads every review under pmemDir/reviews/, sorted by id (which sorts
+// List reads every review under scholiaDir/reviews/, sorted by id (which sorts
 // chronologically for ULIDs). A missing reviews/ directory is not an error —
 // it just means no review has been written yet.
-func List(pmemDir string) ([]Review, error) {
-	dir := filepath.Join(pmemDir, dirName)
+func List(scholiaDir string) ([]Review, error) {
+	dir := filepath.Join(scholiaDir, dirName)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {

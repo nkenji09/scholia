@@ -20,8 +20,8 @@ import (
 	webdist "github.com/nkenji09/scholia/web"
 )
 
-// staticData is baked into the exported page as `window.__PMEM_STATIC__`
-// (§7 pmem export --html). Every field is produced by calling the exact
+// staticData is baked into the exported page as `window.__SCHOLIA_STATIC__`
+// (§7 scholia export --html). Every field is produced by calling the exact
 // same internal/index, internal/render, internal/lint functions the live
 // HTTP API calls (single source of truth, §9) — export never reimplements
 // derived-view logic, only decides which inputs (which tag ids, which
@@ -58,7 +58,7 @@ type staticData struct {
 	// Decisions mirrors GET /api/rules with no tag/tx/facet selector (§F of
 	// .concierge/decision.md): every decision in the project, chronological
 	// (index.SortedRulesFor's "no selector" case) — HOME's recent-decisions
-	// widget needs this in the static export too, not just `pmem view`.
+	// widget needs this in the static export too, not just `scholia view`.
 	Decisions []model.Decision `json:"decisions"`
 }
 
@@ -235,7 +235,7 @@ var (
 // The dist/*.html produced by `npm run build` references its JS/CSS as
 // separate files via absolute paths (`<script type="module" src="/assets/
 // ...">`, `<link ... href="/assets/...">`) for the HTTP-served case
-// (pmem view). Opening that file directly via file:// fails in Chrome:
+// (scholia view). Opening that file directly via file:// fails in Chrome:
 // verified empirically — an absolute-path fetch resolves against the
 // filesystem root, not the HTML file's directory, and a `type="module"`
 // script (even once the path resolves) is blocked by Chrome's CORS policy
@@ -298,7 +298,7 @@ func ExportHTML(s *store.Store, dir string) error {
 	}
 	bootstrap = scriptCloseRe.ReplaceAllString(bootstrap, `<\/script`)
 
-	dataScript := "<script>\nwindow.__PMEM_STATIC__ = " + string(payload) + ";\n</script>\n"
+	dataScript := "<script>\nwindow.__SCHOLIA_STATIC__ = " + string(payload) + ";\n</script>\n"
 	bootstrapScript := "<script>\n" + bootstrap + "\n</script>"
 	html = html[:jsLoc[0]] + dataScript + bootstrapScript + html[jsLoc[1]:]
 

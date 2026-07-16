@@ -1,8 +1,0 @@
-{
-  "id": "subject.viewer.drawer",
-  "name": "コメントドロワー",
-  "kind": "subject",
-  "parentIds": [
-    "subject.viewer"
-  ]
-}

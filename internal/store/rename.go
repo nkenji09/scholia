@@ -10,7 +10,7 @@ import (
 	"github.com/nkenji09/scholia/internal/model"
 )
 
-// VocabRenameResult summarizes a `pmem vocab rename` (§6).
+// VocabRenameResult summarizes a `scholia vocab rename` (§6).
 type VocabRenameResult struct {
 	OldID              string   `json:"oldId"`
 	NewID              string   `json:"newId"`
@@ -86,7 +86,7 @@ func (s *Store) RenameVocab(oldID, newID string) (VocabRenameResult, error) {
 	return VocabRenameResult{OldID: oldID, NewID: newID, UpdatedTransitions: updated}, nil
 }
 
-// TxRenameResult summarizes a `pmem tx rename` (§6).
+// TxRenameResult summarizes a `scholia tx rename` (§6).
 type TxRenameResult struct {
 	OldID            string   `json:"oldId"`
 	NewID            string   `json:"newId"`
@@ -143,7 +143,7 @@ func (s *Store) RenameTransition(oldID, newID string) (TxRenameResult, error) {
 	return TxRenameResult{OldID: oldID, NewID: newID, UpdatedDecisions: updated}, nil
 }
 
-// TagRenameResult summarizes a `pmem tag rename` (T-tag-rename /
+// TagRenameResult summarizes a `scholia tag rename` (T-tag-rename /
 // T-tag-rename-cascade). RenamedTags maps every old tag id to its new id: the
 // primary rename always, plus (with --cascade) each descendant whose id prefix
 // changed. The Updated* lists name the records whose tag-id references were
@@ -170,7 +170,7 @@ type TagRenameResult struct {
 //
 // Invariants (decision on req.record-maintenance):
 //   - referential integrity: all four tag-id reference sites are rewritten so
-//     `pmem lint`'s tag-ref / decision-target rules stay green (no dangling id).
+//     `scholia lint`'s tag-ref / decision-target rules stay green (no dangling id).
 //   - atomicity: every new id (including cascade-generated ones) is computed
 //     and collision-checked up front; the write phase snapshots every file it
 //     touches and rolls the whole set back on any mid-flight error, so a

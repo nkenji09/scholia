@@ -1,18 +1,18 @@
 {
-  "name": "product-memory",
+  "name": "scholia",
   "version": "0.0.0-dev",
-  "description": "AI 向けコンテキスト保存支援 CLI (pmem) — zero-install launcher",
-  "homepage": "https://github.com/nkenji09/product-memory",
+  "description": "AI 向けコンテキスト保存支援 CLI (scholia) — zero-install launcher",
+  "homepage": "https://github.com/nkenji09/scholia",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nkenji09/product-memory.git"
+    "url": "git+https://github.com/nkenji09/scholia.git"
   },
   "bin": {
-    "pmem": "bin/pmem.js"
+    "scholia": "bin/scholia.js"
   },
   "files": [
-    "bin/pmem.js",
+    "bin/scholia.js",
     "install.js"
   ],
   "scripts": {

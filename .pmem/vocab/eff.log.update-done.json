@@ -1,7 +1,0 @@
-{
-  "id": "eff.log.update-done",
-  "category": "effect",
-  "label": "更新後の新しい版を出力する",
-  "kind": "log",
-  "owner": "pmem-core"
-}

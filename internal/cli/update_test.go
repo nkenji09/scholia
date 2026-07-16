@@ -29,7 +29,7 @@ func makeTarGzWithBinary(t *testing.T, content []byte) []byte {
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
 	tw := tar.NewWriter(gz)
-	if err := tw.WriteHeader(&tar.Header{Name: "pmem", Mode: 0o755, Size: int64(len(content))}); err != nil {
+	if err := tw.WriteHeader(&tar.Header{Name: "scholia", Mode: 0o755, Size: int64(len(content))}); err != nil {
 		t.Fatalf("tar header: %v", err)
 	}
 	if _, err := tw.Write(content); err != nil {
@@ -65,7 +65,7 @@ func TestUpdate_SourceInstallGuidesGoInstallAndDoesNotReplace(t *testing.T) {
 	if called {
 		t.Fatalf("fetchLatestTag should not be called for source install")
 	}
-	if !strings.Contains(out, "go install github.com/nkenji09/scholia/cmd/pmem@latest") {
+	if !strings.Contains(out, "go install github.com/nkenji09/scholia/cmd/scholia@latest") {
 		t.Fatalf("output missing go install guidance:\n%s", out)
 	}
 }
@@ -161,7 +161,7 @@ func TestUpdate_SelfReplaceDownloadsVerifiesAndReplaces(t *testing.T) {
 	withUpdateSeams(t)
 	updateGOOS, updateGOARCH = "linux", "amd64"
 
-	newBinaryContent := []byte("fake-new-pmem-binary")
+	newBinaryContent := []byte("fake-new-scholia-binary")
 	archive := makeTarGzWithBinary(t, newBinaryContent)
 	archiveName := archiveFileName("linux", "amd64")
 	checksums := []byte(fmt.Sprintf("%s  %s\n", sha256Hex(archive), archiveName))
@@ -203,7 +203,7 @@ func TestUpdate_ChecksumMismatchAbortsWithoutReplace(t *testing.T) {
 	withUpdateSeams(t)
 	updateGOOS, updateGOARCH = "linux", "amd64"
 
-	archive := makeTarGzWithBinary(t, []byte("fake-new-pmem-binary"))
+	archive := makeTarGzWithBinary(t, []byte("fake-new-scholia-binary"))
 	archiveName := archiveFileName("linux", "amd64")
 	// わざと壊れたハッシュを checksums.txt に書く。
 	checksums := []byte(fmt.Sprintf("%s  %s\n", strings.Repeat("0", 64), archiveName))
@@ -251,7 +251,7 @@ func TestIsSourceInstall(t *testing.T) {
 // （seam の実装自体の単体テスト。CLI 経路は上の seam 差し替えテストでカバー）。
 func TestReplaceRunningBinaryAtomic(t *testing.T) {
 	dir := t.TempDir()
-	exePath := filepath.Join(dir, "pmem-fake-exe")
+	exePath := filepath.Join(dir, "scholia-fake-exe")
 	if err := os.WriteFile(exePath, []byte("old-binary"), 0o755); err != nil {
 		t.Fatalf("write fake exe: %v", err)
 	}

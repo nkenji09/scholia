@@ -1,9 +1,0 @@
-{
-  "id": "req.comfortable-viewer",
-  "name": "人間が快適に閲覧できるビューア",
-  "kind": "requirement",
-  "parentIds": [
-    "req.viewer-features"
-  ],
-  "description": "**As a** 記録された振る舞い・要件・意思決定を確認したい人間（開発者/レビュアー）\n**I want** CLIの生JSONではなく、ブラウザで見やすく辿れるビューアで内容を確認したい\n**so that** 記録を書いた本人以外も、負担なく既存の記録を理解し活用できる\n\n### 受け入れ基準\n- `pmem view` でローカルHTTPサーバが起動し、埋め込みSPAが開く\n- facet軸（主題/要件/関心）でナビゲートし、遷移の詳細（実効タグ・rules）まで辿れる\n- `pmem export --html` でサーバなしの静的HTMLとしても共有できる"
-}

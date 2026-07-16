@@ -1,7 +1,0 @@
-{
-  "id": "eff.storage.write-skill-file",
-  "category": "effect",
-  "label": "embed 由来のスキルファイルを対象 .claude/skills/ へ相対構造を保って書き出す",
-  "kind": "storage",
-  "owner": "pmem-core"
-}

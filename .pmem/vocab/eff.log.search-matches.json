@@ -1,7 +1,0 @@
-{
-  "id": "eff.log.search-matches",
-  "category": "effect",
-  "label": "該当した記録を型別(tag/transition/vocab/decision)に id と一致箇所を付けて列挙する",
-  "kind": "log",
-  "owner": "pmem-core"
-}

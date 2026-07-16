@@ -14,9 +14,9 @@ func newRefsScanCmd() *cobra.Command {
 	var asJSON bool
 	cmd := &cobra.Command{
 		Use:   "scan",
-		Short: "ソース中の pmem id 出現を一覧する（健全性・棚卸し用・.pmem は変更しない）",
-		Long: "ソースコード中に現れる pmem id（vocab/tag/transition）の出現を境界安全に一覧する。\n" +
-			"--id を指定するとその id だけを走査、省略すると .pmem/ 内の全 id を走査する。\n\n" +
+		Short: "ソース中の scholia id 出現を一覧する（健全性・棚卸し用・.scholia は変更しない）",
+		Long: "ソースコード中に現れる scholia id（vocab/tag/transition）の出現を境界安全に一覧する。\n" +
+			"--id を指定するとその id だけを走査、省略すると .scholia/ 内の全 id を走査する。\n\n" +
 			"走査は git ls-files（.gitignore 尊重）が既定経路。git が使えない場合はディレクトリ walk に" +
 			"フォールバックし、その場合 .gitignore は尊重されない。走査範囲は config.sourceRefs（scan/exclude）で絞れる。",
 		Args: cobra.NoArgs,

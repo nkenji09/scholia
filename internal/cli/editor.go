@@ -32,7 +32,7 @@ func captureFromEditor() (string, error) {
 		editorCmd = defaultEditor
 	}
 
-	f, err := os.CreateTemp("", "pmem-desc-*.md")
+	f, err := os.CreateTemp("", "scholia-desc-*.md")
 	if err != nil {
 		return "", fmt.Errorf("一時ファイルを作成できません: %w", err)
 	}

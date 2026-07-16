@@ -14,4 +14,8 @@
 5. Review the draft on GitHub and Publish.
 
 See [`agents/.claude-plugin/plugin.json`](agents/.claude-plugin/plugin.json) sync policy background:
-`pmem decision list --on tag:req.skill-distribution`.
+`scholia decision list --on tag:req.skill-distribution`.
+
+Note: this repo was renamed from `product-memory` to `scholia` (#42). Pre-rename release
+tags (`v0.1.0`–`v0.1.2`) and their asset URLs are left as historical record — GitHub
+auto-redirects `nkenji09/product-memory` URLs to `nkenji09/scholia` after the rename.

@@ -1,4 +1,4 @@
-// Package model defines the record types persisted under .pmem/ (§3 of DESIGN.md).
+// Package model defines the record types persisted under .scholia/ (§3 of DESIGN.md).
 package model
 
 // カテゴリ（遷移の文法）は固定・設定不可（DESIGN §2）。
@@ -71,7 +71,7 @@ type Decision struct {
 	Ref     string         `json:"ref,omitempty"`
 	At      string         `json:"at"` // RFC3339
 	// Commits は実装来歴（git hash の集合）。判断フィールド（Target/Why/
-	// Changed/Ref/At）は不変のまま、Commits だけ `pmem decision
+	// Changed/Ref/At）は不変のまま、Commits だけ `scholia decision
 	// add-commit` で追記できる（追加専用・単調増加・§3.5 append-only の
 	// 精緻化）。omitempty により commits の無い旧 decision ファイルも無改修
 	// で読める。
@@ -102,7 +102,7 @@ type ViewerConfig struct {
 // DisplayConfig is additive cosmetic text the viewer shows (2026-07-11
 // tweaks5 §1/§2) — HOME's tagline/intro and the header's product name.
 // None of this affects record semantics; it's pure display customization
-// (e.g. white-labeling pmem for a different project). Empty string means
+// (e.g. white-labeling scholia for a different project). Empty string means
 // "use the built-in default" — the frontend resolves the fallback (see
 // web/src/lookups.tsx), not this struct, so an older config.json (nil/
 // zero-value fields) degrades gracefully without any Go-side migration.
@@ -114,7 +114,7 @@ type DisplayConfig struct {
 
 // Config はプロジェクト設定（singleton・§3.6）。
 type Config struct {
-	PmemVersion       int          `json:"pmemVersion"`
+	SchemaVersion     int          `json:"schemaVersion"`
 	Kinds             Kinds        `json:"kinds"`
 	TagKinds          []string     `json:"tagKinds"`
 	FacetKinds        []string     `json:"facetKinds"`
@@ -134,7 +134,7 @@ type Config struct {
 	Display       DisplayConfig     `json:"display"`
 	// Branch is the current git branch name (2026-07-11 tweaks5 §2) — a
 	// live derived value, NOT a stored preference. It's populated by the
-	// viewer (GET /api/config) and by `pmem export --html` right before
+	// viewer (GET /api/config) and by `scholia export --html` right before
 	// each response/bake, never by DefaultConfig()/SaveConfig, so it never
 	// ends up written into config.json. Empty when the project isn't a
 	// git repo, HEAD is detached, or git itself isn't available — callers
@@ -142,10 +142,10 @@ type Config struct {
 	// web/src/components/layout/Header.tsx) rather than showing nothing.
 	Branch string `json:"branch,omitempty"`
 	// SourceRefs is additive, optional config for the source-reference
-	// scanner/rewriter (`pmem {tag|vocab|tx} rename --rewrite-refs`,
-	// `pmem refs scan|rewrite`). nil (the DefaultConfig()/omitted-field
+	// scanner/rewriter (`scholia {tag|vocab|tx} rename --rewrite-refs`,
+	// `scholia refs scan|rewrite`). nil (the DefaultConfig()/omitted-field
 	// case) means "use built-in defaults": scan the whole project root,
-	// no extra excludes beyond the always-excluded .pmem/.git/_workspace/
+	// no extra excludes beyond the always-excluded .scholia/.git/_workspace/
 	// .concierge (those are not configurable). This intentionally does
 	// NOT reuse Roots — Roots is a separate, still-unwired concept
 	// (extra *record* discovery roots, see the field below) and a past
@@ -155,7 +155,7 @@ type Config struct {
 	SourceRefs *SourceRefs `json:"sourceRefs,omitempty"`
 }
 
-// SourceRefs scopes where `pmem refs scan|rewrite` and rename's implicit
+// SourceRefs scopes where `scholia refs scan|rewrite` and rename's implicit
 // source scan look for id references, additive to Config so existing
 // config.json files decode unchanged (a nil SourceRefs is indistinguishable
 // from an absent field). Scan/Exclude are project-root-relative path
@@ -165,10 +165,10 @@ type SourceRefs struct {
 	Exclude []string `json:"exclude,omitempty"`
 }
 
-// DefaultConfig は `pmem init` が書き出す既定値（§3.6 の例そのまま）。
+// DefaultConfig は `scholia init` が書き出す既定値（§3.6 の例そのまま）。
 func DefaultConfig() Config {
 	return Config{
-		PmemVersion: 1,
+		SchemaVersion: 1,
 		Kinds: Kinds{
 			Condition: []string{},
 			Action:    []string{"user", "api", "lifecycle", "system", "cron", "webhook"},
@@ -190,7 +190,7 @@ func DefaultConfig() Config {
 			"subject":     "主題",
 		},
 		Display: DisplayConfig{
-			ProductName: "pmem",
+			ProductName: "scholia",
 			Tagline:     "記録を、読みたくなる形で。",
 			Intro:       "product-memory は、プロダクトの意思決定・要件・振る舞いを原子（遷移）として記録し、構造は派生（query）で見るためのツールです。",
 		},

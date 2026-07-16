@@ -79,7 +79,7 @@ func TestExecute_IdempotentSecondRunIsNoOp(t *testing.T) {
 func TestExecute_CascadePairsApplyIndependently(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, root, "main.go",
-		"// pmem ids: req.foo top-level, req.foo-child nested, req.foo-child-grandchild deeper\n")
+		"// scholia ids: req.foo top-level, req.foo-child nested, req.foo-child-grandchild deeper\n")
 
 	pairs := []Pair{
 		{OldID: "req.foo", NewID: "req.top"},
@@ -98,7 +98,7 @@ func TestExecute_CascadePairsApplyIndependently(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadFile: %v", err)
 	}
-	want := "// pmem ids: req.top top-level, req.top-child nested, req.top-child-grandchild deeper\n"
+	want := "// scholia ids: req.top top-level, req.top-child nested, req.top-child-grandchild deeper\n"
 	if string(got) != want {
 		t.Fatalf("Execute cascade apply:\ngot:  %q\nwant: %q", got, want)
 	}

@@ -9,7 +9,7 @@ import (
 	"github.com/nkenji09/scholia/internal/model"
 )
 
-// RemoveVocabResult summarizes `pmem vocab rm` (§6).
+// RemoveVocabResult summarizes `scholia vocab rm` (§6).
 type RemoveVocabResult struct {
 	ID string `json:"id"`
 }
@@ -45,7 +45,7 @@ func (s *Store) RemoveVocab(id string) (RemoveVocabResult, error) {
 	return RemoveVocabResult{ID: id}, nil
 }
 
-// TagRemoveResult summarizes `pmem tag rm` (§6).
+// TagRemoveResult summarizes `scholia tag rm` (§6).
 type TagRemoveResult struct {
 	ID                  string   `json:"id"`
 	Forced              bool     `json:"forced"`
@@ -153,7 +153,7 @@ func (s *Store) RemoveTag(id string, force bool) (TagRemoveResult, error) {
 	return result, nil
 }
 
-// RemoveTransitionResult summarizes `pmem tx rm` (§6).
+// RemoveTransitionResult summarizes `scholia tx rm` (§6).
 type RemoveTransitionResult struct {
 	ID               string   `json:"id"`
 	Why              string   `json:"why"`
@@ -209,22 +209,22 @@ func (e *TransitionReferencedError) Error() string {
 // RemoveTransitionUnlinked deletes only the transition file itself — no
 // cascade. This is the viewer's DELETE /api/transitions/{id} primitive
 // (change-cockpit-design-v3.md §8.8 P5, G-1′ extension): unlike
-// RemoveTransition/`pmem tx rm` (which deletes every decision targeting the
+// RemoveTransition/`scholia tx rm` (which deletes every decision targeting the
 // transition too, since a human explicitly asked for the destructive
 // cascade via --why/--force), an HTTP DELETE from the cockpit must never
 // reach past the one atom it was asked to remove. Deleting decision files
 // out from under a human is the kind of blast radius §7's "viewer only
 // writes config" was guarding against — it isn't just "does this look like
-// the same operation as `pmem tx rm`", it's "would removing a Transition
+// the same operation as `scholia tx rm`", it's "would removing a Transition
 // silently discard someone else's append-only decision record".
 //
 // So instead of cascading, this refuses whenever any decision still
-// targets the transition (which would otherwise leave `pmem lint`'s
+// targets the transition (which would otherwise leave `scholia lint`'s
 // decision-target rule — SeverityError — pointing at a dangling
 // reference): the caller gets a TransitionReferencedError naming every
 // blocking decision id, and nothing is deleted. The transition can only be
 // removed via this path once it's unreferenced (symmetric with
-// RemoveVocab's "unreferenced-only" rule above), or via `pmem tx rm
+// RemoveVocab's "unreferenced-only" rule above), or via `scholia tx rm
 // --force` for the cascading case, which stays a deliberate human/CLI
 // action.
 func (s *Store) RemoveTransitionUnlinked(id string) error {

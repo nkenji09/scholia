@@ -26,7 +26,7 @@ type facetsResponse struct {
 }
 
 // buildFacetsResponse is shared by the live handler and the static export
-// bake (§7 pmem export --html) so both serialize the same derived tree.
+// bake (§7 scholia export --html) so both serialize the same derived tree.
 func buildFacetsResponse(snap store.Snapshot, ix *index.Index) facetsResponse {
 	return facetsResponse{
 		FacetKinds: snap.Config.FacetKinds,

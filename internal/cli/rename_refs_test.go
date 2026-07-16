@@ -38,7 +38,7 @@ func TestCLI_TagRenameDefaultDryRunLeavesSourceUnchanged(t *testing.T) {
 	if !strings.Contains(out, "handler.go:1") {
 		t.Fatalf("expected dry-run to report handler.go:1, got:\n%s", out)
 	}
-	if !strings.Contains(out, "pmem refs rewrite req.auth req.authn --apply") {
+	if !strings.Contains(out, "scholia refs rewrite req.auth req.authn --apply") {
 		t.Fatalf("expected rewrite suggestion, got:\n%s", out)
 	}
 	got := readSourceFile(t, dir, "handler.go")
@@ -127,9 +127,9 @@ func TestCLI_TxRenameRewriteRefsAppliesReplace(t *testing.T) {
 
 // TestCLI_TagRenamePartialSourceFailureStaysCommittedAndReportsNonZero covers
 // the handoff's non-atomic-failure acceptance criterion at the CLI layer
-// (not just internal/refs): the `.pmem` rename must succeed and stick even
+// (not just internal/refs): the `.scholia` rename must succeed and stick even
 // when source rewriting can't write one of the files, the command must
-// exit non-zero to signal that, and `pmem refs rewrite --apply` must be
+// exit non-zero to signal that, and `scholia refs rewrite --apply` must be
 // able to finish the job afterward (idempotently) once the obstruction is
 // removed.
 func TestCLI_TagRenamePartialSourceFailureStaysCommittedAndReportsNonZero(t *testing.T) {
@@ -151,16 +151,16 @@ func TestCLI_TagRenamePartialSourceFailureStaysCommittedAndReportsNonZero(t *tes
 		t.Fatalf("expected non-zero exit when source rewrite fails, got success:\n%s", out)
 	}
 
-	// The `.pmem` rename itself must have committed regardless.
+	// The `.scholia` rename itself must have committed regardless.
 	list := mustRun(t, dir, "tag", "list")
 	if strings.Contains(list, "req.auth\t") || !strings.Contains(list, "req.authn") {
-		t.Fatalf("expected .pmem rename to stay committed despite source-rewrite failure, got:\n%s", list)
+		t.Fatalf("expected .scholia rename to stay committed despite source-rewrite failure, got:\n%s", list)
 	}
 
 	os.Chmod(lockedDir, 0o755)
 	retryOut := mustRun(t, dir, "refs", "rewrite", "req.auth", "req.authn", "--apply")
 	if !strings.Contains(retryOut, "書き換えました") {
-		t.Fatalf("expected retry via `pmem refs rewrite --apply` to finish the job, got:\n%s", retryOut)
+		t.Fatalf("expected retry via `scholia refs rewrite --apply` to finish the job, got:\n%s", retryOut)
 	}
 	got := readSourceFile(t, dir, "locked/handler.go")
 	if got != "// see req.authn here\n" {

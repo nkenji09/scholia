@@ -1,6 +1,0 @@
-{
-  "id": "act.user.flow",
-  "category": "action",
-  "label": "pmem flow を実行",
-  "kind": "user"
-}

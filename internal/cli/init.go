@@ -14,7 +14,7 @@ func newInitCmd() *cobra.Command {
 	var noGitignore bool
 	cmd := &cobra.Command{
 		Use:   "init",
-		Short: ".pmem/ を作成する（冪等）",
+		Short: ".scholia/ を作成する（冪等）",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			root := dirFlag
 			if root == "" {
@@ -38,6 +38,6 @@ func newInitCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, "config.json を JSON で出力する")
-	cmd.Flags().BoolVar(&noGitignore, "no-gitignore", false, ".gitignore への .pmem/index.db 追記をスキップする")
+	cmd.Flags().BoolVar(&noGitignore, "no-gitignore", false, ".gitignore への .scholia/index.db 追記をスキップする")
 	return cmd
 }

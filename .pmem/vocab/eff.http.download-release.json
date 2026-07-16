@@ -1,7 +1,0 @@
-{
-  "id": "eff.http.download-release",
-  "category": "effect",
-  "label": "OS/arch に合う releases/latest/download のアーカイブと checksums.txt をダウンロードする",
-  "kind": "http",
-  "owner": "pmem-core"
-}

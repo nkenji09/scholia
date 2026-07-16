@@ -25,7 +25,7 @@ const (
 	updateRepoName   = "scholia"
 	updateAPILatest  = "https://api.github.com/repos/" + updateRepoOwner + "/" + updateRepoName + "/releases/latest"
 	updateDownload   = "https://github.com/" + updateRepoOwner + "/" + updateRepoName + "/releases/latest/download/"
-	updateGoInstall  = "go install github.com/" + updateRepoOwner + "/" + updateRepoName + "/cmd/pmem@latest"
+	updateGoInstall  = "go install github.com/" + updateRepoOwner + "/" + updateRepoName + "/cmd/scholia@latest"
 	updateReleaseURL = "https://github.com/" + updateRepoOwner + "/" + updateRepoName + "/releases/latest"
 )
 
@@ -41,15 +41,15 @@ var (
 	osExecutable         = os.Executable
 )
 
-// newUpdateCmd は pmem update コマンド（decision: req.self-update）。
+// newUpdateCmd は scholia update コマンド（decision: req.self-update）。
 // 導入方式/OS を検出し、自己置換できる場合のみ「取得→checksum 検証→置換」を行う。
 func newUpdateCmd() *cobra.Command {
 	var checkOnly bool
 
 	cmd := &cobra.Command{
 		Use:   "update",
-		Short: "pmem を最新版に更新する",
-		Long: `pmem を最新版に更新する。
+		Short: "scholia を最新版に更新する",
+		Long: `scholia を最新版に更新する。
 
 導入方式/OS によって挙動が変わる:
   - リリース版バイナリ（darwin/linux）: 最新版を取得し、checksum を検証してから
@@ -71,7 +71,7 @@ func runUpdate(cmd *cobra.Command, checkOnly bool) error {
 
 	// T-update-guide-source: source/go install 由来は自己置換しない。
 	if isSourceInstall() {
-		fmt.Fprintln(out, "pmem は go install（source）経由の導入のため、自己更新できません。")
+		fmt.Fprintln(out, "scholia は go install（source）経由の導入のため、自己更新できません。")
 		fmt.Fprintln(out, "以下のコマンドで更新してください:")
 		fmt.Fprintf(out, "  %s\n", updateGoInstall)
 		return nil
@@ -79,7 +79,7 @@ func runUpdate(cmd *cobra.Command, checkOnly bool) error {
 
 	// T-update-guide-windows: 実行中の .exe は上書きできない。
 	if updateGOOS == "windows" {
-		fmt.Fprintln(out, "Windows では実行中の pmem.exe を自己置換できません。")
+		fmt.Fprintln(out, "Windows では実行中の scholia.exe を自己置換できません。")
 		fmt.Fprintln(out, "以下のいずれかで更新してください:")
 		fmt.Fprintf(out, "  - %s から手動ダウンロード\n", updateReleaseURL)
 		fmt.Fprintln(out, "  - お使いのパッケージマネージャで更新")
@@ -129,7 +129,7 @@ func runUpdate(cmd *cobra.Command, checkOnly bool) error {
 	if err := replaceRunningBinary(newBinary); err != nil {
 		return fmt.Errorf("自己置換に失敗しました（元のバイナリは変更していません）: %w", err)
 	}
-	fmt.Fprintf(out, "pmem を %s から %s に更新しました。\n", current, latest)
+	fmt.Fprintf(out, "scholia を %s から %s に更新しました。\n", current, latest)
 	return nil
 }
 
@@ -160,7 +160,7 @@ func normalizeTag(tag string) string {
 // archiveFileName は .goreleaser.yaml の archives.name_template
 // （"{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"）と厳密一致させる。
 func archiveFileName(goos, goarch string) string {
-	return fmt.Sprintf("pmem_%s_%s.tar.gz", goos, goarch)
+	return fmt.Sprintf("scholia_%s_%s.tar.gz", goos, goarch)
 }
 
 type githubRelease struct {
@@ -231,7 +231,7 @@ func lookupChecksum(checksums []byte, filename string) (string, error) {
 	return "", fmt.Errorf("checksums.txt に %s のエントリがありません", filename)
 }
 
-// extractBinaryFromTarGz は tar.gz アーカイブ内の pmem 実行ファイルを取り出す。
+// extractBinaryFromTarGz は tar.gz アーカイブ内の scholia 実行ファイルを取り出す。
 func extractBinaryFromTarGz(data []byte) ([]byte, error) {
 	gz, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
@@ -251,11 +251,11 @@ func extractBinaryFromTarGz(data []byte) ([]byte, error) {
 		if hdr.Typeflag != tar.TypeReg {
 			continue
 		}
-		if filepath.Base(hdr.Name) == "pmem" {
+		if filepath.Base(hdr.Name) == "scholia" {
 			return io.ReadAll(tr)
 		}
 	}
-	return nil, fmt.Errorf("アーカイブ内に pmem バイナリが見つかりません")
+	return nil, fmt.Errorf("アーカイブ内に scholia バイナリが見つかりません")
 }
 
 // replaceRunningBinaryAtomic は検証済みの新バイナリを実行中バイナリと同じ
@@ -272,7 +272,7 @@ func replaceRunningBinaryAtomic(newBinary []byte) error {
 	}
 
 	dir := filepath.Dir(exe)
-	tmp, err := os.CreateTemp(dir, ".pmem-update-*")
+	tmp, err := os.CreateTemp(dir, ".scholia-update-*")
 	if err != nil {
 		return fmt.Errorf("一時ファイルを作成できません: %w", err)
 	}

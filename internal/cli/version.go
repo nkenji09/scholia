@@ -19,7 +19,7 @@ var (
 	date    = ""
 )
 
-// versionInfo は pmem version の出力（人間可読／--json 共通）の形。
+// versionInfo は scholia version の出力（人間可読／--json 共通）の形。
 type versionInfo struct {
 	Version   string `json:"version"`
 	Commit    string `json:"commit,omitempty"`
@@ -68,14 +68,14 @@ func resolveVersionInfo() versionInfo {
 	}
 }
 
-// newVersionCmd は pmem version コマンド（additive・既存コマンドに影響しない）。
+// newVersionCmd は scholia version コマンド（additive・既存コマンドに影響しない）。
 func newVersionCmd() *cobra.Command {
 	var asJSON bool
 
 	cmd := &cobra.Command{
 		Use:   "version",
-		Short: "pmem の版を表示する",
-		Long: `pmem バイナリの版を表示する。
+		Short: "scholia の版を表示する",
+		Long: `scholia バイナリの版を表示する。
 
 版の解決順:
   1. リリースビルド（goreleaser）が ldflags で焼き込んだ版タグ
@@ -92,7 +92,7 @@ func newVersionCmd() *cobra.Command {
 				return enc.Encode(info)
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "pmem %s\n", info.Version)
+			fmt.Fprintf(cmd.OutOrStdout(), "scholia %s\n", info.Version)
 			if info.Commit != "" {
 				fmt.Fprintf(cmd.OutOrStdout(), "  commit:  %s\n", info.Commit)
 			}

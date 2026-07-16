@@ -1,17 +1,17 @@
 // Package skills embeds the Claude Code skill tree under agents/skills/ into
-// the pmem binary so `pmem skills install` can materialize it without
+// the scholia binary so `scholia skills install` can materialize it without
 // requiring the caller's cwd to contain this repo (e.g. after `go install`).
 //
-// 各スキルは相対パスで参照し合う（例: pmem-change → ../pmem/SKILL.md、
-// 各 SKILL → ../_pmem-shared/references/modeling-principles.md）ため、
-// FS のルートには pmem/pmem-change/pmem-triage/pmem-config-setup/_pmem-shared が
+// 各スキルは相対パスで参照し合う（例: scholia-change → ../scholia/SKILL.md、
+// 各 SKILL → ../_scholia-shared/references/modeling-principles.md）ため、
+// FS のルートには scholia/scholia-change/scholia-triage/scholia-config-setup/_scholia-shared が
 // 同階層で並ぶ（展開先でもこの構造をそのまま保つ）。
 //
 // 落とし穴: //go:embed はデフォルトで "_" や "." で始まる名前を除外する。
-// _pmem-shared を含めるには all: プレフィックスが必須。
+// _scholia-shared を含めるには all: プレフィックスが必須。
 package skills
 
 import "embed"
 
-//go:embed all:pmem all:pmem-change all:pmem-triage all:pmem-config-setup all:_pmem-shared
+//go:embed all:scholia all:scholia-change all:scholia-triage all:scholia-config-setup all:_scholia-shared
 var FS embed.FS

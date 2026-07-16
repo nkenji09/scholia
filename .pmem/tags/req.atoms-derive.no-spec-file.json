@@ -1,9 +1,0 @@
-{
-  "id": "req.atoms-derive.no-spec-file",
-  "name": "spec ファイル・クラスタ分割の判断を持たない",
-  "kind": "requirement",
-  "parentIds": [
-    "req.atoms-derive"
-  ],
-  "description": "**As a** 新しい振る舞いを記録する開発者\n**I want** 「これをどの spec ファイルに書くか」を考えなくて済むようにしたい\n**so that** ファイル分割の設計判断そのものが要件から消える\n\n### 受け入れ基準\n- spec/proposal 用のファイル種別が `.pmem/` に存在しない（vocab/tags/transitions/decisions のみ）\n- \"仕様\"は `pmem spec \u003csubjectTag\u003e` の実行結果としてのみ存在する（保存されない）\n- 既存 transition にタグを追加するだけで、その transition は新しい\"仕様\"に現れる"
-}

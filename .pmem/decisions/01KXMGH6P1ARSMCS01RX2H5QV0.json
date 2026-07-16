@@ -1,9 +1,0 @@
-{
-  "id": "01KXMGH6P1ARSMCS01RX2H5QV0",
-  "target": {
-    "type": "transition",
-    "id": "T-flow-axis-overlap"
-  },
-  "why": "宣言軸上の重なり（overlap-ambiguity）検出を採用。2 tx が同じ cell を取り合う『重なり＝優先順位未定義』を検出する。overlap-ambiguity は宣言軸に相対的に sound（宣言軸が正しい前提でのみ成立）＝subset-shadow（無条件 sound）と誠実さの度合いが違う点を scope 印字で明示する。warn として出すか flow 出力に gap の一種として載せるか（§5 論点7・AI にとっては『順序を決めよ』の実装前アクション）の surface 方法は実装フェーズでユーザー確定に委ねる。",
-  "at": "2026-07-16T03:46:39Z"
-}

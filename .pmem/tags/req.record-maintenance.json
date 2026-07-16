@@ -1,8 +1,0 @@
-{
-  "id": "req.record-maintenance",
-  "name": "記録の保守（参照整合を保った改名・再編）",
-  "kind": "requirement",
-  "parentIds": [
-    "req.auxiliary-features"
-  ]
-}

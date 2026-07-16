@@ -17,7 +17,7 @@ import (
 func newSkillsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "skills",
-		Short: "pmem の Claude Code 向けスキルを操作する",
+		Short: "scholia の Claude Code 向けスキルを操作する",
 	}
 	cmd.AddCommand(newSkillsInstallCmd())
 	return cmd
@@ -31,7 +31,7 @@ type skillsInstallOutput struct {
 }
 
 // newSkillsInstallCmd は embed 済みのスキルツリーを .claude/skills/ へ展開する。
-// go install 済みの pmem バイナリだけで（cwd に agents/ が無い環境でも）
+// go install 済みの scholia バイナリだけで（cwd に agents/ が無い環境でも）
 // 展開できることが目的（embed 由来。相対パス参照を持つスキル間の相対構造を保つ）。
 func newSkillsInstallCmd() *cobra.Command {
 	var userTarget bool
@@ -41,11 +41,11 @@ func newSkillsInstallCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "install",
-		Short: "pmem の Claude Code スキルを .claude/skills/ へ展開する",
-		Long: `pmem に同梱（embed）された Claude Code 向けスキル一式（pmem / pmem-change /
-pmem-config-setup / _pmem-shared）を .claude/skills/ 配下へファイルとして展開する。
+		Short: "scholia の Claude Code スキルを .claude/skills/ へ展開する",
+		Long: `scholia に同梱（embed）された Claude Code 向けスキル一式（scholia / scholia-change /
+scholia-config-setup / _scholia-shared）を .claude/skills/ 配下へファイルとして展開する。
 
-go install した pmem バイナリだけで、cwd に agents/ が存在しない環境でも展開できる
+go install した scholia バイナリだけで、cwd に agents/ が存在しない環境でも展開できる
 （スキル本体はバイナリに焼き込み済み）。
 
 展開先は既定で --project（<cwd>/.claude/skills/）。--user 指定で ~/.claude/skills/ へ

@@ -21,7 +21,7 @@ func WriteText(w io.Writer, r Report) {
 	writeScopeSection(w, r)
 }
 
-// WriteGapsText renders the gap-only view (`pmem gaps <action>`,
+// WriteGapsText renders the gap-only view (`scholia gaps <action>`,
 // req.action-flow.axis-gaps' focused surface): subset-shadow・抜け・重なり
 // only, never the full matrix — but scope-disclosure is still mandatory
 // (req.action-flow.scope-honesty forbids a bare "no gaps" here too).
@@ -60,7 +60,7 @@ func writeAxesSection(w io.Writer, r Report) {
 		fmt.Fprintln(w)
 		switch r.AxesAbsence {
 		case AxesAbsenceNoneDeclared:
-			fmt.Fprintln(w, "  store に kind=\"axis\" のタグが1枚もありません（軸機構が未導入＝軸注釈による gap 検出は範囲外）。`pmem tag create --kind axis ...` で軸を作れます。")
+			fmt.Fprintln(w, "  store に kind=\"axis\" のタグが1枚もありません（軸機構が未導入＝軸注釈による gap 検出は範囲外）。`scholia tag create --kind axis ...` で軸を作れます。")
 		case AxesAbsenceNotOnThisAction:
 			fmt.Fprintln(w, "  軸タグはありますが、この action のどの遷移の given にも軸条件が載っていません（軸が this action に効いていません）。条件別に given を張って（＝畳んだ遷移を条件別に割って）軸を効かせてください。")
 		default:

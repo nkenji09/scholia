@@ -17,7 +17,7 @@ type decisionListOutput struct {
 }
 
 // newDecisionListCmd は decision レコードをフラットに一覧する（§3.8）。
-// `pmem rules` は対象への守る規則を祖先展開込みで集約するのに対し、
+// `scholia rules` は対象への守る規則を祖先展開込みで集約するのに対し、
 // こちらは decision レコードそのものの棚卸し（--on は完全一致・祖先展開なし）。
 func newDecisionListCmd() *cobra.Command {
 	var on string

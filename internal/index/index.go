@@ -182,7 +182,7 @@ type TagNode struct {
 // （tag-ref lint がある正常な記録では発生しない・§5）。
 //
 // これは kind スコープの木＝traceability（§7・kind ごとの要件行）や
-// `pmem list --facet <kind>`（§3.8 の facet 軸別グルーピング）が使う。
+// `scholia list --facet <kind>`（§3.8 の facet 軸別グルーピング）が使う。
 // browse ナビの「1本の統一ツリー」は TagForest（kind 非依存）を使う。
 func (ix *Index) FacetTree(tagKind string) []*TagNode {
 	inKind := make(map[string]bool)

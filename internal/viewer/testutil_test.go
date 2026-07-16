@@ -11,7 +11,7 @@ import (
 	"github.com/nkenji09/scholia/internal/store"
 )
 
-// newTestHandler builds a viewer HTTP handler over a freshly seeded .pmem in
+// newTestHandler builds a viewer HTTP handler over a freshly seeded .scholia in
 // a t.TempDir(), mirroring the DESIGN §3.2-§3.6 example records so handlers
 // can be exercised end to end via httptest.
 func newTestHandler(t *testing.T) (http.Handler, *store.Store) {

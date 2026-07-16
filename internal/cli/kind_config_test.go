@@ -49,7 +49,7 @@ func TestCLI_ConfigGetShowsWholeConfigOrOneKey(t *testing.T) {
 	mustRun(t, dir, "init")
 
 	whole := mustRun(t, dir, "config", "get")
-	if !strings.Contains(whole, "pmemVersion") {
+	if !strings.Contains(whole, "schemaVersion") {
 		t.Fatalf("expected config get with no key to dump the whole config:\n%s", whole)
 	}
 
@@ -113,7 +113,7 @@ func TestCLI_ConfigSetRejectsRemovingInUseTagKind(t *testing.T) {
 }
 
 // TestCLI_ConfigTagKindLabelsGetSetRoundTrip covers 2026-07-11 tweaks3 §2's
-// additive tagKindLabels — `pmem init` seeds Japanese defaults, `config
+// additive tagKindLabels — `scholia init` seeds Japanese defaults, `config
 // set` accepts the kind=label,kind=label convention, and the update
 // round-trips through `config get`.
 func TestCLI_ConfigTagKindLabelsGetSetRoundTrip(t *testing.T) {
@@ -122,7 +122,7 @@ func TestCLI_ConfigTagKindLabelsGetSetRoundTrip(t *testing.T) {
 
 	seeded := mustRun(t, dir, "config", "get", "tagKindLabels")
 	if !strings.Contains(seeded, "requirement=要件") {
-		t.Fatalf("expected pmem init to seed a Japanese default label for requirement, got:\n%s", seeded)
+		t.Fatalf("expected scholia init to seed a Japanese default label for requirement, got:\n%s", seeded)
 	}
 
 	mustRun(t, dir, "config", "set", "tagKindLabels", "requirement=ようけん,concern=かんしんじ")

@@ -1,7 +1,0 @@
-{
-  "id": "eff.emit.own-decisions",
-  "category": "effect",
-  "label": "自分が target の decision だけ描画",
-  "kind": "emit",
-  "owner": "viewer-web"
-}

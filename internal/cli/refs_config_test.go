@@ -9,8 +9,8 @@ import (
 )
 
 // setSourceRefsConfig sets config.sourceRefs for dir's store — there is no
-// `pmem config set` key for it (yet), so this goes through the store's Go
-// API directly, the same way `pmem config set` itself would under the
+// `scholia config set` key for it (yet), so this goes through the store's Go
+// API directly, the same way `scholia config set` itself would under the
 // hood, rather than hand-editing the JSON file.
 func setSourceRefsConfig(t *testing.T, dir string, scan, exclude []string) {
 	t.Helper()

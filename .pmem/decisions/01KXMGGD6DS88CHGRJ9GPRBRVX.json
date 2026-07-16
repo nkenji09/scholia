@@ -1,9 +1,0 @@
-{
-  "id": "01KXMGGD6DS88CHGRJ9GPRBRVX",
-  "target": {
-    "type": "tag",
-    "id": "req.action-flow"
-  },
-  "why": "honesty-first 層状（design-options §7・2026-07-16 ユーザー承認）を正本として受け入れる。現 pending が案B（逐次分岐木）に暗黙コミットしていたのを §7 へ全面書き直した。核心＝証明できる signal だけを sound な gap と呼び、証明できない部分は可視化＋scope 明示で誠実に退避する。層を子要件に割る（visualize／subset-shadow／axis-gaps／scope-honesty／acknowledged-remainder）。product-coverage を『機械検証された網羅』とは称さない（案H の過大主張を回避）。arbitrary priority（transition に順序/否定を持つ案F）は trade を承知で当面棄却。到達点は軸注釈まで含める＝ユーザー確定済み。",
-  "at": "2026-07-16T03:46:13Z"
-}

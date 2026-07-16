@@ -1,4 +1,4 @@
-// Package store implements the 1-record-1-file persistence layer under .pmem/ (§3.1, §3.9).
+// Package store implements the 1-record-1-file persistence layer under .scholia/ (§3.1, §3.9).
 package store
 
 import (
@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	DirName        = ".pmem"
+	DirName        = ".scholia"
 	vocabDir       = "vocab"
 	tagsDir        = "tags"
 	transitionsDir = "transitions"
@@ -21,26 +21,26 @@ const (
 	configFile     = "config.json"
 )
 
-// Store は .pmem ディレクトリ 1 個への参照。Dir は .pmem 自身の絶対パス。
+// Store は .scholia ディレクトリ 1 個への参照。Dir は .scholia 自身の絶対パス。
 type Store struct {
 	Dir string
 }
 
-// Open は projectRoot/.pmem を既存ディレクトリとして開く。存在しなければエラー。
+// Open は projectRoot/.scholia を既存ディレクトリとして開く。存在しなければエラー。
 func Open(projectRoot string) (*Store, error) {
 	abs, err := filepath.Abs(projectRoot)
 	if err != nil {
 		return nil, err
 	}
-	pmemDir := filepath.Join(abs, DirName)
-	info, err := os.Stat(pmemDir)
+	scholiaDir := filepath.Join(abs, DirName)
+	info, err := os.Stat(scholiaDir)
 	if err != nil || !info.IsDir() {
-		return nil, fmt.Errorf("%s が見つかりません（%s は pmem init 済みですか？）", DirName, abs)
+		return nil, fmt.Errorf("%s が見つかりません（%s は scholia init 済みですか？）", DirName, abs)
 	}
-	return &Store{Dir: pmemDir}, nil
+	return &Store{Dir: scholiaDir}, nil
 }
 
-// Discover は startDir から親方向に .pmem/ を探索する（git と同様の上方探索）。
+// Discover は startDir から親方向に .scholia/ を探索する（git と同様の上方探索）。
 func Discover(startDir string) (*Store, error) {
 	dir, err := filepath.Abs(startDir)
 	if err != nil {
@@ -53,7 +53,7 @@ func Discover(startDir string) (*Store, error) {
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return nil, fmt.Errorf("%s から上方探索しましたが %s が見つかりません（pmem init を実行してください）", startDir, DirName)
+			return nil, fmt.Errorf("%s から上方探索しましたが %s が見つかりません（scholia init を実行してください）", startDir, DirName)
 		}
 		dir = parent
 	}
@@ -65,9 +65,9 @@ type InitOptions struct {
 	SkipGitignore bool
 }
 
-// Init は projectRoot/.pmem 以下のディレクトリと config.json を作成する（冪等）。
-// 既存 config は上書きしない。対象 repo の .gitignore に .pmem/index.db と
-// .pmem/reviews/（AI コメント配送サイドカー・揮発層・§8.4）を追記する（§3.1）。
+// Init は projectRoot/.scholia 以下のディレクトリと config.json を作成する（冪等）。
+// 既存 config は上書きしない。対象 repo の .gitignore に .scholia/index.db と
+// .scholia/reviews/（AI コメント配送サイドカー・揮発層・§8.4）を追記する（§3.1）。
 func Init(projectRoot string) (*Store, error) {
 	return InitWithOptions(projectRoot, InitOptions{})
 }
@@ -78,15 +78,15 @@ func InitWithOptions(projectRoot string, opts InitOptions) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	pmemDir := filepath.Join(abs, DirName)
+	scholiaDir := filepath.Join(abs, DirName)
 	for _, sub := range []string{vocabDir, tagsDir, transitionsDir, decisionsDir} {
-		if err := os.MkdirAll(filepath.Join(pmemDir, sub), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Join(scholiaDir, sub), 0o755); err != nil {
 			return nil, err
 		}
 	}
-	s := &Store{Dir: pmemDir}
+	s := &Store{Dir: scholiaDir}
 
-	cfgPath := filepath.Join(pmemDir, configFile)
+	cfgPath := filepath.Join(scholiaDir, configFile)
 	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
 		if err := s.SaveConfig(model.DefaultConfig()); err != nil {
 			return nil, err
@@ -276,7 +276,7 @@ type IDMismatch struct {
 	RecordID string
 }
 
-// Snapshot は .pmem/ 全体の読み込みスナップショット。
+// Snapshot は .scholia/ 全体の読み込みスナップショット。
 type Snapshot struct {
 	Config       model.Config
 	Vocab        []model.VocabEntry
@@ -324,7 +324,7 @@ func listRecords[T identifiable](dir, category string) ([]T, []IDMismatch, error
 	return records, mismatches, nil
 }
 
-// LoadAll は .pmem/ 全体を読み込んだスナップショットを返す（派生インデックスの既定＝in-memory・§3.9）。
+// LoadAll は .scholia/ 全体を読み込んだスナップショットを返す（派生インデックスの既定＝in-memory・§3.9）。
 func (s *Store) LoadAll() (Snapshot, error) {
 	cfg, err := s.LoadConfig()
 	if err != nil {

@@ -1,9 +1,0 @@
-{
-  "id": "req.evaluate-change",
-  "name": "変更を過去の意図と突き合わせて評価する",
-  "kind": "requirement",
-  "parentIds": [
-    "req.auxiliary-features"
-  ],
-  "description": "**As a** 変更提案（PRやブランチ）を評価する人/AIエージェント\n**I want** 提案の複雑性差分と、関係するタグの既存 decision を機械的に見たい\n**so that** 「本当に取り込むべきか」を勘ではなく記録に基づいて判断できる\n\n### 受け入れ基準\n- `pmem diff [\u003cgitref\u003e]` で語彙±・遷移±・then順序・decisions± が出る\n- `pmem rules --tag \u003cid\u003e` で提案が触るタグの過去 decision を確認できる\n- 却下する場合も `pmem decide` で理由を append できる（次回同じ提案が来ても即・既決にできる）"
-}

@@ -1,5 +1,0 @@
-{
-  "id": "eff.log.reject-rename-collision",
-  "category": "effect",
-  "label": "衝突する新 id を報告し、何も書き込まない"
-}

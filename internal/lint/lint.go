@@ -1,4 +1,4 @@
-// Package lint checks that .pmem/ records are internally consistent (§5).
+// Package lint checks that .scholia/ records are internally consistent (§5).
 // lint は早期バグ検知ではなく「記録が自己矛盾していないこと」を守る（DESIGN §0, §5）。
 package lint
 

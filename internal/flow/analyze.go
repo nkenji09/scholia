@@ -1,5 +1,5 @@
 // Package flow derives an action-scoped "given → then" analysis (#39
-// action-flow) shared by the CLI (`pmem flow`) and, in a later phase, the
+// action-flow) shared by the CLI (`scholia flow`) and, in a later phase, the
 // viewer. It follows the honesty-first, layered design adopted on
 // req.action-flow (design-options §7): a trust core that needs no
 // declaration (the condition×transition matrix, subset-shadow) plus an
@@ -24,7 +24,7 @@ const AxisTagKind = "axis"
 // RemainderTagID is the well-known tag id a transition carries to declare
 // itself as the action's single "acknowledged remainder" default
 // (req.action-flow.acknowledged-remainder). No transition in this repo's own
-// .pmem uses it yet — the convention is introduced by this implementation
+// .scholia uses it yet — the convention is introduced by this implementation
 // (the adopted decision fixes the semantics, not the exact tag id) and is
 // deliberately just a plain string match, not a registered tag, so it is a
 // no-op until a project actually opts in.
@@ -122,7 +122,7 @@ type ScopeDisclosure struct {
 	OutOfGuarantee  []string `json:"outOfGuarantee"`
 }
 
-// Report is the full `pmem flow <action>` result.
+// Report is the full `scholia flow <action>` result.
 type Report struct {
 	Action        string         `json:"action"`
 	ActionLabel   string         `json:"actionLabel"`
@@ -150,9 +150,9 @@ var disclosureBoilerplate = []string{
 	"acknowledged-remainder が宣言されている場合、その受け皿は coverage に数えません（別枠報告）。",
 }
 
-// GapsReport is `pmem gaps <action>`'s focused JSON shape — the same fields
+// GapsReport is `scholia gaps <action>`'s focused JSON shape — the same fields
 // WriteGapsText prints (subset-shadow・抜け・重なり・scope-disclosure),
-// omitting the full matrix/axes/cells/remainder `pmem flow` shows
+// omitting the full matrix/axes/cells/remainder `scholia flow` shows
 // (req.action-flow.axis-gaps: same analysis, holes-only surface).
 type GapsReport struct {
 	Action        string          `json:"action"`

@@ -1,9 +1,0 @@
-{
-  "id": "req.evaluate-change.rules-lookup",
-  "name": "提案が触るタグの既存ルールと照合する",
-  "kind": "requirement",
-  "parentIds": [
-    "req.evaluate-change"
-  ],
-  "description": "**As a** 変更を評価する人/AIエージェント\n**I want** 変更が触れるタグに対する過去の decision を一覧で見たい\n**so that** 「これは前に却下された/採用された」をすぐに確認できる\n\n### 受け入れ基準\n- `pmem rules --tag \u003cid\u003e` がそのタグ＋祖先タグの decision を返す\n- `pmem rules --tx \u003cid\u003e` がその transition の実効タグ経由の decision を返す\n- `--sort target` で対象ごとにグループ化して見れる"
-}

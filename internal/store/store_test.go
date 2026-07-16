@@ -20,12 +20,12 @@ func TestInitIsIdempotentAndWritesDefaultConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
-	if cfg.PmemVersion != 1 || cfg.Viewer.Port != 4577 {
+	if cfg.SchemaVersion != 1 || cfg.Viewer.Port != 4577 {
 		t.Fatalf("unexpected default config: %+v", cfg)
 	}
 
 	// 既存 config を書き換えて再 Init しても上書きされないこと（冪等）。
-	cfg.PmemVersion = 999
+	cfg.SchemaVersion = 999
 	if err := s.SaveConfig(cfg); err != nil {
 		t.Fatalf("SaveConfig: %v", err)
 	}
@@ -36,17 +36,17 @@ func TestInitIsIdempotentAndWritesDefaultConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadConfig after second Init: %v", err)
 	}
-	if reloaded.PmemVersion != 999 {
-		t.Fatalf("Init overwrote existing config.json: got pmemVersion=%d", reloaded.PmemVersion)
+	if reloaded.SchemaVersion != 999 {
+		t.Fatalf("Init overwrote existing config.json: got schemaVersion=%d", reloaded.SchemaVersion)
 	}
 
 	for _, sub := range []string{"vocab", "tags", "transitions", "decisions"} {
-		if info, err := os.Stat(filepath.Join(dir, ".pmem", sub)); err != nil || !info.IsDir() {
-			t.Fatalf(".pmem/%s missing: %v", sub, err)
+		if info, err := os.Stat(filepath.Join(dir, ".scholia", sub)); err != nil || !info.IsDir() {
+			t.Fatalf(".scholia/%s missing: %v", sub, err)
 		}
 	}
 
-	// .gitignore に .pmem/index.db が 1 回だけ追記される。
+	// .gitignore に .scholia/index.db が 1 回だけ追記される。
 	if _, err := Init(dir); err != nil {
 		t.Fatalf("third Init: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestInitIsIdempotentAndWritesDefaultConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read .gitignore: %v", err)
 	}
-	count := strings.Count(string(data), ".pmem/index.db")
+	count := strings.Count(string(data), ".scholia/index.db")
 	if count != 1 {
 		t.Fatalf(".gitignore entry duplicated or missing: count=%d, content=%q", count, string(data))
 	}
@@ -66,7 +66,7 @@ func TestInitWritesReviewsGitignoreEntryOnce(t *testing.T) {
 	if _, err := Init(dir); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
-	// 2 回目以降の Init でも .pmem/reviews/ が重複追記されないこと（冪等）。
+	// 2 回目以降の Init でも .scholia/reviews/ が重複追記されないこと（冪等）。
 	if _, err := Init(dir); err != nil {
 		t.Fatalf("second Init: %v", err)
 	}
@@ -78,7 +78,7 @@ func TestInitWritesReviewsGitignoreEntryOnce(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read .gitignore: %v", err)
 	}
-	count := strings.Count(string(data), ".pmem/reviews/")
+	count := strings.Count(string(data), ".scholia/reviews/")
 	if count != 1 {
 		t.Fatalf(".gitignore entry duplicated or missing: count=%d, content=%q", count, string(data))
 	}
@@ -95,8 +95,8 @@ func TestInitWithOptionsSkipGitignoreLeavesGitignoreUntouched(t *testing.T) {
 		t.Fatalf(".gitignore should not be created when SkipGitignore=true, stat err=%v", err)
 	}
 	for _, sub := range []string{"vocab", "tags", "transitions", "decisions"} {
-		if info, err := os.Stat(filepath.Join(dir, ".pmem", sub)); err != nil || !info.IsDir() {
-			t.Fatalf(".pmem/%s missing: %v", sub, err)
+		if info, err := os.Stat(filepath.Join(dir, ".scholia", sub)); err != nil || !info.IsDir() {
+			t.Fatalf(".scholia/%s missing: %v", sub, err)
 		}
 	}
 }
@@ -112,8 +112,8 @@ func TestInitWithOptionsDefaultMatchesInit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read .gitignore: %v", err)
 	}
-	if !strings.Contains(string(data), ".pmem/index.db") {
-		t.Fatalf(".gitignore should contain .pmem/index.db by default, got %q", string(data))
+	if !strings.Contains(string(data), ".scholia/index.db") {
+		t.Fatalf(".gitignore should contain .scholia/index.db by default, got %q", string(data))
 	}
 }
 
@@ -134,7 +134,7 @@ func TestSaveTransitionNormalizesGivenAndOmitsEmpty(t *testing.T) {
 		t.Fatalf("SaveTransition: %v", err)
 	}
 
-	raw, err := os.ReadFile(filepath.Join(dir, ".pmem", "transitions", "T-1.json"))
+	raw, err := os.ReadFile(filepath.Join(dir, ".scholia", "transitions", "T-1.json"))
 	if err != nil {
 		t.Fatalf("read transition file: %v", err)
 	}
@@ -175,7 +175,7 @@ func TestSaveIsAtomic(t *testing.T) {
 		t.Fatalf("SaveVocab: %v", err)
 	}
 
-	entries, err := os.ReadDir(filepath.Join(dir, ".pmem", "vocab"))
+	entries, err := os.ReadDir(filepath.Join(dir, ".scholia", "vocab"))
 	if err != nil {
 		t.Fatalf("ReadDir: %v", err)
 	}
@@ -209,7 +209,7 @@ func TestLoadAllSnapshotsEverythingAndFlagsIDMismatch(t *testing.T) {
 	}
 
 	// ファイル名と内部 id が食い違うレコードを直接書き込む（id-unique が拾うべき異常データ）。
-	mismatchPath := filepath.Join(dir, ".pmem", "vocab", "cond.other-name.json")
+	mismatchPath := filepath.Join(dir, ".scholia", "vocab", "cond.other-name.json")
 	if err := os.WriteFile(mismatchPath, []byte(`{"id":"cond.a","category":"condition","label":"dup"}`+"\n"), 0o644); err != nil {
 		t.Fatalf("write mismatch fixture: %v", err)
 	}
@@ -239,7 +239,7 @@ func TestDiscoverWalksUpward(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Discover: %v", err)
 	}
-	wantDir, err := filepath.Abs(filepath.Join(root, ".pmem"))
+	wantDir, err := filepath.Abs(filepath.Join(root, ".scholia"))
 	if err != nil {
 		t.Fatal(err)
 	}

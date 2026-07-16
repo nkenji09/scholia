@@ -17,7 +17,7 @@ type Options struct {
 	Scan []string
 	// Exclude removes files under any of these project-root-relative path
 	// prefixes, in addition to the always-excluded directories
-	// (.pmem/.git/_workspace/.concierge) and .gitignore.
+	// (.scholia/.git/_workspace/.concierge) and .gitignore.
 	Exclude []string
 }
 

@@ -1,8 +1,0 @@
-{
-  "id": "subject.viewer.home",
-  "name": "概要ページ",
-  "kind": "subject",
-  "parentIds": [
-    "subject.viewer"
-  ]
-}

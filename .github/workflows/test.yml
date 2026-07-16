@@ -74,7 +74,7 @@ jobs:
         run: git diff --exit-code -- web/dist
 
   lint:
-    name: pmem lint
+    name: scholia lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -84,8 +84,8 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: build pmem
-        run: go build -o /tmp/pmem ./cmd/pmem
+      - name: build scholia
+        run: go build -o /tmp/scholia ./cmd/scholia
 
-      - name: pmem lint
-        run: /tmp/pmem lint
+      - name: scholia lint
+        run: /tmp/scholia lint

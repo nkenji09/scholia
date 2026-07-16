@@ -1,9 +1,0 @@
-{
-  "id": "req.git-native.one-record-one-file",
-  "name": "1レコード1ファイルで追記を衝突させない",
-  "kind": "requirement",
-  "parentIds": [
-    "req.git-native"
-  ],
-  "description": "**As a** 同時に別々の decision/transition を追記する複数の開発者/AIエージェント\n**I want** 自分の追記が他人の追記と同じ行・同じファイルを取り合わないようにしたい\n**so that** git の自動マージだけで大半のケースが解決する\n\n### 受け入れ基準\n- `.pmem/{vocab,tags,transitions,decisions}/\u003cid\u003e.json` の1レコード1ファイル配置になっている\n- `pmem decide` で新規 decision を作ると新しい `\u003culid\u003e.json` が増えるだけで既存ファイルは変更されない\n- id はファイル名と一致し、`id-unique` lint がこれを保証する"
-}

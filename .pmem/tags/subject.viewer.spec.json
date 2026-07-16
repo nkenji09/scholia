@@ -1,8 +1,0 @@
-{
-  "id": "subject.viewer.spec",
-  "name": "仕様ページ",
-  "kind": "subject",
-  "parentIds": [
-    "subject.viewer"
-  ]
-}

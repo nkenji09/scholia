@@ -1,9 +1,0 @@
-{
-  "id": "req.release-versioning",
-  "name": "リリース版の可視化",
-  "kind": "requirement",
-  "parentIds": [
-    "req.non-functional"
-  ],
-  "description": "**As a** pmem をインストール/リリースした利用者・運用者\n**I want** 実行中のバイナリがどの版か（リリースタグ・commit）を `pmem version` で確認したい\n**so that** 不具合報告やアップデート判断のときに、手元の版を正確に特定できる\n\n### 受け入れ基準\n- `pmem version` が版を出力する（既存コマンドには影響しない additive な追加）\n- リリースビルド（goreleaser）では ldflags 注入された版タグが出る\n- 通常の `go install …@vX` でも runtime/debug.ReadBuildInfo 由来の module 版が出る（版情報ゼロにしない）"
-}

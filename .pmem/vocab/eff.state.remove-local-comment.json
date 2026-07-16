@@ -1,7 +1,0 @@
-{
-  "id": "eff.state.remove-local-comment",
-  "category": "effect",
-  "label": "adopt/reject 済みの人コメントを localStorage(pmem-comments-v1) から削除する",
-  "kind": "state",
-  "owner": "viewer-web"
-}

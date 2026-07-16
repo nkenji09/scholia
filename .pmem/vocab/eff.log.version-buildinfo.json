@@ -1,7 +1,0 @@
-{
-  "id": "eff.log.version-buildinfo",
-  "category": "effect",
-  "label": "runtime/debug.ReadBuildInfo 由来の版（go install の module 版・vcs.revision/time、無ければ dev）を出力する",
-  "kind": "log",
-  "owner": "pmem-core"
-}

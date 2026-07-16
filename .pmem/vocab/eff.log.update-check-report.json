@@ -1,7 +1,0 @@
-{
-  "id": "eff.log.update-check-report",
-  "category": "effect",
-  "label": "バイナリの取得・置換をせず、現在版と GitHub 最新版を比較して更新の有無だけを報告する",
-  "kind": "log",
-  "owner": "pmem-core"
-}

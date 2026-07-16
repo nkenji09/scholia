@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# pmem installer — curl -fsSL https://raw.githubusercontent.com/nkenji09/product-memory/main/packaging/install.sh | sh
+# scholia installer — curl -fsSL https://raw.githubusercontent.com/nkenji09/scholia/main/packaging/install.sh | sh
 #
-# Downloads the latest pmem release for this OS/arch from GitHub Releases
-# and installs it into $PMEM_INSTALL_DIR (default: ~/.local/bin).
+# Downloads the latest scholia release for this OS/arch from GitHub Releases
+# and installs it into $SCHOLIA_INSTALL_DIR (default: ~/.local/bin).
 set -euo pipefail
 
-REPO="nkenji09/product-memory"
-BINARY_NAME="pmem"
-INSTALL_DIR="${PMEM_INSTALL_DIR:-$HOME/.local/bin}"
+REPO="nkenji09/scholia"
+BINARY_NAME="scholia"
+INSTALL_DIR="${SCHOLIA_INSTALL_DIR:-$HOME/.local/bin}"
 
 fail() {
   echo "error: $1" >&2
@@ -18,7 +18,7 @@ detect_os() {
   case "$(uname -s)" in
     Darwin) echo "darwin" ;;
     Linux) echo "linux" ;;
-    *) fail "unsupported OS: $(uname -s) (pmem prebuilt binaries cover darwin/linux only; try 'go install github.com/${REPO}/cmd/pmem@latest')" ;;
+    *) fail "unsupported OS: $(uname -s) (scholia prebuilt binaries cover darwin/linux only; try 'go install github.com/${REPO}/cmd/scholia@latest')" ;;
   esac
 }
 

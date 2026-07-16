@@ -1,9 +1,0 @@
-{
-  "id": "req.self-update",
-  "name": "自己更新（pmem update）",
-  "kind": "requirement",
-  "parentIds": [
-    "req.non-functional"
-  ],
-  "description": "**As a** pmem をインストール済みの利用者・運用者\n**I want** `pmem update` で手元のバイナリを最新リリースへ更新したい\n**so that** install.sh の再手打ちや Releases ページ探しをせずに、ツール内の一手で最新へ追随できる\n\n### 受け入れ基準\n- `pmem update` が「最新確認 → 取得 → checksum 検証 → 自己置換」を 1 コマンドに束ねる（利用者に個別手順を踏ませない）\n- リリース版バイナリ（自己置換可）× darwin/linux × 更新ありのときだけ自己置換する。取得したアーカイブは `checksums.txt` の sha256 と照合してから置換し、置換失敗時は元のバイナリを壊さない\n- 既に最新のときは取得・置換せず「既に最新」と報告する\n- 自己置換できない導入方式は案内に切り替える: source / go install は `go install …/cmd/pmem@latest` を、windows（実行中 .exe を上書き不可）は手動DL/パッケージマネージャを案内する\n- `pmem update --check` は取得・置換をせず、更新の有無（現在版→最新版）だけを報告する（dry-run）\n- 既存コマンドには影響しない additive な追加\n\n### 分岐の優先順位（実装ガイド）\n`--check` 指定 → dry-run 報告で終了。それ以外は導入方式・OS で自己置換可否を先に決め（source→案内 / windows→案内 / リリース版×unix→可）、可のときのみ版比較で「更新あり=置換 / 最新=no-op」に分ける。\n\n### スコープ外（MVP）\n- npm 等パッケージマネージャ管理下の確実な検出は将来課題。MVP は「リリース版バイナリで実行ファイルが書換可能」を自己置換可とみなし、npm 経由でも自己置換し得る点を既知の割り切りとする（確実な検出が付いたら案内へ切替）。\n- windows の rename トリックによる自己置換は行わず、案内に寄せる。"
-}

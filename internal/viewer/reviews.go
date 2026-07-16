@@ -14,7 +14,7 @@ func registerReviewsRoute(mux *http.ServeMux, s *store.Store) {
 }
 
 // getReviewsHandler serves GET /api/reviews: the AI-comment delivery sidecar
-// (§8.4). Reviews are written by `pmem review add` under .pmem/reviews/ —
+// (§8.4). Reviews are written by `scholia review add` under .scholia/reviews/ —
 // not records, so they go through internal/review's own reader instead of
 // store.LoadAll (§8.4 grounding: LoadAll only opens the four fixed
 // subdirectories and never sees reviews/). This is a read-only route; the

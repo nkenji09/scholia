@@ -21,8 +21,8 @@ func TestGetConfig(t *testing.T) {
 	if cfg.TagKindLabels["requirement"] != "要件" {
 		t.Fatalf("TagKindLabels[requirement] = %q, want 要件 (default)", cfg.TagKindLabels["requirement"])
 	}
-	if cfg.Display.ProductName != "pmem" {
-		t.Fatalf("Display.ProductName = %q, want pmem (default)", cfg.Display.ProductName)
+	if cfg.Display.ProductName != "scholia" {
+		t.Fatalf("Display.ProductName = %q, want scholia (default)", cfg.Display.ProductName)
 	}
 	if cfg.Display.Tagline == "" || cfg.Display.Intro == "" {
 		t.Fatalf("Display.Tagline/Intro should be seeded by default, got tagline=%q intro=%q", cfg.Display.Tagline, cfg.Display.Intro)

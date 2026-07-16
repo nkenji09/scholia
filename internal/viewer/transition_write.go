@@ -21,8 +21,8 @@ func registerTransitionWriteRoutes(mux *http.ServeMux, s *store.Store) {
 // "構造ガード"). The body carries the full desired state of the transition
 // (not a partial patch): the vocab picker always starts from the working
 // tree's current record (`GET /api/transitions/{id}` / `/api/diff`'s
-// `after`) and sends back the edited whole, mirroring `pmem tx add`'s full
-// record rather than `pmem tx edit`'s flags-changed partial update.
+// `after`) and sends back the edited whole, mirroring `scholia tx add`'s full
+// record rather than `scholia tx edit`'s flags-changed partial update.
 type transitionPostBody struct {
 	ID     string   `json:"id"`
 	Action string   `json:"action"`
@@ -38,11 +38,11 @@ type transitionPostBody struct {
 // than a derived record (decision). It is contained by three things: (1)
 // the structural guard above (vocab-id slots only, enforced by the type +
 // DisallowUnknownFields), (2) the same existence/category validation
-// `pmem tx add`/`pmem tx edit` run before `store.SaveTransition`
+// `scholia tx add`/`scholia tx edit` run before `store.SaveTransition`
 // (internal/cli/tx_add.go's checkVocabSlot, duplicated below — see
 // parseDecisionOn in decision.go for why this package can't import
 // internal/cli), and (3) git remains human-only: this handler only ever
-// touches the working tree's `.pmem/transitions/<id>.json` (uncommitted),
+// touches the working tree's `.scholia/transitions/<id>.json` (uncommitted),
 // never `git`.
 //
 // Create vs. edit is decided purely by whether body.ID already resolves
@@ -76,7 +76,7 @@ func postTransitionHandler(s *store.Store) http.HandlerFunc {
 		// ファイル名になる（store.transitionPath）。P5 前は既存 id への
 		// 上書きに限られていた（TransitionExists の事前検証が必須だっ
 		// た）ため実質無害だったが、新規 id 作成を許すここからは
-		// path-traversal（"../" 等）で `.pmem/transitions/` の外へ書ける
+		// path-traversal（"../" 等）で `.scholia/transitions/` の外へ書ける
 		// 攻撃面になる — 作成/編集どちらの経路でも弾く。
 		if !validTransitionID(body.ID) {
 			writeError(w, http.StatusBadRequest, fmt.Sprintf("id %q は不正です（'/' '\\' や '.'/'..' は使えません）", body.ID))
@@ -158,7 +158,7 @@ func dedupePreserveOrder(ids []string) []string {
 	return out
 }
 
-// validTransitionID rejects ids that could escape .pmem/transitions/ once
+// validTransitionID rejects ids that could escape .scholia/transitions/ once
 // interpolated into a filename (store.transitionPath = <id>+".json") — no
 // path separators and no bare "." / ".." segment.
 func validTransitionID(id string) bool {

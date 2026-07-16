@@ -19,7 +19,7 @@ type SpecEntry struct {
 	Decisions   []model.Decision `json:"decisions,omitempty"`
 }
 
-// SpecReport は `pmem spec <subjectTag>` の出力（派生・保存しない・§3.8）。
+// SpecReport は `scholia spec <subjectTag>` の出力（派生・保存しない・§3.8）。
 type SpecReport struct {
 	Tag     model.Tag   `json:"tag"`
 	Entries []SpecEntry `json:"entries"`

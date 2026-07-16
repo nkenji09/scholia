@@ -1,9 +1,0 @@
-{
-  "id": "req.comfortable-viewer.faceted-nav",
-  "name": "facet軸でのナビゲーション",
-  "kind": "requirement",
-  "parentIds": [
-    "req.comfortable-viewer"
-  ],
-  "description": "**As a** 大量の transition から目的のものを探したい利用者\n**I want** 主題・要件・関心などの軸を選んで、タグの入れ子構造をツリーとして辿りたい\n**so that** どの軸から見ても目的の transition に到達できる\n\n### 受け入れ基準\n- `pmem list --facet \u003ctagKind\u003e` がその kind のタグ入れ子をツリー表示する\n- ビューアでも同じ軸をUI上で切り替えられる\n- 1つのtransitionが複数タグ（多軸・多重所属）を持つ場合、どの軸からもヒットする"
-}

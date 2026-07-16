@@ -12,8 +12,8 @@ func newRefsRewriteCmd() *cobra.Command {
 	var apply, asJSON bool
 	cmd := &cobra.Command{
 		Use:   "rewrite <old-id> <new-id>",
-		Short: "ソース中の旧 id 参照を境界安全に置換する（.pmem には触れない・冪等）",
-		Long: "ソースコード中の <old-id> の出現を境界安全に <new-id> へ置換する。.pmem には一切触れない。\n" +
+		Short: "ソース中の旧 id 参照を境界安全に置換する（.scholia には触れない・冪等）",
+		Long: "ソースコード中の <old-id> の出現を境界安全に <new-id> へ置換する。.scholia には一切触れない。\n" +
 			"既定は dry-run 表示（ソース不変）、--apply で実際に書き換える。\n\n" +
 			"rename の --rewrite-refs が部分失敗した場合の再実行、およびマーカー無しで rename 済みの " +
 			"参照を後から直す場合に使う（同じ <old-id> <new-id> で再実行しても冪等）。\n\n" +

@@ -9,13 +9,13 @@ import (
 	"github.com/nkenji09/scholia/internal/index"
 )
 
-// newGapsCmd is `pmem gaps <action>` — the same internal/flow.Analyze as
-// `pmem flow`, but a focused surface that prints only gap findings
+// newGapsCmd is `scholia gaps <action>` — the same internal/flow.Analyze as
+// `scholia flow`, but a focused surface that prints only gap findings
 // (subset-shadow・抜け・重なり) and the mandatory scope-disclosure, never the
-// full condition×transition matrix (req.action-flow.axis-gaps: `pmem flow`
-// is the whole-picture view, `pmem gaps` is the holes-only view — same
+// full condition×transition matrix (req.action-flow.axis-gaps: `scholia flow`
+// is the whole-picture view, `scholia gaps` is the holes-only view — same
 // analysis, different presentation). Scope-disclosure stays mandatory even
-// here: `pmem gaps` must never print a bare "no gaps"
+// here: `scholia gaps` must never print a bare "no gaps"
 // (req.action-flow.scope-honesty).
 func newGapsCmd() *cobra.Command {
 	var asJSON bool

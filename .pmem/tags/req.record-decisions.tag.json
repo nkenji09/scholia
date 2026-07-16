@@ -1,9 +1,0 @@
-{
-  "id": "req.record-decisions.tag",
-  "name": "cross-cutting な決定をタグに刻む",
-  "kind": "requirement",
-  "parentIds": [
-    "req.record-decisions"
-  ],
-  "description": "**As a** 複数の transition にまたがる不変条件を定めた開発者\n**I want** その不変条件を tag に対する decision として記録したい\n**so that** 同じタグを持つ別の transition を変更する人が、気づかずに矛盾を作らずに済む\n\n### 受け入れ基準\n- `pmem decide --on tag:\u003cid\u003e --why ...` が成功する\n- `pmem rules --tag \u003cid\u003e` でそのタグに関わる decision が一覧できる\n- タグを介して transition A の変更時に transition B と共有する decision が surface する（実効タグ経由）"
-}

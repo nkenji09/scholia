@@ -109,8 +109,8 @@ const jsChunkResolverTemplate = `window.addEventListener('vite:preloadError', fu
   var quotes = ['"', "'", String.fromCharCode(96)];
   function resolve(spec) {
     if (Object.prototype.hasOwnProperty.call(blobUrls, spec)) return blobUrls[spec];
-    if (!Object.prototype.hasOwnProperty.call(chunks, spec)) throw new Error('pmem export: missing inlined module ' + spec);
-    if (resolving[spec]) throw new Error('pmem export: circular static import at ' + spec);
+    if (!Object.prototype.hasOwnProperty.call(chunks, spec)) throw new Error('scholia export: missing inlined module ' + spec);
+    if (resolving[spec]) throw new Error('scholia export: circular static import at ' + spec);
     resolving[spec] = true;
     var src = chunks[spec];
     for (var i = 0; i < quotes.length; i++) {
@@ -130,18 +130,18 @@ const jsChunkResolverTemplate = `window.addEventListener('vite:preloadError', fu
       // through this edge (e.g. entry --dynamic--> mermaid.core, but
       // mermaid.core and several of its own chunks --static--> entry, for
       // shared helper bindings) — eagerly resolving both directions would
-      // deadlock. window.__pmemResolve is set once, below, before entryKey
+      // deadlock. window.__scholiaResolve is set once, below, before entryKey
       // is ever resolved, so it's always available by the time any blob's
       // code actually runs.
       var reImport = new RegExp('import\\(\\s*' + q + '((?:\\.\\.?/)[^' + q + ']+\\.js)' + q + '\\s*\\)', 'g');
-      src = src.replace(reImport, function (m, dep) { return 'import(window.__pmemResolve(' + JSON.stringify(dep) + '))'; });
+      src = src.replace(reImport, function (m, dep) { return 'import(window.__scholiaResolve(' + JSON.stringify(dep) + '))'; });
     }
     delete resolving[spec];
     var url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
     blobUrls[spec] = url;
     return url;
   }
-  window.__pmemResolve = resolve;
+  window.__scholiaResolve = resolve;
   import(resolve(entryKey));
 })();`
 

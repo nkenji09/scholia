@@ -40,7 +40,7 @@ func TestCLI_DecisionCommitsBackwardCompatible(t *testing.T) {
 	}
 }
 
-// `pmem decide --commit a --commit b` で commits=[a,b] の decision が作られる。
+// `scholia decide --commit a --commit b` で commits=[a,b] の decision が作られる。
 func TestCLI_DecideWithCommitFlags(t *testing.T) {
 	dir := t.TempDir()
 	if _, err := run(t, dir, "init"); err != nil {
@@ -65,7 +65,7 @@ func TestCLI_DecideWithCommitFlags(t *testing.T) {
 	}
 }
 
-// `pmem decision add-commit` は commits[] に追加のみし、判断フィールドは不変。
+// `scholia decision add-commit` は commits[] に追加のみし、判断フィールドは不変。
 // 重複 hash は de-dupe、存在しない id はエラー。
 func TestCLI_DecisionAddCommit(t *testing.T) {
 	dir := t.TempDir()
@@ -130,7 +130,7 @@ func TestCLI_DecisionAddCommit(t *testing.T) {
 	}
 }
 
-// `pmem decision list` は decision レコードをフラットに一覧し、--on で対象を
+// `scholia decision list` は decision レコードをフラットに一覧し、--on で対象を
 // 完全一致絞り込み（祖先展開なし＝rules との違い）できる。
 func TestCLI_DecisionList(t *testing.T) {
 	dir := t.TempDir()

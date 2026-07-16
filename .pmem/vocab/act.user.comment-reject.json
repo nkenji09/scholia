@@ -1,6 +1,0 @@
-{
-  "id": "act.user.comment-reject",
-  "category": "action",
-  "label": "コメントドロワーで人コメントを Reject したとき（viewer）",
-  "kind": "user"
-}

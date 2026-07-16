@@ -1,7 +1,0 @@
-{
-  "id": "eff.state.verify-checksum",
-  "category": "effect",
-  "label": "ダウンロードしたアーカイブの sha256 を checksums.txt と照合し、一致しなければ中止する",
-  "kind": "state",
-  "owner": "pmem-core"
-}

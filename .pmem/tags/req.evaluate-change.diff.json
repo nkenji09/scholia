@@ -1,9 +1,0 @@
-{
-  "id": "req.evaluate-change.diff",
-  "name": "semantic diff で変更内容を機械的に把握する",
-  "kind": "requirement",
-  "parentIds": [
-    "req.evaluate-change"
-  ],
-  "description": "**As a** レビューする開発者/AIエージェント\n**I want** 作業ツリーと gitref の間で「何が増減したか」を意味単位（語彙/遷移/順序/decision）で見たい\n**so that** テキスト差分ではなく構造化された差分で複雑性の増分を判断できる\n\n### 受け入れ基準\n- `pmem diff` が既定で HEAD との差分を出す\n- `pmem diff \u003cgitref\u003e` で任意の ref と比較できる\n- `--json` で機械可読な出力が得られる"
-}

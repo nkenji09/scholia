@@ -1,6 +1,0 @@
-{
-  "id": "act.user.start-view",
-  "category": "action",
-  "label": "pmem view を起動する",
-  "kind": "user"
-}

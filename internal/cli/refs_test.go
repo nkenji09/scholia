@@ -18,7 +18,7 @@ func TestCLI_RefsScanListsOccurrencesForSpecificID(t *testing.T) {
 
 // TestCLI_RefsScanDoesNotSuggestNoOpRewrite covers the nit: `refs scan`'s
 // matches carry Old==New (ScanIDs' placeholder), so the human-readable
-// output must not print a useless `pmem refs rewrite req.auth req.auth
+// output must not print a useless `scholia refs rewrite req.auth req.auth
 // --apply` suggestion.
 func TestCLI_RefsScanDoesNotSuggestNoOpRewrite(t *testing.T) {
 	dir := t.TempDir()
@@ -26,7 +26,7 @@ func TestCLI_RefsScanDoesNotSuggestNoOpRewrite(t *testing.T) {
 	writeSourceFile(t, dir, "handler.go", "// see req.auth\n")
 
 	out := mustRun(t, dir, "refs", "scan", "--id", "req.auth")
-	if strings.Contains(out, "pmem refs rewrite req.auth req.auth") {
+	if strings.Contains(out, "scholia refs rewrite req.auth req.auth") {
 		t.Fatalf("expected no self-rewrite suggestion in scan output, got:\n%s", out)
 	}
 }

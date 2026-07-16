@@ -5,7 +5,7 @@ import (
 	"github.com/nkenji09/scholia/internal/store"
 )
 
-// loadIndexed reloads .pmem fresh for each request so the viewer always
+// loadIndexed reloads .scholia fresh for each request so the viewer always
 // reflects the current on-disk state, including edits made concurrently via
 // the CLI or the config PUT endpoint (§3.9: the index is disposable and
 // rebuilt on read; a small project tree makes per-request rebuild cheap

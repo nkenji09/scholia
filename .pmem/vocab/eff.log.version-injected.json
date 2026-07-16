@@ -1,7 +1,0 @@
-{
-  "id": "eff.log.version-injected",
-  "category": "effect",
-  "label": "ldflags 注入された版タグ（＋任意で commit/date/go/os-arch）を出力する",
-  "kind": "log",
-  "owner": "pmem-core"
-}

@@ -25,7 +25,7 @@ type Match struct {
 
 // FailedFile is a file Execute could not write back when apply is true.
 // Source rewriting is best-effort: a write failure here does not unwind
-// the `.pmem` rename that already committed. The file can be retried later
+// the `.scholia` rename that already committed. The file can be retried later
 // via a fresh Execute/rewrite call, which is idempotent.
 type FailedFile struct {
 	Path string `json:"path"`

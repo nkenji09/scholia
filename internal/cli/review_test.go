@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// `pmem review add` は .pmem/reviews/<id>.json を作り、`pmem review list` で読める（§8.4）。
+// `scholia review add` は .scholia/reviews/<id>.json を作り、`scholia review list` で読める（§8.4）。
 func TestCLI_ReviewAddAndList(t *testing.T) {
 	dir := t.TempDir()
 	if _, err := run(t, dir, "init"); err != nil {
@@ -51,9 +51,9 @@ func TestCLI_ReviewAddAndList(t *testing.T) {
 		t.Fatalf("recordRef が期待通りでない: %+v", added.RecordRef)
 	}
 
-	reviewPath := filepath.Join(dir, ".pmem", "reviews", added.ID+".json")
+	reviewPath := filepath.Join(dir, ".scholia", "reviews", added.ID+".json")
 	if _, err := os.Stat(reviewPath); err != nil {
-		t.Fatalf(".pmem/reviews/%s.json が生成されていない: %v", added.ID, err)
+		t.Fatalf(".scholia/reviews/%s.json が生成されていない: %v", added.ID, err)
 	}
 
 	listOut, err := run(t, dir, "review", "list", "--json")
@@ -84,7 +84,7 @@ func TestCLI_ReviewAddAndList(t *testing.T) {
 		t.Fatalf("tag:subject.auth に一致する review は無いはず: %+v", filtered)
 	}
 
-	// pmem lint はレビューの存在に無影響で緑のまま（§8.4: reviews は store.LoadAll から不可視）。
+	// scholia lint はレビューの存在に無影響で緑のまま（§8.4: reviews は store.LoadAll から不可視）。
 	// info レベルの decision-coverage 指摘（T-1 に decision 未記録）は review とは無関係で
 	// exit success のまま（lint.HasError は error レベルのみで fail させる）。
 	lintOut, err := run(t, dir, "lint")
@@ -188,10 +188,10 @@ func TestCLI_ReviewAdopt(t *testing.T) {
 		t.Fatalf("decision why = %q, want review body verbatim", d.Why)
 	}
 
-	if _, err := os.Stat(filepath.Join(dir, ".pmem", "decisions", d.ID+".json")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, ".scholia", "decisions", d.ID+".json")); err != nil {
 		t.Fatalf("decision file not written: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".pmem", "reviews", id+".json")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(dir, ".scholia", "reviews", id+".json")); !os.IsNotExist(err) {
 		t.Fatalf("review should be deleted after adopt, stat err = %v", err)
 	}
 }
@@ -215,7 +215,7 @@ func TestCLI_ReviewReject(t *testing.T) {
 	if !strings.Contains(d.Why, "却下") || !strings.Contains(d.Why, "AI: これは提案理由です") {
 		t.Fatalf("decision why = %q, want rejection prefix + review body", d.Why)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".pmem", "reviews", id+".json")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(dir, ".scholia", "reviews", id+".json")); !os.IsNotExist(err) {
 		t.Fatalf("review should be deleted after reject, stat err = %v", err)
 	}
 }
@@ -249,10 +249,10 @@ func TestCLI_ReviewRm(t *testing.T) {
 	if err != nil {
 		t.Fatalf("review rm failed: %v\noutput:\n%s", err, out)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".pmem", "reviews", id+".json")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(dir, ".scholia", "reviews", id+".json")); !os.IsNotExist(err) {
 		t.Fatalf("review should be deleted, stat err = %v", err)
 	}
-	decisionsDir := filepath.Join(dir, ".pmem", "decisions")
+	decisionsDir := filepath.Join(dir, ".scholia", "decisions")
 	entries, err := os.ReadDir(decisionsDir)
 	if err != nil && !os.IsNotExist(err) {
 		t.Fatalf("ReadDir decisions: %v", err)

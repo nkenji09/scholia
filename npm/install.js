@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// postinstall: download the pmem binary for this platform/arch from GitHub
-// Releases and drop it next to bin/pmem.js. No dependencies — Node stdlib only.
+// postinstall: download the scholia binary for this platform/arch from GitHub
+// Releases and drop it next to bin/scholia.js. No dependencies — Node stdlib only.
 //
 // NOTE (Phase 4 draft): this file is written as a complete implementation
 // per DESIGN §10-4, but is not executed or network-tested by this task —
@@ -14,15 +14,15 @@ const http = require("http");
 const https = require("https");
 const { URL } = require("url");
 
-const REPO = "nkenji09/product-memory";
-const BINARY_NAME = "pmem";
+const REPO = "nkenji09/scholia";
+const BINARY_NAME = "scholia";
 const PKG_VERSION = require("./package.json").version;
 
 const PLATFORM_MAP = { darwin: "darwin", linux: "linux", win32: "windows" };
 const ARCH_MAP = { x64: "amd64", arm64: "arm64" };
 
 function fail(message) {
-  console.error(`pmem install: ${message}`);
+  console.error(`scholia install: ${message}`);
   process.exit(1);
 }
 
@@ -81,7 +81,7 @@ function get(targetUrl, redirectsLeft = 5) {
     if (!proxy) {
       const client = targetUrl.protocol === "https:" ? https : http;
       client
-        .get(targetUrl, { headers: { "user-agent": "product-memory-npm-installer" } }, onResponse)
+        .get(targetUrl, { headers: { "user-agent": "scholia-npm-installer" } }, onResponse)
         .on("error", reject);
       return;
     }
@@ -103,7 +103,7 @@ function get(targetUrl, redirectsLeft = 5) {
       https
         .get(
           targetUrl,
-          { socket: tlsSocket, agent: false, headers: { "user-agent": "product-memory-npm-installer" } },
+          { socket: tlsSocket, agent: false, headers: { "user-agent": "scholia-npm-installer" } },
           onResponse
         )
         .on("error", reject);
@@ -185,7 +185,7 @@ async function main() {
     `https://github.com/${REPO}/releases/download/${tag}/${archiveName}`
   );
 
-  console.log(`pmem install: downloading ${url}`);
+  console.log(`scholia install: downloading ${url}`);
   let archive;
   try {
     archive = await get(url);
@@ -210,7 +210,7 @@ async function main() {
   fs.mkdirSync(outDir, { recursive: true });
   const outPath = path.join(outDir, binaryFile);
   fs.writeFileSync(outPath, binaryData, { mode: 0o755 });
-  console.log(`pmem install: installed ${outPath}`);
+  console.log(`scholia install: installed ${outPath}`);
 }
 
 main().catch((err) => fail(err.message));
