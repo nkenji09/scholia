@@ -149,7 +149,7 @@ pmem skills install            # <cwd>/.claude/skills/ へ（既定）
 pmem skills install --user     # ~/.claude/skills/ へ
 ```
 
-どちらも**単一ソース**（`agents/skills/`）を配布する。プラグインはマーケットプレイス経由で、`pmem skills install` はバイナリの `//go:embed` 由来で、同じスキルを届ける。プラグイン版（`agents/.claude-plugin/plugin.json`）は CLI のリリース版とは独立に管理する。
+どちらも**単一ソース**（`agents/skills/`）を配布する。プラグインはマーケットプレイス経由で、`pmem skills install` はバイナリの `//go:embed` 由来で、同じスキルを届ける。スキル（`agents/` 配下）に変更を含むリリースでは、プラグイン版（`agents/.claude-plugin/plugin.json`）の version をそのリリースタグに揃える（詳細は [RELEASING.md](RELEASING.md)）。
 
 ## ライセンス
 
