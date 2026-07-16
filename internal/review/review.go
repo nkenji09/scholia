@@ -83,6 +83,41 @@ func Add(pmemDir string, r Review) error {
 	return nil
 }
 
+// Get reads a single review by id. It errors if the review doesn't exist
+// (cond.review-exists — adopt/reject/rm all check this before acting on an
+// id, so a clear "does not exist" error is what callers surface, not a raw
+// os.ErrNotExist).
+func Get(pmemDir, id string) (Review, error) {
+	data, err := os.ReadFile(path(pmemDir, id))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return Review{}, fmt.Errorf("review %q が実在しません", id)
+		}
+		return Review{}, err
+	}
+	var r Review
+	if err := json.Unmarshal(data, &r); err != nil {
+		return Review{}, fmt.Errorf("%s: %w", id, err)
+	}
+	return r, nil
+}
+
+// Delete removes pmemDir/reviews/<id>.json. It errors if the review doesn't
+// exist (cond.review-exists) — adopt/reject call this only after the
+// decision it's being folded into has already been saved (§8.4/#35
+// T-review-adopt/-reject: append-decision then delete-review, in that
+// order, so a proposal's why is never lost); rm calls it directly as the
+// escape hatch (T-cli-review-rm: delete with no decision left behind).
+func Delete(pmemDir, id string) error {
+	if err := os.Remove(path(pmemDir, id)); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("review %q が実在しません", id)
+		}
+		return err
+	}
+	return nil
+}
+
 // List reads every review under pmemDir/reviews/, sorted by id (which sorts
 // chronologically for ULIDs). A missing reviews/ directory is not an error —
 // it just means no review has been written yet.

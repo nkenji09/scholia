@@ -196,6 +196,14 @@ export const api = {
   // な」は人コメント永続化の制約であり、この別系統 read には適用されない）。
   getReviews: () => (staticData ? staticUnavailable(DICTS[loadLang()].api.reviews) : request<Review[]>('/api/reviews')),
 
+  // 昇格元コメント掃除（#35・T-review-adopt/-reject の後半）— postDecision が
+  // 成功した後にだけ呼ぶ（先に消すと why を失う）。deleteTransition と同じ
+  // 流儀: static export は書込不可なので常に非対応。
+  deleteReview: (id: string) => {
+    if (staticData) return staticUnavailable(DICTS[loadLang()].api.reviewDelete);
+    return request<{ id: string }>(`/api/reviews/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  },
+
   // 採用（change-cockpit-design-v3.md §1/§8.5・G-1 承認済み）— viewer の書込は
   // PUT /api/config・これ・putTransition（下）の3本のみ（§7 narrow rule）。
   // static export は書込不可なので常に非対応（putConfig と同じ流儀）。

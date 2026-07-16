@@ -59,8 +59,8 @@ export function CommentPanel({ onGoto }: Props) {
     setReplyDraft,
     addReply,
     deleteReply,
-    adoptLocalComment,
-    adoptReview,
+    bindReviewDecision,
+    removeReview,
     getDecision,
     cacheDecision,
     copyMsg,
@@ -110,29 +110,42 @@ export function CommentPanel({ onGoto }: Props) {
     }
   };
 
-  // 採用（change-cockpit-design-v3.md §8.5・P4）: どのコメントを採用中かの
+  // 採用/却下（change-cockpit-design-v3.md §8.5・P4／#35 T-review-adopt/
+  // -reject・T-comment-adopt/-reject）: どのコメントを採用/却下中かの
   // ローカル UI 状態。why の下書きは POST 成功まで確定しない（P-1: 未コミッ
-  // トの下書き合成）ので useComments 側の state ではなくここに置く。
-  const [adoptingId, setAdoptingId] = useState<string | null>(null);
-  const [adoptDraft, setAdoptDraft] = useState('');
-  const [adopting, setAdopting] = useState(false);
-  const [adoptError, setAdoptError] = useState<string | null>(null);
+  // トの下書き合成）ので useComments 側の state ではなくここに置く。adopt
+  // と reject は「decision 昇格＋昇格元コメント削除」という同じ束ね操作で、
+  // decision の中身（採用の why／却下の理由）だけが違う — 1組の state で
+  // どちらを処理中か（decidingKind）を持たせて分岐する。
+  const [decidingId, setDecidingId] = useState<string | null>(null);
+  const [decidingKind, setDecidingKind] = useState<'adopt' | 'reject' | null>(null);
+  const [decideDraft, setDecideDraft] = useState('');
+  const [deciding, setDeciding] = useState(false);
+  const [decideError, setDecideError] = useState<string | null>(null);
 
   const startAdopt = (c: DisplayComment) => {
-    setAdoptingId(c.id);
-    setAdoptDraft(c.text);
-    setAdoptError(null);
+    setDecidingId(c.id);
+    setDecidingKind('adopt');
+    setDecideDraft(c.text);
+    setDecideError(null);
   };
-  const cancelAdopt = () => {
-    setAdoptingId(null);
-    setAdoptDraft('');
-    setAdoptError(null);
+  const startReject = (c: DisplayComment) => {
+    setDecidingId(c.id);
+    setDecidingKind('reject');
+    setDecideDraft(t.comments.rejectWhyDraft(c.text));
+    setDecideError(null);
   };
-  const confirmAdopt = async (c: DisplayComment) => {
-    const why = adoptDraft.trim();
+  const cancelDecide = () => {
+    setDecidingId(null);
+    setDecidingKind(null);
+    setDecideDraft('');
+    setDecideError(null);
+  };
+  const confirmDecide = async (c: DisplayComment) => {
+    const why = decideDraft.trim();
     if (!why) return;
-    setAdopting(true);
-    setAdoptError(null);
+    setDeciding(true);
+    setDecideError(null);
     try {
       const decision = await api.postDecision({ on: `${c.recordType}:${c.recordId}`, why, commits: [] });
       // レビュー major fix-back（#27 P5b）: consider() の reload 専用
@@ -140,14 +153,25 @@ export function CommentPanel({ onGoto }: Props) {
       // キャッシュへ入れる — 「採用された why」表示が編集前の AI 原文/
       // 旧 text で固まらないようにする（transition/tag 共通）。
       cacheDecision(decision);
-      if (c.source === 'ai') adoptReview(c.id, decision.id);
-      else adoptLocalComment(c.id, decision.id, why);
-      setAdoptingId(null);
-      setAdoptDraft('');
+      // 昇格元コメント掃除（#35）: 削除は必ず昇格の後（then の順序）。
+      if (c.source === 'ai') {
+        // bindReviewDecision を先に呼んでおく — 直後の DELETE が失敗しても
+        // decisionId は残るので、その review は「昇格済み」表示のまま留まり
+        // 二重に decision を作られない（削除は再操作/`pmem review rm` 等で
+        // 後追いできる）。
+        bindReviewDecision(c.id, decision.id);
+        await api.deleteReview(c.id);
+        removeReview(c.id);
+      } else {
+        deleteComment(c.id);
+      }
+      setDecidingId(null);
+      setDecidingKind(null);
+      setDecideDraft('');
     } catch (e) {
-      setAdoptError(e instanceof ApiError ? e.message : String(e));
+      setDecideError(e instanceof ApiError ? e.message : String(e));
     } finally {
-      setAdopting(false);
+      setDeciding(false);
     }
   };
 
@@ -405,35 +429,43 @@ export function CommentPanel({ onGoto }: Props) {
                   </div>
                 )}
 
-                {/* 採用（§8.5・P4）: 唯一の書込導線。static export は書込不可
-                    なので導線ごと隠す（handoff「static では非活性/非表示」）。 */}
-                {isProposal && isAdoptable && !isStaticMode && !adopted && adoptingId !== c.id && (
-                  <button type="button" class="comment-adopt-btn" onClick={() => startAdopt(c)}>
-                    <Icon name="gavel" size={13} /> {t.comments.adoptButton}
-                  </button>
+                {/* 採用/却下（§8.5・P4／#35）: 唯一の書込導線。static export
+                    は書込不可なので Adopt/Reject 双方の導線ごと隠す
+                    （handoff「静的モード gate...新設 Reject 導線にも継承」）。 */}
+                {isProposal && isAdoptable && !isStaticMode && !adopted && decidingId !== c.id && (
+                  <div class="comment-adopt-form-actions">
+                    <button type="button" class="comment-adopt-btn" onClick={() => startAdopt(c)}>
+                      <Icon name="gavel" size={13} /> {t.comments.adoptButton}
+                    </button>
+                    <button type="button" class="comment-reject-btn" onClick={() => startReject(c)}>
+                      <Icon name="x" size={13} /> {t.comments.rejectButton}
+                    </button>
+                  </div>
                 )}
 
-                {isProposal && isAdoptable && adoptingId === c.id && (
-                  <div class="comment-adopt-form">
-                    <div class="comment-adopt-form-label">{t.comments.adoptWhyLabel}</div>
+                {isProposal && isAdoptable && decidingId === c.id && (
+                  <div class={decidingKind === 'reject' ? 'comment-reject-form' : 'comment-adopt-form'}>
+                    <div class="comment-adopt-form-label">
+                      {decidingKind === 'reject' ? t.comments.rejectWhyLabel : t.comments.adoptWhyLabel}
+                    </div>
                     <textarea
                       class="comment-adopt-form-input"
                       rows={3}
-                      value={adoptDraft}
-                      disabled={adopting}
-                      onInput={(e) => setAdoptDraft((e.target as HTMLTextAreaElement).value)}
+                      value={decideDraft}
+                      disabled={deciding}
+                      onInput={(e) => setDecideDraft((e.target as HTMLTextAreaElement).value)}
                     />
-                    {adoptError && <p class="comment-adopt-error">{adoptError}</p>}
+                    {decideError && <p class="comment-adopt-error">{decideError}</p>}
                     <div class="comment-adopt-form-actions">
                       <button
                         type="button"
-                        class="comment-btn-primary"
-                        onClick={() => confirmAdopt(c)}
-                        disabled={adopting || !adoptDraft.trim()}
+                        class={decidingKind === 'reject' ? 'comment-btn-danger' : 'comment-btn-primary'}
+                        onClick={() => confirmDecide(c)}
+                        disabled={deciding || !decideDraft.trim()}
                       >
-                        <Icon name="check" size={14} /> {t.comments.adoptConfirm}
+                        <Icon name="check" size={14} /> {decidingKind === 'reject' ? t.comments.rejectConfirm : t.comments.adoptConfirm}
                       </button>
-                      <button type="button" class="comment-btn-secondary" onClick={cancelAdopt} disabled={adopting}>
+                      <button type="button" class="comment-btn-secondary" onClick={cancelDecide} disabled={deciding}>
                         {t.common.cancel}
                       </button>
                     </div>

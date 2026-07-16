@@ -16,6 +16,12 @@ interface Reviews {
       しない（この Provider に依存しないため）。 */
   unavailable: 'static' | 'error' | null;
   reviews: Review[];
+  // 昇格元コメント掃除（#35・T-review-adopt/-reject）: DELETE /api/reviews/
+  // {id} が成功した直後、再フェッチを待たずローカル state から即座に
+  // 落とす — useComments.tsx の merged comment list からその場で消える
+  // （pendingDiff.tsx の refresh 系と違い、削除は id 単位で分かっているので
+  // 全件再取得は不要）。
+  removeReview: (id: string) => void;
 }
 
 const ReviewsContext = createContext<Reviews | null>(null);
@@ -44,7 +50,9 @@ export function ReviewsProvider({ children }: { children: ComponentChildren }) {
       });
   }, []);
 
-  const value: Reviews = { ready, unavailable, reviews };
+  const removeReview = (id: string) => setReviews((prev) => prev.filter((r) => r.id !== id));
+
+  const value: Reviews = { ready, unavailable, reviews, removeReview };
   return <ReviewsContext.Provider value={value}>{children}</ReviewsContext.Provider>;
 }
 

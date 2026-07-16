@@ -47,3 +47,40 @@ func TestGetReviews(t *testing.T) {
 		t.Fatalf("LoadAll should be unaffected by reviews/: got %d decisions", len(snap.Decisions))
 	}
 }
+
+// DELETE /api/reviews/{id} は adopt/reject の掃除ステップ（§35）—
+// review を削除し、以後 GET /api/reviews から消える。
+func TestDeleteReview(t *testing.T) {
+	h, s := newTestHandler(t)
+
+	if err := review.Add(s.Dir, review.Review{
+		ID:        "r-1",
+		RecordRef: review.RecordRef{Type: review.RecordTypeTag, ID: "subject.auth"},
+		Body:      "AI: これはテスト提案の理由",
+		Source:    review.SourceAI,
+		CreatedAt: "2026-01-01T00:00:00Z",
+	}); err != nil {
+		t.Fatalf("review.Add: %v", err)
+	}
+
+	rec := doRequest(t, h, http.MethodDelete, "/api/reviews/r-1", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doRequest(t, h, http.MethodGet, "/api/reviews", nil)
+	got := decodeJSON[[]review.Review](t, rec)
+	if len(got) != 0 {
+		t.Fatalf("review should be gone after delete: %+v", got)
+	}
+}
+
+// 存在しない id への DELETE は 404。
+func TestDeleteReview_MissingIsNotFound(t *testing.T) {
+	h, _ := newTestHandler(t)
+
+	rec := doRequest(t, h, http.MethodDelete, "/api/reviews/does-not-exist", nil)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404: %s", rec.Code, rec.Body.String())
+	}
+}

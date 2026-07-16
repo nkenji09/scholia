@@ -147,8 +147,14 @@ interface CommentsValue {
   setReplyDraft: (commentId: string, text: string) => void;
   addReply: (commentId: string) => void;
   deleteReply: (commentId: string, replyId: string) => void;
-  adoptLocalComment: (commentId: string, decisionId: string, finalWhy: string) => void;
-  adoptReview: (reviewId: string, decisionId: string) => void;
+  // 昇格元コメント掃除（#35・T-review-adopt/-reject/T-comment-adopt/-reject）:
+  // decision 昇格が成功した直後だけ呼ぶ、順序固定の後始末。人コメントは
+  // localStorage からの削除（同期・失敗しない）、AI review は DELETE
+  // /api/reviews/{id}（非同期・失敗しうる — 失敗時は bindReviewDecision で
+  // 付けた decisionId が残るので、削除できなかった review も「昇格済み」
+  // として表示され、二重に decision を作られることはない）。
+  bindReviewDecision: (reviewId: string, decisionId: string) => void;
+  removeReview: (reviewId: string) => void;
   getDecision: (decisionId: string) => Decision | undefined;
   cacheDecision: (decision: Decision) => void;
   copyMsg: boolean;
@@ -319,7 +325,7 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
   // recordType:recordId の複合キー（tx と tag の id 名前空間衝突を避ける）。
   const [fetchedRecordKeys, setFetchedRecordKeys] = useState<Set<string>>(new Set());
 
-  const { reviews } = useReviews();
+  const { reviews, removeReview } = useReviews();
   const { transitionLabel, vocabLabel, tagName } = useLookups();
 
   useEffect(() => {
@@ -515,23 +521,14 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
     });
   };
 
-  // 採用（§8.5・P4）: 人の提案コメントを decision へ昇格したあとの結線。
-  // finalWhy は採用ダイアログで確定した why（§8.1「人の提案コメントはコメン
-  // ト編集がそのまま why 編集」— 昇格時に本文へも反映し、以後 comment.text と
-  // decision.why が食い違わないようにする）。decisionId が付いた以降、この
-  // コメントは表示上フリーズする（CommentPanel 側で編集/削除ボタンを隠す）。
-  const adoptLocalComment = (commentId: string, decisionId: string, finalWhy: string) => {
-    setComments((prev) => {
-      const next = prev.map((c) => (c.id === commentId ? { ...c, text: finalWhy, decisionId, updatedAt: Date.now() } : c));
-      persist(next);
-      return next;
-    });
-  };
-
-  // 採用（§8.5・P4）: AI 提案コメント（read-only サイドカー）の decision 結線
-  // は pmem-review-bindings-v1 側に置く（本文自体は AI が書いた
-  // .pmem/reviews/ のまま・viewer からは変更できない）。
-  const adoptReview = (reviewId: string, decisionId: string) => {
+  // 採用/却下（§8.5・P4／#35 T-review-adopt/-reject）: AI 提案コメント
+  // （read-only サイドカー）の decision 結線は pmem-review-bindings-v1 側に
+  // 置く（本文自体は AI が書いた .pmem/reviews/ のまま・viewer からは変更
+  // できない）。CommentPanel は decision 昇格（POST /api/decision）が成功
+  // した直後にこれを呼んでから DELETE /api/reviews/{id} を叩く — 削除が
+  // 失敗しても decisionId は残るので、その review は以後「昇格済み」表示
+  // のまま留まり、再操作で decision が二重に作られることはない。
+  const bindReviewDecision = (reviewId: string, decisionId: string) => {
     setReviewBindings((prev) => {
       const next = { ...prev, [reviewId]: { ...prev[reviewId], decisionId } };
       persistReviewBindings(next);
@@ -633,8 +630,8 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
     setReplyDraft,
     addReply,
     deleteReply,
-    adoptLocalComment,
-    adoptReview,
+    bindReviewDecision,
+    removeReview,
     getDecision,
     cacheDecision,
     copyMsg,

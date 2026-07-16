@@ -43,6 +43,57 @@ func TestAddThenList(t *testing.T) {
 	}
 }
 
+func TestGet(t *testing.T) {
+	dir := t.TempDir()
+	r := Review{
+		ID:        "r-1",
+		RecordRef: RecordRef{Type: RecordTypeTransition, ID: "T-1"},
+		Body:      "why",
+		Source:    SourceAI,
+		CreatedAt: "2026-01-01T00:00:00Z",
+	}
+	if err := Add(dir, r); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+
+	got, err := Get(dir, "r-1")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got != r {
+		t.Fatalf("Get = %+v, want %+v", got, r)
+	}
+}
+
+func TestGet_MissingIsError(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := Get(dir, "does-not-exist"); err == nil {
+		t.Fatalf("expected error for missing review")
+	}
+}
+
+func TestDelete(t *testing.T) {
+	dir := t.TempDir()
+	r := Review{ID: "r-1", RecordRef: RecordRef{Type: RecordTypeTransition, ID: "T-1"}, Body: "why", Source: SourceAI}
+	if err := Add(dir, r); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+
+	if err := Delete(dir, "r-1"); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "reviews", "r-1.json")); !os.IsNotExist(err) {
+		t.Fatalf("reviews/r-1.json should be gone, stat err = %v", err)
+	}
+}
+
+func TestDelete_MissingIsError(t *testing.T) {
+	dir := t.TempDir()
+	if err := Delete(dir, "does-not-exist"); err == nil {
+		t.Fatalf("expected error deleting a nonexistent review")
+	}
+}
+
 func TestList_SortedByID(t *testing.T) {
 	dir := t.TempDir()
 	for _, id := range []string{"r-2", "r-1", "r-3"} {

@@ -243,6 +243,12 @@ const ja = {
     adoptedBadge: '採用済み',
     adoptedWhyHeading: '採用された why（decision）',
     adoptedNote: 'この提案は decision として記録されました（commits[] は空）。commit 後は `pmem decision add-commit <id> <hash>` で結線してください。',
+    // 却下（#35・T-review-reject/T-comment-reject）— 採用と対称の束ね操作。
+    // decision として記録した上で昇格元コメントを削除する点は採用と同じ。
+    rejectButton: '却下',
+    rejectWhyLabel: '却下理由（decision として記録されます）',
+    rejectConfirm: '却下を確定',
+    rejectWhyDraft: (text: string) => `却下: ${text}`,
     // #27 P3: 語彙ピッカー（change-cockpit-design-v3.md §3/§1 (Wp)・G-1′）。
     // 既存 vocab/tag から選ぶだけ — 自由記述の入力欄は無い（構造ガード）。
     pickerAddButton: '語彙を選ぶ',
@@ -333,6 +339,7 @@ const ja = {
     diff: '差分（diff）',
     reviews: 'AI コメント',
     decisionAdopt: '採用（decision の記録）',
+    reviewDelete: '提案コメントの削除（採用/却下の掃除）',
     transitionEdit: '提案の手直し（語彙ピッカー）',
     transitionCreate: '新規 Transition の提案',
     transitionDelete: 'Transition の削除提案',
@@ -496,6 +503,10 @@ const en: Strings = {
     adoptedBadge: 'Adopted',
     adoptedWhyHeading: 'Adopted why (decision)',
     adoptedNote: 'This proposal was recorded as a decision (commits[] is empty). After committing, link it with `pmem decision add-commit <id> <hash>`.',
+    rejectButton: 'Reject',
+    rejectWhyLabel: 'Rejection reason (will be recorded as a decision)',
+    rejectConfirm: 'Confirm rejection',
+    rejectWhyDraft: (text: string) => `Rejected: ${text}`,
     pickerAddButton: 'Add vocab',
     pickerSearchPlaceholder: 'Search vocab…',
     pickerEmpty: 'No matches',
@@ -600,6 +611,7 @@ const en: Strings = {
     diff: 'the diff',
     reviews: 'AI comments',
     decisionAdopt: 'adopting (recording a decision)',
+    reviewDelete: 'deleting a review (adopt/reject cleanup)',
     transitionEdit: 'editing the proposal (vocab picker)',
     transitionCreate: 'proposing a new transition',
     transitionDelete: 'proposing a transition deletion',

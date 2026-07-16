@@ -859,6 +859,35 @@
   border-radius: var(--r-md);
 }
 
+/* 却下（#35・T-review-reject/T-comment-reject）— 採用と対称。束ね操作
+   （decision 昇格＋昇格元コメント削除）は同一で、色味だけ success→error に
+   変える。フォーム内部（label/input/actions/error）は .comment-adopt-form-*
+   をそのまま流用する（構造は同じ・枠の色だけここで変える）。 */
+.comment-reject-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--lm-error);
+  background: var(--lm-error-weak);
+  color: var(--lm-error);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+}
+
+.comment-reject-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: var(--sp-3);
+  background: var(--lm-s2);
+  border: 1px solid var(--lm-error);
+  border-radius: var(--r-md);
+}
+
 .comment-adopt-form-label {
   font-size: var(--fs-3xs);
   font-weight: 700;
