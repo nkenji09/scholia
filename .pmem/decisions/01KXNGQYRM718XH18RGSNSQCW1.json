@@ -1,0 +1,9 @@
+{
+  "id": "01KXNGQYRM718XH18RGSNSQCW1",
+  "target": {
+    "type": "tag",
+    "id": "req.action-flow.scope-honesty"
+  },
+  "why": "[#40 ① 精緻化（B精緻化）] 「宣言軸 0 件」表示の原因切り分け\n\n対象: req.action-flow.scope-honesty（挙動は共有 emit `eff.emit.scope-disclosure`＝T-flow-matrix-scope / T-viewer-action-flow-render が then で持つ）。本 review と対で、`eff.emit.scope-disclosure` の description に (a)/(b) 区別要件を pending 変更として着地済み。\n\nWHY: scope-honesty の根拠 decision 01KXMGH6N6HTDVYFT9JBK6A7S9 は「素の no gaps 禁止・保証の外を必ず印字＝false confidence を作る道具を信頼できる道具に変える唯一の修正」。現状 `text.go writeAxesSection()`（internal/flow/text.go:58-60）は len(Axes)==0 のとき単一文言（「この action の given に axis タグを持つ条件がありません＝軸注釈による gap 検出は範囲外」）を出すが、これは2つの異なる状態を潰している — (a) store に kind=\"axis\" タグ自体が未宣言／(b) 軸タグ・条件語彙はあるが this action のどの transition の given にも軸条件が載っていない。同じ文言のままだと「軸で何も検出できない理由」が隠れ、残余 false confidence になる。原因別ヒントで actionable にするのは scope-honesty の delta 精緻化であり、過去 decision と整合（矛盾なし）。\n\n(a)/(b) の判定可能性: (a) は store 内 kind=\"axis\" タグ数==0（ix.TagByID を kind で数える）、(b) は axis タグ\u003e0 だが relevantAxes(conditionUniverse) が空、で len(Axes)==0 の分岐点でその場で判定できる（新規モデル・新規 transition 不要）。\n\nadopt 後の実装（コード）: analyze.go で 0 軸時の原因 enum（none-declared / not-on-this-action）を Report に足し、text.go writeAxesSection と viewer 側レンダを共有 emit の契約どおり原因別ヒント表示に分岐。DESIGN の scope-disclosure 記述に (a)/(b) を追記。",
+  "at": "2026-07-16T13:09:35Z"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "01KXNGQYS14G2XPDW19Y8JGX4B",
+  "target": {
+    "type": "tag",
+    "id": "req.action-flow.axis-gaps"
+  },
+  "why": "[#40 ③ 精緻化（B精緻化・doc のみ）] 「軸を張る action は単一 owner の相互排他分岐」の前提明記\n\n対象: req.action-flow.axis-gaps（overlap 検出の前提。DESIGN への前提明記＝adopt 後に着地）。\n\nWHY: axis-gaps の根拠 decision 01KXMGGD6T0173DZ6HGM0ZVNZ9 は overlap（宣言条件付き pairwise-disjointness）を「宣言軸に相対的に sound な ambiguity」として買う。しかし per-action 解析 `transitionsForAction`（internal/flow/analyze.go:192-201）は owner を区別せず、同一 action を複数 owner の transition が共有すると同一 cell を複数 transition が覆い、`overlaps`（analyze.go:481）が偽の Overlap（重なり）を出す。\n\n⚠️重要な事実（grounding 済）: Transition に owner フィールドは無い（model.go:12-18＝ID/Action/Given/Then/Tags のみ）。owner は effect の VocabEntry.Owner（model.go:28）だけ。∴ transition の owner は then 効果の owner から導出するしかなく一意に定まらない。よって今回は lint（multiple-owner-action）は実装しない — owner 導出設計を詰めてからの別提案とする。\n\n今回のスコープ: DESIGN に「軸を張る action は単一 owner の相互排他分岐であることを前提とする（複数 owner に共有される action は軸分析の対象外）」と前提を明記する精緻化のみ。axis-gaps decision の「同一軸の複数値の同時 given・total 軸の値未 materialize を lint で監視するのが前提条件」と方向整合（lint 化＝その前提の機械監視の一環だが owner 導出が未設計ゆえ後回し）。過去 decision と整合（矛盾なし）。\n\nadopt 後の実装（doc のみ）: DESIGN §3.4/§7.1 付近に前提を1段落。lint 追加はしない。",
+  "at": "2026-07-16T13:09:35Z"
+}
