@@ -6,7 +6,7 @@ import { Chip, kindColor } from '../shared/Chip';
 import { CommentButton } from '../comments/CommentButton';
 import { useComments } from '../comments/useComments';
 import { Icon } from '../shared/Icon';
-import { KebabMenu } from '../shared/KebabMenu';
+import { KebabMenu, type KebabMenuItem } from '../shared/KebabMenu';
 import { routeHash } from '../../router';
 import { CollapsibleSection } from '../shared/CollapsibleSection';
 
@@ -35,17 +35,16 @@ interface Props {
 //   - 「リンク先を開く」= その tag/vocab の詳細。既定で別タブ（実 <a target=_blank
 //     rel=noopener>）— レビュー中に現在の仕様ビューを保ったまま参照先を覗ける用途。
 //     Cmd/中/右クリックも従来どおり機能し、別タブ側で deep-linking が復元する。
-function SpecAffordanceMenu({ onFilter, detailHref }: { onFilter: () => void; detailHref: string }) {
+function SpecAffordanceMenu({ onFilter, detailHref, flowHref }: { onFilter: () => void; detailHref: string; flowHref?: string }) {
   const t = useT();
-  return (
-    <KebabMenu
-      triggerLabel={t.browse.menuTrigger}
-      items={[
-        { key: 'filter', label: t.browse.menuAddFilter, icon: 'plus', onSelect: onFilter },
-        { key: 'open', label: t.browse.menuOpenLink, icon: 'external-link', href: detailHref },
-      ]}
-    />
-  );
+  const items: KebabMenuItem[] = [
+    { key: 'filter', label: t.browse.menuAddFilter, icon: 'plus', onSelect: onFilter },
+    { key: 'open', label: t.browse.menuOpenLink, icon: 'external-link', href: detailHref },
+  ];
+  // action-scoped only (T-viewer-action-flow-link): a third item that opens
+  // #/flow/<action> in a new tab. Present at the action call site alone.
+  if (flowHref) items.push({ key: 'flow', label: t.flow.menuShowFlow, icon: 'git-fork', href: flowHref });
+  return <KebabMenu triggerLabel={t.browse.menuTrigger} items={items} />;
 }
 
 export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab, onFilterTag }: Props) {
@@ -123,7 +122,11 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
         </div>
         <div class="spec-card-action">
           <span class="spec-card-action-label">{detail.actionLabel || detail.action}</span>
-          <SpecAffordanceMenu onFilter={() => onFilterVocab(detail.action)} detailHref={routeHash({ view: 'vocab', vocabId: detail.action })} />
+          <SpecAffordanceMenu
+            onFilter={() => onFilterVocab(detail.action)}
+            detailHref={routeHash({ view: 'vocab', vocabId: detail.action })}
+            flowHref={routeHash({ view: 'flow', actionId: detail.action })}
+          />
         </div>
       </div>
 

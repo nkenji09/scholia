@@ -20,5 +20,6 @@
 @import './styles/views/vocab.css';
 @import './styles/views/config.css';
 @import './styles/views/comments.css';
+@import './styles/views/flow.css';
 
 @import './styles/markdown.css';

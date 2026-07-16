@@ -1,0 +1,183 @@
+/* #/flow/<action> — action-scoped flow diagram view
+   (T-viewer-action-flow-render). Honesty-first: every section states its own
+   scope; gap/overlap/subset-shadow signals use an alarming-but-not-garish
+   warm palette distinct from the neutral trigger/given/result colors. */
+
+.flow-view {
+  padding: var(--sp-6) var(--sp-4) var(--sp-8);
+  overflow-y: auto;
+  max-width: 940px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.flow-view.dim,
+.flow-view.error {
+  padding: var(--sp-8) var(--sp-4);
+  color: var(--lm-text-dim);
+}
+.flow-view.error {
+  color: var(--lm-error);
+}
+
+.flow-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+.flow-header h1 {
+  margin: 0;
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--lm-text-strong);
+}
+.flow-action-id {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-2xs);
+}
+
+.flow-section {
+  border: 1px solid var(--lm-border);
+  background: var(--lm-s1);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.flow-section-heading {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--lm-text-strong);
+}
+
+.flow-conditions {
+  margin: 0;
+  font-size: var(--fs-xs);
+}
+
+.flow-empty {
+  margin: 0;
+}
+
+/* ── Matrix table ── */
+.flow-matrix-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.flow-matrix {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--fs-xs);
+}
+.flow-matrix th,
+.flow-matrix td {
+  border: 1px solid var(--lm-border);
+  padding: var(--sp-2) var(--sp-3);
+  text-align: left;
+  vertical-align: top;
+}
+.flow-matrix th {
+  background: var(--lm-s2);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.flow-tx-link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--lm-primary);
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-2xs);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.flow-tx-link:hover {
+  color: var(--lm-primary-strong);
+}
+
+/* ── Mermaid diagram ── */
+.flow-diagram {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.flow-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+.flow-node-clickable {
+  cursor: pointer;
+}
+.flow-node-clickable:hover {
+  filter: brightness(0.96);
+}
+
+/* ── Scope disclosure (always rendered) ── */
+.flow-scope {
+  border-color: var(--lm-border-strong);
+}
+.flow-scope-row {
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+}
+
+.flow-signal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+.flow-signal-heading {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--lm-text-strong);
+}
+.flow-signal ul {
+  margin: 0;
+  padding-left: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+.flow-signal li {
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}
+
+/* warm signal colors — alarming but not garish. */
+.flow-signal-gap {
+  color: var(--lm-error);
+}
+.flow-signal-overlap {
+  color: var(--lm-warning);
+}
+.flow-signal-subset {
+  color: var(--lm-error);
+}
+
+.flow-axes-empty {
+  margin: 0;
+  font-size: var(--fs-xs);
+}
+
+.flow-out-of-guarantee {
+  margin: var(--sp-2) 0 0;
+  padding-left: var(--sp-5);
+  border-top: 1px dashed var(--lm-border);
+  padding-top: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+.flow-out-of-guarantee li {
+  font-size: var(--fs-2xs);
+  color: var(--lm-text-muted);
+  line-height: 1.5;
+}

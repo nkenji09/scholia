@@ -102,6 +102,43 @@ const ja = {
     result: FLOW_RESULT_JA,
     noResult: '（結果なし）',
     noGiven: '無条件（前提なし）',
+    // action の ⋮ メニュー項目（T-viewer-action-flow-link）。別タブでフロー図を開く。
+    menuShowFlow: 'フロー図を表示',
+    // #/flow/<action> ビュー（T-viewer-action-flow-render）。見出し・空表示・
+    // キャプションは internal/flow/text.go の CLI 文言に揃える（UI 一貫性）。
+    viewTitle: (label: string) => `${label} のフロー`,
+    loading: '読み込み中…',
+    emptyAction: 'この action を持つ遷移はありません。',
+    // マトリクス節（可視化・網羅を主張しない）。
+    matrixHeading: 'マトリクス（可視化・網羅を主張しない）',
+    matrixConditionsLabel: '条件',
+    matrixNoConditions: '（given 条件なし）',
+    // 図（transition ノード・抜け/重なり/subset-shadow のマーカー）。
+    diagramHeading: '図（クリックで遷移詳細へ）',
+    diagramNoTransitions: '（描画する遷移がありません）',
+    diagramError: '図の描画に失敗しました。',
+    // subset-shadow（証明可能な重複）。
+    subsetShadowHeading: (n: number) => `subset-shadow（証明可能な重複）: ${n} 件`,
+    subsetShadowRow: (subset: string, superset: string) => `${subset} ⊊ ${superset}: ${superset} が発火する world では ${subset} も必ず発火します（優先順位未定義）`,
+    // 抜け（L-total・唯一 clean に sound）。
+    totalGapsHeading: (n: number) => `抜け（L-total・唯一 clean に sound）: ${n} 件`,
+    totalGapRow: (axisId: string, value: string) => `軸 ${axisId}: 値 ${value} を given に持つ遷移が1つもありません`,
+    // 重なり（宣言軸に相対的に sound な ambiguity）。
+    overlapsHeading: (n: number) => `重なり（宣言軸に相対的に sound な ambiguity）: ${n} 件`,
+    overlapRow: (cell: string, txs: string) => `cell ${cell}: ${txs} が同じ状況を取り合っています（優先順位未定義）`,
+    // 宣言軸・cell（直積・有界）。
+    axesHeading: (n: number) => `宣言軸: ${n} 件`,
+    axesEmpty: 'この action の given に axis タグを持つ条件がありません（軸注釈による gap 検出は範囲外）。',
+    axisRow: (id: string, name: string, total: boolean, values: string) => `${id}（${name}・${total ? 'total=true' : 'total=false'}）: 値=${values}`,
+    cellCountLabel: (n: number) => `cell 数（宣言軸の直積・有界）: ${n}`,
+    // acknowledged-remainder（coverage に数えない）。
+    remainderHeading: (n: number) => `acknowledged-remainder（coverage に数えない）: ${n} 件`,
+    // scope-disclosure（保証の外・削れない必須項目）。空でも常に描く。
+    scopeHeading: 'scope-disclosure（保証の外・削れない必須項目）',
+    scopeDeclaredAxes: '列挙した軸',
+    scopeUndeclaredGiven: "don't-care 扱いの条件（軸未宣言の given）",
+    scopeNone: '（なし）',
+    scopeHasRemainder: 'acknowledged-remainder あり（別枠報告・coverage 外）',
   },
   // BROWSE(タグ/仕様) — 旧 Browse(3ペイン)/TagsView(ツリー)/SpecView を検索
   // レール＋カード一覧の1つの型に統合した画面（.concierge/decision.md A-2）。
@@ -408,6 +445,32 @@ const en: Strings = {
     result: FLOW_RESULT_EN,
     noResult: '(no result)',
     noGiven: 'Unconditional (no given)',
+    menuShowFlow: 'Show flow diagram',
+    viewTitle: (label) => `${label} flow`,
+    loading: 'Loading…',
+    emptyAction: 'No transitions carry this action.',
+    matrixHeading: 'Matrix (visualization — does not claim exhaustiveness)',
+    matrixConditionsLabel: 'Conditions',
+    matrixNoConditions: '(no given conditions)',
+    diagramHeading: 'Diagram (click a node for the transition detail)',
+    diagramNoTransitions: '(no transitions to draw)',
+    diagramError: 'Failed to render the diagram.',
+    subsetShadowHeading: (n) => `subset-shadow (provable duplication): ${n}`,
+    subsetShadowRow: (subset, superset) => `${subset} ⊊ ${superset}: any world where ${superset} fires also fires ${subset} (priority undefined)`,
+    totalGapsHeading: (n) => `Gaps (L-total — the only cleanly sound signal): ${n}`,
+    totalGapRow: (axisId, value) => `axis ${axisId}: no transition has value ${value} in its given`,
+    overlapsHeading: (n) => `Overlaps (sound relative to declared axes): ${n}`,
+    overlapRow: (cell, txs) => `cell ${cell}: ${txs} contend for the same situation (priority undefined)`,
+    axesHeading: (n) => `Declared axes: ${n}`,
+    axesEmpty: 'No condition in this action’s given carries an axis tag (axis-based gap detection is out of scope).',
+    axisRow: (id, name, total, values) => `${id} (${name}, ${total ? 'total=true' : 'total=false'}): values=${values}`,
+    cellCountLabel: (n) => `cells (bounded product of declared axes): ${n}`,
+    remainderHeading: (n) => `acknowledged-remainder (not counted toward coverage): ${n}`,
+    scopeHeading: 'scope-disclosure (outside the guarantee — mandatory, never omitted)',
+    scopeDeclaredAxes: 'Enumerated axes',
+    scopeUndeclaredGiven: "Conditions treated as don't-care (given with no declared axis)",
+    scopeNone: '(none)',
+    scopeHasRemainder: 'acknowledged-remainder present (reported separately, outside coverage)',
   },
   browse: {
     searchPlaceholder: 'Search by keyword or tag',
