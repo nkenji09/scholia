@@ -1,0 +1,9 @@
+{
+  "id": "01KXMGGD6T0173DZ6HGM0ZVNZ9",
+  "target": {
+    "type": "tag",
+    "id": "req.action-flow.axis-gaps"
+  },
+  "why": "軸注釈による gap 検出を採用。★adopt でコアモデル修正を承認＝model.Tag に Total bool（json total,omitempty・additive）を足す（DESIGN §3.4 のデータモデル変更）。ユーザーが viewer で拡張性を確認して承認した経緯：total は入口の1形態にすぎず、値/軸/意味は後から additive に足せる設計。軸は config kind でなく tag レコードで表す（tagKind axis を config に1語足すだけ＝model struct 変更不要／tagKinds は既に []string）。条件の軸所属（多重所属可）は既存 vocab.Tags[] で表現でき追加のモデル変更は不要。買うのはちょうど2つ＝L-total（抜け・唯一 clean に sound・complement 漏れ検出）＋宣言条件付き pairwise-disjointness（重なり・宣言軸に相対的に sound）。健全性は『軸排他』というモデルが検査できない前提に依存するため、同一軸の複数値の同時 given・total 軸の値未 materialize を lint で監視するのが前提条件。product-coverage を網羅証明と称さない。",
+  "at": "2026-07-16T03:46:13Z"
+}
