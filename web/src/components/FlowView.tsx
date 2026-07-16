@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { api } from '../api';
 import { useT } from '../i18n';
 import { useLookups } from '../lookups';
-import type { FlowReport } from '../types';
+import { routeHash } from '../router';
+import type { FlowOverlap, FlowReport } from '../types';
 
 interface Props {
   actionId?: string;
@@ -21,8 +22,9 @@ interface Props {
 // a looser securityLevel — which is exactly the cross-mount race we avoid.
 // Instead we generate a plain sequential node token per node and keep a
 // token→transitionId map (txByToken), render to an SVG string, then walk
-// the SVG DOM and attach a real click handler (calling onGoToTransition) to
-// each mapped node before inserting it.
+// the SVG DOM and attach a real click handler to each mapped node (opening
+// #/browse/tx/<id> in a new tab — see the click-wiring code below) before
+// inserting it.
 // Diagram source is built from .pmem-derived ids only (never free text), so
 // no untrusted HTML reaches mermaid regardless.
 
@@ -78,15 +80,31 @@ function buildDiagram(
   let counter = 0;
   const nextId = (prefix: string) => `${prefix}${counter++}`;
 
-  // transitionId -> (leafKey -> representative terminal node token), for
-  // drawing subset-shadow edges between occurrences that share a leaf.
-  const terminalsByTx = new Map<string, Map<string, string>>();
+  // transitionId -> every occurrence's {known axis values so far, terminal
+  // node token} — used to draw subset-shadow edges between compatible
+  // occurrences (see below; occurrences terminate at different depths now
+  // that a transition exits as soon as its own pinned axes are resolved,
+  // so a plain leaf-key equality check no longer applies).
+  const terminalsByTx = new Map<string, Array<{ known: Record<string, string>; token: string }>>();
+
+  // Two partial axis-value assignments are compatible if every axis known
+  // to BOTH agrees — axes known to only one are simply unconstrained by the
+  // other and don't block a match. This is what lets a transition that
+  // exited early (fewer known axes) still pair up with one that kept
+  // branching deeper (more known axes) for subset-shadow/overlap matching.
+  const compatible = (a: Record<string, string>, b: Record<string, string>) => {
+    for (const k of Object.keys(a)) if (k in b && a[k] !== b[k]) return false;
+    return true;
+  };
 
   // A free/undeclared-given passthrough chain, then this transition's 結果
-  // node(s), hung off `fromToken` (a leaf junction or, in the no-axes
-  // fallback, the transition's own hub). `overlapTxAtLeaf` scopes the amber
-  // overlap highlight to just this occurrence.
-  function renderTail(fromToken: string, leafKey: string, txId: string, overlapTxAtLeaf: Set<string>) {
+  // node, hung off `fromToken` (a junction reached once this transition's
+  // own relevant axes — if any — are resolved). `known` is the partial
+  // axis-value assignment established so far on this path; `overlapEntries`
+  // is matched against it with `compatible` (partial match) rather than
+  // requiring every axis, since a transition that exited early never has
+  // values for axes it doesn't care about.
+  function renderTail(fromToken: string, known: Record<string, string>, txId: string, overlapEntries: FlowOverlap[]) {
     const row = rowById.get(txId);
     if (!row) return;
     let cur = fromToken;
@@ -103,7 +121,7 @@ function buildDiagram(
       cur = ct;
     }
 
-    const isOverlap = overlapTxAtLeaf.has(txId);
+    const isOverlap = overlapEntries.some((o) => (o.transitions ?? []).includes(txId) && compatible(o.cell ?? {}, known));
     const isSubset = subsetSubset.has(txId);
     const isSuperset = subsetSuperset.has(txId);
 
@@ -128,95 +146,104 @@ function buildDiagram(
     for (const c of classes) lines.push(`  class ${rt} ${c}`);
     lines.push(`  ${cur} --> ${rt}`);
 
-    if (!terminalsByTx.has(txId)) terminalsByTx.set(txId, new Map());
-    terminalsByTx.get(txId)!.set(leafKey, rt);
+    if (!terminalsByTx.has(txId)) terminalsByTx.set(txId, []);
+    terminalsByTx.get(txId)!.push({ known, token: rt });
   }
 
   const axes = report.axes ?? [];
-  const cells = report.cells ?? [];
 
-  if (axes.length === 0 || cells.length === 0) {
+  if (axes.length === 0) {
     // No declared axes: every given condition is "free" by definition (no
     // axis exists to structure it) — flat given→junction→then per
     // transition, same shape as the axis-tree's own no-axis leaf tail.
-    // Overlap has no per-cell scoping to consult here (there are no axes/
-    // cells at all), so every transition that overlaps anywhere is flagged.
-    const overlapAnywhere = new Set<string>();
-    for (const o of report.overlaps ?? []) for (const t of o.transitions ?? []) overlapAnywhere.add(t);
-    // Constant leafKey ('') for every transition here — there is no
-    // cell/leaf concept without declared axes, so subset-shadow's
-    // leaf-matching below (see the axis-tree branch) must treat every
-    // transition as occurring at the same single "leaf" for pairs to match
-    // and draw an edge at all (each transition's own id would never equal
-    // another's, so a per-transition key would silently draw zero edges).
+    const overlapEntries = report.overlaps ?? [];
     for (const row of report.matrix.rows ?? []) {
       const hub = nextId('h');
       lines.push(`  ${hub}((" "))`);
       lines.push(`  class ${hub} txHub`);
-      renderTail(hub, '', row.transitionId, overlapAnywhere);
+      renderTail(hub, {}, row.transitionId, overlapEntries);
     }
   } else {
     const overlapEntries = report.overlaps ?? [];
-    const cellMatches = (a: Record<string, string>, b: Record<string, string> | undefined) => {
-      if (!b) return false;
-      for (const k of Object.keys(a)) if (a[k] !== b[k]) return false;
-      return true;
+    // Mirrors internal/flow/analyze.go's axisSpan: pinned to whichever of
+    // the axis's values this transition's given actually lists; if none,
+    // "free" — compatible with every value of that axis.
+    const axisSpan = (row: { given?: string[] }, axis: (typeof axes)[number]) => {
+      const pinned = axis.values.filter((v) => (row.given ?? []).includes(v));
+      return pinned.length > 0 ? new Set(pinned) : new Set(axis.values);
     };
-    const leafKeyOf = (values: Record<string, string>) =>
-      Object.keys(values)
-        .sort()
-        .map((k) => `${k}=${values[k]}`)
-        .join(';');
+    const isPinnedOnAxis = (row: { given?: string[] }, axis: (typeof axes)[number]) => (row.given ?? []).some((g) => axis.values.includes(g));
 
-    // Group `cells` by axis value one axis at a time — report.cells is
-    // already the full bounded product computed server-side (productCells),
-    // so grouping it recreates the decision tree exactly; no re-derivation.
-    function walk(subset: typeof cells, axisIndex: number, parentToken: string | null, edgeLabel: string | null) {
-      if (axisIndex >= axes.length) {
-        const cell = subset[0];
-        if (!cell) return;
-        const leafKey = leafKeyOf(cell.values ?? {});
-        const leaf = nextId('h');
-        lines.push(`  ${leaf}((" "))`);
-        lines.push(`  class ${leaf} txHub`);
-        if (parentToken) lines.push(`  ${parentToken} -->|"${esc(edgeLabel ?? '')}"| ${leaf}`);
-        const overlapHere = new Set<string>();
-        for (const o of overlapEntries) if (cellMatches(o.cell ?? {}, cell.values)) for (const t of o.transitions ?? []) overlapHere.add(t);
-        for (const txId of cell.transitions ?? []) renderTail(leaf, leafKey, txId, overlapHere);
-        return;
+    // Walk axes only as far as each transition actually needs. At every
+    // step, transitions that don't pin ANY remaining axis exit immediately
+    // (their 結果 hangs directly off the current junction) instead of being
+    // dragged through irrelevant further branches — user feedback: a
+    // transition pinning only one axis (act.user.update's `cond.update-
+    // check-flag`, axis.update.mode alone) was appearing repeated under
+    // every unrelated install/platform/status combination it doesn't care
+    // about. Only transitions still pinning something ahead cause a branch;
+    // an axis value with zero such transitions isn't drawn (nothing new to
+    // show there — anything that already applied was attached at the
+    // junction above, before branching, and applies to every value alike).
+    function walk(pendingTxIds: string[], axisIndex: number, parentToken: string | null, edgeLabel: string | null, known: Record<string, string>) {
+      const resolvedNow: string[] = [];
+      const stillPending: string[] = [];
+      for (const txId of pendingTxIds) {
+        const row = rowById.get(txId);
+        if (!row) continue;
+        const pinsFurther = axes.slice(axisIndex).some((a) => isPinnedOnAxis(row, a));
+        (pinsFurther ? stillPending : resolvedNow).push(txId);
       }
-      const axis = axes[axisIndex];
+
+      const hub = nextId('h');
+      lines.push(`  ${hub}((" "))`);
+      lines.push(`  class ${hub} txHub`);
+      if (parentToken) lines.push(`  ${parentToken} -->|"${esc(edgeLabel ?? '')}"| ${hub}`);
+      for (const txId of resolvedNow) renderTail(hub, known, txId, overlapEntries);
+      if (stillPending.length === 0) return;
+
+      // Next axis at least one still-pending transition actually pins —
+      // skips axes nobody here cares about instead of branching on them for
+      // nothing.
+      let axisIdx = axisIndex;
+      while (axisIdx < axes.length && !stillPending.some((id) => isPinnedOnAxis(rowById.get(id)!, axes[axisIdx]))) axisIdx++;
+      if (axisIdx >= axes.length) return;
+
+      const axis = axes[axisIdx];
       const decision = nextId('d');
       lines.push(`  ${decision}{"${esc(axis.name)}"}`);
       lines.push(`  class ${decision} axisNode`);
-      if (parentToken) lines.push(`  ${parentToken} -->|"${esc(edgeLabel ?? '')}"| ${decision}`);
-      const byValue = new Map<string, typeof cells>();
-      for (const cell of subset) {
-        const v = cell.values?.[axis.id];
-        if (v === undefined) continue;
-        if (!byValue.has(v)) byValue.set(v, []);
-        byValue.get(v)!.push(cell);
+      lines.push(`  ${hub} --> ${decision}`);
+      for (const value of axis.values) {
+        const childTxIds = stillPending.filter((id) => axisSpan(rowById.get(id)!, axis).has(value));
+        if (childTxIds.length === 0) continue;
+        walk(childTxIds, axisIdx + 1, decision, label(value), { ...known, [axis.id]: value });
       }
-      for (const [v, group] of byValue) walk(group, axisIndex + 1, decision, label(v));
     }
-    walk(cells, 0, null, null);
+    walk(
+      (report.matrix.rows ?? []).map((r) => r.transitionId),
+      0,
+      null,
+      null,
+      {},
+    );
   }
 
   // subset-shadow: a one-directional dotted edge superset → subset (proven
   // multi-fire: any world satisfying superset's given also fires subset),
-  // drawn at every leaf where both occur (a subset transition is looser on
-  // some axis, so it's "free" there and appears at every leaf its superset
-  // does — see header comment). No per-edge text label — every
-  // subset-shadow edge means the same thing, so a repeated label is just
-  // noise; the single-arrowhead direction plus the legend carry the meaning
-  // instead.
+  // drawn between every pair of compatible occurrences (a subset transition
+  // is looser and typically exits earlier/shallower than its superset — see
+  // `compatible` above). No per-edge text label — every subset-shadow edge
+  // means the same thing, so a repeated label is just noise; the
+  // single-arrowhead direction plus the legend carry the meaning instead.
   for (const s of report.subsetShadows ?? []) {
-    const supTerminals = terminalsByTx.get(s.superset);
-    const subTerminals = terminalsByTx.get(s.subset);
-    if (!supTerminals || !subTerminals) continue;
-    for (const [leafKey, supToken] of supTerminals) {
-      const subToken = subTerminals.get(leafKey);
-      if (subToken) lines.push(`  ${supToken} -.-> ${subToken}`);
+    const supOccurrences = terminalsByTx.get(s.superset);
+    const subOccurrences = terminalsByTx.get(s.subset);
+    if (!supOccurrences || !subOccurrences) continue;
+    for (const sup of supOccurrences) {
+      for (const sub of subOccurrences) {
+        if (compatible(sup.known, sub.known)) lines.push(`  ${sup.token} -.-> ${sub.token}`);
+      }
     }
   }
 
@@ -400,7 +427,12 @@ export function FlowView({ actionId, onGoToTransition }: Props) {
             if (!hit) return;
             node.style.cursor = 'pointer';
             node.classList.add('flow-node-clickable');
-            node.addEventListener('click', () => onGoToTransition(hit));
+            // Diagram result nodes open in a new tab (user feedback) — the
+            // matrix table's transition links above stay same-tab (existing
+            // in-app navigation via onGoToTransition), since the diagram is
+            // the exploratory view you want to keep in place while checking
+            // transitions one at a time.
+            node.addEventListener('click', () => window.open(routeHash({ view: 'browse', txId: hit }), '_blank', 'noopener'));
           });
         });
       })
@@ -413,9 +445,9 @@ export function FlowView({ actionId, onGoToTransition }: Props) {
     return () => {
       cancelled = true;
     };
-    // onGoToTransition is stable enough for this derived render. vocabLabel
-    // itself is a new closure every render (not memoized), so it can't be a
-    // dep directly without re-running on every render; `lookupsReady` is the
+    // vocabLabel itself is a new closure every render (not memoized), so it
+    // can't be a dep directly without re-running on every render;
+    // `lookupsReady` is the
     // stable proxy for "vocabLabel now resolves real labels, not ids" (see
     // the useLookups() destructure comment above) — re-running once when it
     // flips true re-renders the diagram with resolved labels even if it
