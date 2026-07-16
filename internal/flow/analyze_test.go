@@ -93,6 +93,53 @@ func TestAnalyze_NoAxisTagsMeansNoAxisAnalysisButScopeAlwaysPresent(t *testing.T
 	}
 }
 
+// TestAnalyze_AxesAbsenceNoneDeclaredWhenStoreHasNoAxisTagsAtAll reproduces
+// #40 ①'s case (a): the store has zero kind="axis" tags anywhere, so the
+// axis mechanism itself hasn't been introduced — distinct from case (b)
+// below (eff.emit.scope-disclosure).
+func TestAnalyze_AxesAbsenceNoneDeclaredWhenStoreHasNoAxisTagsAtAll(t *testing.T) {
+	txs := []model.Transition{
+		{ID: "T-1", Action: "act.a", Given: []string{"cond.x"}, Then: []string{"eff.a"}},
+	}
+	snap, ix := buildAnalyzeFixture(txs, []model.VocabEntry{condVocab("cond.x")}, nil)
+
+	r := Analyze(snap, ix, "act.a")
+	if len(r.Axes) != 0 {
+		t.Fatalf("expected no axes, got %+v", r.Axes)
+	}
+	if r.AxesAbsence != AxesAbsenceNoneDeclared {
+		t.Fatalf("AxesAbsence = %q, want %q (no kind=\"axis\" tag exists anywhere in the store)", r.AxesAbsence, AxesAbsenceNoneDeclared)
+	}
+}
+
+// TestAnalyze_AxesAbsenceNotOnThisActionWhenAxisTagsExistButUnreachable
+// reproduces #40 ①'s case (b): the store DOES have kind="axis" tags, but the
+// analyzed action's transitions never give a condition that carries one —
+// the axis exists but does not reach this action.
+func TestAnalyze_AxesAbsenceNotOnThisActionWhenAxisTagsExistButUnreachable(t *testing.T) {
+	tags := []model.Tag{
+		{ID: "axis.mode", Name: "mode", Kind: "axis", Total: true},
+	}
+	// axis.mode is declared and tags cond.other, but act.a's own transition
+	// never gives a condition carrying axis.mode.
+	vocab := []model.VocabEntry{
+		condVocab("cond.other", "axis.mode"),
+		condVocab("cond.x"),
+	}
+	txs := []model.Transition{
+		{ID: "T-1", Action: "act.a", Given: []string{"cond.x"}, Then: []string{"eff.a"}},
+	}
+	snap, ix := buildAnalyzeFixture(txs, vocab, tags)
+
+	r := Analyze(snap, ix, "act.a")
+	if len(r.Axes) != 0 {
+		t.Fatalf("expected no axes relevant to act.a, got %+v", r.Axes)
+	}
+	if r.AxesAbsence != AxesAbsenceNotOnThisAction {
+		t.Fatalf("AxesAbsence = %q, want %q (axis.mode is declared but never reaches act.a's given)", r.AxesAbsence, AxesAbsenceNotOnThisAction)
+	}
+}
+
 func TestAnalyze_TotalAxisGapWhenAValueNeverAppearsInGiven(t *testing.T) {
 	tags := []model.Tag{
 		{ID: "axis.mode", Name: "mode", Kind: "axis", Total: true},

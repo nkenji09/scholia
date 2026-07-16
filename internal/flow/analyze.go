@@ -64,6 +64,21 @@ type Axis struct {
 	Values []string `json:"values"` // condition ids carrying this axis tag project-wide, sorted
 }
 
+// Axes-absence causes (#40 ①, req.action-flow.scope-honesty /
+// eff.emit.scope-disclosure): when Report.Axes is empty, the reason matters —
+// a bare "0 axes" collapses two different states and hides why nothing could
+// be detected. AxesAbsenceNone marks a Report where axes ARE relevant (the
+// field is only ever set on the len(Axes)==0 path).
+const (
+	// AxesAbsenceNoneDeclared: the store has zero kind="axis" tags at all —
+	// the axis mechanism itself hasn't been introduced to this project yet.
+	AxesAbsenceNoneDeclared = "none-declared"
+	// AxesAbsenceNotOnThisAction: axis tags exist somewhere in the store, but
+	// none of them is carried by a condition in this action's given —
+	// declared axes simply don't reach this action.
+	AxesAbsenceNotOnThisAction = "not-on-this-action"
+)
+
 // Cell is one point in the bounded product of declared axes' values.
 type Cell struct {
 	// Values maps axis id -> the value (condition id) this cell fixes for
@@ -109,16 +124,20 @@ type ScopeDisclosure struct {
 
 // Report is the full `pmem flow <action>` result.
 type Report struct {
-	Action        string          `json:"action"`
-	ActionLabel   string          `json:"actionLabel"`
-	Matrix        Matrix          `json:"matrix"`
-	SubsetShadows []SubsetShadow  `json:"subsetShadows,omitempty"`
-	Axes          []Axis          `json:"axes,omitempty"`
-	Cells         []Cell          `json:"cells,omitempty"`
-	TotalGaps     []TotalGap      `json:"totalGaps,omitempty"`
-	Overlaps      []Overlap       `json:"overlaps,omitempty"`
-	Remainder     []Remainder     `json:"remainder,omitempty"`
-	Scope         ScopeDisclosure `json:"scope"`
+	Action        string         `json:"action"`
+	ActionLabel   string         `json:"actionLabel"`
+	Matrix        Matrix         `json:"matrix"`
+	SubsetShadows []SubsetShadow `json:"subsetShadows,omitempty"`
+	Axes          []Axis         `json:"axes,omitempty"`
+	// AxesAbsence explains why Axes is empty — AxesAbsenceNoneDeclared or
+	// AxesAbsenceNotOnThisAction — and is empty whenever len(Axes) > 0 (#40
+	// ①, eff.emit.scope-disclosure's (a)/(b) distinction).
+	AxesAbsence string          `json:"axesAbsence,omitempty"`
+	Cells       []Cell          `json:"cells,omitempty"`
+	TotalGaps   []TotalGap      `json:"totalGaps,omitempty"`
+	Overlaps    []Overlap       `json:"overlaps,omitempty"`
+	Remainder   []Remainder     `json:"remainder,omitempty"`
+	Scope       ScopeDisclosure `json:"scope"`
 }
 
 // disclosureBoilerplate are the fixed advisory captions
@@ -186,6 +205,10 @@ func Analyze(snap *store.Snapshot, ix *index.Index, actionID string) Report {
 		report.Cells = productCells(axes, specifics)
 		report.TotalGaps = totalGaps(axes, specifics)
 		report.Overlaps = overlaps(report.Cells, report.SubsetShadows)
+	} else if anyAxisTagDeclared(ix) {
+		report.AxesAbsence = AxesAbsenceNotOnThisAction
+	} else {
+		report.AxesAbsence = AxesAbsenceNoneDeclared
 	}
 
 	report.Scope = buildScope(axes, conditionUniverse, len(remainderIDs) > 0)
@@ -299,6 +322,19 @@ func conditionsInGiven(txs []model.Transition) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// anyAxisTagDeclared reports whether the store has at least one kind="axis"
+// tag anywhere — distinguishes (a) the axis mechanism being wholly unused in
+// this project from (b) axes existing but not reaching the analyzed action
+// (#40 ①, eff.emit.scope-disclosure).
+func anyAxisTagDeclared(ix *index.Index) bool {
+	for _, tag := range ix.TagByID {
+		if tag.Kind == AxisTagKind {
+			return true
+		}
+	}
+	return false
 }
 
 // axisTagsOf returns the kind="axis" tags directly attached to a vocab

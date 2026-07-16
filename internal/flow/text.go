@@ -57,7 +57,15 @@ func writeSubsetShadowSection(w io.Writer, r Report) {
 func writeAxesSection(w io.Writer, r Report) {
 	fmt.Fprintf(w, "## 宣言軸: %d 件", len(r.Axes))
 	if len(r.Axes) == 0 {
-		fmt.Fprintln(w, "（この action の given に axis タグを持つ条件がありません＝軸注釈による gap 検出は範囲外）")
+		fmt.Fprintln(w)
+		switch r.AxesAbsence {
+		case AxesAbsenceNoneDeclared:
+			fmt.Fprintln(w, "  store に kind=\"axis\" のタグが1枚もありません（軸機構が未導入＝軸注釈による gap 検出は範囲外）。`pmem tag create --kind axis ...` で軸を作れます。")
+		case AxesAbsenceNotOnThisAction:
+			fmt.Fprintln(w, "  軸タグはありますが、この action のどの遷移の given にも軸条件が載っていません（軸が this action に効いていません）。条件別に given を張って（＝畳んだ遷移を条件別に割って）軸を効かせてください。")
+		default:
+			fmt.Fprintln(w, "（この action の given に axis タグを持つ条件がありません＝軸注釈による gap 検出は範囲外）")
+		}
 	} else {
 		fmt.Fprintln(w)
 		for _, a := range r.Axes {

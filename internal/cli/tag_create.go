@@ -18,7 +18,12 @@ func newTagCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create <id>",
 		Short: "タグを 1 件作成する",
-		Args:  cobra.ExactArgs(1),
+		Long: "タグを 1 件作成する。\n\n" +
+			"--total は kind=axis タグ向け（#39・§3.4）: 軸の値のうち必ず1つが真であるべきかを宣言し、" +
+			"true にすると値の condition がどの transition の given にも現れない場合に抜け(L-total)として検出される。" +
+			"片方の値が本質的に no-op（対応する transition が無いのが正しい）な2値軸を total にすると、" +
+			"no-op 側が偽の抜けとして出る——そのような軸は非 total にするか、値を分割して表すこと（#40・DESIGN §3.4）。",
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 			if name == "" {

@@ -14,7 +14,11 @@ func newFlowCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "flow <action>",
 		Short: "きっかけ(action)の given×transition マトリクスと honesty-first な gap 検出を表示する（派生・§3.4・#39）",
-		Args:  cobra.ExactArgs(1),
+		Long: "きっかけ(action)の given×transition マトリクスと honesty-first な gap 検出を表示する（派生・§3.4・#39）。\n\n" +
+			"軸解析は、この action の transition の given に実際に現れる condition が持つ axis タグしか拾わない" +
+			"（relevantAxes）。condition に axis タグを貼るだけでは軸は効かない——" +
+			"畳んだ transition を条件別に割り、その条件を given へ materialize して初めて解析対象になる（#40・DESIGN §3.4）。",
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			s, err := openStore()
 			if err != nil {

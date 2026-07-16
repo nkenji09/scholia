@@ -22,7 +22,11 @@ func newGapsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "gaps <action>",
 		Short: "きっかけ(action)の gap（抜け・重なり・subset-shadow）と scope-disclosure だけを表示する（派生・§3.4・#39）",
-		Args:  cobra.ExactArgs(1),
+		Long: "きっかけ(action)の gap（抜け・重なり・subset-shadow）と scope-disclosure だけを表示する（派生・§3.4・#39）。\n\n" +
+			"軸解析は、この action の transition の given に実際に現れる condition が持つ axis タグしか拾わない" +
+			"（relevantAxes）。condition に axis タグを貼るだけでは軸は効かない——" +
+			"畳んだ transition を条件別に割り、その条件を given へ materialize して初めて解析対象になる（#40・DESIGN §3.4）。",
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			s, err := openStore()
 			if err != nil {
