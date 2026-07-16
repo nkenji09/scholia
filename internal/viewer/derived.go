@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/nkenji09/product-memory/internal/diff"
+	"github.com/nkenji09/product-memory/internal/flow"
 	"github.com/nkenji09/product-memory/internal/lint"
 	"github.com/nkenji09/product-memory/internal/render"
 	"github.com/nkenji09/product-memory/internal/store"
@@ -14,6 +15,26 @@ func registerDerivedRoutes(mux *http.ServeMux, s *store.Store) {
 	mux.HandleFunc("GET /api/spec/{tagId}", getSpecHandler(s))
 	mux.HandleFunc("GET /api/lint", getLintHandler(s))
 	mux.HandleFunc("GET /api/diff", getDiffHandler(s))
+	mux.HandleFunc("GET /api/flow/{action}", getFlowHandler(s))
+}
+
+// getFlowHandler is the live handler for T-viewer-action-flow-render — it
+// shares flow.Analyze with `pmem flow`/`pmem gaps` (analysis logic is
+// finalized by #39, not touched here). An unknown action id is not an error:
+// flow.Analyze returns a Report with an empty matrix, so the frontend can
+// render "この action を持つ遷移はありません" instead of the route crashing
+// (§2 acceptance: 不明な action は穏当な空表示).
+func getFlowHandler(s *store.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		actionID := r.PathValue("action")
+		snap, ix, err := loadIndexed(s)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		report := flow.Analyze(&snap, ix, actionID)
+		writeJSON(w, http.StatusOK, report)
+	}
 }
 
 func getSpecHandler(s *store.Store) http.HandlerFunc {

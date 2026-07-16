@@ -3,6 +3,7 @@ import type {
   ConfigPatch,
   DiffResult,
   FacetsResponse,
+  FlowReport,
   LintResult,
   PmemStaticData,
   SearchResult,
@@ -162,6 +163,14 @@ export const api = {
       return report ? Promise.resolve(report) : staticUnavailable(DICTS[loadLang()].api.spec(tagId));
     }
     return request<SpecReport>(`/api/spec/${encodeURIComponent(tagId)}`);
+  },
+
+  getFlow: (actionId: string) => {
+    if (staticData) {
+      const report = staticData.flow[actionId];
+      return report ? Promise.resolve(report) : staticUnavailable(DICTS[loadLang()].api.flow(actionId));
+    }
+    return request<FlowReport>(`/api/flow/${encodeURIComponent(actionId)}`);
   },
 
   getRules: (params: { tx?: string; tag?: string; facet?: string }) => {

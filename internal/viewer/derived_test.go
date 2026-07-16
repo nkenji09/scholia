@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/nkenji09/product-memory/internal/diff"
+	"github.com/nkenji09/product-memory/internal/flow"
 	"github.com/nkenji09/product-memory/internal/model"
 	"github.com/nkenji09/product-memory/internal/render"
 	"github.com/nkenji09/product-memory/internal/store"
@@ -124,6 +125,37 @@ func TestGetLint(t *testing.T) {
 	// tag decision; no error-level findings are expected from this fixture.
 	if out.ErrorCount != 0 {
 		t.Fatalf("ErrorCount = %d, want 0: %+v", out.ErrorCount, out.Findings)
+	}
+}
+
+func TestGetFlow(t *testing.T) {
+	h, _ := newTestHandler(t)
+	rec := doRequest(t, h, http.MethodGet, "/api/flow/act.user.login", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	report := decodeJSON[flow.Report](t, rec)
+	if report.Action != "act.user.login" {
+		t.Fatalf("Action = %q, want act.user.login", report.Action)
+	}
+	if len(report.Matrix.Rows) != 1 || report.Matrix.Rows[0].TransitionID != "T-login" {
+		t.Fatalf("Matrix.Rows = %+v, want [T-login]", report.Matrix.Rows)
+	}
+}
+
+// TestGetFlow_UnknownActionIsEmptyNotError pins §2's "不明な action は穏当な
+// 空表示（クラッシュしない）" acceptance: flow.Analyze has no notion of an
+// unknown action id, it just returns a Report with an empty matrix — the
+// handler must not turn that into a 404/500.
+func TestGetFlow_UnknownActionIsEmptyNotError(t *testing.T) {
+	h, _ := newTestHandler(t)
+	rec := doRequest(t, h, http.MethodGet, "/api/flow/act.does.not.exist", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	report := decodeJSON[flow.Report](t, rec)
+	if len(report.Matrix.Rows) != 0 {
+		t.Fatalf("Matrix.Rows = %+v, want empty", report.Matrix.Rows)
 	}
 }
 

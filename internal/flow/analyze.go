@@ -79,9 +79,12 @@ type TotalGap struct {
 	Value  string `json:"value"`
 }
 
-// Overlap is a "重なり": two transitions whose given both cover the same
-// declared-axis cell, and neither given is a subset of the other (subset
-// pairs are already reported as SubsetShadow, not duplicated here).
+// Overlap is a "重なり": a declared-axis cell covered by 2+ transitions,
+// where at least one pair among them is not already explained by a proven
+// SubsetShadow (exclusion is decided per pair, not per transition — see
+// overlaps() below — so Transitions can include more than 2 ids, and a
+// transition dropped from one shadow pair can still appear here via a real,
+// unexplained ambiguity against a third transition in the same cell).
 type Overlap struct {
 	Cell        map[string]string `json:"cell"`
 	Transitions []string          `json:"transitions"`

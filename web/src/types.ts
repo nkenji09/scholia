@@ -316,6 +316,72 @@ export interface Review {
   createdAt: string;
 }
 
+// flow.Report types (internal/flow/analyze.go) mirror 1:1 — T-viewer-action-
+// flow-render's GET /api/flow/<action> response. Field names match the Go
+// json tags exactly (camelCase); optional (`omitempty`) fields are optional
+// here too.
+export interface FlowMatrixRow {
+  transitionId: string;
+  given: string[];
+  then: string[];
+}
+
+export interface FlowMatrix {
+  conditions: string[];
+  rows: FlowMatrixRow[];
+}
+
+export interface FlowSubsetShadow {
+  subset: string;
+  superset: string;
+}
+
+export interface FlowAxis {
+  id: string;
+  name: string;
+  total: boolean;
+  values: string[];
+}
+
+export interface FlowCell {
+  values: Record<string, string>;
+  transitions: string[];
+}
+
+export interface FlowTotalGap {
+  axisId: string;
+  value: string;
+}
+
+export interface FlowOverlap {
+  cell: Record<string, string>;
+  transitions: string[];
+}
+
+export interface FlowRemainder {
+  transitionId: string;
+}
+
+export interface FlowScopeDisclosure {
+  declaredAxes: string[];
+  undeclaredGiven: string[];
+  hasRemainder: boolean;
+  outOfGuarantee: string[];
+}
+
+export interface FlowReport {
+  action: string;
+  actionLabel: string;
+  matrix: FlowMatrix;
+  subsetShadows?: FlowSubsetShadow[];
+  axes?: FlowAxis[];
+  cells?: FlowCell[];
+  totalGaps?: FlowTotalGap[];
+  overlaps?: FlowOverlap[];
+  remainder?: FlowRemainder[];
+  scope: FlowScopeDisclosure;
+}
+
 // PmemStaticData is what `pmem export --html` bakes into
 // `window.__PMEM_STATIC__` — the same shapes the live /api/* endpoints
 // return, precomputed for every input the SPA's read-only views can ask for
@@ -336,4 +402,8 @@ export interface PmemStaticData {
   // 要求しうる各 tag id について焼き込む（transitionsByTag と対称）。
   vocabBySubject: Record<string, VocabEntry[]>;
   decisions: Decision[];
+  // T-viewer-action-flow-render, baked per distinct action id used by a
+  // transition (internal/render/export.go's flowReports) — the only action
+  // ids the SpecCard kebab can ever link to.
+  flow: Record<string, FlowReport>;
 }

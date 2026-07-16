@@ -1,0 +1,10 @@
+{
+  "id": "01KXNE5EF1N6PZ9ESSYC9S6BV2",
+  "target": {
+    "type": "tag",
+    "id": "req.action-flow.scope-honesty"
+  },
+  "why": "scope-honesty はサーフェスごとに粒度を変えて果たす。CLI（T-flow-matrix-scope）はフルの scope-disclosure（保証の外を多行で機械可読に開示）、viewer（T-viewer-action-flow-render）は一行 caveat＋検出済み gap の可視化（赤=未定義・点線=同時発生）で果たす——決定木だけを見た読者に「宣言軸=完全な区別集合」という false confidence を与えない最小限で足りる、という判断。ゆえに viewer 側の transition も scope-honesty タグを保持したまま then を eff.emit.action-flow-mermaid のみに絞ってよい。フルの機械可読な開示は CLI 経路が引き続き担う（decision 01KXN6G0R4DSXEVV86K8W0CZYW で viewer から matrix/scope-disclosure のテキスト節を外した際の残余疑義への回答）。",
+  "ref": "https://claude.ai/code/session_01D5raFvFGXfVsVSdXPgQS2i",
+  "at": "2026-07-16T12:24:31Z"
+}

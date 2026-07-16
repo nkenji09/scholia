@@ -102,6 +102,40 @@ const ja = {
     result: FLOW_RESULT_JA,
     noResult: '（結果なし）',
     noGiven: '無条件（前提なし）',
+    // action の ⋮ メニュー項目（T-viewer-action-flow-link）。別タブでフロー図を開く。
+    menuShowFlow: 'フロー図を表示',
+    // #/flow/<action> ビュー（T-viewer-action-flow-render）。マトリクス／
+    // scope-disclosure のテキスト節は viewer から削除済み（decision
+    // 01KXN6G0R4DSXEVV86K8W0CZYW・#39 フォローアップ）— 同じ情報は
+    // `pmem flow`/`pmem gaps` で引き続き見られる。図がこのビューの唯一の
+    // コンテンツ。
+    viewTitle: (label: string) => `${label} のフロー`,
+    loading: '読み込み中…',
+    emptyAction: 'この action を持つ遷移はありません。',
+    diagramError: '図の描画に失敗しました。',
+    // 凡例。矢印は同じ意味の繰り返しラベルを持たせず、ここで一括して説明する。
+    legendClickable: '結果（クリックで遷移詳細へ）',
+    zoomIn: '拡大',
+    zoomOut: '縮小',
+    zoomReset: 'リセット',
+    // 点線の辺自体に付くラベル（buildDiagram 参照）。結果ノードは色を持たず
+    // 辺のラベルのみで関係を表現する（両方の結果とも正常な遷移で、赤枠に
+    // すると「壊れている」に見えるとの指摘を反映）。優先順位を定義する
+    // 仕組みは .pmem に存在しないため「優先順位未定義」という、決められるのに
+    // 決めていないかのような表現は使わない。
+    coOccur: '同時に発生',
+    legendSubsetShadow: '点線(片矢印)＝同時に発生する組み合わせ',
+    // 抜け（total-gap）マーカー。この前提を明示的に持つ遷移が1つもない、
+    // 決定木の本来あるべき枝に配置し、該当する条件の語彙ページへリンクする
+    // （遷移が存在しないので遷移詳細へはリンクできない）。
+    gapLabel: '未定義',
+    legendGap: '赤＝未定義（この前提を明示的に持つ遷移がない）',
+    // scope-honesty（req.action-flow.scope-honesty）を viewer 側で果たす
+    // 一行 caveat（レビュー MAJOR-A 対応）。CLI（`pmem flow`/`pmem gaps`）の
+    // フル scope-disclosure ほど詳しくする必要はなく、「宣言軸＝完全な区別
+    // 集合」と読者に誤読させない最小限の注意書きで足りる、というのが
+    // decision の骨子（why は T-viewer-action-flow-render 側に記録）。
+    scopeCaveat: '※ この図は宣言軸のみに基づく整理です。網羅は保証しません（全量は pmem flow）',
   },
   // BROWSE(タグ/仕様) — 旧 Browse(3ペイン)/TagsView(ツリー)/SpecView を検索
   // レール＋カード一覧の1つの型に統合した画面（.concierge/decision.md A-2）。
@@ -335,6 +369,7 @@ const ja = {
     transitionsForTag: (tag: string) => `tag ${tag} の遷移一覧`,
     transition: (id: string) => `遷移 ${id}`,
     spec: (tagId: string) => `spec ${tagId}`,
+    flow: (actionId: string) => `フロー図 ${actionId}`,
     rulesWithSelectors: 'rules (tag/tx/facet 指定)',
     diff: '差分（diff）',
     reviews: 'AI コメント',
@@ -407,6 +442,20 @@ const en: Strings = {
     result: FLOW_RESULT_EN,
     noResult: '(no result)',
     noGiven: 'Unconditional (no given)',
+    menuShowFlow: 'Show flow diagram',
+    viewTitle: (label) => `${label} flow`,
+    loading: 'Loading…',
+    emptyAction: 'No transitions carry this action.',
+    diagramError: 'Failed to render the diagram.',
+    legendClickable: 'Result (click for the transition detail)',
+    zoomIn: 'Zoom in',
+    zoomOut: 'Zoom out',
+    zoomReset: 'Reset',
+    coOccur: 'Occurs together',
+    legendSubsetShadow: 'Dotted line (one-way) = fires together',
+    gapLabel: 'Undefined',
+    legendGap: 'Red = undefined (no transition explicitly requires this)',
+    scopeCaveat: '※ This diagram reflects declared axes only. Coverage is not guaranteed (see `pmem flow` for the full picture).',
   },
   browse: {
     searchPlaceholder: 'Search by keyword or tag',
@@ -607,6 +656,7 @@ const en: Strings = {
     transitionsForTag: (tag) => `transition list for tag ${tag}`,
     transition: (id) => `transition ${id}`,
     spec: (tagId) => `spec ${tagId}`,
+    flow: (actionId) => `flow diagram ${actionId}`,
     rulesWithSelectors: 'rules (tag/tx/facet selectors)',
     diff: 'the diff',
     reviews: 'AI comments',

@@ -1,0 +1,247 @@
+/* #/flow/<action> — action-scoped flow diagram view
+   (T-viewer-action-flow-render). The mermaid diagram is this view's only
+   content (decision 01KXN6G0R4DSXEVV86K8W0CZYW amended
+   T-viewer-action-flow-render's then to mermaid-only — the matrix/
+   scope-disclosure text sections that used to sit alongside it went unread;
+   the same text is still always available via `pmem flow`/`pmem gaps`). */
+
+.flow-view {
+  padding: var(--sp-6) var(--sp-4) var(--sp-8);
+  overflow-y: auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.flow-view.dim,
+.flow-view.error {
+  padding: var(--sp-8) var(--sp-4);
+  color: var(--lm-text-dim);
+}
+.flow-view.error {
+  color: var(--lm-error);
+}
+
+.flow-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+.flow-header h1 {
+  margin: 0;
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--lm-text-strong);
+}
+.flow-action-id {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-2xs);
+}
+
+.flow-section {
+  border: 1px solid var(--lm-border);
+  background: var(--lm-s1);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.flow-diagram-section {
+  width: 100%;
+}
+
+.flow-empty {
+  margin: 0;
+}
+
+.flow-tx-link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--lm-primary);
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-2xs);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.flow-tx-link:hover {
+  color: var(--lm-primary-strong);
+}
+
+/* ── Mermaid diagram (pan/zoom viewport) ── */
+.flow-diagram-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+.flow-zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.flow-zoom-controls button {
+  border: 1px solid var(--lm-border);
+  background: var(--lm-s1);
+  border-radius: var(--r-sm);
+  padding: 2px 9px;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  color: var(--lm-text-strong);
+}
+.flow-zoom-controls button:hover {
+  background: var(--lm-s2);
+}
+.flow-zoom-level {
+  font-size: var(--fs-2xs);
+  color: var(--lm-text-dim);
+  min-width: 3.5em;
+  text-align: center;
+}
+
+/* Fixed-height clipped viewport; the canvas inside is what actually pans
+   (translate) and zooms (scale) via inline style, so the SVG itself is never
+   resized/reflowed by mermaid — only its container moves. touch-action:none
+   stops the browser's own touch-scroll/pinch from fighting the pointer drag
+   handlers. */
+.flow-diagram-viewport {
+  position: relative;
+  height: 640px;
+  overflow: hidden;
+  border: 1px solid var(--lm-border);
+  border-radius: var(--r-md);
+  background: var(--lm-bg);
+  cursor: grab;
+  touch-action: none;
+  /* Dragging to pan must not also start a native text-selection drag over
+     node labels (user feedback). */
+  user-select: none;
+  -webkit-user-select: none;
+}
+.flow-diagram-viewport:active {
+  cursor: grabbing;
+}
+.flow-diagram-canvas {
+  display: inline-block;
+  transform-origin: 0 0;
+}
+.flow-diagram {
+  padding: var(--sp-4);
+}
+.flow-diagram svg {
+  display: block;
+}
+.flow-node-clickable {
+  cursor: pointer;
+}
+.flow-node-clickable:hover {
+  filter: brightness(0.96);
+}
+
+/* Node colors reuse the app's existing 前提/結果 grammar (--t-giv/--t-then —
+   the same tokens SpecCard's slot labels use). 結果 nodes are always green
+   (the diagram's only link target — see buildDiagram's header comment):
+   overlap and subset-shadow are shown as labeled dotted edges between
+   (still green) nodes instead of node-color overrides — a red/amber
+   override used to read as "this result is broken", when in fact both
+   results stay legitimate; only their relative priority is undefined (and
+   .pmem has no field to declare one). mermaid's own classDef can't express
+   var() colors (its style grammar rejects CSS functions), so
+   `class <node> <name>` in the diagram source only attaches plain SVG
+   classes — the actual colors live here, in real CSS, which supports var()
+   (and stays light/dark aware automatically since this SVG is inserted into
+   the themed document). !important is deliberate: mermaid always injects
+   its own <style> block as part of the rendered SVG markup itself
+   (theme:'neutral's baked-in node fill/stroke), inserted into the document
+   later than this stylesheet — at equal selector specificity the
+   later-inserted rule wins the cascade, so without !important mermaid's
+   built-in colors silently win every time. */
+.flow-diagram .condNode rect,
+.flow-diagram .condNode polygon {
+  fill: var(--lm-warning-weak) !important;
+  stroke: var(--t-giv) !important;
+}
+.flow-diagram .effNode rect,
+.flow-diagram .effNode polygon {
+  fill: var(--lm-success-weak) !important;
+  stroke: var(--t-then) !important;
+}
+/* axisNode: the decision-tree diamond that tests one declared axis
+   (Yes/No-style branch on that axis's value) — --t-act (the app's
+   きっかけ/action color) reused here to mark it as a structural decision
+   point, distinct from 前提(amber)/結果(green). */
+.flow-diagram .axisNode polygon,
+.flow-diagram .axisNode rect {
+  fill: color-mix(in srgb, var(--t-act) 14%, transparent) !important;
+  stroke: var(--t-act) !important;
+}
+/* txHub: the unlabeled per-transition routing junction (small dot) — not a
+   visible "step" (a transition has no human label of its own, only its bare
+   id, which read as noise as a diagram node — user feedback), not
+   clickable. Exists only so mermaid can group a transition's given/then and
+   so subset-shadow edges have somewhere to anchor. */
+.flow-diagram .txHub circle {
+  r: 4px !important;
+  fill: var(--lm-text-dim) !important;
+  stroke: none !important;
+}
+.flow-diagram .txHub .nodeLabel,
+.flow-diagram .txHub tspan {
+  display: none;
+}
+/* No font-weight override on node labels: mermaid sizes each node's
+   <foreignObject> to fit the label at its ORIGINAL (regular) weight, and an
+   SVG foreignObject clips overflow by default (unlike normal HTML) — a
+   bolder font renders wider than that box and gets silently clipped
+   (observed: "T-update-already-latest" rendering as "...-lates", missing
+   its last character, even though the underlying text content was intact).
+   overflow:visible on the foreignObject is a defense-in-depth backstop for
+   the same failure mode from any other source (e.g. a wider substituted
+   font on a machine without the exact font mermaid measured against). */
+.flow-diagram foreignObject {
+  overflow: visible;
+}
+/* gapNode: total-gap marker, placed on its rightful branch in the tree now
+   (user request) — links to the missing condition's vocab entry, since
+   there is no transition to link to. */
+.flow-diagram .gapNode rect,
+.flow-diagram .gapNode polygon {
+  fill: var(--lm-error-weak) !important;
+  stroke: var(--lm-error) !important;
+  stroke-width: 2px !important;
+}
+
+.flow-diagram-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-2xs);
+  color: var(--lm-text-muted);
+}
+.flow-diagram-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.flow-legend-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1.5px solid currentColor;
+}
+
+/* scope-honesty の一行 caveat（レビュー MAJOR-A 対応）。凡例と並ぶ位置に、
+   凡例よりわずかに控えめなトーンで常時表示 — 目立たせすぎず、しかし
+   決定木だけ見た読者が読み飛ばせない程度の存在感を保つ。 */
+.flow-scope-caveat {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-2xs);
+  color: var(--lm-text-dim);
+}

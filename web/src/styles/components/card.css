@@ -112,13 +112,15 @@
 }
 
 /* #27 P5a（change-cockpit-design-v3.md §3/§8.8「3種別の表し方」）: 追加＝
-   緑カード／削除＝薄赤＋取消線 tombstone。SpecCard 本体は変更カード同様
+   色付きカード／削除＝薄赤＋取消線 tombstone。SpecCard 本体は変更カード同様
    「現状のままクリーン」（§2）を保つが、追加/削除は構造そのものが変わる
    ので、card 自体を淡く色付けする（変更カードの clean-flag より一段強い
-   合図）。 */
+   合図）。緑（--lm-success）は結果/遷移の色（flow.css の t-then 等）と
+   衝突し「承認済み」に見えるため、青（--lm-info）を使う（ドッグフード
+   フィードバック #39）。 */
 .card-added-proposal {
-  border-color: var(--lm-success-strong);
-  background: color-mix(in srgb, var(--lm-success-weak) 40%, var(--lm-s1));
+  border-color: var(--lm-info-strong);
+  background: color-mix(in srgb, var(--lm-info-weak) 40%, var(--lm-s1));
 }
 
 .spec-card-added-badge {
@@ -128,9 +130,9 @@
   align-self: flex-start;
   font-size: var(--fs-3xs);
   font-weight: 700;
-  color: var(--lm-success-strong);
-  background: var(--lm-success-weak);
-  border: 1px solid var(--lm-success-strong);
+  color: var(--lm-info-strong);
+  background: var(--lm-info-weak);
+  border: 1px solid var(--lm-info-strong);
   border-radius: var(--r-full);
   padding: 3px 10px;
 }

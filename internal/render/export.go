@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/nkenji09/product-memory/internal/diff"
+	"github.com/nkenji09/product-memory/internal/flow"
 	"github.com/nkenji09/product-memory/internal/index"
 	"github.com/nkenji09/product-memory/internal/lint"
 	"github.com/nkenji09/product-memory/internal/model"
@@ -35,6 +36,12 @@ type staticData struct {
 	SearchCorpus     []index.TransitionSearchDoc       `json:"searchCorpus"`
 	Lint             lintPayload                       `json:"lint"`
 	Spec             map[string]SpecReport             `json:"spec"`
+	// Flow mirrors GET /api/flow/<action> (T-viewer-action-flow-render),
+	// baked per distinct action id actually used by a transition — the only
+	// action ids the SpecCard kebab (T-viewer-action-flow-link) can ever
+	// link to, same "bake what the SPA can request" rule as
+	// transitionsByTag/spec above.
+	Flow map[string]flow.Report `json:"flow"`
 	// Tags / Vocab mirror GET /api/tags (no kind filter) and GET /api/vocab
 	// (no category filter) — the viewer views 語彙(vocab)/タグ階層 need the
 	// full unfiltered lists to filter/group client-side, the same way the
@@ -175,6 +182,15 @@ func collectStaticData(s *store.Store) (staticData, error) {
 		spec[t.ID] = report
 	}
 
+	actionIDs := map[string]bool{}
+	for _, t := range snap.Transitions {
+		actionIDs[t.Action] = true
+	}
+	flowReports := make(map[string]flow.Report, len(actionIDs))
+	for id := range actionIDs {
+		flowReports[id] = flow.Analyze(&snap, ix, id)
+	}
+
 	tags := append([]model.Tag{}, snap.Tags...)
 	sort.Slice(tags, func(i, j int) bool { return tags[i].ID < tags[j].ID })
 	vocab := append([]model.VocabEntry{}, snap.Vocab...)
@@ -197,6 +213,7 @@ func collectStaticData(s *store.Store) (staticData, error) {
 		SearchCorpus:     index.SearchCorpus(ix),
 		Lint:             lintPayload{Findings: findings, ErrorCount: errorCount, WarnCount: warnCount, InfoCount: infoCount},
 		Spec:             spec,
+		Flow:             flowReports,
 		Tags:             tags,
 		Vocab:            vocab,
 		VocabBySubject:   vocabBySubject,

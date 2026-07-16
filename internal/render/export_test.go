@@ -188,6 +188,17 @@ func TestExportHTML_WritesSelfContainedIndexHTML(t *testing.T) {
 	if len(data.Decisions) != 1 || data.Decisions[0].ID != "d1" {
 		t.Fatalf("baked decisions = %+v, want [d1] (HOME's recent-decisions widget needs this in static exports too)", data.Decisions)
 	}
+
+	// T-viewer-action-flow-render: baked per distinct action id used by a
+	// transition (act.user.login, via T-login) — the only action ids the
+	// SpecCard kebab can ever link to.
+	flowReport, ok := data.Flow["act.user.login"]
+	if !ok {
+		t.Fatal("baked flow missing act.user.login")
+	}
+	if len(flowReport.Matrix.Rows) != 1 || flowReport.Matrix.Rows[0].TransitionID != "T-login" {
+		t.Fatalf("baked flow[act.user.login].Matrix.Rows = %+v, want [T-login]", flowReport.Matrix.Rows)
+	}
 }
 
 func TestExportHTML_CreatesTargetDir(t *testing.T) {

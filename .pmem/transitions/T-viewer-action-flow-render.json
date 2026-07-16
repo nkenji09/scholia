@@ -5,8 +5,6 @@
     "cond.index-built"
   ],
   "then": [
-    "eff.emit.action-condition-matrix",
-    "eff.emit.scope-disclosure",
     "eff.emit.action-flow-mermaid"
   ],
   "tags": [

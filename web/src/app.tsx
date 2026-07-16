@@ -4,6 +4,7 @@ import { HomeView } from './components/home/HomeView';
 import { BrowseView } from './components/browse/BrowseView';
 import { ConfigView } from './components/config/ConfigView';
 import { VocabView } from './components/VocabView';
+import { FlowView } from './components/FlowView';
 import { CommentPanel } from './components/comments/CommentPanel';
 import { useComments } from './components/comments/useComments';
 import type { CommentRecord } from './components/comments/useComments';
@@ -129,6 +130,7 @@ export function App() {
         <BrowseView scrollKey="spec" facet="tags" initialFocusTagId={route.tagId} onGoToSpec={openTransition} onGoToVocab={openVocabEntry} onGoToTag={openTagSpec} {...browseSearchProps} />
       )}
       {view === 'tags' && <BrowseView scrollKey="tags" facet="tags" onGoToSpec={openTransition} onGoToVocab={openVocabEntry} onGoToTag={openTagSpec} {...browseSearchProps} />}
+      {view === 'flow' && <FlowView actionId={route.actionId} />}
       {view === 'config' && <ConfigView />}
       <CommentPanel onGoto={gotoComment} />
     </>

@@ -55,6 +55,7 @@
   --lm-error: #dc2626;
   --lm-error-weak: rgba(220, 38, 38, 0.12);
   --lm-info: #2563eb;
+  --lm-info-strong: color-mix(in srgb, var(--lm-info) 82%, #000);
   --lm-info-weak: rgba(37, 99, 235, 0.12);
 
   /* tag-kind / vocab-category / grammar-slot semantic colors (used once
@@ -145,6 +146,7 @@
   --lm-error: #f26d6d;
   --lm-error-weak: rgba(242, 109, 109, 0.16);
   --lm-info: #5b9bff;
+  --lm-info-strong: color-mix(in srgb, var(--lm-info) 80%, #fff);
   --lm-info-weak: rgba(91, 155, 255, 0.16);
   --tag-slate: #94a3b8;
   --tag-amber: #fbbf24;
