@@ -1,0 +1,5 @@
+{
+  "id": "cond.axis-declared",
+  "category": "condition",
+  "label": "解析対象 action の条件に、軸(axis タグ)が宣言されている（少なくとも1つの given 条件が axis タグを貼られている）"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "eff.emit.action-condition-matrix",
+  "category": "effect",
+  "label": "同じ action を持つ全 transition を集め、条件(given)×transition の action-scoped マトリクスを構築する（どの transition がどの条件を要求するかを見せるだけで、網羅を主張しない可視化の土台）",
+  "kind": "emit",
+  "owner": "フロー解析器（viewer/CLI 共有）"
+}

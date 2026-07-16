@@ -1,0 +1,7 @@
+{
+  "id": "eff.emit.axis-product-cells",
+  "category": "effect",
+  "label": "宣言された軸（axis タグ）だけの直積で『あり得る状況』cell を有界列挙する（同一軸の複数値の両立は自動排除＝2ⁿ にならない）",
+  "kind": "emit",
+  "owner": "フロー解析器（viewer/CLI 共有）"
+}

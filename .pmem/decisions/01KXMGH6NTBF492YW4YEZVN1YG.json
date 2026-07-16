@@ -1,0 +1,9 @@
+{
+  "id": "01KXMGH6NTBF492YW4YEZVN1YG",
+  "target": {
+    "type": "transition",
+    "id": "T-viewer-action-flow-render"
+  },
+  "why": "viewer を同解析の別 surface として採用。eff.emit.action-condition-matrix / scope-disclosure は CLI と共有（実装同一性）、eff.emit.action-flow-mermaid が viewer 固有の描画。結果ノードは transition 詳細(#/browse/tx/\u003cid\u003e)への実 a リンク（既存 deep-linking decision req.comfortable-viewer.deep-linking の延長）。抜け/重なり/subset-shadow を mermaid 上で視覚強調（gap signal は共有解析が算出・viewer は描くだけ）。前提：securityLevel strict（既存 Markdown.tsx）下で click ハイパーリンクが機能すること＝崩れる場合は描画方式を再検討（実装フェーズでユーザー確定）。正本には含めるが実装は CLI 優先で後段。",
+  "at": "2026-07-16T03:46:39Z"
+}

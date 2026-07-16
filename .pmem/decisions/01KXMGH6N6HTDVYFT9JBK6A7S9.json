@@ -1,0 +1,9 @@
+{
+  "id": "01KXMGH6N6HTDVYFT9JBK6A7S9",
+  "target": {
+    "type": "tag",
+    "id": "req.action-flow.scope-honesty"
+  },
+  "why": "素の『no gaps』禁止・scope 印字を削れない必須要件として採用（§7.4 B）。ツールが素の no gaps を出すと false confidence の道具になる（案H が machine-verified coverage を看板に掲げて崩れたのと同じ）。列挙した軸／don't-care 扱いした条件／保証の外（軸に属さない単独フラグ・連続量・未宣言軸・default 残余）を必ず印字することが、『false confidence を作る道具』を『信頼できる道具』に変える唯一の修正。coverage は advisory 表示に留める。これは削れない＝実装で省略不可。",
+  "at": "2026-07-16T03:46:39Z"
+}

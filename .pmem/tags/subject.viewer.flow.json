@@ -1,0 +1,9 @@
+{
+  "id": "subject.viewer.flow",
+  "name": "フローページ",
+  "kind": "subject",
+  "parentIds": [
+    "subject.viewer"
+  ],
+  "description": "きっかけ(action)ごとの前提→結果を mermaid フローチャートで描く別画面。#/flow/\u003caction\u003e ルート。"
+}

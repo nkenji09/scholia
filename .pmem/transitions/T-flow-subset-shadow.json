@@ -1,0 +1,16 @@
+{
+  "id": "T-flow-subset-shadow",
+  "action": "act.user.flow",
+  "given": [
+    "cond.given-subset",
+    "cond.index-built"
+  ],
+  "then": [
+    "eff.emit.subset-shadow",
+    "eff.log.action-flow-report"
+  ],
+  "tags": [
+    "req.action-flow.subset-shadow",
+    "subject.cli"
+  ]
+}

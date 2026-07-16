@@ -1,0 +1,9 @@
+{
+  "id": "req.action-flow.scope-honesty",
+  "name": "素の『no gaps』を禁止し、保証の外を必ず印字する（削れない必須要件）",
+  "kind": "requirement",
+  "parentIds": [
+    "req.action-flow"
+  ],
+  "description": "ツールは素の『no gaps』を出さない。**列挙した軸／don't-care 扱いした条件／保証の外（軸に属さない単独フラグ・連続量・未宣言軸・default 残余）を必ず印字**する。これが『false confidence を作る道具』を『信頼できる道具』に変える唯一の修正で、**削れない**（削ると案H の過大主張＝machine-verified coverage に堕ちる）。coverage は advisory 表示に留める（design-options §6.3-3・§7.4 B）。"
+}

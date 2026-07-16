@@ -1,0 +1,6 @@
+{
+  "id": "axis.update.mode",
+  "name": "更新モード軸（確認だけ / 実更新）",
+  "kind": "axis",
+  "description": "**axis タグのパターン例**（旗艦 act.user.update 用・total=true＝必ずどちらか1値が真）。値＝この軸タグを貼った条件群：{cond.update-check-flag（確認だけ=--check）, cond.update-apply（実更新＝--check でない・complement・現状 materialize 未・design-options が指摘する欠落）}。※ 「total」 属性は現状 model.Tag に無く、この desc が仮の担い手＝**adopt 時に model.Tag へ total:bool を足すコアモデル修正の決定ゲート**（review コメント参照）。条件への軸タグ付け（多重所属可）は既存 vocab.Tags[] で表現でき追加のモデル変更は不要。実際の軸付けは実装フェーズで update ドメインごと行う（本タスクでは update 記録に触れない）。"
+}

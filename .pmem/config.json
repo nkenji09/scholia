@@ -21,7 +21,8 @@
   "tagKinds": [
     "requirement",
     "concern",
-    "subject"
+    "subject",
+    "axis"
   ],
   "facetKinds": [
     "subject",
@@ -41,6 +42,7 @@
     "port": 4577
   },
   "tagKindLabels": {
+    "axis": "軸",
     "concern": "関心",
     "requirement": "要件",
     "subject": "コンポーネント"

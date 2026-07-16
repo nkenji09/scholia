@@ -1,0 +1,17 @@
+{
+  "id": "T-viewer-action-flow-render",
+  "action": "act.user.view-action-flow",
+  "given": [
+    "cond.index-built"
+  ],
+  "then": [
+    "eff.emit.action-condition-matrix",
+    "eff.emit.scope-disclosure",
+    "eff.emit.action-flow-mermaid"
+  ],
+  "tags": [
+    "req.action-flow.visualize",
+    "req.action-flow.scope-honesty",
+    "subject.viewer.flow"
+  ]
+}

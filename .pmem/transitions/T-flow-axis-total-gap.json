@@ -1,0 +1,18 @@
+{
+  "id": "T-flow-axis-total-gap",
+  "action": "act.user.flow",
+  "given": [
+    "cond.axis-declared",
+    "cond.index-built",
+    "cond.total-axis-value-missing"
+  ],
+  "then": [
+    "eff.emit.axis-product-cells",
+    "eff.emit.total-axis-gap",
+    "eff.log.action-flow-report"
+  ],
+  "tags": [
+    "req.action-flow.axis-gaps",
+    "subject.cli"
+  ]
+}

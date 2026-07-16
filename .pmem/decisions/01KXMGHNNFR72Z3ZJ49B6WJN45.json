@@ -1,0 +1,9 @@
+{
+  "id": "01KXMGHNNFR72Z3ZJ49B6WJN45",
+  "target": {
+    "type": "transition",
+    "id": "T-viewer-action-flow-link"
+  },
+  "why": "spec カードから flow ページを開く導線を採用。act.user.open-action-flow で eff.emit.open-action-flow-tab（#/flow/\u003caction\u003e ルートを開く）。viewer から flow 可視化への入口＝req.action-flow.visualize の viewer 導線具現。",
+  "at": "2026-07-16T03:46:54Z"
+}

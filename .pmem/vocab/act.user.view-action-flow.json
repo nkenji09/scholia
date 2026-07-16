@@ -1,0 +1,6 @@
+{
+  "id": "act.user.view-action-flow",
+  "category": "action",
+  "label": "きっかけのフロー図ビューを表示したとき",
+  "kind": "user"
+}

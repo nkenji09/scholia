@@ -1,0 +1,7 @@
+{
+  "id": "eff.emit.total-axis-gap",
+  "category": "effect",
+  "label": "全域(total=true)宣言軸で、ある値を given に持つ transition が1つも無い『抜け』を gap として報告する（前提そのものの欠落・唯一 clean に sound）",
+  "kind": "emit",
+  "owner": "フロー解析器（viewer/CLI 共有）"
+}

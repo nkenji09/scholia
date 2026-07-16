@@ -1,0 +1,9 @@
+{
+  "id": "01KXMGGD7178K95NX8QN2FNN73",
+  "target": {
+    "type": "tag",
+    "id": "axis.update.mode"
+  },
+  "why": "軸を config kind でなく 1軸＝1枚の tag レコードで表す設計を採用（§7.1）。config 全体の kind で軸管理すると『プロジェクト全体で管理＝爆発』の轍（棄却済み alt）を踏む。全体設定に増えるのは tagKind axis の1語だけで、アクション/軸が何百増えても config は太らない（増えるのは原子＝ファイル・git 衝突しない・複雑性シグナルは適正 altitude）。条件は軸タグを貼って値になる（多重所属可＝condition kind の単一所属制約を回避）。本 record は旗艦 act.user.update 用の軸パターン例。total=true 属性は上記 axis-gaps の model.Tag 修正ゲートに依存（現状 desc が仮の担い手）。旗艦の install/platform/mode/status 4宣言軸×16 cell の相互排他分割が過不足なく書けることは敵対検証で総当り確認済（priority/否定のモデル導入は不要）。",
+  "at": "2026-07-16T03:46:13Z"
+}

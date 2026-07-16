@@ -1,0 +1,9 @@
+{
+  "id": "req.action-flow",
+  "name": "きっかけの前提→結果を可視化し、証明できる穴だけを honesty-first に検出する",
+  "kind": "requirement",
+  "parentIds": [
+    "req.auxiliary-features"
+  ],
+  "description": "仕様カードの「きっかけ(action)」から、同じ action を持つ全 transition の given→then を1枚に可視化（viewer=mermaid フロー図・CLI=text/JSON）し、**証明できる signal だけを sound な gap として検出**する。設計方針は honesty-first の層状（design-options §7・2026-07-16 ユーザー承認）：(1) トラストの核＝モデル変更ゼロの action-scoped マトリクス＋subset-shadow（証明可能な重複）、(2) 任意の軸注釈（axis タグ＋total）で買うのは L-total（抜け＝唯一 clean に sound）と宣言条件付き disjointness（重なり）の2つだけ、(3) 素の『no gaps』は禁止でスコープを必ず印字（保証の外を隠さない）、(4) fallback は coverage に数えない acknowledged-remainder default を1つだけ。**product-coverage を『機械検証された網羅』とは称さない**。arbitrary priority（transition に順序/否定を持つ案F）は trade を承知で当面棄却。子要件に層ごとの受け入れ基準を割る。"
+}
