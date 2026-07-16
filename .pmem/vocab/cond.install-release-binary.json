@@ -1,5 +1,8 @@
 {
   "id": "cond.install-release-binary",
   "category": "condition",
-  "label": "導入方式がリリース版バイナリで自己置換可能なとき（version が実リリース値・実行ファイルが書換可能・パッケージマネージャ管理下でない）"
+  "label": "導入方式がリリース版バイナリで自己置換可能なとき（version が実リリース値・実行ファイルが書換可能・パッケージマネージャ管理下でない）",
+  "tags": [
+    "axis.update.install"
+  ]
 }

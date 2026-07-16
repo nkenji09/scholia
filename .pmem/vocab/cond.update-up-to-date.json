@@ -1,5 +1,8 @@
 {
   "id": "cond.update-up-to-date",
   "category": "condition",
-  "label": "現在版が GitHub の最新リリースと同一のとき（既に最新）"
+  "label": "現在版が GitHub の最新リリースと同一のとき（既に最新）",
+  "tags": [
+    "axis.update.status"
+  ]
 }

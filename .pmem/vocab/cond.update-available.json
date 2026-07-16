@@ -1,5 +1,8 @@
 {
   "id": "cond.update-available",
   "category": "condition",
-  "label": "GitHub の最新リリース tag が現在版より新しいとき（更新あり）"
+  "label": "GitHub の最新リリース tag が現在版より新しいとき（更新あり）",
+  "tags": [
+    "axis.update.status"
+  ]
 }

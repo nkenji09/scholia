@@ -1,0 +1,7 @@
+{
+  "id": "axis.update.status",
+  "name": "更新: バージョン状態軸（更新あり / 既に最新）",
+  "kind": "axis",
+  "description": "act.user.update の分岐条件のうち「GitHub 最新リリースと現在版の関係」を束ねる軸。値＝{cond.update-available, cond.update-up-to-date}。新しいか同一かの二値で全ケースを尽くすため total=true。#39 design-options §6.1 の4軸割りの1つ。",
+  "total": true
+}

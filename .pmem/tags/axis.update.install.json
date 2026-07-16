@@ -1,0 +1,7 @@
+{
+  "id": "axis.update.install",
+  "name": "更新: 導入経路軸（release バイナリ / source-go install）",
+  "kind": "axis",
+  "description": "act.user.update の分岐条件のうち「どう導入されたか」を束ねる軸。値＝{cond.install-release-binary, cond.install-source-goinstall}。この2値は定義上排他（version文字列の由来で二択）かつ全ケースを尽くすため total=true。#39 design-options §6.1 の4軸割りの1つ（Level 1＝軸宣言＋タグ付けのみ、遷移の given は書き換えない）。",
+  "total": true
+}

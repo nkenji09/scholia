@@ -1,5 +1,8 @@
 {
   "id": "cond.platform-windows",
   "category": "condition",
-  "label": "実行 OS が windows で、実行中の .exe を上書きできないとき"
+  "label": "実行 OS が windows で、実行中の .exe を上書きできないとき",
+  "tags": [
+    "axis.update.platform"
+  ]
 }

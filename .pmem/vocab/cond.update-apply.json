@@ -1,0 +1,9 @@
+{
+  "id": "cond.update-apply",
+  "category": "condition",
+  "label": "pmem update に --check が指定されていない（実更新を行う）とき",
+  "tags": [
+    "axis.update.mode"
+  ],
+  "description": "cond.update-check-flag の complement として新設。axis.update.mode（total=true）の2値目を materialize する。現状どの遷移の given にも現れない＝L-total 抜けとして検出される想定（design-options が指摘した『--check でない場合の実更新はモード軸として明示されていない』という欠落を可視化する）。Level 1 ではこの語彙を追加するのみで、遷移の given 書き換えは別 decision。"
+}
