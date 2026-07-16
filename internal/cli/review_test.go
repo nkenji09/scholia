@@ -127,3 +127,179 @@ func TestCLI_ReviewListEmpty(t *testing.T) {
 		t.Fatalf("空の review list は [] であるべき: got %q", out)
 	}
 }
+
+// setupReviewFixture は review adopt/reject/rm 系テスト共通の下ごしらえ
+// （T-1 と review 1件）。
+func setupReviewFixture(t *testing.T, dir string) (reviewID string) {
+	t.Helper()
+	if _, err := run(t, dir, "init"); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	if _, err := run(t, dir, "tag", "create", "subject.auth", "--name", "認証", "--kind", "subject"); err != nil {
+		t.Fatalf("tag create: %v", err)
+	}
+	if _, err := run(t, dir, "vocab", "add", "action", "act.a", "--label", "a"); err != nil {
+		t.Fatalf("vocab add: %v", err)
+	}
+	if _, err := run(t, dir, "vocab", "add", "effect", "eff.a", "--label", "a"); err != nil {
+		t.Fatalf("vocab add effect: %v", err)
+	}
+	if _, err := run(t, dir, "tx", "add", "T-1", "--action", "act.a", "--then", "eff.a", "--tags", "subject.auth"); err != nil {
+		t.Fatalf("tx add: %v", err)
+	}
+	addOut, err := run(t, dir, "review", "add", "--on", "transition:T-1", "--body", "AI: これは提案理由です", "--json")
+	if err != nil {
+		t.Fatalf("review add failed: %v\noutput:\n%s", err, addOut)
+	}
+	var added struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(addOut), &added); err != nil {
+		t.Fatalf("unmarshal: %v\noutput:\n%s", err, addOut)
+	}
+	return added.ID
+}
+
+// T-review-adopt: 昇格（decision 作成）→ 削除の順序で行われ、review の本文が
+// decision の why に載る。
+func TestCLI_ReviewAdopt(t *testing.T) {
+	dir := t.TempDir()
+	id := setupReviewFixture(t, dir)
+
+	out, err := run(t, dir, "review", "adopt", id, "--json")
+	if err != nil {
+		t.Fatalf("review adopt failed: %v\noutput:\n%s", err, out)
+	}
+	var d struct {
+		ID     string `json:"id"`
+		Target struct {
+			Type string `json:"type"`
+			ID   string `json:"id"`
+		} `json:"target"`
+		Why string `json:"why"`
+	}
+	if err := json.Unmarshal([]byte(out), &d); err != nil {
+		t.Fatalf("unmarshal decision: %v\noutput:\n%s", err, out)
+	}
+	if d.Target.Type != "transition" || d.Target.ID != "T-1" {
+		t.Fatalf("decision target = %+v, want transition:T-1", d.Target)
+	}
+	if d.Why != "AI: これは提案理由です" {
+		t.Fatalf("decision why = %q, want review body verbatim", d.Why)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, ".pmem", "decisions", d.ID+".json")); err != nil {
+		t.Fatalf("decision file not written: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".pmem", "reviews", id+".json")); !os.IsNotExist(err) {
+		t.Fatalf("review should be deleted after adopt, stat err = %v", err)
+	}
+}
+
+// T-review-reject: adopt と同じ昇格＋掃除だが why に却下である旨が前置きされる。
+func TestCLI_ReviewReject(t *testing.T) {
+	dir := t.TempDir()
+	id := setupReviewFixture(t, dir)
+
+	out, err := run(t, dir, "review", "reject", id, "--json")
+	if err != nil {
+		t.Fatalf("review reject failed: %v\noutput:\n%s", err, out)
+	}
+	var d struct {
+		ID  string `json:"id"`
+		Why string `json:"why"`
+	}
+	if err := json.Unmarshal([]byte(out), &d); err != nil {
+		t.Fatalf("unmarshal decision: %v\noutput:\n%s", err, out)
+	}
+	if !strings.Contains(d.Why, "却下") || !strings.Contains(d.Why, "AI: これは提案理由です") {
+		t.Fatalf("decision why = %q, want rejection prefix + review body", d.Why)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".pmem", "reviews", id+".json")); !os.IsNotExist(err) {
+		t.Fatalf("review should be deleted after reject, stat err = %v", err)
+	}
+}
+
+// --why を渡すと review 本文の代わりにそちらが decision.why になる。
+func TestCLI_ReviewAdopt_WhyOverride(t *testing.T) {
+	dir := t.TempDir()
+	id := setupReviewFixture(t, dir)
+
+	out, err := run(t, dir, "review", "adopt", id, "--why", "編集後の確定 why", "--json")
+	if err != nil {
+		t.Fatalf("review adopt failed: %v\noutput:\n%s", err, out)
+	}
+	var d struct {
+		Why string `json:"why"`
+	}
+	if err := json.Unmarshal([]byte(out), &d); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if d.Why != "編集後の確定 why" {
+		t.Fatalf("decision why = %q, want override", d.Why)
+	}
+}
+
+// T-cli-review-rm: escape hatch — decision を残さず review だけ消える。
+func TestCLI_ReviewRm(t *testing.T) {
+	dir := t.TempDir()
+	id := setupReviewFixture(t, dir)
+
+	out, err := run(t, dir, "review", "rm", id)
+	if err != nil {
+		t.Fatalf("review rm failed: %v\noutput:\n%s", err, out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".pmem", "reviews", id+".json")); !os.IsNotExist(err) {
+		t.Fatalf("review should be deleted, stat err = %v", err)
+	}
+	decisionsDir := filepath.Join(dir, ".pmem", "decisions")
+	entries, err := os.ReadDir(decisionsDir)
+	if err != nil && !os.IsNotExist(err) {
+		t.Fatalf("ReadDir decisions: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("review rm should not leave a decision behind, found: %+v", entries)
+	}
+}
+
+// 存在しない id は adopt/reject/rm いずれもエラーになる（cond.review-exists）。
+func TestCLI_ReviewAdoptRejectRm_MissingIDIsError(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := run(t, dir, "init"); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	if _, err := run(t, dir, "review", "adopt", "does-not-exist"); err == nil {
+		t.Fatalf("expected error adopting a nonexistent review")
+	}
+	if _, err := run(t, dir, "review", "reject", "does-not-exist"); err == nil {
+		t.Fatalf("expected error rejecting a nonexistent review")
+	}
+	if _, err := run(t, dir, "review", "rm", "does-not-exist"); err == nil {
+		t.Fatalf("expected error removing a nonexistent review")
+	}
+}
+
+// review の対象が vocab のときは decision 化できない（model.DecisionTarget
+// は transition/tag のみ）。
+func TestCLI_ReviewAdopt_VocabTargetIsError(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := run(t, dir, "init"); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	if _, err := run(t, dir, "vocab", "add", "action", "act.a", "--label", "a"); err != nil {
+		t.Fatalf("vocab add: %v", err)
+	}
+	addOut, err := run(t, dir, "review", "add", "--on", "vocab:act.a", "--body", "AI: 語彙への提案", "--json")
+	if err != nil {
+		t.Fatalf("review add: %v\noutput:\n%s", err, addOut)
+	}
+	var added struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(addOut), &added); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if _, err := run(t, dir, "review", "adopt", added.ID); err == nil {
+		t.Fatalf("expected error adopting a vocab-targeted review")
+	}
+}
