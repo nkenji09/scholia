@@ -18,7 +18,7 @@ import { useEffect, useState } from 'preact/hooks';
 // evaluation moves inline into each Transition's comment drawer instead of
 // living on its own route. `getDiff` (api.ts) and the `/api/diff` backend
 // endpoint stay for that inline reuse (P2) — only this standalone view goes.
-export type ViewName = 'home' | 'browse' | 'vocab' | 'spec' | 'tags' | 'config';
+export type ViewName = 'home' | 'browse' | 'vocab' | 'spec' | 'tags' | 'config' | 'flow';
 
 export interface Route {
   view: ViewName;
@@ -28,6 +28,11 @@ export interface Route {
       record within this view's route" pattern as spec's tagId, added for
       comment-panel "位置へ移動" on vocab comments (2026-07-11 コメント拡張4件). */
   vocabId?: string;
+  /** Action id whose given→then flow is shown (#/flow/<action>,
+      T-viewer-action-flow-render). Opened in a separate tab from the spec
+      card's action kebab (T-viewer-action-flow-link) — a standalone route,
+      same "focus id in the path" shape as spec/vocab above. */
+  actionId?: string;
   /** BrowseView's search state (query/kindFacet/filters), carried as a query
       string appended to the hash path (e.g. #/browse/tag/<id>?q=..&f=..) so
       it composes with the existing path-segment routes above instead of
@@ -45,7 +50,7 @@ export interface Route {
   searchSubject?: string;
 }
 
-const VIEWS: ViewName[] = ['home', 'browse', 'vocab', 'spec', 'tags', 'config'];
+const VIEWS: ViewName[] = ['home', 'browse', 'vocab', 'spec', 'tags', 'config', 'flow'];
 // HOME is the new landing page (.concierge/decision.md G-2, resolved:
 // default route moves from 'browse' to 'home'). An empty/unknown hash still
 // falls back to DEFAULT_ROUTE below, so bookmarks of `#` or the bare page
@@ -85,6 +90,9 @@ export function parseRoute(hash: string): Route {
     case 'vocab':
       if (parts[1]) route.vocabId = parts[1];
       break;
+    case 'flow':
+      if (parts[1]) route.actionId = parts[1];
+      break;
   }
   if (queryString) {
     // URLSearchParams decodes each value on .get() — plain text (q/k) needs
@@ -121,6 +129,9 @@ export function routeHash(route: Route): string {
       break;
     case 'vocab':
       if (route.vocabId) seg.push(encodeURIComponent(route.vocabId));
+      break;
+    case 'flow':
+      if (route.actionId) seg.push(encodeURIComponent(route.actionId));
       break;
   }
   let hash = `#/${seg.join('/')}`;
