@@ -169,7 +169,7 @@ pmem skills install            # into <cwd>/.claude/skills/ (default)
 pmem skills install --user     # into ~/.claude/skills/
 ```
 
-Both paths ship the **same single source** (`agents/skills/`); the plugin serves it via the marketplace, while `pmem skills install` serves it from the binary's `//go:embed` copy. The plugin version (`agents/.claude-plugin/plugin.json`) is tracked independently of the CLI release version.
+Both paths ship the **same single source** (`agents/skills/`); the plugin serves it via the marketplace, while `pmem skills install` serves it from the binary's `//go:embed` copy. For releases that include skill changes (`agents/`), the plugin version (`agents/.claude-plugin/plugin.json`) is kept in sync with the release tag (see [RELEASING.md](RELEASING.md)).
 
 ## License
 
