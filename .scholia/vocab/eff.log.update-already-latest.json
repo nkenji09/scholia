@@ -3,5 +3,5 @@
   "category": "effect",
   "label": "取得・置換をせず、現在版が最新である旨（現在版）を出力する",
   "kind": "log",
-  "owner": "pmem-core"
+  "owner": "scholia-core"
 }

@@ -3,5 +3,5 @@
   "category": "effect",
   "label": "lint 結果を出力する",
   "kind": "log",
-  "owner": "pmem-core"
+  "owner": "scholia-core"
 }

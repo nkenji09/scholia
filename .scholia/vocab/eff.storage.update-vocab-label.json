@@ -3,7 +3,7 @@
   "category": "effect",
   "label": "vocab の label フィールドを更新して \u003cid\u003e.json を atomic write する（description は不変）",
   "kind": "storage",
-  "owner": "pmem-core",
+  "owner": "scholia-core",
   "tags": [
     "concern.git-friendliness"
   ]

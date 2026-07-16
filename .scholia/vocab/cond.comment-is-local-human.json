@@ -1,5 +1,5 @@
 {
   "id": "cond.comment-is-local-human",
   "category": "condition",
-  "label": "対象が localStorage(pmem-comments-v1) の人コメントである（adopt/reject 共通）"
+  "label": "対象が localStorage(scholia-comments-v1) の人コメントである（adopt/reject 共通）"
 }

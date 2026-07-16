@@ -1,6 +1,6 @@
 {
   "id": "act.user.vocab-edit",
   "category": "action",
-  "label": "pmem vocab edit を実行",
+  "label": "scholia vocab edit を実行",
   "kind": "user"
 }

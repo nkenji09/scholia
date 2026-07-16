@@ -3,5 +3,5 @@
   "category": "effect",
   "label": "OS/arch に合う releases/latest/download のアーカイブと checksums.txt をダウンロードする",
   "kind": "http",
-  "owner": "pmem-core"
+  "owner": "scholia-core"
 }

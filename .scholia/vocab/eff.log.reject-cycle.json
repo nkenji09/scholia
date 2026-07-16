@@ -3,5 +3,5 @@
   "category": "effect",
   "label": "循環を検知しエラーで拒否する",
   "kind": "log",
-  "owner": "pmem-core"
+  "owner": "scholia-core"
 }

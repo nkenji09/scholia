@@ -1,7 +1,7 @@
 {
   "id": "act.user.decide",
   "category": "action",
-  "label": "pmem decide を実行",
+  "label": "scholia decide を実行",
   "kind": "user",
   "tags": [
     "concern.traceability"

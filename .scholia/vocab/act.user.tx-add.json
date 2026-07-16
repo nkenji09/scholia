@@ -1,6 +1,6 @@
 {
   "id": "act.user.tx-add",
   "category": "action",
-  "label": "pmem tx add を実行",
+  "label": "scholia tx add を実行",
   "kind": "user"
 }

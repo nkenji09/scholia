@@ -1,6 +1,6 @@
 {
   "id": "act.user.update",
   "category": "action",
-  "label": "pmem update を実行したとき",
+  "label": "scholia update を実行したとき",
   "kind": "user"
 }

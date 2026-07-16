@@ -1,7 +1,7 @@
 {
   "id": "cond.update-apply",
   "category": "condition",
-  "label": "pmem update に --check が指定されていない（実更新を行う）とき",
+  "label": "scholia update に --check が指定されていない（実更新を行う）とき",
   "tags": [
     "axis.update.mode"
   ],

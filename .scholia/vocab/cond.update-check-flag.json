@@ -1,7 +1,7 @@
 {
   "id": "cond.update-check-flag",
   "category": "condition",
-  "label": "pmem update に --check が指定されているとき（dry-run）",
+  "label": "scholia update に --check が指定されているとき（dry-run）",
   "tags": [
     "axis.update.mode"
   ]

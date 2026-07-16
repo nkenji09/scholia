@@ -3,7 +3,7 @@
   "category": "effect",
   "label": "decisions/ に新規ファイルを追記する",
   "kind": "storage",
-  "owner": "pmem-core",
+  "owner": "scholia-core",
   "tags": [
     "concern.git-friendliness"
   ]
