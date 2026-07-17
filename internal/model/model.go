@@ -153,6 +153,13 @@ type Config struct {
 	// for rename's reference integrity, to avoid conflating record
 	// discovery with source scanning under one setting.
 	SourceRefs *SourceRefs `json:"sourceRefs,omitempty"`
+	// IDPolicy is additive (#45 U2): id prefix declarations with write-time
+	// enforcement semantics (new ids only — wired in P3). nil means "no
+	// declaration" and everything behaves as before; IDPrefix above stays
+	// convention-only and untouched.
+	IDPolicy *IDPolicy `json:"idPolicy,omitempty"`
+	// Lint is additive (#45 U2): tuning knobs for advisory lint rules.
+	Lint *LintConfig `json:"lint,omitempty"`
 }
 
 // SourceRefs scopes where `scholia refs scan|rewrite` and rename's implicit
@@ -163,6 +170,33 @@ type Config struct {
 type SourceRefs struct {
 	Scan    []string `json:"scan,omitempty"`
 	Exclude []string `json:"exclude,omitempty"`
+}
+
+// IDPolicy は id prefix の宣言（#45 U2・additive）。既存 IDPrefix（vocab 3
+// カテゴリの「慣例のみ・強制なし」）とは意味論の異なる別キーで非破壊に共存する:
+// 宣言された prefix は書き込みゲート（P3）で新規 id にのみ強制され、既存 id は
+// 対象外。lint の dangling-id は宣言 prefix を id 様トークンの候補集合に加える。
+// `scholia config infer-id-policy` が既存 id 分布から宣言案を出す（書き込みは
+// しない——実宣言は各 store の運用判断）。
+type IDPolicy struct {
+	// Transition は transition id の prefix（例 "T-"・"tx."）。
+	Transition string `json:"transition,omitempty"`
+	// Vocab は vocab カテゴリ（condition/action/effect）→ prefix。
+	Vocab map[string]string `json:"vocab,omitempty"`
+	// TagByKind は tag kind（axis/requirement/…）→ prefix。
+	TagByKind map[string]string `json:"tagByKind,omitempty"`
+}
+
+// LintConfig は advisory lint（authoring 規律・#45 U2）の検出調整。additive/
+// omitempty——既存 config.json は無改修で読める（nil = 全て既定値）。
+type LintConfig struct {
+	// StalePatternExcludes は stale-tense の除外正規表現（検出語がいずれかに
+	// マッチしたら finding にしない）。初期値は空集合（最小で開始・決定⑥）。
+	StalePatternExcludes []string `json:"stalePatternExcludes,omitempty"`
+	// PlaceholderSegments は dangling-id の除外 (E2) プレースホルダ語彙への
+	// 追加分。built-in（xxx/yyy/foo/bar/foobar/foo-bar/example/sample/dummy）
+	// に加算される（置換ではない）。
+	PlaceholderSegments []string `json:"placeholderSegments,omitempty"`
 }
 
 // DefaultConfig は `scholia init` が書き出す既定値（§3.6 の例そのまま）。
