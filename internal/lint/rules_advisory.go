@@ -165,26 +165,36 @@ func checkExclusiveViolation(snap store.Snapshot) []Finding {
 
 	var out []Finding
 	for _, t := range snap.Transitions {
-		hits := make(map[string][]string) // axisID -> given 条件ids
-		for _, g := range t.Given {
-			for _, axisID := range axisValues[g] {
-				hits[axisID] = append(hits[axisID], g)
-			}
+		out = append(out, transitionExclusiveViolations(axisValues, t)...)
+	}
+	return out
+}
+
+// transitionExclusiveViolations は 1 transition 分の exclusive-violation 検査
+// （lint 全量走査と write ゲート reject (a) が共有する検査コア・#45 U3。
+// write ゲートだけ total 限定にすると lint と判定が食い違うため、どちらも
+// 全 axis kind を対象にする）。
+func transitionExclusiveViolations(axisValues map[string][]string, t model.Transition) []Finding {
+	hits := make(map[string][]string) // axisID -> given 条件ids
+	for _, g := range t.Given {
+		for _, axisID := range axisValues[g] {
+			hits[axisID] = append(hits[axisID], g)
 		}
-		axisIDs := make([]string, 0, len(hits))
-		for axisID := range hits {
-			axisIDs = append(axisIDs, axisID)
+	}
+	axisIDs := make([]string, 0, len(hits))
+	for axisID := range hits {
+		axisIDs = append(axisIDs, axisID)
+	}
+	sort.Strings(axisIDs)
+	var out []Finding
+	for _, axisID := range axisIDs {
+		vals := hits[axisID]
+		if len(vals) < 2 {
+			continue
 		}
-		sort.Strings(axisIDs)
-		for _, axisID := range axisIDs {
-			vals := hits[axisID]
-			if len(vals) < 2 {
-				continue
-			}
-			sort.Strings(vals)
-			out = append(out, finding("exclusive-violation", SeverityWarn, t.ID,
-				"transition %s: given が軸 %s の複数値を同時に持っています（%s）＝軸排他の不変条件が破れています", t.ID, axisID, strings.Join(vals, ", ")))
-		}
+		sort.Strings(vals)
+		out = append(out, finding("exclusive-violation", SeverityWarn, t.ID,
+			"transition %s: given が軸 %s の複数値を同時に持っています（%s）＝軸排他の不変条件が破れています", t.ID, axisID, strings.Join(vals, ", ")))
 	}
 	return out
 }
