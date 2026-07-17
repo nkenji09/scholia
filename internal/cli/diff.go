@@ -51,7 +51,7 @@ func newDiffCmd() *cobra.Command {
 			}
 
 			if result.DecisionViolation() {
-				return fmt.Errorf("decisions の削除／改変を検出しました（append-only 違反）")
+				return fmt.Errorf("decisions の削除／判断欄位の改変を検出しました（append-only 違反・欄位単位）")
 			}
 			return nil
 		},
@@ -152,6 +152,10 @@ func printDecisionDiff(w io.Writer, d diff.DecisionDiff) {
 		fmt.Fprintf(w, "  ! 削除（append-only 違反）: %s (%s: %s)\n", dec.ID, dec.Target.Type, dec.Target.ID)
 	}
 	for _, c := range d.Changed {
-		fmt.Fprintf(w, "  ! 改変（append-only 違反）: %s\n", c.ID)
+		if c.Violation() {
+			fmt.Fprintf(w, "  ! 改変（append-only 違反・判断欄位: %s）: %s\n", strings.Join(c.ViolatedFields, ","), c.ID)
+		} else {
+			fmt.Fprintf(w, "  ~ %s（許容欄位のみ: %s）\n", c.ID, strings.Join(c.AllowedFields, ", "))
+		}
 	}
 }
