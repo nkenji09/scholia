@@ -1,0 +1,14 @@
+{
+  "id": "01KXS6AEPX0YR88XSGKJKHSVY0",
+  "target": {
+    "type": "tag",
+    "id": "req.record-maintenance"
+  },
+  "why": "ガイダンス/規約の改定と既存 store の是正を接続する機構が無い——#44-A の規律明文化は遡及機構ゼロで、AI は既存 store を few-shot の手本として読むため違反様式が再生産され続ける（#45 診断の実証）。scholia retrofit は全 advisory 規則で既存 store を read-only 走査し「record×rule×該当箇所×修正候補」の是正リストを出す棚卸しコマンドとして導入する。--fix を持たない理由: 是正は正規の提案フロー（pending 変更＋review コメント→viewer で adopt）に乗せる——機械の一括書き換えは decision を伴わない意味変更を作り、append-only 原則と衝突する。exit は 0 固定（棚卸しでありゲートではない）。decision 判断欄位由来の findings は append-only により是正不能なので acknowledge-only として fixable と別掲し、残件の分母から外す。運用規約として「ガイダンス/規約改定 PR には retrofit 差分レポートを添付する」を skill に明文化する——規約を変えたら手本も掃除する、を PR の形に固定する。",
+  "changed": "- scholia retrofit [--rule \u003cid\u003e] [--json] を追加（internal/cli/retrofit.go・read-only・exit 0 固定・fixable と acknowledge-only を区分出力・規則別件数の集計）\n- SKILL.md に運用規約「規約を変えたら手本も掃除する（retrofit）」節を追記（改定 PR に retrofit 差分レポートを添付・是正は提案フロー経由・retrofit は --fix なし）\n- SKILL.md と DESIGN §6 の CLI コマンド表に scholia retrofit を掲載",
+  "ref": "#45 束2 D4",
+  "at": "2026-07-17T23:24:24Z",
+  "commits": [
+    "738bd05"
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "id": "req.write-gate",
+  "name": "書き込みゲート二層（保存拒否＋同一ターン advisory）",
+  "kind": "requirement",
+  "description": "**As a** scholia に記録を書く AI エージェント／人\n**I want** store を自己矛盾させる書き込みは保存の瞬間に拒否され、書き方規律の違反は同じターンに警告されてほしい\n**so that** 別ターンの lint を待たず、是正コストが最小の時点で記録の品質が守られる"
+}

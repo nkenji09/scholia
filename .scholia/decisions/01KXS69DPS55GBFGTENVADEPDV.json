@@ -1,0 +1,14 @@
+{
+  "id": "01KXS69DPS55GBFGTENVADEPDV",
+  "target": {
+    "type": "tag",
+    "id": "req.self-consistency-lint"
+  },
+  "why": "DESIGN §0・§5 と SKILL.md は lint を「記録が自己矛盾していないことの整合性チェック」と規定している。advisory 規則群（authoring 規律）は自己矛盾の検査ではなく書き方規律の改善提案であり、この文面のまま規則を足すと正本と実装が黙って食い違う。位置づけを二層に明文改訂する: error＝記録の自己矛盾（保存拒否・CI fail の根拠——従来定義そのまま）／advisory＝authoring 規律の改善提案（保存は拒まない・同一ターン警告・info/warn）。「早期バグ検知ではない」という既定の位置づけは両層で不変。decision 判断欄位由来の advisory は append-only により是正不能なので acknowledge-only 区分で別掲する点も明文に含める。",
+  "changed": "- DESIGN §0 の lint 定義文に advisory 層の定義（error＝自己矛盾／advisory＝authoring 規律の改善提案・保存も CI も止めない）を追記（error 定義は不変）\n- DESIGN §5 の冒頭に二層定義を追記し、lint ルール表に advisory 9規則の行と acknowledge-only 区分の説明を追加\n- SKILL.md の lint 説明（作成前チェック節・機械ループ節）を二層定義に整合させる（既に着地済みの再配分と同じ文脈）",
+  "ref": "#45 束2 D4・DESIGN §0/§5",
+  "at": "2026-07-17T23:23:50Z",
+  "commits": [
+    "0ea136d"
+  ]
+}

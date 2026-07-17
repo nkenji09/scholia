@@ -1,0 +1,17 @@
+{
+  "id": "01KXS75QCYM500CZ42H977A01X",
+  "target": {
+    "type": "tag",
+    "id": "req.write-gate"
+  },
+  "why": "書き込みゲートを二層（保存拒否＋同一ターン advisory）で導入する。根拠は #45 診断の実証——write-time 拒否＋error lint がある領域は store で違反ゼロ、ガイダンスのみの領域は違反多発という非対称。write 実験では同一軸2値を given に持つ矛盾遷移が exit 0 で保存でき、既存の exclusive-violation lint（warn）は別ターンの全量走査で exit code を変えず CI も素通りする。viewer の保存時の型強制を CLI へ一般化し、lint と単一の検査コアを触れたレコード限定スコープで共有する。【保存拒否】は store を自己矛盾させる機械検証可能な不変条件のみに限定し、この限定自体を規則とする（拒否規則の恣意的増殖は逃し弁の常用化を招く）。exclusive-violation は total 軸限定にしない——排他性は axis の定義そのもので、既存 exclusive-violation lint も全軸を走査するため write ゲートだけ total 限定にすると lint と write の判定が食い違う。拒否するのは同一軸の2値を given に名指しする記録内在の矛盾のみで、軸排他の実世界の真偽は検査しない（scope-honesty と矛盾しない）。【advisory】は保存した上で同一ターンに警告する。curated set に限る理由: 書いた時点で常に未充足の規則（axis-without-decision 等）を含めると毎回鳴る恒常 advisory になり「無視してよいもの」学習を再生産する。decide は append-only ゆえ保存後の why 是正が不可能——保存前に advisory を返す --dry-run を設け skill 手順で先行を必須化する。逃し弁 --allow は理由必須で、使用は同一ターンの stdout と --json 応答封筒の allowed[] に記録する（歯止め台帳への恒久記録の配線は後続フェーズ・現時点では出力への記録まで）。",
+  "changed": "- 全書き込みコマンド（vocab の add/edit/tag・tag の create/edit・tx の add/edit・decide・decision add-commit）と viewer の保存系エンドポイント（POST /api/transition）が、保存前に lint 検査コア（lint.CheckWrite）を触れたレコード限定スコープで呼ぶ（rename・rm・review 系はゲート未経由——参照整合は decision-target 等の別 lint が担う）\n- 保存拒否（exit 1・保存しない）は3規則ちょうど: (a) exclusive-violation＝同一 axis kind タグの2値 condition を同一 given に含む transition（total 限定なし・既存 lint 規則と同一検査コアの write-time 昇格） (b) total-kind-mismatch＝axis 挙動を持たない kind のタグへの total=true (c) id-policy＝config.idPolicy 宣言に反する新規 id（新規レコードのみ・既存 id の edit も rename も対象外）\n- 「拒否は自己矛盾不変条件のみ」を規則として明記（拒否規則の追加は本 decision の amend を要する）\n- 逃し弁 --allow \u003crule\u003e --reason \u003ctext\u003e（reason 必須）: 保存し、rule+reason+findings を同一ターンの stdout と --json 応答封筒の allowed[] に記録する\n- --dry-run: 保存せず検査結果（reject/advisory）だけ返す。append-only の decide に設ける\n- 全書き込みコマンドの --json 応答封筒を { record, advisories[], allowed?, dryRun? } に変更・非 JSON は advisory(rule): message 行\n- write-time advisory の curated set は derived-value-in-desc・stale-tense・prose-ref・why-file-line・duplicate-atom・dead-doc-ref＋desc 長（vocab.description のみ・既定300字）。dangling-id は full-scan の lint/retrofit のみで検査し、write ゲート（decide の --dry-run を含む）には含めない。axis-without-decision・decision-coverage 系も write-time に含めない（正規フロー上常に未充足で恒常発火するため）\n- SKILL.md の作成前チェックリストを意味判断3点（投影 vs 遷移・粒度/実装同一性・きっかけ/前提/結果の書き分け）に絞り、機械化項目は保存時 advisory へ再配分（bootstrap f8fdc45 で着地済）。書き込み後は advisories[] を読みゼロまで是正する機械ループ・decide は --dry-run 先行・--allow を手本に写さない規約を追記",
+  "ref": "#45 束2 D3・DESIGN §5",
+  "at": "2026-07-17T23:39:18Z",
+  "commits": [
+    "f4804d9",
+    "76db964",
+    "539a76c",
+    "f8fdc45"
+  ]
+}

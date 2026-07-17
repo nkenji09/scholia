@@ -1,0 +1,6 @@
+{
+  "id": "req.authoring-advisory",
+  "name": "書き方規律の advisory lint（authoring 規律の機械化）",
+  "kind": "requirement",
+  "description": "**As a** 記録の書き方規律を維持したいプロジェクト\n**I want** 機械判定できる規律（派生値の列挙・時点依存語・参照 prose・未解決参照・複製原子・命名）を lint が advisory として検出してほしい\n**so that** 規律の遵守が『読んで守る』でなく機械のフィードバックで維持され、既存レコードの先例汚染も棚卸しできる"
+}

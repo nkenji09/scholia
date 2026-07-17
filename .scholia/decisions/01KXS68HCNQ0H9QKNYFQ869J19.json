@@ -1,0 +1,14 @@
+{
+  "id": "01KXS68HCNQ0H9QKNYFQ869J19",
+  "target": {
+    "type": "tag",
+    "id": "req.authoring-advisory"
+  },
+  "why": "機械判定可能な書き方規律を advisory lint 化する。根拠は #45 診断——既存 store の先例（few-shot 手本）汚染が機械強制と同格の品質要因であること。命名規約を skill に明文化した後に作られた transition も旧様式のままで、ガイダンス増量では挙動が変わらない。#44-A で規律を明文化したが遡及機構が無く、違反レコードが手本として汚染を再生産する。9規則（derived-value-in-desc・stale-tense・prose-ref・why-file-line・axis-without-decision・duplicate-atom・dangling-id・dead-doc-ref＋desc-length）は全て実データへの事前実走で検出を実証済み。dead-doc-ref を規則に加えるのは、診断の最重症事例（文書消滅で why 宙吊り）が他規則のどれにも掛からないため——既決「decision の ref に .concierge 等の揮発物を使わない」の機械化でもある。dangling-id は素朴実装だと本 store で偽陽性が多数（族 glob・プレースホルダ・category+kind 族参照）になるため、除外3種（族 glob・プレースホルダ語彙・category+kind 完全一致）を規則仕様の一部として定義する——除外なしで出すと lint の信用を偽陽性で毀損する。severity は全規則 info で導入し（CI ratchet の対象外）、warn 昇格は当該規則の違反ゼロ達成後に別 decision で行う——既存レコードが一斉に赤くなる移行断絶を作らない。decision の判断欄位（why/changed/ref/at）への findings は append-only により原理的に是正不能なので acknowledge-only 区分とし、残件バッジの分母から別掲する——さもなくば本設計自身が最も排した恒常ノイズを新設することになる。",
+  "changed": "- advisory lint 規則の追加（tier=advisory・severity=info・検出のみで書き換えない）: derived-value-in-desc・stale-tense・prose-ref・why-file-line・axis-without-decision・duplicate-atom・dangling-id・dead-doc-ref の8本（internal/lint/rules_authoring.go）＋desc-length（vocab.description のみ・既定300字・write-time は internal/lint/gate.go）で計9本。検出仕様と除外パターンは DESIGN §5 の表と実装を正本とする\n- severity 運用: 導入時は全規則 info（lint ratchet の歯止め対象外）・warn 昇格は違反ゼロ達成後に規則ごとの decision で行う\n- acknowledge-only 区分の導入（Finding.AcknowledgeOnly）: decision 判断欄位への findings は retrofit/lint 出力で別掲し是正リスト・残件バッジの分母に数えない\n- stale-tense の除外（config.lint.stalePatternExcludes・初期値は空集合）と dangling-id の除外プレースホルダ語彙（config.lint.placeholderSegments・built-in に加算）を config 化",
+  "ref": "#45 束2 D4・DESIGN §5",
+  "at": "2026-07-17T23:23:21Z",
+  "commits": [
+    "0ea136d"
+  ]
+}
