@@ -278,6 +278,11 @@ type IDMismatch struct {
 
 // Snapshot は .scholia/ 全体の読み込みスナップショット。
 type Snapshot struct {
+	// Root はプロジェクトルート（.scholia の親ディレクトリ）。文書参照の解決
+	// （lint dead-doc-ref・#45 U2）が使う。LoadAll が設定する additive
+	// フィールドで、手組みの Snapshot では空のままでよい（空なら解決系検査は
+	// スキップされる）。
+	Root         string
 	Config       model.Config
 	Vocab        []model.VocabEntry
 	Tags         []model.Tag
@@ -355,6 +360,7 @@ func (s *Store) LoadAll() (Snapshot, error) {
 	mismatches = append(mismatches, decMismatch...)
 
 	return Snapshot{
+		Root:         filepath.Dir(s.Dir),
 		Config:       cfg,
 		Vocab:        vocab,
 		Tags:         tags,

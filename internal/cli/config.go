@@ -17,6 +17,7 @@ func newConfigCmd() *cobra.Command {
 	}
 	cmd.AddCommand(newConfigGetCmd())
 	cmd.AddCommand(newConfigSetCmd())
+	cmd.AddCommand(newConfigInferIDPolicyCmd())
 	return cmd
 }
 

@@ -298,3 +298,144 @@ func TestDiff_DefaultsToHEADAndAcceptsExplicitRef(t *testing.T) {
 		t.Fatalf("expected 差分なし for explicit HEAD ref:\n%s", out)
 	}
 }
+
+// --- #45 U4: diff --check（CI ゲート）と正規化・逃し弁 ---
+
+func seedDiffCheckFixture(t *testing.T, dir string) string {
+	t.Helper()
+	gitInitT(t, dir)
+	seedListFixture(t, dir)
+	decPath := filepath.Join(dir, ".scholia", "decisions", "d1.json")
+	writeRawJSON(t, decPath, `{"id":"d1","target":{"type":"transition","id":"T-happy"},"why":"why 本文","at":"2026-01-01T00:00:00Z","commits":["aaa111"]}`)
+	gitCommitAllT(t, dir, "seed")
+	return decPath
+}
+
+func TestDiffCheck_NoChangesIsOK(t *testing.T) {
+	dir := t.TempDir()
+	seedDiffCheckFixture(t, dir)
+
+	out, err := run(t, dir, "diff", "--check", "HEAD")
+	if err != nil {
+		t.Fatalf("diff --check: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "append-only OK") {
+		t.Fatalf("expected append-only OK line:\n%s", out)
+	}
+}
+
+func TestDiffCheck_CommitsAppendIsGreen(t *testing.T) {
+	dir := t.TempDir()
+	seedDiffCheckFixture(t, dir)
+
+	// decision add-commit（正規操作）で commits を追記 → --check は緑のまま。
+	if out, err := run(t, dir, "decision", "add-commit", "d1", "bbb222"); err != nil {
+		t.Fatalf("decision add-commit: %v\n%s", err, out)
+	}
+
+	out, err := run(t, dir, "diff", "--check", "HEAD")
+	if err != nil {
+		t.Fatalf("commits 追記だけの diff --check が失敗（正規操作の偽陽性）: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "changed 1〔許容欄位のみ〕") {
+		t.Fatalf("expected allowed-changed count:\n%s", out)
+	}
+}
+
+func TestDiffCheck_TxRenameRepointIsGreen(t *testing.T) {
+	dir := t.TempDir()
+	seedDiffCheckFixture(t, dir)
+
+	// tx rename（正規操作・decision の target.id 追随）→ --check は緑のまま。
+	if out, err := run(t, dir, "tx", "rename", "T-happy", "--to", "T-happy-renamed", "--no-refs"); err != nil {
+		t.Fatalf("tx rename: %v\n%s", err, out)
+	}
+
+	out, err := run(t, dir, "diff", "--check", "HEAD")
+	if err != nil {
+		t.Fatalf("tx rename 追随だけの diff --check が失敗（正規操作の偽陽性）: %v\n%s", err, out)
+	}
+}
+
+func TestDiffCheck_JudgmentFieldChangeIsRed(t *testing.T) {
+	dir := t.TempDir()
+	decPath := seedDiffCheckFixture(t, dir)
+
+	writeRawJSON(t, decPath, `{"id":"d1","target":{"type":"transition","id":"T-happy"},"why":"書き換えた","at":"2026-01-01T00:00:00Z","commits":["aaa111"]}`)
+
+	out, err := run(t, dir, "diff", "--check", "HEAD")
+	if err == nil {
+		t.Fatalf("why 改変の diff --check が exit 0 になった:\n%s", out)
+	}
+	if !strings.Contains(out, "[violation] decision d1: 判断欄位 why が改変されています") {
+		t.Fatalf("expected violation line with field name:\n%s", out)
+	}
+}
+
+func TestDiffCheck_RetrofitValveDowngradesWithReason(t *testing.T) {
+	dir := t.TempDir()
+	decPath := seedDiffCheckFixture(t, dir)
+	writeRawJSON(t, decPath, `{"id":"d1","target":{"type":"transition","id":"T-happy"},"why":"書き換えた","at":"2026-01-01T00:00:00Z","commits":["aaa111"]}`)
+
+	// flag 経由（理由必須・出力に記録）。
+	out, err := run(t, dir, "diff", "--check", "HEAD", "--allow-decision-retrofit", "全店 retrofit の例外承認")
+	if err != nil {
+		t.Fatalf("逃し弁つき diff --check が失敗: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "警告へ降格") || !strings.Contains(out, "全店 retrofit の例外承認") {
+		t.Fatalf("expected downgrade note with the reason recorded:\n%s", out)
+	}
+
+	// env 経由（値＝理由）。
+	t.Setenv("SCHOLIA_ALLOW_DECISION_RETROFIT", "PR label decision-retrofit-approved")
+	out, err = run(t, dir, "diff", "--check", "HEAD")
+	if err != nil {
+		t.Fatalf("env 逃し弁つき diff --check が失敗: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "PR label decision-retrofit-approved") {
+		t.Fatalf("expected env reason recorded:\n%s", out)
+	}
+
+	// --json にも記録される。
+	var parsed map[string]any
+	out, err = run(t, dir, "diff", "--check", "HEAD", "--json")
+	if err != nil {
+		t.Fatalf("env 逃し弁つき diff --check --json が失敗: %v\n%s", err, out)
+	}
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out)
+	}
+	if parsed["retrofitAllowed"] != true || parsed["retrofitReason"] != "PR label decision-retrofit-approved" {
+		t.Fatalf("expected retrofitAllowed/retrofitReason in JSON: %v", parsed)
+	}
+}
+
+func TestDiffCheck_RetrofitFlagRequiresReason(t *testing.T) {
+	dir := t.TempDir()
+	seedDiffCheckFixture(t, dir)
+
+	out, err := run(t, dir, "diff", "--check", "HEAD", "--allow-decision-retrofit", "")
+	if err == nil {
+		t.Fatalf("理由なしの --allow-decision-retrofit が通った:\n%s", out)
+	}
+	if !strings.Contains(out, "理由が必須") {
+		t.Fatalf("expected reason-required error:\n%s", out)
+	}
+}
+
+func TestDiff_DefaultModeAlsoNormalizes(t *testing.T) {
+	dir := t.TempDir()
+	seedDiffCheckFixture(t, dir)
+
+	// 既定 diff にも正規化が適用される: commits 追記は exit 0（従来は撃墜していた）。
+	if out, err := run(t, dir, "decision", "add-commit", "d1", "bbb222"); err != nil {
+		t.Fatalf("decision add-commit: %v\n%s", err, out)
+	}
+	out, err := run(t, dir, "diff")
+	if err != nil {
+		t.Fatalf("既定 diff が commits 追記で失敗（正規操作の偽陽性）: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "許容欄位のみ") {
+		t.Fatalf("expected allowed-change marker in default report:\n%s", out)
+	}
+}

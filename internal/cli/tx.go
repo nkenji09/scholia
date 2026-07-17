@@ -11,6 +11,7 @@ func newTxCmd() *cobra.Command {
 	cmd.AddCommand(newTxEditCmd())
 	cmd.AddCommand(newTxTagCmd())
 	cmd.AddCommand(newTxRenameCmd())
+	cmd.AddCommand(newTxMergeCmd())
 	cmd.AddCommand(newTxRmCmd())
 	return cmd
 }

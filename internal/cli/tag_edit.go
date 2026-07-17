@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -14,6 +13,7 @@ func newTagEditCmd() *cobra.Command {
 	var editDesc, total bool
 	var parents []string
 	var asJSON bool
+	var gate *gateFlags
 	cmd := &cobra.Command{
 		Use:   "edit <id>",
 		Short: "タグの指定フィールドのみ更新する",
@@ -94,6 +94,12 @@ func newTagEditCmd() *cobra.Command {
 				t.Total = total
 			}
 
+			// 書き込みゲート二層（#45 U3）: 編集後の kind×total の組で
+			// total-kind-mismatch を検査（既存 id のため id-policy は対象外）。
+			advisories, allowed, gateErr := runWriteGate(cmd, snap, lint.WriteOp{Tag: &t, IsNew: false}, gate)
+			if gateErr != nil {
+				return gateErr
+			}
 			if err := s.SaveTag(t); err != nil {
 				return err
 			}
@@ -103,11 +109,10 @@ func newTagEditCmd() *cobra.Command {
 			}
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(saved)
+				return emitWriteJSON(cmd, saved, advisories, allowed, false)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "tag %s を更新しました\n", id)
+			printWriteGateText(cmd, allowed, advisories)
 			return nil
 		},
 	}
@@ -120,6 +125,7 @@ func newTagEditCmd() *cobra.Command {
 	cmd.Flags().StringVar(&color, "color", "", "表示色（空指定で解除）")
 	cmd.Flags().StringVar(&ref, "ref", "", "参照 URL（空指定で解除）")
 	cmd.Flags().BoolVar(&total, "total", false, "kind=axis タグ向け: 軸の値のうち必ず1つが真であるべきか（#39・§3.4）")
-	cmd.Flags().BoolVar(&asJSON, "json", false, "更新後のレコードを JSON で出力する")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "更新後のレコードを応答封筒 { record, advisories } の JSON で出力する")
+	gate = addGateAllowFlags(cmd)
 	return cmd
 }

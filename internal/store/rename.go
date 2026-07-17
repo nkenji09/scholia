@@ -15,6 +15,9 @@ type VocabRenameResult struct {
 	OldID              string   `json:"oldId"`
 	NewID              string   `json:"newId"`
 	UpdatedTransitions []string `json:"updatedTransitions"`
+	// BaselineRetargeted は .scholia/lint-baseline.json 内の target id を追随
+	// 更新したか（baseline 不在・該当なしは false・#45 U4）。
+	BaselineRetargeted bool `json:"baselineRetargeted,omitempty"`
 }
 
 // RenameVocab renames a vocab entry's file and id, then rewrites every
@@ -82,8 +85,13 @@ func (s *Store) RenameVocab(oldID, newID string) (VocabRenameResult, error) {
 	if err := os.Remove(s.vocabPath(oldID)); err != nil {
 		return VocabRenameResult{}, err
 	}
+	baselineRetargeted, err := s.RetargetLintBaseline(singleIDMap(oldID, newID))
+	if err != nil {
+		return VocabRenameResult{}, err
+	}
 	sort.Strings(updated)
-	return VocabRenameResult{OldID: oldID, NewID: newID, UpdatedTransitions: updated}, nil
+	return VocabRenameResult{OldID: oldID, NewID: newID, UpdatedTransitions: updated,
+		BaselineRetargeted: baselineRetargeted}, nil
 }
 
 // TxRenameResult summarizes a `scholia tx rename` (§6).
@@ -91,6 +99,9 @@ type TxRenameResult struct {
 	OldID            string   `json:"oldId"`
 	NewID            string   `json:"newId"`
 	UpdatedDecisions []string `json:"updatedDecisions"`
+	// BaselineRetargeted は .scholia/lint-baseline.json 内の target id を追随
+	// 更新したか（baseline 不在・該当なしは false・#45 U4）。
+	BaselineRetargeted bool `json:"baselineRetargeted,omitempty"`
 }
 
 // RenameTransition renames a transition's file and id, then rewrites every
@@ -139,8 +150,13 @@ func (s *Store) RenameTransition(oldID, newID string) (TxRenameResult, error) {
 	if err := os.Remove(s.transitionPath(oldID)); err != nil {
 		return TxRenameResult{}, err
 	}
+	baselineRetargeted, err := s.RetargetLintBaseline(singleIDMap(oldID, newID))
+	if err != nil {
+		return TxRenameResult{}, err
+	}
 	sort.Strings(updated)
-	return TxRenameResult{OldID: oldID, NewID: newID, UpdatedDecisions: updated}, nil
+	return TxRenameResult{OldID: oldID, NewID: newID, UpdatedDecisions: updated,
+		BaselineRetargeted: baselineRetargeted}, nil
 }
 
 // TagRenameResult summarizes a `scholia tag rename` (T-tag-rename /
@@ -159,6 +175,9 @@ type TagRenameResult struct {
 	UpdatedTransitions []string          `json:"updatedTransitions,omitempty"`
 	UpdatedVocab       []string          `json:"updatedVocab,omitempty"`
 	UpdatedDecisions   []string          `json:"updatedDecisions,omitempty"`
+	// BaselineRetargeted は .scholia/lint-baseline.json 内の target id を追随
+	// 更新したか（baseline 不在・該当なしは false・#45 U4）。
+	BaselineRetargeted bool `json:"baselineRetargeted,omitempty"`
 }
 
 // RenameTag renames tag oldID to newID and repoints every reference to it,
@@ -315,6 +334,11 @@ func (s *Store) RenameTag(oldID, newID string, cascade bool) (TagRenameResult, e
 				return err
 			}
 		}
+		retargeted, err := tx.retargetBaseline(s, mapID)
+		if err != nil {
+			return err
+		}
+		result.BaselineRetargeted = retargeted
 		return tx.renameTagFiles(s, plan, renamedTags)
 	}
 	if err := apply(); err != nil {

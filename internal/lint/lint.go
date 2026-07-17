@@ -24,13 +24,65 @@ type Finding struct {
 	Severity Severity `json:"severity"`
 	Message  string   `json:"message"`
 	Target   string   `json:"target,omitempty"`
+	// Coverage は decision-coverage の3段判定（direct/via-tag/none）。
+	// decision-coverage 以外の finding には付かない（additive・omitempty。
+	// viewer /api/lint へはこのフィールドごと透過する）。
+	Coverage string `json:"coverage,omitempty"`
+	// Detail は補足情報。decision-coverage の via-tag では出自
+	// 「via <tagId> (<decision件数>) / …」が入る（additive・omitempty）。
+	Detail string `json:"detail,omitempty"`
+	// Tier は規則の層区分（additive・omitempty・#45 U2）。TierAdvisory は
+	// authoring 規律の改善提案——自己矛盾検査（error/warn）ではなく、保存も
+	// CI も止めない（severity=info）。
+	Tier string `json:"tier,omitempty"`
+	// AcknowledgeOnly は decision の判断欄位（why/changed/ref/at）由来の
+	// advisory finding。append-only により是正が原理的に不能（fixable:false
+	// 相当）で、是正リスト・残件の分母から別掲する（#45 U2）。
+	AcknowledgeOnly bool `json:"acknowledgeOnly,omitempty"`
+	// TargetType/Field/Quote/Suggestion は retrofit の
+	// 「record×rule×該当引用×修正候補」出力用（additive・omitempty）。
+	TargetType string `json:"targetType,omitempty"` // tag|vocab|transition|decision
+	Field      string `json:"field,omitempty"`      // description|label|why|changed|ref など（「・」連結あり）
+	Quote      string `json:"quote,omitempty"`      // 該当引用（検出トークン・マッチ語）
+	Suggestion string `json:"suggestion,omitempty"` // 修正候補（是正の向き）
+}
+
+// TierAdvisory は authoring 規律の advisory 層（#45 U2）。
+const TierAdvisory = "advisory"
+
+// Coverage の3段（decision-coverage）。own decision があれば direct、
+// own は無いが実効タグ（own∪参照 vocab∪祖先閉包）経由で tag 宛 decision に
+// 到達できれば via-tag、どちらも無ければ none。
+const (
+	CoverageDirect = "direct"
+	CoverageViaTag = "via-tag"
+	CoverageNone   = "none"
+)
+
+// CoverageCounts は decision-coverage findings の3段別件数を返す
+// （CLI のサマリ行「decision-coverage: direct N / via-tag N / none N」用）。
+func CoverageCounts(findings []Finding) (direct, viaTag, none int) {
+	for _, f := range findings {
+		switch f.Coverage {
+		case CoverageDirect:
+			direct++
+		case CoverageViaTag:
+			viaTag++
+		case CoverageNone:
+			none++
+		}
+	}
+	return
 }
 
 // Rule は 1 つの lint ルール。Phase 1 以降の warn/info ルールもこの枠組みに追加する。
 type Rule struct {
 	Name     string
 	Severity Severity
-	Check    func(snap store.Snapshot) []Finding
+	// Tier は規則の層区分（"" = 自己矛盾検査の従来層・TierAdvisory =
+	// authoring 規律の改善提案・#45 U2）。
+	Tier  string
+	Check func(snap store.Snapshot) []Finding
 }
 
 // Rules は §5 の error/warn/info ルール一式。error のみ lint の exit code を 1 にする（HasError）。
@@ -48,6 +100,15 @@ var Rules = []Rule{
 	{Name: "unused-vocab", Severity: SeverityInfo, Check: checkUnusedVocab},
 	{Name: "exclusive-violation", Severity: SeverityWarn, Check: checkExclusiveViolation},
 	{Name: "complement-missing", Severity: SeverityWarn, Check: checkComplementMissing},
+	// --- authoring 規律の advisory 8 規則（#45 U2・rules_authoring.go）---
+	{Name: "derived-value-in-desc", Severity: SeverityInfo, Tier: TierAdvisory, Check: checkDerivedValueInDesc},
+	{Name: "stale-tense", Severity: SeverityInfo, Tier: TierAdvisory, Check: checkStaleTense},
+	{Name: "prose-ref", Severity: SeverityInfo, Tier: TierAdvisory, Check: checkProseRef},
+	{Name: "why-file-line", Severity: SeverityInfo, Tier: TierAdvisory, Check: checkWhyFileLine},
+	{Name: "axis-without-decision", Severity: SeverityInfo, Tier: TierAdvisory, Check: checkAxisWithoutDecision},
+	{Name: "duplicate-atom", Severity: SeverityInfo, Tier: TierAdvisory, Check: checkDuplicateAtom},
+	{Name: "dangling-id", Severity: SeverityInfo, Tier: TierAdvisory, Check: checkDanglingID},
+	{Name: "dead-doc-ref", Severity: SeverityInfo, Tier: TierAdvisory, Check: checkDeadDocRef},
 }
 
 // Run は全ルールを実行し、検出結果を返す。

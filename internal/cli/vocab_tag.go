@@ -1,11 +1,12 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 
 	"github.com/spf13/cobra"
+
+	"github.com/nkenji09/scholia/internal/lint"
 )
 
 // newVocabTagCmd は語彙にタグを付与/除去する（§3.3・実効タグの語彙経路）。
@@ -56,6 +57,17 @@ func newVocabTagCmd() *cobra.Command {
 			sort.Strings(tags)
 			v.Tags = tags
 
+			// 書き込みゲート二層（#45 U3）: vocab tag に reject 規則は無い
+			//（保存対象は vocab 自体。axis タグ付与が既存 transition に波及
+			// させる exclusive は全量走査 lint の領分）。advisory は同一ターン。
+			snap, err := s.LoadAll()
+			if err != nil {
+				return err
+			}
+			advisories, allowed, gateErr := runWriteGate(cmd, snap, lint.WriteOp{Vocab: &v, IsNew: false}, nil)
+			if gateErr != nil {
+				return gateErr
+			}
 			if err := s.SaveVocab(v); err != nil {
 				return err
 			}
@@ -65,16 +77,15 @@ func newVocabTagCmd() *cobra.Command {
 			}
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(saved)
+				return emitWriteJSON(cmd, saved, advisories, allowed, false)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "vocab %s のタグを更新しました\n", id)
+			printWriteGateText(cmd, allowed, advisories)
 			return nil
 		},
 	}
 	cmd.Flags().StringArrayVar(&add, "add", nil, "追加するタグ id（複数指定可）")
 	cmd.Flags().StringArrayVar(&rm, "rm", nil, "除去するタグ id（複数指定可）")
-	cmd.Flags().BoolVar(&asJSON, "json", false, "更新後のレコードを JSON で出力する")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "更新後のレコードを応答封筒 { record, advisories } の JSON で出力する")
 	return cmd
 }

@@ -51,12 +51,33 @@ type TransitionDiff struct {
 	Changed []TransitionChange `json:"changed,omitempty"`
 }
 
-// DecisionDiff: decisions は append-only（§3.5）。Added は正常な追記、Removed/Changed は
-// 不変条件違反として強調する（§4「decisions ±（append-only なので削除・改変が検出されたら error 扱いで強調）」）。
+// DecisionChange は同一 id の decision の変更を欄位単位で分類したもの（#45 U4）。
+// JSON は従来の {id, before, after} を保ち、分類（allowedFields/violatedFields）を
+// additive に足す（viewer /api/diff へは透過）。
+type DecisionChange struct {
+	ID     string         `json:"id"`
+	Before model.Decision `json:"before"`
+	After  model.Decision `json:"after"`
+	// AllowedFields は許容欄位の変化の記述（"commits(+1)"・
+	// "target.id(rename T-a→T-b)"・"target.id(merge T-dup→T-surv)" 等）。
+	AllowedFields []string `json:"allowedFields,omitempty"`
+	// ViolatedFields は不可侵欄位（why/changed/ref/at/target.type）の改変、
+	// または許容形でない commits/target.id の変更（欄位名で列挙）。
+	ViolatedFields []string `json:"violatedFields,omitempty"`
+}
+
+// Violation は不可侵欄位の改変を 1 つでも含むか（欄位単位 append-only 違反）。
+func (c DecisionChange) Violation() bool { return len(c.ViolatedFields) > 0 }
+
+// DecisionDiff: decisions は append-only（§3.5・欄位単位）。Added は正常な追記。
+// Removed は無条件で違反。Changed は欄位単位で分類され、許容欄位（commits 追記・
+// rename/merge 追随の target.id 張替え）のみの変更は違反にしない（#45 U4——
+// `decision add-commit` や `tag/tx/vocab rename`・`tx merge` の正規操作を
+// 撃墜しない）。
 type DecisionDiff struct {
-	Added   []model.Decision         `json:"added,omitempty"`
-	Removed []model.Decision         `json:"removed,omitempty"`
-	Changed []Change[model.Decision] `json:"changed,omitempty"`
+	Added   []model.Decision `json:"added,omitempty"`
+	Removed []model.Decision `json:"removed,omitempty"`
+	Changed []DecisionChange `json:"changed,omitempty"`
 }
 
 // Result は `scholia diff` の出力全体。
@@ -75,6 +96,11 @@ type Result struct {
 	// 空文字なら Diff（作業ツリー vs Ref）の従来経路であることを示す（後方互換の
 	// ための additive フィールド・0/1 引数の JSON 出力に影響しない）。
 	AfterRef string `json:"afterRef,omitempty"`
+	// RetrofitAllowed / RetrofitReason は逃し弁（明示の例外承認・#42 型の全店
+	// retrofit 用・#45 U4）が有効なとき CLI が記録する。理由必須・出力への記録
+	// （text と --json の両方）が承認の条件（黙殺でなく明文の例外にする）。
+	RetrofitAllowed bool   `json:"retrofitAllowed,omitempty"`
+	RetrofitReason  string `json:"retrofitReason,omitempty"`
 }
 
 // Empty は現在の作業ツリーと ref との間に意味のある差分が無いことを返す。
@@ -85,9 +111,21 @@ func (r Result) Empty() bool {
 		len(r.Decisions.Added) == 0 && len(r.Decisions.Removed) == 0 && len(r.Decisions.Changed) == 0
 }
 
-// DecisionViolation は append-only 不変条件への違反（decision の削除／改変）があるかを返す。
+// DecisionViolation は append-only 不変条件への違反があるかを欄位単位で返す
+// （#45 U4）: decision の削除は無条件で違反。同一 id の変更は、不可侵欄位
+// （why/changed/ref/at/target.type）の改変か、許容形でない commits/target.id の
+// 変更を含む場合のみ違反（commits 追記・rename/merge 追随の target.id 張替えは
+// 正規操作として許容）。
 func (r Result) DecisionViolation() bool {
-	return len(r.Decisions.Removed) > 0 || len(r.Decisions.Changed) > 0
+	if len(r.Decisions.Removed) > 0 {
+		return true
+	}
+	for _, c := range r.Decisions.Changed {
+		if c.Violation() {
+			return true
+		}
+	}
+	return false
 }
 
 // Diff は現在の作業ツリー（s の .scholia/）と gitref（既定 "HEAD"）の semantic diff を計算する（§4）。
@@ -186,7 +224,7 @@ func compute(ref string, before, after refSnapshot) Result {
 		Vocab:       diffVocab(before.Vocab, after.Vocab),
 		Tags:        diffTags(before.Tags, after.Tags),
 		Transitions: diffTransitions(before.Transitions, after.Transitions),
-		Decisions:   diffDecisions(before.Decisions, after.Decisions),
+		Decisions:   diffDecisions(before, after),
 	}
 }
 
@@ -242,9 +280,17 @@ func diffTags(before, after []model.Tag) TagDiff {
 	return d
 }
 
-func diffDecisions(before, after []model.Decision) DecisionDiff {
-	beforeByID := indexByID(before, model.Decision.GetID)
-	afterByID := indexByID(after, model.Decision.GetID)
+// diffDecisions は decision の ±／変更を計算する。変更は欄位単位で分類する
+// （decision_fields.go・#45 U4）ため、rename/merge ペア照合に使う before/after の
+// 全レコード（transitions/tags/vocab）ごと受け取る。
+//
+// 前方互換（P7 の supersedes[] 等・未知 additive フィールド）: refSnapshot は
+// model.Decision へ decode され、encoding/json は未知フィールドを無視するため、
+// 未知 additive フィールドの追記だけの decision はそもそも Changed に現れない
+// （＝violation にしない・#45 U4 の前方互換要件を decode 層で満たす）。
+func diffDecisions(before, after refSnapshot) DecisionDiff {
+	beforeByID := indexByID(before.Decisions, model.Decision.GetID)
+	afterByID := indexByID(after.Decisions, model.Decision.GetID)
 	var d DecisionDiff
 	for _, id := range sortedKeys(afterByID) {
 		if _, ok := beforeByID[id]; !ok {
@@ -256,14 +302,24 @@ func diffDecisions(before, after []model.Decision) DecisionDiff {
 			d.Removed = append(d.Removed, beforeByID[id])
 		}
 	}
+	var ctx *pairContext
 	for _, id := range sortedKeys(beforeByID) {
 		a, ok := afterByID[id]
 		if !ok {
 			continue
 		}
-		if b := beforeByID[id]; !reflect.DeepEqual(b, a) {
-			d.Changed = append(d.Changed, Change[model.Decision]{ID: id, Before: b, After: a})
+		b := beforeByID[id]
+		if reflect.DeepEqual(b, a) {
+			continue
 		}
+		if ctx == nil {
+			ctx = newPairContext(before, after)
+		}
+		allowed, violated := classifyDecisionChange(b, a, ctx)
+		d.Changed = append(d.Changed, DecisionChange{
+			ID: id, Before: b, After: a,
+			AllowedFields: allowed, ViolatedFields: violated,
+		})
 	}
 	return d
 }

@@ -54,15 +54,30 @@ func TestCLI_DecideWithCommitFlags(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decide --commit failed: %v\noutput:\n%s", err, out)
 	}
-	var d struct {
-		Commits []string `json:"commits"`
+	// --json は応答封筒 { record, advisories }（#45 U3）。
+	var env struct {
+		Record struct {
+			Commits []string `json:"commits"`
+		} `json:"record"`
 	}
-	if err := json.Unmarshal([]byte(out), &d); err != nil {
+	if err := json.Unmarshal([]byte(out), &env); err != nil {
 		t.Fatalf("unmarshal: %v\noutput:\n%s", err, out)
 	}
+	d := env.Record
 	if len(d.Commits) != 2 || d.Commits[0] != "a" || d.Commits[1] != "b" {
 		t.Fatalf("commits が期待通りでない: %+v", d.Commits)
 	}
+}
+
+// decisionFields は decide/add-commit --json 封筒の record 部分（テスト用）。
+type decisionFields struct {
+	ID      string   `json:"id"`
+	Target  any      `json:"target"`
+	Why     string   `json:"why"`
+	Changed string   `json:"changed"`
+	Ref     string   `json:"ref"`
+	At      string   `json:"at"`
+	Commits []string `json:"commits"`
 }
 
 // `scholia decision add-commit` は commits[] に追加のみし、判断フィールドは不変。
@@ -79,18 +94,14 @@ func TestCLI_DecisionAddCommit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decide: %v\noutput:\n%s", err, decideOut)
 	}
-	var before struct {
-		ID      string   `json:"id"`
-		Target  any      `json:"target"`
-		Why     string   `json:"why"`
-		Changed string   `json:"changed"`
-		Ref     string   `json:"ref"`
-		At      string   `json:"at"`
-		Commits []string `json:"commits"`
+	// --json は応答封筒 { record, advisories }（#45 U3）。
+	var beforeEnv struct {
+		Record decisionFields `json:"record"`
 	}
-	if err := json.Unmarshal([]byte(decideOut), &before); err != nil {
+	if err := json.Unmarshal([]byte(decideOut), &beforeEnv); err != nil {
 		t.Fatalf("unmarshal before: %v", err)
 	}
+	before := beforeEnv.Record
 
 	// 存在しない id はエラー。
 	if _, err := run(t, dir, "decision", "add-commit", "does-not-exist", "z"); err == nil {
@@ -102,18 +113,13 @@ func TestCLI_DecisionAddCommit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("add-commit failed: %v\noutput:\n%s", err, addOut)
 	}
-	var after struct {
-		ID      string   `json:"id"`
-		Target  any      `json:"target"`
-		Why     string   `json:"why"`
-		Changed string   `json:"changed"`
-		Ref     string   `json:"ref"`
-		At      string   `json:"at"`
-		Commits []string `json:"commits"`
+	var afterEnv struct {
+		Record decisionFields `json:"record"`
 	}
-	if err := json.Unmarshal([]byte(addOut), &after); err != nil {
+	if err := json.Unmarshal([]byte(addOut), &afterEnv); err != nil {
 		t.Fatalf("unmarshal after: %v\noutput:\n%s", err, addOut)
 	}
+	after := afterEnv.Record
 
 	if len(after.Commits) != 2 || after.Commits[0] != "a" || after.Commits[1] != "b" {
 		t.Fatalf("commits が de-dupe/追記で期待通りでない: before=%v after=%v", before.Commits, after.Commits)

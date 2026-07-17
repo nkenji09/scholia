@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/nkenji09/scholia/internal/lint"
 	"github.com/nkenji09/scholia/internal/model"
 	"github.com/nkenji09/scholia/internal/store"
 )
@@ -126,6 +127,23 @@ func postTransitionHandler(s *store.Store) http.HandlerFunc {
 		}
 
 		t := model.Transition{ID: body.ID, Action: body.Action, Given: body.Given, Then: body.Then, Tags: body.Tags}
+		// 書き込みゲート二層（#45 U3）: CLI の tx add/edit と同一の検査コア
+		// （lint.CheckWrite）を保存前に呼ぶ。reject（同一軸2値 given・新規 id
+		// の idPolicy 違反）は 422 で保存しない。逃し弁（--allow 相当）は
+		// viewer には置かない——エスケープは CLI の --allow --reason 経由のみ
+		// （UI に常在する逃し弁は advisory 疲れと同じ常用化を招く）。
+		gate := lint.CheckWrite(snap, lint.WriteOp{Transition: &t, IsNew: !existed})
+		if len(gate.Rejections) > 0 {
+			msgs := make([]string, len(gate.Rejections))
+			for i, f := range gate.Rejections {
+				msgs[i] = fmt.Sprintf("reject(%s): %s", f.Rule, f.Message)
+			}
+			writeJSON(w, http.StatusUnprocessableEntity, transitionRejectBody{
+				Error:      strings.Join(msgs, " / "),
+				Rejections: gate.Rejections,
+			})
+			return
+		}
 		if err := s.SaveTransition(t); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
@@ -139,8 +157,30 @@ func postTransitionHandler(s *store.Store) http.HandlerFunc {
 		if !existed {
 			status = http.StatusCreated
 		}
-		writeJSON(w, status, saved)
+		advisories := gate.Advisories
+		if advisories == nil {
+			advisories = []lint.Finding{}
+		}
+		writeJSON(w, status, transitionWriteResponse{Transition: saved, Advisories: advisories})
 	}
+}
+
+// transitionRejectBody は保存拒否（422）の応答。error は既存の errorBody と
+// 同キーで、web/src の ApiError 表示（変更不可）にそのまま乗る。rejections は
+// 構造化 findings（API 利用者向け・additive）。
+type transitionRejectBody struct {
+	Error      string         `json:"error"`
+	Rejections []lint.Finding `json:"rejections"`
+}
+
+// transitionWriteResponse は保存成功の応答。CLI の --json は応答封筒
+// { record, advisories } に変わった（#45 U3）が、viewer は web/src（本 unit
+// では変更不可）が応答を Transition として読む（NewTransitionForm の
+// created.id 等）ため、封筒でなく embed＝トップレベル互換＋additive な
+// advisories キーで返す（U1 の /api/lint 透過と同じ additive 原則）。
+type transitionWriteResponse struct {
+	model.Transition
+	Advisories []lint.Finding `json:"advisories"`
 }
 
 // dedupePreserveOrder removes duplicate ids while keeping the first

@@ -1,11 +1,11 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
 
+	"github.com/nkenji09/scholia/internal/lint"
 	"github.com/nkenji09/scholia/internal/model"
 )
 
@@ -13,6 +13,7 @@ func newTxAddCmd() *cobra.Command {
 	var action string
 	var given, then, tags []string
 	var asJSON bool
+	var gate *gateFlags
 	cmd := &cobra.Command{
 		Use:   "add <id>",
 		Short: "遷移を 1 件追加する",
@@ -63,6 +64,12 @@ func newTxAddCmd() *cobra.Command {
 			}
 
 			t := model.Transition{ID: id, Action: action, Given: given, Then: then, Tags: tags}
+			// 書き込みゲート二層（#45 U3）: reject（exclusive-violation・
+			// id-policy）なら保存せず exit 1。advisory は保存後に同一ターン表示。
+			advisories, allowed, gateErr := runWriteGate(cmd, snap, lint.WriteOp{Transition: &t, IsNew: true}, gate)
+			if gateErr != nil {
+				return gateErr
+			}
 			if err := s.SaveTransition(t); err != nil {
 				return err
 			}
@@ -72,11 +79,10 @@ func newTxAddCmd() *cobra.Command {
 			}
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(saved)
+				return emitWriteJSON(cmd, saved, advisories, allowed, false)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "transition %s を作成しました\n", id)
+			printWriteGateText(cmd, allowed, advisories)
 			return nil
 		},
 	}
@@ -84,7 +90,8 @@ func newTxAddCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&given, "given", nil, "condition の語彙 id（カンマ区切り、複数指定可）")
 	cmd.Flags().StringSliceVar(&then, "then", nil, "effect の語彙 id（カンマ区切り、順序保存、必須）")
 	cmd.Flags().StringSliceVar(&tags, "tags", nil, "タグ id（カンマ区切り、複数指定可）")
-	cmd.Flags().BoolVar(&asJSON, "json", false, "作成したレコードを JSON で出力する")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "作成したレコードを応答封筒 { record, advisories } の JSON で出力する")
+	gate = addGateAllowFlags(cmd)
 	return cmd
 }
 

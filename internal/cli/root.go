@@ -44,6 +44,7 @@ func newRootCmd() *cobra.Command {
 	cmd.AddCommand(newVersionCmd())
 	cmd.AddCommand(newRefsCmd())
 	cmd.AddCommand(newUpdateCmd())
+	cmd.AddCommand(newRetrofitCmd())
 
 	return cmd
 }

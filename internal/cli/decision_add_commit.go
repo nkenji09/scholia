@@ -1,10 +1,11 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"github.com/nkenji09/scholia/internal/lint"
 )
 
 // newDecisionAddCommitCmd は既存 decision の commits[] に追記専用で足す
@@ -31,6 +32,17 @@ func newDecisionAddCommitCmd() *cobra.Command {
 
 			d.Commits = dedupeAppend(d.Commits, hashes)
 
+			// 書き込みゲート二層（#45 U3）: add-commit に reject 規則は無い
+			//（commits 追記のみ・判断欄位は不変）。既存 why/changed への
+			// advisory は acknowledge-only として同一ターンに表示される。
+			snap, err := s.LoadAll()
+			if err != nil {
+				return err
+			}
+			advisories, allowed, gateErr := runWriteGate(cmd, snap, lint.WriteOp{Decision: &d, IsNew: false}, nil)
+			if gateErr != nil {
+				return gateErr
+			}
 			if err := s.SaveDecision(d); err != nil {
 				return err
 			}
@@ -40,14 +52,13 @@ func newDecisionAddCommitCmd() *cobra.Command {
 			}
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(saved)
+				return emitWriteJSON(cmd, saved, advisories, allowed, false)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "decision %s に commits を追加しました（commits=%d 件）\n", id, len(saved.Commits))
+			printWriteGateText(cmd, allowed, advisories)
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&asJSON, "json", false, "更新後のレコードを JSON で出力する")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "更新後のレコードを応答封筒 { record, advisories } の JSON で出力する")
 	return cmd
 }

@@ -1,10 +1,11 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"github.com/nkenji09/scholia/internal/lint"
 )
 
 func newVocabEditCmd() *cobra.Command {
@@ -50,16 +51,26 @@ func newVocabEditCmd() *cobra.Command {
 				v.Description = descValue
 			}
 
+			// 書き込みゲート二層（#45 U3）: vocab edit に reject 規則は無い
+			//（既存 id・total/given を持たない）が、desc/label への advisory
+			// （stale-tense・prose-ref・desc-length 等）を同一ターンに返す。
+			snap, err := s.LoadAll()
+			if err != nil {
+				return err
+			}
+			advisories, allowed, gateErr := runWriteGate(cmd, snap, lint.WriteOp{Vocab: &v, IsNew: false}, nil)
+			if gateErr != nil {
+				return gateErr
+			}
 			if err := s.SaveVocab(v); err != nil {
 				return err
 			}
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(v)
+				return emitWriteJSON(cmd, v, advisories, allowed, false)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "vocab %s を更新しました\n", id)
+			printWriteGateText(cmd, allowed, advisories)
 			return nil
 		},
 	}
@@ -67,6 +78,6 @@ func newVocabEditCmd() *cobra.Command {
 	cmd.Flags().StringVar(&description, "description", "", "説明（markdown・--desc-file/--edit と排他）")
 	cmd.Flags().StringVar(&descFile, "desc-file", "", "説明をファイルから読み込む（--description/--edit と排他）")
 	cmd.Flags().BoolVar(&editDesc, "edit", false, "$EDITOR で説明を入力する（--description/--desc-file と排他）")
-	cmd.Flags().BoolVar(&asJSON, "json", false, "更新後のレコードを JSON で出力する")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "更新後のレコードを応答封筒 { record, advisories } の JSON で出力する")
 	return cmd
 }

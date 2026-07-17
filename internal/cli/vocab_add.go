@@ -1,11 +1,11 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
 
+	"github.com/nkenji09/scholia/internal/lint"
 	"github.com/nkenji09/scholia/internal/model"
 )
 
@@ -13,6 +13,7 @@ func newVocabAddCmd() *cobra.Command {
 	var label, kind, owner, description, descFile string
 	var editDesc bool
 	var asJSON bool
+	var gate *gateFlags
 	cmd := &cobra.Command{
 		Use:   "add <condition|action|effect> <id>",
 		Short: "語彙を 1 件追加する",
@@ -37,11 +38,11 @@ func newVocabAddCmd() *cobra.Command {
 				return fmt.Errorf("vocab %q は既に存在します", id)
 			}
 
-			cfg, err := s.LoadConfig()
+			snap, err := s.LoadAll()
 			if err != nil {
 				return err
 			}
-			if kind != "" && !containsStr(cfg.KindsFor(category), kind) {
+			if kind != "" && !containsStr(snap.Config.KindsFor(category), kind) {
 				return fmt.Errorf("kind %q は config.kinds.%s に未宣言です", kind, category)
 			}
 
@@ -56,16 +57,21 @@ func newVocabAddCmd() *cobra.Command {
 			}
 
 			v := model.VocabEntry{ID: id, Category: category, Label: label, Kind: kind, Owner: owner, Description: descValue}
+			// 書き込みゲート二層（#45 U3）: 新規 id の id-policy は reject。
+			// desc/label への advisory は保存後に表示。
+			advisories, allowed, gateErr := runWriteGate(cmd, snap, lint.WriteOp{Vocab: &v, IsNew: true}, gate)
+			if gateErr != nil {
+				return gateErr
+			}
 			if err := s.SaveVocab(v); err != nil {
 				return err
 			}
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(v)
+				return emitWriteJSON(cmd, v, advisories, allowed, false)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "vocab %s を作成しました\n", id)
+			printWriteGateText(cmd, allowed, advisories)
 			return nil
 		},
 	}
@@ -75,7 +81,8 @@ func newVocabAddCmd() *cobra.Command {
 	cmd.Flags().StringVar(&description, "description", "", "説明（markdown・任意・--desc-file/--edit と排他）")
 	cmd.Flags().StringVar(&descFile, "desc-file", "", "説明をファイルから読み込む（--description/--edit と排他）")
 	cmd.Flags().BoolVar(&editDesc, "edit", false, "$EDITOR で説明を入力する（--description/--desc-file と排他）")
-	cmd.Flags().BoolVar(&asJSON, "json", false, "作成したレコードを JSON で出力する")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "作成したレコードを応答封筒 { record, advisories } の JSON で出力する")
+	gate = addGateAllowFlags(cmd)
 	return cmd
 }
 
