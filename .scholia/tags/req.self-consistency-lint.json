@@ -5,5 +5,5 @@
   "parentIds": [
     "req.auxiliary-features"
   ],
-  "description": "**As a** 記録を追記し続けるプロジェクトの開発者/AIエージェント\n**I want** 新しく足した記録が既存の記録と矛盾していないかを機械的に検査したい\n**so that** 「早期バグ検知」としてではなく「記録の整合性」として、安心して記録を積み増せる\n\n### 受け入れ基準\n- `scholia lint` が vocab-ref/kind-valid/tag-ref/decision-target/empty-then/id-unique などの error を検出し、あれば exit 1\n- requirement-gap/ref-freshness などの warn は exit 0 のまま報告される\n- decision-coverage/unused-vocab などの info は情報提供のみで exit code に影響しない"
+  "description": "**As a** 記録を追記し続けるプロジェクトの開発者/AIエージェント\n**I want** 新しく足した記録が既存の記録と矛盾していないかを機械的に検査したい\n**so that** 「早期バグ検知」としてではなく「記録の整合性」として、安心して記録を積み増せる\n\n### 受け入れ基準\n- `scholia lint` が vocab-ref/kind-valid/tag-ref/decision-target/empty-then/id-unique などの error を検出し、あれば exit 1\n- requirement-gap/ref-freshness などの warn は exit 0 のまま報告される\n- decision-coverage は own decision（direct）・実効タグ経由（via-tag）・どちらも無い（none）の3段で集計され、info に出るのは none のみ。サマリ行に3段の件数が併記され、via-tag の内訳は `--verbose` で表示される\n- unused-vocab は axis タグ付き condition に削除助言を出さず、「軸の値（given 未出現・placeholder 候補）」として軸 id・軸 decision への参照つきの文脈で報告する\n- `scholia lint --ci` は error で常に exit 1、warn は `.scholia/lint-baseline.json` に無い新規分（rule+target キー）のみ exit 1、info は exit code に影響しない。baseline の更新は `scholia lint baseline update` 経由のみで行われ、更新は PR diff としてレビュー対象になる"
 }

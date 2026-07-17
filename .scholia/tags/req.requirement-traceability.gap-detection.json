@@ -5,5 +5,5 @@
   "parentIds": [
     "req.requirement-traceability"
   ],
-  "description": "**As a** 要件の実装漏れを早期に見つけたい開発者/AIエージェント\n**I want** 「この要件、実はどの transition からも参照されていない」を自動で警告してほしい\n**so that** 要件を作っただけで満足せず、実装との紐付けができているかを継続的に確認できる\n\n### 受け入れ基準\n- `scholia lint` が `traceabilityKinds` に含まれる kind のタグを対象に、充足 transition 0件を warn する\n- warn は exit 1 にしない（error ではなく warn として区別される）\n- `scholia spec \u003csubjectTag\u003e` や `scholia list --facet requirement` で 0 件のタグが視覚的にわかる"
+  "description": "**As a** 要件の実装漏れを早期に見つけたい開発者/AIエージェント\n**I want** 「この要件、実はどの transition からも参照されていない」を自動で警告してほしい\n**so that** 要件を作っただけで満足せず、実装との紐付けができているかを継続的に確認できる\n\n### 受け入れ基準\n- `scholia lint` が `traceabilityKinds` に含まれる kind のタグを対象に、充足 transition 0件を warn する\n- warn は exit 1 にしない（error ではなく warn として区別される）\n- warn 行に対象タグの direct decision 件数を併記する（判断材料の提示であり、decision の存在だけで warn を沈黙させない）\n- `scholia spec \u003csubjectTag\u003e` や `scholia list --facet requirement` で 0 件のタグが視覚的にわかる"
 }

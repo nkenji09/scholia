@@ -1,0 +1,14 @@
+{
+  "id": "T-lint-ci-baselined",
+  "action": "act.user.lint-ci-run",
+  "given": [
+    "cond.lint-warn-in-baseline"
+  ],
+  "then": [
+    "eff.log.lint-report"
+  ],
+  "tags": [
+    "subject.lint",
+    "req.self-consistency-lint"
+  ]
+}

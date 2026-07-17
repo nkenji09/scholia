@@ -1,0 +1,15 @@
+{
+  "id": "T-diff-check-pass",
+  "action": "act.user.diff-check",
+  "given": [
+    "cond.diff-decision-fields-allowed"
+  ],
+  "then": [
+    "eff.log.diff-check-ok"
+  ],
+  "tags": [
+    "subject.diff",
+    "concern.data-integrity",
+    "req.record-decisions"
+  ]
+}

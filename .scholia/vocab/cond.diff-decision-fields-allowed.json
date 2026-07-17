@@ -1,0 +1,5 @@
+{
+  "id": "cond.diff-decision-fields-allowed",
+  "category": "condition",
+  "label": "対象 ref との diff で decision の変更が許容欄位（commits の追記・rename/merge 追随の target.id 張替え・未知 additive フィールドの追記）に閉じているとき"
+}

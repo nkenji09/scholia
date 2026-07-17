@@ -1,0 +1,15 @@
+{
+  "id": "T-diff-check-violation",
+  "action": "act.user.diff-check",
+  "given": [
+    "cond.diff-decision-violation"
+  ],
+  "then": [
+    "eff.log.reject-decision-violation"
+  ],
+  "tags": [
+    "subject.diff",
+    "concern.data-integrity",
+    "req.record-decisions"
+  ]
+}

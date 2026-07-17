@@ -1,0 +1,14 @@
+{
+  "id": "T-lint-ci-new-warn",
+  "action": "act.user.lint-ci-run",
+  "given": [
+    "cond.lint-warn-new"
+  ],
+  "then": [
+    "eff.log.reject-new-warn"
+  ],
+  "tags": [
+    "subject.lint",
+    "req.self-consistency-lint"
+  ]
+}

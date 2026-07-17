@@ -1,0 +1,7 @@
+{
+  "id": "eff.storage.lint-baseline-write",
+  "category": "effect",
+  "label": ".scholia/lint-baseline.json を現在の warn 集合（rule+target）で全置換する",
+  "kind": "storage",
+  "owner": "scholia-core"
+}

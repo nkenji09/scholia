@@ -1,0 +1,6 @@
+{
+  "id": "act.user.diff-check",
+  "category": "action",
+  "label": "scholia diff --check \u003cref\u003e を実行する",
+  "kind": "user"
+}

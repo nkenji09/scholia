@@ -1,0 +1,7 @@
+{
+  "id": "eff.log.diff-check-ok",
+  "category": "effect",
+  "label": "append-only 充足を報告して exit 0 で終了する",
+  "kind": "log",
+  "owner": "scholia-core"
+}

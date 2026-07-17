@@ -1,0 +1,6 @@
+{
+  "id": "act.user.lint-ci-run",
+  "category": "action",
+  "label": "scholia lint --ci を実行する",
+  "kind": "user"
+}

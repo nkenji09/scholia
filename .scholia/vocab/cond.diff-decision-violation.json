@@ -1,0 +1,5 @@
+{
+  "id": "cond.diff-decision-violation",
+  "category": "condition",
+  "label": "対象 ref との diff に decision の削除、または判断欄位（why/changed/ref/at・target.type）の改変が含まれるとき"
+}

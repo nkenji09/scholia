@@ -1,0 +1,14 @@
+{
+  "id": "01KXS4BB6KKX02XMDCS9EHNE6X",
+  "target": {
+    "type": "tag",
+    "id": "req.self-consistency-lint"
+  },
+  "why": "warn 級 lint は exit code を変えないため CI を素通りする——req.self-consistency-lint の受け入れ基準自身が「requirement-gap/ref-freshness などの warn は exit 0 のまま報告される」と規定しており、warn が何件増えても CI は緑のまま。実際に requirement-gap warn 8 件が常態化した。既存 8 件を即座に赤くする移行断絶は作らず、以後の増加だけを止める歯止め（ratchet）として `scholia lint --ci` を導入する: error は常に exit 1、warn は `.scholia/lint-baseline.json`（git 管理・rule+target キー・message 非含有）に無い新規分のみ exit 1、info は exit code に影響しない。baseline は `scholia lint baseline update` コマンド経由でのみ更新し、更新自体が PR diff に現れてレビュー対象になる（棚上げの可視化・回避経路を作らない）。rename コマンドは baseline 内の target id も追随更新する（baseline を .scholia/ 内に置くのは rename の原子的参照張替えの射程に入れるため）。既定の `scholia lint` の exit 契約（warn exit 0）は変えない——受け入れ基準の supersede ではなく、CI モードの追加による精緻化である。初回 baseline は現行 warn 8 件（requirement-gap のみ）。",
+  "changed": "lint に --ci フラグ追加（error 常時 exit 1・baseline 外の新規 warn exit 1・info 不問）。.scholia/lint-baseline.json 新設（rule+target キー）。lint baseline update サブコマンド新設（warn 集合で全置換）。rename cascade に baseline 内 target 張替えを追加。CI の lint step を lint --ci 化。req.self-consistency-lint の desc に --ci 契約を追記。",
+  "ref": "#45 scholia 進化設計 束1（P2）・DESIGN §5",
+  "at": "2026-07-17T22:49:56Z",
+  "commits": [
+    "6998ece"
+  ]
+}

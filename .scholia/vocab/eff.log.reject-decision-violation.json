@@ -1,0 +1,7 @@
+{
+  "id": "eff.log.reject-decision-violation",
+  "category": "effect",
+  "label": "違反 decision を欄位名つきで列挙して exit 1 で終了する",
+  "kind": "log",
+  "owner": "scholia-core"
+}

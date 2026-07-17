@@ -1,0 +1,15 @@
+{
+  "id": "01KXS4BB5RSKPP0WKWAXVSSP2Z",
+  "target": {
+    "type": "tag",
+    "id": "req.self-consistency-lint"
+  },
+  "why": "2026-07-17 実測で `scholia lint` は findings 43 件（error 0・warn 8・info 35）を返し exit 0。info のうち decision-coverage は 34 件だが、タグ実効集合（own タグ ∪ 語彙のタグ ∪ 祖先閉包）を辿ると 32 件は経由 decision に到達できる（例: T-viewer-spec-url-sync は req.comfortable-viewer.deep-linking 経由、T-tag-rename は req.record-maintenance 経由）。own にも実効タグにも decision が無いのは T-cli-startup-index と T-lint-check の 2 件のみ＝偽陽性 94%（32/34）。さらに unused-vocab は cond.update-apply に「vocab 削除の候補」と助言するが、正本 decision 01KXMRBNXTN8742KDJVV4HW15V は「unused-vocab lint info が出るのは想定通りで削除しない」と明記しており、lint が正本と真逆の削除助言を毎回配っている。偽陽性 94% の info と正本矛盾の助言は AI と人間に「lint は無視してよいもの」と学習させ、実在する 2 件の why 欠落と将来の本物の穴を埋没させる——以後の全ゲート配線（write path・CI）の成立前提が崩れる。よって解析層に「既にある宣言」（decision・タグ祖先）を消費させる: decision-coverage は direct/via-tag/none の3段集計とし、info に出すのは none の実数のみ。無条件 covered にはしない——via-tag は遷移固有 why の欠落として識別可能に保ち、内訳は --verbose で開示する（後追い補填を推進するかは現状容認＝別途判断）。unused-vocab は axis タグ付き condition に対し削除助言をやめ「軸の値（given 未出現・placeholder 候補）」の文脈表示＋軸 decision への参照に変える。これは req.action-flow.axis-gaps の decision 01KXMGGD6T0173DZ6HGM0ZVNZ9 が前提条件とした「total 軸の値未 materialize を lint で監視する」を維持したまま、助言の向きだけを正す（監視は消えない）。モデル・データ・既存 331 レコードは無変更。",
+  "changed": "lint decision-coverage を EffectiveTags 接続の3段集計（direct/via-tag/none）へ変更。info 行は none のみ・サマリ行に3段の件数併記・--verbose で via-tag 内訳を開示（CLI lint に --verbose 追加）。--json の Finding に coverage 段階を additive 追加（viewer 透過）。unused-vocab は axis タグ付き condition で文脈表示（軸 id・given 未出現・当該軸 decision 件数と直近 ULID・削除助言を出さない）。req.self-consistency-lint の desc を新表示へ改訂。",
+  "ref": "#45 scholia 進化設計 束1（P1 intent-consuming-lints）・DESIGN §5",
+  "at": "2026-07-17T22:49:56Z",
+  "commits": [
+    "e907a0e",
+    "60d8d33"
+  ]
+}

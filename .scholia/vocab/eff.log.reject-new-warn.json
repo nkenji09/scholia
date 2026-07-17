@@ -1,0 +1,7 @@
+{
+  "id": "eff.log.reject-new-warn",
+  "category": "effect",
+  "label": "baseline に無い新規 warn を列挙して exit 1 で終了する",
+  "kind": "log",
+  "owner": "scholia-core"
+}

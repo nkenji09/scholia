@@ -1,0 +1,6 @@
+{
+  "id": "act.user.lint-baseline-update",
+  "category": "action",
+  "label": "scholia lint baseline update を実行する",
+  "kind": "user"
+}

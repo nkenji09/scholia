@@ -1,0 +1,12 @@
+{
+  "id": "T-lint-baseline-update",
+  "action": "act.user.lint-baseline-update",
+  "given": [],
+  "then": [
+    "eff.storage.lint-baseline-write"
+  ],
+  "tags": [
+    "subject.lint",
+    "req.self-consistency-lint"
+  ]
+}

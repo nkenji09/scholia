@@ -1,0 +1,15 @@
+{
+  "id": "01KXS4BB62Y4TEYPJGRHKVEQH9",
+  "target": {
+    "type": "tag",
+    "id": "req.requirement-traceability.gap-detection"
+  },
+  "why": "requirement-gap warn 8 件は真の欠落と意図的容認が無区別のまま常態化している。2026-07-17 実測では 8 件中 direct decision を持つのは req.comfortable-viewer.drawer-resize の 1 件（01KXFK4Z484P0FMDG691NGFSJW）のみで、残り 7 件は decision ゼロ——しかし lint 出力からはどちらも同じ warn に見え、完了ゲート「残ってよい gap には decision 必須」が機械検査不能になっている。判断材料として warn 行に対象タグの direct decision 件数を併記する。warn の沈黙（acknowledged への畳み）はここでは行わない——decision の存在だけで畳む untyped 容認は、無関係 decision による偽陰性（信じられるようになった lint が誤った緑を返す）を生むためで、沈黙は rule id を指名する typed 宣言（acknowledges・別提案）の導入後にのみ行う。exit code・warn 級は不変。",
+  "changed": "requirement-gap の warn メッセージに「direct decision N 件」を併記（warn 維持・exit code 不変・沈黙なし）。req.requirement-traceability.gap-detection の desc に併記仕様を追記。",
+  "ref": "#45 scholia 進化設計 束1（P1）・DESIGN §5",
+  "at": "2026-07-17T22:49:56Z",
+  "commits": [
+    "e907a0e",
+    "60d8d33"
+  ]
+}

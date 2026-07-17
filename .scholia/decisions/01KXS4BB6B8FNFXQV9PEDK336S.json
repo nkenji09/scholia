@@ -1,0 +1,17 @@
+{
+  "id": "01KXS4BB6B8FNFXQV9PEDK336S",
+  "target": {
+    "type": "tag",
+    "id": "concern.data-integrity"
+  },
+  "why": "decision の append-only は変更評価（DESIGN §4）の唯一の防衛線だが、現行 CI（.github/workflows/test.yml）は scholia lint しか回さず、実装済みの diff.DecisionViolation（internal/diff）は未配線＝decision を書き換える PR が素通しの honor system である。一方、現行 DecisionViolation は decision 全体の一致比較のため正規操作まで撃墜する。実証2件: (1) 実コミット 29e817c（`scholia decision add-commit` による commits 結線の decide コミット）を ref 対 ref diff すると decision 01KXN6G0R4DSXEVV86K8W0CZYW が changed として報告される——変更は commits 欄の追記のみなのに違反扱いで exit 1 相当。(2) #42 改名 retrofit の 65cb5a4（判断欄位本文中の pmem→scholia 全店 prose 改名）は decisions 24 件の判断欄位改変（why 23 件・changed 2 件、うち1件は changed 欄のみ）として報告される——retrofit が why 以外の判断欄位（changed）にも及んだ実在例である。よって「実装済みを配線するだけ」ではなく欄位単位の append-only 意味論の再定義が本体である。許容＝ commits[] の追記（既存⊆新・順序保存）／rename・merge 追随の target.id 張替え（同一 diff 内の rename/merge ペア照合・tag サブツリー cascade はサブツリー単位で照合・vocab rename も対象）／未知 additive フィールドの追記（将来 P7 の supersedes[] 等を前方互換に扱い、導入時の diff 層再改訂を不要にする）。判断欄位（why/changed/ref/at・target.type）は不可侵。#42 型の全店 prose retrofit は実在した正規ワークフローなので、黙殺でなく明文の例外にする——明示の例外承認（--allow-decision-retrofit を理由付きで指定・環境変数でも可・出力に記録）で違反を警告に降格する。DESIGN §3.5「decision の判断（target/why/changed/ref）は immutable。commits[] だけが add-commit により追記専用で変わりうる」の該当節も本決定に合わせて改訂し、文面と食い違うゲートにしない（target.id は正本レコード側の rename／merge の機械追随でのみ張替わる、を明記）。",
+  "changed": "scholia diff に --check \u003cref\u003e を追加（欄位単位判定・違反 exit 1・違反なし exit 0）。DecisionViolation を欄位単位に再定義（許容: commits 追記／rename・merge 追随 target.id／未知 additive 追記の前方互換。不可侵: why/changed/ref/at・target.type）。逃し弁 --allow-decision-retrofit（理由必須・記録）。CI を scholia invariants job へ（fetch-depth: 0・diff --check origin/base）。DESIGN §3.5 改訂。diff --check 挙動の正本 遷移・語彙を追加。",
+  "ref": "#45 scholia 進化設計 束1（P2 ci-invariant-gate）・DESIGN §3.5/§4・再現 commit 29e817c / 65cb5a4",
+  "at": "2026-07-17T22:49:56Z",
+  "commits": [
+    "035f65e",
+    "5cdce10",
+    "0ebd4d8",
+    "971ffea"
+  ]
+}
