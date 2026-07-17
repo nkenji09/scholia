@@ -24,6 +24,38 @@ type Finding struct {
 	Severity Severity `json:"severity"`
 	Message  string   `json:"message"`
 	Target   string   `json:"target,omitempty"`
+	// Coverage は decision-coverage の3段判定（direct/via-tag/none）。
+	// decision-coverage 以外の finding には付かない（additive・omitempty。
+	// viewer /api/lint へはこのフィールドごと透過する）。
+	Coverage string `json:"coverage,omitempty"`
+	// Detail は補足情報。decision-coverage の via-tag では出自
+	// 「via <tagId> (<decision件数>) / …」が入る（additive・omitempty）。
+	Detail string `json:"detail,omitempty"`
+}
+
+// Coverage の3段（decision-coverage）。own decision があれば direct、
+// own は無いが実効タグ（own∪参照 vocab∪祖先閉包）経由で tag 宛 decision に
+// 到達できれば via-tag、どちらも無ければ none。
+const (
+	CoverageDirect = "direct"
+	CoverageViaTag = "via-tag"
+	CoverageNone   = "none"
+)
+
+// CoverageCounts は decision-coverage findings の3段別件数を返す
+// （CLI のサマリ行「decision-coverage: direct N / via-tag N / none N」用）。
+func CoverageCounts(findings []Finding) (direct, viaTag, none int) {
+	for _, f := range findings {
+		switch f.Coverage {
+		case CoverageDirect:
+			direct++
+		case CoverageViaTag:
+			viaTag++
+		case CoverageNone:
+			none++
+		}
+	}
+	return
 }
 
 // Rule は 1 つの lint ルール。Phase 1 以降の warn/info ルールもこの枠組みに追加する。

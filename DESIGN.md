@@ -314,11 +314,11 @@ scholia decide --on transition:<id> --why "評価: 取り込まない。<理由>
 | `decision-target` | error | `decision.target` が実在する transition／tag を指す |
 | `empty-then` | error | `then` 空の遷移は作れない。意図的 no-op は**ガード効果**（kind=state 等）で表す |
 | `id-unique` | error | 各レコード種別で id 一意（ファイル名と一致） |
-| `requirement-gap` | warn | `traceabilityKinds` のタグで、充足する遷移が 0 件（未充足要件の表面化） |
+| `requirement-gap` | warn | `traceabilityKinds` のタグで、充足する遷移が 0 件（未充足要件の表面化）。warn 行に対象タグの direct decision 件数を併記（判断材料の提示であり、decision の存在だけで沈黙させない） |
 | `kind-missing` | warn | タグの `kind` が未設定（null-kind）。どの facet/traceability にも属さず階層・要件追跡から漏れる |
 | `ref-freshness` | warn | `decision.ref` が `file:line`（腐る参照）でなく URL/commit |
-| `decision-coverage` | info | 挙動を持つ遷移に `decisions` がある（why が記録されている） |
-| `unused-vocab` | info | どの遷移からも参照されない語彙（`vocab rm` の発見手段） |
+| `decision-coverage` | info | 遷移の why 到達性を direct（own decision）／via-tag（実効タグ＝own∪参照 vocab∪祖先閉包の経由 decision）／none の3段で判定。info に列挙するのは none のみで、3段の件数はサマリ行に畳む（via-tag の内訳は `--verbose`・`--json` は全件＋coverage） |
+| `unused-vocab` | info | どの遷移からも参照されない語彙（`vocab rm` の発見手段）。axis kind タグ付き condition には削除助言を出さず「軸の値（given 未出現・placeholder/remainder 候補）」として軸 id・軸 decision 件数つきの文脈で報告 |
 | `exclusive-violation` | warn | 同一 `given` が同一 axis タグの複数値を同時に持つ（軸排他の不変条件破れ。#39・`scholia flow` の gap 検出の健全性の前提） |
 | `complement-missing` | warn | `total=true` の軸で、値(condition)が 2 件未満しか materialize されていない（相補条件の欠落。#39） |
 

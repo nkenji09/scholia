@@ -1,6 +1,7 @@
 package lint
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/nkenji09/scholia/internal/model"
@@ -22,6 +23,9 @@ func TestRequirementGapRedAndGreen(t *testing.T) {
 		if f.Severity != SeverityWarn {
 			t.Fatalf("requirement-gap must be warn severity, got %s", f.Severity)
 		}
+		if !strings.Contains(f.Message, "direct decision 0 件") {
+			t.Fatalf("requirement-gap message must carry the direct decision count, got %q", f.Message)
+		}
 	}
 
 	green := store.Snapshot{
@@ -33,6 +37,26 @@ func TestRequirementGapRedAndGreen(t *testing.T) {
 	}
 	if got := checkRequirementGap(green); hasRule(got, "requirement-gap") {
 		t.Fatalf("expected no requirement-gap finding once a transition carries the tag, got %+v", got)
+	}
+}
+
+// 未充足のままでも direct decision を持つタグは、その件数が warn 行に併記される
+// （併記は判断材料の提示であり、decision があっても warn は沈黙しない）。
+func TestRequirementGapDirectDecisionCountAnnotated(t *testing.T) {
+	cfg := model.DefaultConfig()
+	snap := store.Snapshot{
+		Config: cfg,
+		Tags:   []model.Tag{{ID: "req.auth", Name: "auth", Kind: "requirement"}},
+		Decisions: []model.Decision{
+			{ID: "d1", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "req.auth"}, Why: "w", At: "2026-01-01T00:00:00Z"},
+		},
+	}
+	got := checkRequirementGap(snap)
+	if len(got) != 1 {
+		t.Fatalf("expected requirement-gap to still warn (no untyped silencing), got %+v", got)
+	}
+	if !strings.Contains(got[0].Message, "direct decision 1 件") {
+		t.Fatalf("expected direct decision count 1 in message, got %q", got[0].Message)
 	}
 }
 
@@ -96,22 +120,86 @@ func TestRefFreshnessRedAndGreen(t *testing.T) {
 	}
 }
 
-func TestDecisionCoverageInfo(t *testing.T) {
+func TestDecisionCoverageThreeTiers(t *testing.T) {
 	snap := store.Snapshot{
+		Tags: []model.Tag{
+			{ID: "req.parent", Name: "parent", Kind: "requirement"},
+			{ID: "req.child", Name: "child", Kind: "requirement", ParentIDs: []string{"req.parent"}},
+			{ID: "req.vocab", Name: "vocab", Kind: "requirement"},
+		},
+		Vocab: []model.VocabEntry{
+			{ID: "act.plain", Category: model.CategoryAction, Label: "plain"},
+			{ID: "act.tagged", Category: model.CategoryAction, Label: "tagged", Tags: []string{"req.vocab"}},
+		},
 		Transitions: []model.Transition{
-			{ID: "T-1", Action: "act.a", Then: []string{"eff.a"}},
-			{ID: "T-2", Action: "act.a", Then: []string{"eff.a"}},
+			// direct: own decision を持つ。
+			{ID: "T-direct", Action: "act.plain", Then: []string{"eff.a"}},
+			// via-tag（祖先経由）: 子タグしか持たないが、親タグ宛 decision に祖先閉包で到達する。
+			{ID: "T-via-ancestor", Action: "act.plain", Then: []string{"eff.a"}, Tags: []string{"req.child"}},
+			// via-tag（vocab 経由）: own タグは無いが、参照する語彙のタグ宛 decision に到達する。
+			{ID: "T-via-vocab", Action: "act.tagged", Then: []string{"eff.a"}},
+			// none: own にも実効タグにも decision が無い。
+			{ID: "T-none", Action: "act.plain", Then: []string{"eff.a"}},
 		},
 		Decisions: []model.Decision{
-			{ID: "d1", Target: model.DecisionTarget{Type: model.DecisionTargetTransition, ID: "T-1"}, Why: "w", At: "2026-01-01T00:00:00Z"},
+			{ID: "d-tx", Target: model.DecisionTarget{Type: model.DecisionTargetTransition, ID: "T-direct"}, Why: "w", At: "2026-01-01T00:00:00Z"},
+			{ID: "d-parent", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "req.parent"}, Why: "w", At: "2026-01-01T00:00:00Z"},
+			{ID: "d-vocab", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "req.vocab"}, Why: "w", At: "2026-01-01T00:00:00Z"},
 		},
 	}
 	got := checkDecisionCoverage(snap)
-	if len(got) != 1 || got[0].Target != "T-2" {
-		t.Fatalf("expected decision-coverage finding only for T-2, got %+v", got)
+	if len(got) != len(snap.Transitions) {
+		t.Fatalf("expected one finding per transition (%d), got %d: %+v", len(snap.Transitions), len(got), got)
 	}
-	if got[0].Severity != SeverityInfo {
-		t.Fatalf("decision-coverage must be info severity, got %s", got[0].Severity)
+	byTarget := make(map[string]Finding, len(got))
+	for _, f := range got {
+		if f.Severity != SeverityInfo {
+			t.Fatalf("decision-coverage must be info severity, got %s for %s", f.Severity, f.Target)
+		}
+		byTarget[f.Target] = f
+	}
+
+	if f := byTarget["T-direct"]; f.Coverage != CoverageDirect {
+		t.Fatalf("T-direct coverage = %q, want direct: %+v", f.Coverage, f)
+	}
+	if f := byTarget["T-via-ancestor"]; f.Coverage != CoverageViaTag || f.Detail != "via req.parent (1)" {
+		t.Fatalf("T-via-ancestor coverage/detail = %q/%q, want via-tag / via req.parent (1): %+v", f.Coverage, f.Detail, f)
+	}
+	if f := byTarget["T-via-vocab"]; f.Coverage != CoverageViaTag || f.Detail != "via req.vocab (1)" {
+		t.Fatalf("T-via-vocab coverage/detail = %q/%q, want via-tag / via req.vocab (1): %+v", f.Coverage, f.Detail, f)
+	}
+	if f := byTarget["T-none"]; f.Coverage != CoverageNone {
+		t.Fatalf("T-none coverage = %q, want none: %+v", f.Coverage, f)
+	}
+
+	direct, viaTag, none := CoverageCounts(got)
+	if direct != 1 || viaTag != 2 || none != 1 {
+		t.Fatalf("CoverageCounts = %d/%d/%d, want 1/2/1", direct, viaTag, none)
+	}
+}
+
+// 実効タグのうち decision を持つタグが複数あるときは、出自を id 順にすべて列挙する。
+func TestDecisionCoverageViaTagDetailListsAllSources(t *testing.T) {
+	snap := store.Snapshot{
+		Tags: []model.Tag{
+			{ID: "concern.a", Name: "a", Kind: "concern"},
+			{ID: "concern.b", Name: "b", Kind: "concern"},
+		},
+		Transitions: []model.Transition{
+			{ID: "T-1", Action: "act.a", Then: []string{"eff.a"}, Tags: []string{"concern.b", "concern.a"}},
+		},
+		Decisions: []model.Decision{
+			{ID: "d1", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "concern.a"}, Why: "w", At: "2026-01-01T00:00:00Z"},
+			{ID: "d2", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "concern.b"}, Why: "w", At: "2026-01-02T00:00:00Z"},
+			{ID: "d3", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "concern.b"}, Why: "w", At: "2026-01-03T00:00:00Z"},
+		},
+	}
+	got := checkDecisionCoverage(snap)
+	if len(got) != 1 || got[0].Coverage != CoverageViaTag {
+		t.Fatalf("expected single via-tag finding, got %+v", got)
+	}
+	if want := "via concern.a (1) / concern.b (2)"; got[0].Detail != want {
+		t.Fatalf("Detail = %q, want %q", got[0].Detail, want)
 	}
 }
 
@@ -128,6 +216,64 @@ func TestUnusedVocabInfo(t *testing.T) {
 	got := checkUnusedVocab(snap)
 	if len(got) != 1 || got[0].Target != "act.unused" {
 		t.Fatalf("expected unused-vocab finding only for act.unused, got %+v", got)
+	}
+	if !strings.Contains(got[0].Message, "vocab rm の候補") {
+		t.Fatalf("non-axis unused vocab must keep the rm-candidate advice, got %q", got[0].Message)
+	}
+}
+
+// axis kind タグ付き condition には削除助言を出さず、軸の値（given 未出現）の
+// 文脈＋軸 decision の件数・直近 id を表示する（U1）。
+func TestUnusedVocabAxisValueContext(t *testing.T) {
+	snap := store.Snapshot{
+		Tags: []model.Tag{{ID: "axis.mode", Name: "mode", Kind: "axis", Total: true}},
+		Vocab: []model.VocabEntry{
+			{ID: "cond.apply", Category: model.CategoryCondition, Label: "apply", Tags: []string{"axis.mode"}},
+			// axis タグの無い未使用 condition は従来どおり rm 候補のまま。
+			{ID: "cond.plain", Category: model.CategoryCondition, Label: "plain"},
+		},
+		Decisions: []model.Decision{
+			{ID: "d-old", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "axis.mode"}, Why: "w", At: "2026-01-01T00:00:00Z"},
+			{ID: "d-new", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "axis.mode"}, Why: "w", At: "2026-02-01T00:00:00Z"},
+		},
+	}
+	got := checkUnusedVocab(snap)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 unused-vocab findings, got %+v", got)
+	}
+	byTarget := make(map[string]Finding, len(got))
+	for _, f := range got {
+		byTarget[f.Target] = f
+	}
+
+	axisMsg := byTarget["cond.apply"].Message
+	for _, want := range []string{"軸 axis.mode の値です", "given にも未出現", "placeholder/remainder 候補", "軸の decision: 2 件（直近 d-new）"} {
+		if !strings.Contains(axisMsg, want) {
+			t.Fatalf("axis-value context message missing %q: %q", want, axisMsg)
+		}
+	}
+	if strings.Contains(axisMsg, "rm の候補") {
+		t.Fatalf("axis-value condition must not get deletion advice, got %q", axisMsg)
+	}
+	if !strings.Contains(byTarget["cond.plain"].Message, "vocab rm の候補") {
+		t.Fatalf("non-axis condition must keep the rm-candidate advice, got %q", byTarget["cond.plain"].Message)
+	}
+}
+
+// 軸 decision が 0 件でも文脈表示は出る（件数 0 として明示）。
+func TestUnusedVocabAxisValueContextWithoutDecisions(t *testing.T) {
+	snap := store.Snapshot{
+		Tags: []model.Tag{{ID: "axis.mode", Name: "mode", Kind: "axis"}},
+		Vocab: []model.VocabEntry{
+			{ID: "cond.apply", Category: model.CategoryCondition, Label: "apply", Tags: []string{"axis.mode"}},
+		},
+	}
+	got := checkUnusedVocab(snap)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 finding, got %+v", got)
+	}
+	if !strings.Contains(got[0].Message, "軸の decision: 0 件") {
+		t.Fatalf("expected explicit 0-decision context, got %q", got[0].Message)
 	}
 }
 

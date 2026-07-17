@@ -1,6 +1,7 @@
 package lint
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -27,13 +28,27 @@ func checkRequirementGap(snap store.Snapshot) []Finding {
 		}
 	}
 
+	directDecisions := tagDecisionCounts(snap.Decisions)
 	var out []Finding
 	for _, t := range snap.Tags {
 		if !traceKinds[t.Kind] || covered[t.ID] {
 			continue
 		}
 		out = append(out, finding("requirement-gap", SeverityWarn, t.ID,
-			"tag %s: traceability kind %q ですが、実効タグとしてこれを持つ遷移が 0 件です（未充足要件）", t.ID, t.Kind))
+			"tag %s: traceability kind %q ですが、実効タグとしてこれを持つ遷移が 0 件です（未充足要件・direct decision %d 件）",
+			t.ID, t.Kind, directDecisions[t.ID]))
+	}
+	return out
+}
+
+// tagDecisionCounts は tag id -> その tag を直接 target とする decision 件数
+// （requirement-gap の件数併記と decision-coverage の via-tag 判定の共有ヘルパ）。
+func tagDecisionCounts(decisions []model.Decision) map[string]int {
+	out := make(map[string]int)
+	for _, d := range decisions {
+		if d.Target.Type == model.DecisionTargetTag {
+			out[d.Target.ID]++
+		}
 	}
 	return out
 }
@@ -86,22 +101,50 @@ func isFileLineRef(ref string) bool {
 	return true
 }
 
-// --- decision-coverage: decision が 1 件も付いていない遷移を列挙 ---
+// --- decision-coverage: 全遷移の why 到達性を3段（direct/via-tag/none）で判定 ---
+//
+// own decision の有無だけを見る旧判定は、tag 宛 decision へ実効タグ
+// （own∪参照 vocab∪祖先閉包・§3.7）経由で到達できる遷移まで「why 未記録」と
+// 報告していた（dogfood 実測で info 34 件中 32 件＝偽陽性 94%）。既にある宣言
+// （tag 宛 decision・タグ祖先）を消費し、finding は全遷移分を coverage 付きで
+// 返す（--json 全件）。none だけを列挙しサマリ行を出すのは CLI 側の表示規約。
 
 func checkDecisionCoverage(snap store.Snapshot) []Finding {
-	covered := make(map[string]bool, len(snap.Decisions))
+	directCounts := make(map[string]int, len(snap.Decisions))
 	for _, d := range snap.Decisions {
 		if d.Target.Type == model.DecisionTargetTransition {
-			covered[d.Target.ID] = true
+			directCounts[d.Target.ID]++
 		}
 	}
+	tagCounts := tagDecisionCounts(snap.Decisions)
+
 	var out []Finding
-	for _, t := range snap.Transitions {
-		if covered[t.ID] {
+	for i := range snap.Transitions {
+		t := &snap.Transitions[i]
+		if n := directCounts[t.ID]; n > 0 {
+			out = append(out, Finding{Rule: "decision-coverage", Severity: SeverityInfo, Target: t.ID,
+				Coverage: CoverageDirect,
+				Message:  fmt.Sprintf("transition %s: own decision %d 件（direct）", t.ID, n)})
 			continue
 		}
-		out = append(out, finding("decision-coverage", SeverityInfo, t.ID,
-			"transition %s: decision が 1 件も付いていません（why が未記録）", t.ID))
+		// via-tag: 実効タグ全経路（EffectiveTagsWithProvenance＝own∪vocab∪祖先閉包・
+		// 循環セーフ）のうち tag 宛 decision を持つものを出自として列挙する。
+		var parts []string
+		for _, et := range index.EffectiveTagsWithProvenance(&snap, t) {
+			if n := tagCounts[et.ID]; n > 0 {
+				parts = append(parts, fmt.Sprintf("%s (%d)", et.ID, n))
+			}
+		}
+		if len(parts) > 0 {
+			detail := "via " + strings.Join(parts, " / ")
+			out = append(out, Finding{Rule: "decision-coverage", Severity: SeverityInfo, Target: t.ID,
+				Coverage: CoverageViaTag, Detail: detail,
+				Message: fmt.Sprintf("transition %s: own decision はありませんが、実効タグ経由で decision に到達できます（%s）", t.ID, detail)})
+			continue
+		}
+		out = append(out, Finding{Rule: "decision-coverage", Severity: SeverityInfo, Target: t.ID,
+			Coverage: CoverageNone,
+			Message:  fmt.Sprintf("transition %s: own にも実効タグにも decision が 1 件もありません（none・why 未記録）", t.ID)})
 	}
 	return out
 }
@@ -205,6 +248,11 @@ func axisValueTags(snap store.Snapshot) map[string][]string {
 }
 
 // --- unused-vocab: どの遷移からも参照されない語彙を列挙 ---
+//
+// axis kind タグ付き condition（＝軸の値）には「vocab rm の候補」を出さない。
+// 軸の値が given に未出現なのは placeholder/remainder として想定内でありうる
+// （正本 decision「rm しない」と真逆の削除助言を lint が配っていた是正・U1）。
+// 代わりに軸 id・given 未出現の事実・当該軸の decision 件数と直近 id を文脈表示する。
 
 func checkUnusedVocab(snap store.Snapshot) []Finding {
 	referenced := make(map[string]bool)
@@ -217,13 +265,63 @@ func checkUnusedVocab(snap store.Snapshot) []Finding {
 			referenced[e] = true
 		}
 	}
+	axisKind := make(map[string]bool)
+	for _, t := range snap.Tags {
+		if t.Kind == "axis" {
+			axisKind[t.ID] = true
+		}
+	}
 	var out []Finding
 	for _, v := range snap.Vocab {
 		if referenced[v.ID] {
 			continue
 		}
+		var axes []string
+		if v.Category == model.CategoryCondition {
+			for _, tagID := range v.Tags {
+				if axisKind[tagID] {
+					axes = append(axes, tagID)
+				}
+			}
+		}
+		if len(axes) == 0 {
+			out = append(out, finding("unused-vocab", SeverityInfo, v.ID,
+				"vocab %s: どの遷移からも参照されていません（vocab rm の候補）", v.ID))
+			continue
+		}
+		sort.Strings(axes)
 		out = append(out, finding("unused-vocab", SeverityInfo, v.ID,
-			"vocab %s: どの遷移からも参照されていません（vocab rm の候補）", v.ID))
+			"vocab %s: 軸 %s の値です（どの遷移の given にも未出現・placeholder/remainder 候補）。軸の decision: %s",
+			v.ID, strings.Join(axes, "／"), axisDecisionSummary(snap.Decisions, axes)))
 	}
 	return out
+}
+
+// axisDecisionSummary は軸タグ群への direct decision の件数（＋直近 decision id）
+// を「2 件（直近 01KX…）」形式で返す。複数軸に貼られた値は軸ごとに併記する。
+func axisDecisionSummary(decisions []model.Decision, axes []string) string {
+	latest := make(map[string]model.Decision)
+	counts := make(map[string]int)
+	for _, d := range decisions {
+		if d.Target.Type != model.DecisionTargetTag {
+			continue
+		}
+		counts[d.Target.ID]++
+		cur, ok := latest[d.Target.ID]
+		if !ok || d.At > cur.At || (d.At == cur.At && d.ID > cur.ID) {
+			latest[d.Target.ID] = d
+		}
+	}
+	segs := make([]string, 0, len(axes))
+	for _, a := range axes {
+		seg := fmt.Sprintf("%d 件", counts[a])
+		if d, ok := latest[a]; ok {
+			seg += fmt.Sprintf("（直近 %s）", d.ID)
+		}
+		if len(axes) > 1 {
+			seg = a + " " + seg
+		}
+		segs = append(segs, seg)
+	}
+	return strings.Join(segs, "・")
 }
