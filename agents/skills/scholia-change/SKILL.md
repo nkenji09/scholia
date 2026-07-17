@@ -82,6 +82,11 @@ adopt/reject できることが目的。深リンクの route 一覧は [scholia
 ——正本＝scholia の decision/transition でレビューする。decision の `ref` は**永続物**（commit・DESIGN 節・
 issue）を指し、`.concierge/` 等の揮発物は指さない。
 
+**desc / label を書くときのゲート（必須）** — Case 1 手順 4・Case 2 手順 3 で `.scholia/` の vocab/tag/tx を
+編集するとき、desc・label を確定する前に [scholia スキルの「記録を書く前のチェック」](../scholia/SKILL.md)
+を通す（きっかけ/前提/結果の書き分け・desc は「何か」だけ・markdown・派生できる情報や「〜を参照」メタ指示を
+desc に書かない。正典＝[`../_scholia-shared/references/modeling-principles.md`](../_scholia-shared/references/modeling-principles.md)）。
+
 ## Case 1: Tag の要件変更
 
 提供体験・要件そのものが変わったとき。
