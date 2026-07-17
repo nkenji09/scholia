@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "findings": [
+    {
+      "rule": "requirement-gap",
+      "target": "req.comfortable-viewer.annotations"
+    },
+    {
+      "rule": "requirement-gap",
+      "target": "req.comfortable-viewer.config-editing"
+    },
+    {
+      "rule": "requirement-gap",
+      "target": "req.comfortable-viewer.drawer-resize"
+    },
+    {
+      "rule": "requirement-gap",
+      "target": "req.comfortable-viewer.export-html"
+    },
+    {
+      "rule": "requirement-gap",
+      "target": "req.evaluate-change.rules-lookup"
+    },
+    {
+      "rule": "requirement-gap",
+      "target": "req.requirement-traceability"
+    },
+    {
+      "rule": "requirement-gap",
+      "target": "req.requirement-traceability.gap-detection"
+    },
+    {
+      "rule": "requirement-gap",
+      "target": "req.standalone"
+    }
+  ]
+}
