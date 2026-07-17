@@ -12,6 +12,9 @@ import (
 // decide 後に direct）を再現する最小 store を組む。
 //   - T-covered: req.a を own タグに持ち、req.a 宛 decision に via-tag で到達
 //   - T-bare:    own にも実効タグにも decision なし（none）
+//
+// T-bare の then は eff.b（T-covered と別）にして、U2 の duplicate-atom
+// advisory（同一 action＋given＋then の複製検出）に掛からないようにする。
 func setupLintCoverageStore(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -19,9 +22,10 @@ func setupLintCoverageStore(t *testing.T) string {
 		{"init"},
 		{"vocab", "add", "action", "act.a", "--label", "a"},
 		{"vocab", "add", "effect", "eff.a", "--label", "e"},
+		{"vocab", "add", "effect", "eff.b", "--label", "e2"},
 		{"tag", "create", "req.a", "--name", "要件A", "--kind", "requirement"},
 		{"tx", "add", "T-covered", "--action", "act.a", "--then", "eff.a", "--tags", "req.a"},
-		{"tx", "add", "T-bare", "--action", "act.a", "--then", "eff.a"},
+		{"tx", "add", "T-bare", "--action", "act.a", "--then", "eff.b"},
 		{"decide", "--on", "tag:req.a", "--why", "タグ側の決定"},
 	}
 	for _, s := range steps {

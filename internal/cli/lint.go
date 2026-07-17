@@ -59,21 +59,34 @@ func newLintCmd() *cobra.Command {
 // printLintText は既定のテキスト出力。decision-coverage は none のみ列挙し、
 // 3段の件数はサマリ行に畳む（direct/via-tag を毎回列挙する info ノイズを
 // 出さない・U1）。--verbose で via-tag の出自内訳を展開する。
+// acknowledge-only（decision 判断欄位由来の advisory＝append-only により是正
+// 不能・#45 U2）は是正対象と混ざらないよう末尾に別掲する。
 func printLintText(cmd *cobra.Command, findings []lint.Finding, verbose bool) {
 	out := cmd.OutOrStdout()
 
 	displayed := make([]lint.Finding, 0, len(findings))
+	ackOnly := make([]lint.Finding, 0)
 	for _, f := range findings {
 		if f.Coverage != "" && f.Coverage != lint.CoverageNone {
 			continue
 		}
+		if f.AcknowledgeOnly {
+			ackOnly = append(ackOnly, f)
+			continue
+		}
 		displayed = append(displayed, f)
 	}
-	if len(displayed) == 0 {
+	if len(displayed) == 0 && len(ackOnly) == 0 {
 		fmt.Fprintln(out, "lint: 問題は見つかりませんでした")
 	}
 	for _, f := range displayed {
 		fmt.Fprintf(out, "[%s] %s: %s\n", f.Severity, f.Rule, f.Message)
+	}
+	if len(ackOnly) > 0 {
+		fmt.Fprintf(out, "acknowledge-only（decision 判断欄位・append-only により是正不能・容認で畳む対象）: %d 件\n", len(ackOnly))
+		for _, f := range ackOnly {
+			fmt.Fprintf(out, "  [%s] %s: %s\n", f.Severity, f.Rule, f.Message)
+		}
 	}
 
 	direct, viaTag, none := lint.CoverageCounts(findings)
