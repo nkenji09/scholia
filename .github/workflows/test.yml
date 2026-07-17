@@ -73,11 +73,13 @@ jobs:
         continue-on-error: true
         run: git diff --exit-code -- web/dist
 
-  lint:
-    name: scholia lint
+  scholia-invariants:
+    name: scholia invariants
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # shallow clone では origin/<base> が解決できないため必須（#45 U4）
 
       - uses: actions/setup-go@v6
         with:
@@ -87,5 +89,18 @@ jobs:
       - name: build scholia
         run: go build -o /tmp/scholia ./cmd/scholia
 
-      - name: scholia lint
-        run: /tmp/scholia lint
+      # decision の append-only 防衛（欄位単位・#45 U4）。push(main) では base が
+      # 無いため PR のみ。#42 型の全店 retrofit は PR label
+      # decision-retrofit-approved による明示の例外承認（env の値＝理由として
+      # 出力に記録される）＋例外承認の decision 記録を必須とする運用規約。
+      - name: decisions append-only (diff --check)
+        if: github.event_name == 'pull_request'
+        env:
+          SCHOLIA_ALLOW_DECISION_RETROFIT: ${{ contains(github.event.pull_request.labels.*.name, 'decision-retrofit-approved') && 'PR label decision-retrofit-approved' || '' }}
+        run: /tmp/scholia diff --check "origin/${{ github.base_ref }}"
+
+      # warn の歯止め（ratchet・#45 U4）。error は常に fail・baseline
+      # （.scholia/lint-baseline.json）に無い新規 warn のみ fail。baseline 不在の
+      # 間は非活性（error のみ fail）。
+      - name: lint ratchet (lint --ci)
+        run: /tmp/scholia lint --ci
