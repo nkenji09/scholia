@@ -10,7 +10,7 @@ import (
 )
 
 func newLintCmd() *cobra.Command {
-	var asJSON bool
+	var asJSON, verbose bool
 	cmd := &cobra.Command{
 		Use:   "lint",
 		Short: "記録の自己矛盾を検査する（§5）",
@@ -42,12 +42,7 @@ func newLintCmd() *cobra.Command {
 					return err
 				}
 			} else {
-				if len(findings) == 0 {
-					fmt.Fprintln(cmd.OutOrStdout(), "lint: 問題は見つかりませんでした")
-				}
-				for _, f := range findings {
-					fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s: %s\n", f.Severity, f.Rule, f.Message)
-				}
+				printLintText(cmd, findings, verbose)
 			}
 
 			if lint.HasError(findings) {
@@ -56,8 +51,48 @@ func newLintCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&asJSON, "json", false, "JSON で出力する")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "JSON で出力する（decision-coverage は direct/via-tag/none 全件＋coverage 付き）")
+	cmd.Flags().BoolVar(&verbose, "verbose", false, "decision-coverage via-tag の内訳（どのタグ経由か）を表示する")
 	return cmd
+}
+
+// printLintText は既定のテキスト出力。decision-coverage は none のみ列挙し、
+// 3段の件数はサマリ行に畳む（direct/via-tag を毎回列挙する info ノイズを
+// 出さない・U1）。--verbose で via-tag の出自内訳を展開する。
+func printLintText(cmd *cobra.Command, findings []lint.Finding, verbose bool) {
+	out := cmd.OutOrStdout()
+
+	displayed := make([]lint.Finding, 0, len(findings))
+	for _, f := range findings {
+		if f.Coverage != "" && f.Coverage != lint.CoverageNone {
+			continue
+		}
+		displayed = append(displayed, f)
+	}
+	if len(displayed) == 0 {
+		fmt.Fprintln(out, "lint: 問題は見つかりませんでした")
+	}
+	for _, f := range displayed {
+		fmt.Fprintf(out, "[%s] %s: %s\n", f.Severity, f.Rule, f.Message)
+	}
+
+	direct, viaTag, none := lint.CoverageCounts(findings)
+	if direct+viaTag+none == 0 {
+		return
+	}
+	if verbose {
+		fmt.Fprintf(out, "decision-coverage: direct %d / via-tag %d / none %d\n", direct, viaTag, none)
+		if viaTag > 0 {
+			fmt.Fprintln(out, "decision-coverage via-tag の内訳:")
+			for _, f := range findings {
+				if f.Coverage == lint.CoverageViaTag {
+					fmt.Fprintf(out, "  %s: %s\n", f.Target, f.Detail)
+				}
+			}
+		}
+	} else {
+		fmt.Fprintf(out, "decision-coverage: direct %d / via-tag %d / none %d（via-tag の内訳は --verbose）\n", direct, viaTag, none)
+	}
 }
 
 func countErrors(findings []lint.Finding) int {
