@@ -1,0 +1,11 @@
+{
+  "id": "01KXSGVEHPJRNKVYFY7ZSBV7C2",
+  "target": {
+    "type": "tag",
+    "id": "axis.update.mode"
+  },
+  "why": "scholia の自己更新（act.user.update）を install / mode / platform / status の4軸に分割した設計根拠（『なぜちょうどこの4分割か』の4軸割り）は、#45 以前に存在した設計検討文書（現在は削除済で repo に無い。ファイル名と該当節は各軸の既存 acknowledge-only decision——例: axis.update.mode の 01KXMRBNXTN8742KDJVV4HW15V——が参照している）にあった。増分2.3a で各軸 desc から当該文書への引用を除き現在形の次元名に浄化したが、割り方そのものの rationale は文書削除により復元不能である。ユーザーに確認したが rationale は思い出せず、再構成しての記録は行わないと確定した（2026-07-18・concierge relay）。よって本 decision で『根拠散逸（削除された設計検討文書により4軸割りの設計根拠は復元不能）』を明示する。現行の4軸（axis.update.install / axis.update.mode / axis.update.platform / axis.update.status）自体は有効で lint（L-total 等）・flow が消費しており、失われたのは『この4分割を選んだ設計判断』のみである。今後この4軸構造を変える提案があれば、過去根拠が無いことを前提に、新たに根拠を立てて判断する。",
+  "changed": "axis.update.install / mode / platform / status の『4軸割り』設計根拠が、削除された設計検討文書（既存 acknowledge-only decision が参照）とともに失われ復元不能（根拠散逸）である旨を明示。desc・4軸の構造・既存 decision は無変更。ユーザー確認済み（rationale 思い出せず・再構成せず・2026-07-18）。",
+  "ref": "#45 フェーズ2 増分2.3b・根拠散逸確定（2026-07-18）",
+  "at": "2026-07-18T02:28:27Z"
+}
