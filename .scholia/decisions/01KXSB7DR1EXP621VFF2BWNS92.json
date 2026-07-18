@@ -1,0 +1,11 @@
+{
+  "id": "01KXSB7DR1EXP621VFF2BWNS92",
+  "target": {
+    "type": "tag",
+    "id": "req.self-consistency-lint"
+  },
+  "why": "decision-coverage の via-tag 32件（own decision は無いが実効タグ〔own∪語彙∪祖先〕経由で decision に到達する遷移）について、遷移固有 why の後追い補填を一回 triage した（ユーザー決定⑨）。結論: blanket 補填はしない。32件を経由タグ群でグループ確認した結果、各遷移の振る舞いはタグ decision が説明しており、遷移固有の非自明な設計選択で tag decision が捉えていない gap は見当たらない。最強候補の検証: 旗艦 act.user.update の5遷移（self-replace/already-latest/check/guide-source/guide-windows）は req.self-update の own decision が『導入方式で自己置換可否を分ける（リリース版×unix=自己置換／source=go install 案内／windows=上書き不可ゆえ案内）・版比較（更新あり=置換／最新=no-op）・--check=dry-run』と全分岐を明示列挙して説明しており、遷移ごとの own decision は冗長になる。同様に lint 群は req.self-consistency-lint（D1/D2/D4-b）、diff/rename 群は concern.data-integrity・req.record-maintenance、viewer 群は req.comfortable-viewer.*、skills 群は req.skill-distribution、version 群は req.release-versioning が説明する。唯一 tag decision が捉えない遷移固有の設計は旗艦 update の評価順序（実装は source→windows→check→already-latest→self-replace）だが、これは priority の第一級宣言（P8・別提案）の領分ゆえ本 triage では補填しない。したがって via-tag は正当な coverage（偽陽性でない）であり direct への昇格は要件でない——D1-a の表示方針（none の実数だけ info・via-tag は --verbose 開示）を維持する。genuine な none は tx.cli.startup-index の1件のみで、CLI 起動時の索引構築という基盤挙動ゆえ固有の意思決定を持たず、none のまま正直に開示する。",
+  "changed": "via-tag 32件を triage し own decision の blanket 補填を見送り（遷移固有 why の gap 無し・旗艦 update の評価順序は P8 へ委譲）。via-tag を正当な coverage と確認し、D1-a の表示方針（none のみ info・via-tag は --verbose 開示）を維持。none の実数は tx.cli.startup-index の1件で容認。モデル・データ無変更。",
+  "ref": "#45 フェーズ2 増分2.4・ユーザー決定⑨（via-tag triage）",
+  "at": "2026-07-18T00:50:08Z"
+}
