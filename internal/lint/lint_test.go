@@ -55,6 +55,65 @@ func TestVocabRefGreenAndRed(t *testing.T) {
 	}
 }
 
+func TestVocabRefEstablishesGreenAndRed(t *testing.T) {
+	green := store.Snapshot{
+		Config: baseConfig(),
+		Vocab: []model.VocabEntry{
+			{ID: "cond.scroll", Category: model.CategoryCondition, Label: "s"},
+			{ID: "eff.save", Category: model.CategoryEffect, Label: "save", Establishes: []string{"cond.scroll"}},
+		},
+	}
+	if got := checkVocabRef(green); len(got) != 0 {
+		t.Fatalf("expected no vocab-ref findings for valid establishes, got %+v", got)
+	}
+
+	dangling := green
+	dangling.Vocab = []model.VocabEntry{
+		{ID: "eff.save", Category: model.CategoryEffect, Label: "save", Establishes: []string{"cond.missing"}},
+	}
+	if got := checkVocabRef(dangling); !hasRule(got, "vocab-ref") {
+		t.Fatalf("expected vocab-ref finding for dangling establishes, got %+v", got)
+	}
+
+	notCondition := green
+	notCondition.Vocab = []model.VocabEntry{
+		{ID: "eff.a", Category: model.CategoryEffect, Label: "a"},
+		{ID: "eff.save", Category: model.CategoryEffect, Label: "save", Establishes: []string{"eff.a"}},
+	}
+	if got := checkVocabRef(notCondition); !hasRule(got, "vocab-ref") {
+		t.Fatalf("expected vocab-ref finding for establishes pointing at non-condition, got %+v", got)
+	}
+
+	onNonEffect := store.Snapshot{
+		Config: baseConfig(),
+		Vocab: []model.VocabEntry{
+			{ID: "cond.scroll", Category: model.CategoryCondition, Label: "s"},
+			{ID: "act.x", Category: model.CategoryAction, Label: "x", Establishes: []string{"cond.scroll"}},
+		},
+	}
+	if got := checkVocabRef(onNonEffect); !hasRule(got, "vocab-ref") {
+		t.Fatalf("expected vocab-ref finding for establishes on a non-effect vocab, got %+v", got)
+	}
+}
+
+func TestRefFreshnessCoversVocabRef(t *testing.T) {
+	snap := store.Snapshot{
+		Vocab: []model.VocabEntry{
+			{ID: "eff.a", Category: model.CategoryEffect, Label: "a", Ref: "internal/foo.go:42"},
+			{ID: "eff.b", Category: model.CategoryEffect, Label: "b", Ref: "DESIGN.md §3.4 scope-disclosure 契約"},
+		},
+	}
+	got := checkRefFreshness(snap)
+	if !hasRule(got, "ref-freshness") {
+		t.Fatalf("expected ref-freshness finding for vocab file:line ref, got %+v", got)
+	}
+	for _, f := range got {
+		if f.Target == "eff.b" {
+			t.Fatalf("versioned § ref must not be flagged, got %+v", f)
+		}
+	}
+}
+
 func TestKindValidGreenAndRed(t *testing.T) {
 	cfg := baseConfig()
 	green := store.Snapshot{
@@ -132,9 +191,11 @@ func TestDecisionTargetGreenAndRed(t *testing.T) {
 	green := store.Snapshot{
 		Transitions: []model.Transition{{ID: "T-1", Action: "act.a", Then: []string{"eff.a"}}},
 		Tags:        []model.Tag{{ID: "subject.x", Name: "x"}},
+		Vocab:       []model.VocabEntry{{ID: "cond.a", Category: model.CategoryCondition, Label: "a"}},
 		Decisions: []model.Decision{
 			{ID: "d1", Target: model.DecisionTarget{Type: model.DecisionTargetTransition, ID: "T-1"}, Why: "w", At: "2026-01-01T00:00:00Z"},
 			{ID: "d2", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.x"}, Why: "w", At: "2026-01-01T00:00:00Z"},
+			{ID: "d3", Target: model.DecisionTarget{Type: model.DecisionTargetVocab, ID: "cond.a"}, Why: "w", At: "2026-01-01T00:00:00Z"},
 		},
 	}
 	if got := checkDecisionTarget(green); len(got) != 0 {
@@ -148,6 +209,15 @@ func TestDecisionTargetGreenAndRed(t *testing.T) {
 	}
 	if got := checkDecisionTarget(red); !hasRule(got, "decision-target") {
 		t.Fatalf("expected decision-target finding for dangling transition target, got %+v", got)
+	}
+
+	redVocab := store.Snapshot{
+		Decisions: []model.Decision{
+			{ID: "d1", Target: model.DecisionTarget{Type: model.DecisionTargetVocab, ID: "cond.missing"}, Why: "w", At: "2026-01-01T00:00:00Z"},
+		},
+	}
+	if got := checkDecisionTarget(redVocab); !hasRule(got, "decision-target") {
+		t.Fatalf("expected decision-target finding for dangling vocab target, got %+v", got)
 	}
 }
 

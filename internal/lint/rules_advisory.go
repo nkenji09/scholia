@@ -67,7 +67,10 @@ func checkKindMissing(snap store.Snapshot) []Finding {
 	return out
 }
 
-// --- ref-freshness: decision.ref が file:line 形式（腐りやすい）なら警告 ---
+// --- ref-freshness: decision.ref / vocab.ref が file:line 形式（腐りやすい）なら警告 ---
+//
+// vocab.ref は #45 D5 で新設した外部契約アンカー。decision.ref と同型に file:line
+// を warn する（腐る file:line を新スロットに書けてしまう穴を塞ぐ）。
 
 func checkRefFreshness(snap store.Snapshot) []Finding {
 	var out []Finding
@@ -77,6 +80,13 @@ func checkRefFreshness(snap store.Snapshot) []Finding {
 		}
 		out = append(out, finding("ref-freshness", SeverityWarn, d.ID,
 			"decision %s: ref %q は file:line 形式です（コード変更で腐る。URL/commit hash を推奨）", d.ID, d.Ref))
+	}
+	for _, v := range snap.Vocab {
+		if v.Ref == "" || !isFileLineRef(v.Ref) {
+			continue
+		}
+		out = append(out, finding("ref-freshness", SeverityWarn, v.ID,
+			"vocab %s: ref %q は file:line 形式です（コード変更で腐る。URL/commit hash・versioned 文書の § 参照を推奨）", v.ID, v.Ref))
 	}
 	return out
 }

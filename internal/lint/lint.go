@@ -144,6 +144,30 @@ func checkVocabRef(snap store.Snapshot) []Finding {
 		out = append(out, checkVocabRefSlot(vocabByID, t.ID, "given", t.Given, model.CategoryCondition)...)
 		out = append(out, checkVocabRefSlot(vocabByID, t.ID, "then", t.Then, model.CategoryEffect)...)
 	}
+	// establishes（#45 D5）: effect のみ有効・値は現存 condition の id。参照整合を
+	// vocab-ref と同じ error コアで検査する（腐った状態連鎖の宙吊りを塞ぐ）。
+	for _, v := range snap.Vocab {
+		if len(v.Establishes) == 0 {
+			continue
+		}
+		if v.Category != model.CategoryEffect {
+			out = append(out, finding("vocab-ref", SeverityError, v.ID,
+				"vocab %s: establishes は effect カテゴリの語彙にのみ宣言できます（実際は %s）", v.ID, v.Category))
+			continue
+		}
+		for _, condID := range v.Establishes {
+			c, ok := vocabByID[condID]
+			if !ok {
+				out = append(out, finding("vocab-ref", SeverityError, v.ID,
+					"vocab %s: establishes %q が実在しない語彙を参照しています", v.ID, condID))
+				continue
+			}
+			if c.Category != model.CategoryCondition {
+				out = append(out, finding("vocab-ref", SeverityError, v.ID,
+					"vocab %s: establishes %q は condition カテゴリの語彙ではありません（実際は %s）", v.ID, condID, c.Category))
+			}
+		}
+	}
 	return out
 }
 
@@ -293,6 +317,7 @@ func CycleMembers(parents map[string][]string) []string {
 func checkDecisionTarget(snap store.Snapshot) []Finding {
 	txByID := indexTransitions(snap.Transitions)
 	tagByID := indexTags(snap.Tags)
+	vocabByID := indexVocab(snap.Vocab)
 	var out []Finding
 	for _, d := range snap.Decisions {
 		switch d.Target.Type {
@@ -306,9 +331,14 @@ func checkDecisionTarget(snap store.Snapshot) []Finding {
 				out = append(out, finding("decision-target", SeverityError, d.ID,
 					"decision %s: 対象の tag %q が実在しません", d.ID, d.Target.ID))
 			}
+		case model.DecisionTargetVocab:
+			if _, ok := vocabByID[d.Target.ID]; !ok {
+				out = append(out, finding("decision-target", SeverityError, d.ID,
+					"decision %s: 対象の vocab %q が実在しません", d.ID, d.Target.ID))
+			}
 		default:
 			out = append(out, finding("decision-target", SeverityError, d.ID,
-				"decision %s: target.type %q は transition/tag のいずれでもありません", d.ID, d.Target.Type))
+				"decision %s: target.type %q は transition/tag/vocab のいずれでもありません", d.ID, d.Target.Type))
 		}
 	}
 	return out
