@@ -3,6 +3,7 @@ import { useComments, recordTypeMeta } from './useComments';
 import type { CommentRecord, DisplayComment } from './useComments';
 import { ProposalCard } from './ProposalCard';
 import { RecordDiffCard } from './RecordDiffCard';
+import { Markdown } from '../Markdown';
 import { usePendingDiff } from '../../pendingDiff';
 import { useT } from '../../i18n';
 import type { Strings } from '../../i18n';
@@ -416,7 +417,7 @@ export function CommentPanel({ onGoto }: Props) {
                 {isProposal && (c.recordType === 'vocab' || c.recordType === 'tag') && (
                   <RecordDiffCard recordType={c.recordType} recordId={c.recordId} />
                 )}
-                <p class="comment-item-text">{c.text}</p>
+                <Markdown text={c.text} class="comment-item-text" />
 
                 {adopted && (
                   <div class="comment-decision-card">
@@ -424,7 +425,7 @@ export function CommentPanel({ onGoto }: Props) {
                       <Icon name="gavel" size={13} />
                       <span class="comment-decision-card-title">{t.comments.adoptedWhyHeading}</span>
                     </div>
-                    <p class="comment-decision-why">{decision?.why ?? c.text}</p>
+                    <Markdown text={decision?.why ?? c.text} class="comment-decision-why" />
                     <p class="comment-decision-note">{t.comments.adoptedNote}</p>
                   </div>
                 )}
