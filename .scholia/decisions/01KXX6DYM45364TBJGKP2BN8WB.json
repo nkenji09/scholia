@@ -1,0 +1,29 @@
+{
+  "id": "01KXX6DYM45364TBJGKP2BN8WB",
+  "target": {
+    "type": "tag",
+    "id": "axis.update.mode"
+  },
+  "why": "update の軸 Level1 を採用した4 decision（01KXMRBB3PYJZMEXS7JTQQPP8D=install・01KXMRBB3XJYTQ4WM3MZGZZY7C=platform・01KXMRBB447FDSRPH6ZAWVC7W2=status・01KXMRBNXTN8742KDJVV4HW15V=mode）は、いずれも「Level2〔given を disjoint な完全修飾に書き換え、flow view で検出される重なり11件を解消〕を別 decision として提案する」計画を予告していた。P8 の priority 宣言は同じ11件を given の書き換えなしで解決する（実効 given＝宣言 given−先行遷移の被覆・補集合は derive されて開示される）ため、完全修飾への書き換えは不要になった——それは authoring 負担が5遷移×4軸に爆発し、以後遷移を1本足すたびに全遷移の given を再修飾する保守コストを恒常化させる、より高価な受け皿だった。よって4 decision の Level2 計画部分のみを失効させる。4 decision の本体（軸4枚の宣言・total=true の根拠・値のタグ付与・cond.update-apply の新設）は現行のまま。01KXMRBNXTN8742KDJVV4HW15V が「Level2 で遷移 given に materialize 予定」とした cond.update-apply の未使用状態は、materialize 待ちから「axis.update.mode の値の placeholder として容認」へ意味が変わる——容認の宣言自体は P6 の acknowledges（unused-vocab 宛）で同束の別 decision として行う。ゆえに全4件とも mode=amend（軸採用は生きる・計画部分だけ失効）。",
+  "changed": "4 decision の「Level2 を別 decision として提案する」計画: 失効／軸4枚・total 宣言・cond.update-apply: 不変／cond.update-apply の位置づけ: materialize 待ち→placeholder 容認（acknowledges decision は別途）。",
+  "ref": "#45 設計合意（2026-07-17）",
+  "at": "2026-07-19T12:43:16Z",
+  "supersedes": [
+    {
+      "id": "01KXMRBB3PYJZMEXS7JTQQPP8D",
+      "mode": "amend"
+    },
+    {
+      "id": "01KXMRBB3XJYTQ4WM3MZGZZY7C",
+      "mode": "amend"
+    },
+    {
+      "id": "01KXMRBB447FDSRPH6ZAWVC7W2",
+      "mode": "amend"
+    },
+    {
+      "id": "01KXMRBNXTN8742KDJVV4HW15V",
+      "mode": "amend"
+    }
+  ]
+}
