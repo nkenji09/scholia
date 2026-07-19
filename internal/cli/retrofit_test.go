@@ -202,8 +202,13 @@ func TestRetrofitDogfoodCounts(t *testing.T) {
 	// #45 D7 で decision-stale（git 導出・commit 対象・AcknowledgeOnly=true）を
 	// 追加したため 13/13 → 14/14。増分は「レコード変更 commit に decision 非同伴」の
 	// 1 commit（record 編集では是正できず acknowledges でのみ解消＝ack-only）。
-	if resp.AcknowledgeOnly.FindingCount != 14 || resp.AcknowledgeOnly.RecordCount != 14 {
-		t.Fatalf("dogfood acknowledgeOnly = %d findings / %d records, want 14/14", resp.AcknowledgeOnly.FindingCount, resp.AcknowledgeOnly.RecordCount)
+	// さらに #45 Step3 の U3③(B) で write-gate/authoring-advisory を実装遷移へタグ付け
+	// した data-work commit（遷移2件のタグ変更・scholia decision 非同伴）が decision-stale
+	// の2件目として真ヒットし 14/14 → 15/15。これは D7 が「機械マイグレーション/データ作業型
+	// commit は偽陽性として残り acknowledges で容認可」と規定した挙動どおり（info・lint --ci
+	// は warn を数えるため緑）。retrofit で実測が変わったら追随する方針に沿って更新。
+	if resp.AcknowledgeOnly.FindingCount != 15 || resp.AcknowledgeOnly.RecordCount != 15 {
+		t.Fatalf("dogfood acknowledgeOnly = %d findings / %d records, want 15/15", resp.AcknowledgeOnly.FindingCount, resp.AcknowledgeOnly.RecordCount)
 	}
 	if total := resp.Fixable.ByRule["dead-doc-ref"] + resp.AcknowledgeOnly.ByRule["dead-doc-ref"]; total != 8 {
 		t.Fatalf("dogfood dead-doc-ref total = %d, want 8", total)

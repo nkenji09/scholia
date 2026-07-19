@@ -8,8 +8,9 @@
     "eff.log.reject-cycle"
   ],
   "tags": [
+    "concern.data-integrity",
     "req.git-native",
-    "subject.lint",
-    "concern.data-integrity"
+    "req.write-gate",
+    "subject.lint"
   ]
 }

@@ -1,0 +1,13 @@
+{
+  "id": "01KXWWF38TG5MS4TCDQXBD0FR6",
+  "target": {
+    "type": "tag",
+    "id": "req.standalone"
+  },
+  "why": "req.standalone（ランタイム依存ゼロの単一バイナリ配布）は性質型の非機能要件であり、特定の遷移では構造的に充足されない——受け入れ基準（go build で単一実行ファイル・.scholia はプレーン JSON・viewer は go:embed 同梱）はビルド構成とデータ形式の性質として全域に成立し、どの user action の then にも現れない。よって fulfillment=property を宣言し、requirement-gap の恒常 warn を意図的容認として畳む（acknowledges: requirement-gap）。「property 宣言だけでは畳まない」設計に従い、本 decision を対で置いて初めて緑にする（怠慢な property 宣言を許さない）。充足の検証はリリースパイプラインの単一バイナリ生成と req.git-native 系の既決が担い、遷移記録の不在は要件の未実装を意味しない。",
+  "changed": "1. req.standalone に fulfillment=property を宣言（遷移充足検査から外す）。\n2. 同タグ宛てに acknowledges:[requirement-gap] を持つ本 decision を対で置き、requirement-gap warn を typed 容認で畳む（property のみでは畳まない設計に整合）。",
+  "at": "2026-07-19T09:49:08Z",
+  "acknowledges": [
+    "requirement-gap"
+  ]
+}
