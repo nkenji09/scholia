@@ -9,5 +9,11 @@
   "at": "2026-07-16T12:48:36Z",
   "commits": [
     "f15fcda8bf114bce7743bb6aca068cd56552a2ae"
+  ],
+  "supersedes": [
+    {
+      "id": "01KXGMPYF1R5S31ERJ0442F22K",
+      "mode": "amend"
+    }
   ]
 }

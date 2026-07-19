@@ -10,5 +10,11 @@
   "commits": [
     "030f3f2",
     "43a1833"
+  ],
+  "supersedes": [
+    {
+      "id": "01KXJ3JEKNGHAF4XHGM8WV9N90",
+      "mode": "amend"
+    }
   ]
 }
