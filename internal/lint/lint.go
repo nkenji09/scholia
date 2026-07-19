@@ -103,6 +103,9 @@ var Rules = []Rule{
 	{Name: "ref-freshness", Severity: SeverityWarn, Check: checkRefFreshness},
 	{Name: "decision-coverage", Severity: SeverityInfo, Check: checkDecisionCoverage},
 	{Name: "unused-vocab", Severity: SeverityInfo, Check: checkUnusedVocab},
+	// multiple-owner-action（#45 D9・info）: 宣言軸が張られた action の owner 集合
+	// が単一 subject に定まるかを開示のみ（error/保存拒否・advisory ゲートには足さない）。
+	{Name: "multiple-owner-action", Severity: SeverityInfo, Check: checkMultipleOwnerAction},
 	{Name: "exclusive-violation", Severity: SeverityWarn, Check: checkExclusiveViolation},
 	{Name: "complement-missing", Severity: SeverityWarn, Check: checkComplementMissing},
 	// --- authoring 規律の advisory 8 規則（#45 U2・rules_authoring.go）---
