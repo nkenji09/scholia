@@ -7,5 +7,13 @@
   "why": "「意図的な gap」を機械可読に宣言する手段が無く、完了ゲート「残ってよい gap には decision 必須」が形骸化している。実測（2026-07-19）: requirement-gap warn は10件で、うち req.write-gate・req.authoring-advisory・req.requirement-traceability.gap-detection・req.comfortable-viewer.drawer-resize は direct decision を持つのに warn は消えず、残り6件は decision ゼロでも同じ warn として区別されない——「意図して残す gap」と「未対応の gap」が機械的に見分けられない。req.standalone は非機能要件（単一バイナリ・ランタイム依存ゼロ）で特定の遷移では構造的に充足されないのに恒常 warn として残り続け、vocab cond.update-apply は正本 decision 01KXMRBNXTN8742KDJVV4HW15V が「意図した結果・rm しない」と明記しているのに unused-vocab lint が削除候補と真逆の助言を出す。容認を untyped（対象の祖先に decision があれば緑）にしないのは、無関係な decision による偽陰性——信じられるようになった lint が誤った緑を返す最悪の誤りモード——を作らないためで、これは本設計自身が排した規定である。よって rule id を指名する typed 宣言（acknowledges）と、遷移で充足されない性質型要件のマーカー（fulfillment=property）の2系統に分ける。property 宣言だけでは畳まない: 宣言のみで decision 無しなら warn のまま（怠慢な宣言を許さない）。requirement-gap の充足条件は「当該タグ宛てで acknowledges に requirement-gap を含む decision が存在する」に統一する。fulfillment=property の誤用（本来 behavioral な要件を property にすると欠落が沈黙する偽陰性の新経路）はこの decision 必須条件が緩和する。\n\n補足: flow 側の finding（L-total・overlap）には従来 rule id と対象の対応が未定義だった。容認キーを〔rule × 対象（axis:value または tx ペア）〕と仕様化する。同じ穴が複数 finding で現れる場合は出る finding の rule を全列挙して acknowledges に書く（skill 規約）。acknowledged-remainder の既決 decision 01KXMGH6ND8N7CQ4A4J9JZPKM0 の意味論変更は本 decision では行わず、束5（P8 priority）の supersede 計画に委ねる。",
   "changed": "1. Decision.acknowledges（[]string, omitempty）新設。decide 時に rule id を実在照合（typo は同一ターン error＋候補提示）・rule 改名時の宙吊り acknowledges は lint が警告。\n2. Tag.fulfillment（string, omitempty・\"transitions\" 既定|\"property\"）新設。requirement-gap は fulfillment=property のタグを遷移充足検査から外し「acknowledges:[requirement-gap] を含む decision の存在」検査へ切替。\n3. lint/flow の消費: 対象宛て acknowledges を読み該当 finding を「容認済み（decision リンク付き）」に畳む・baseline ratchet で新規 warn に数えない。\n4. flow finding の容認キー仕様化: rule × 対象（axis:value / tx ペア）。\n5. 完了ゲートの untyped 規定を typed 前提へ改訂（skill・modeling-principles 参照）。\n6. viewer の lint findings ビューは新設しない（表示面は束7・本束は API のみ）。\n7. CLI: decide --acknowledges・tag edit --fulfillment を追加。",
   "ref": "#45 設計合意（2026-07-17）",
-  "at": "2026-07-19T08:08:49Z"
+  "at": "2026-07-19T08:08:49Z",
+  "commits": [
+    "5704372",
+    "082b240",
+    "89e63df",
+    "e63e63e",
+    "03bcde0",
+    "fc4d0c7"
+  ]
 }

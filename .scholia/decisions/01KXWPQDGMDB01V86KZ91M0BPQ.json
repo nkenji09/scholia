@@ -7,5 +7,14 @@
   "why": "decision は append-only だが「今どれが正か」を機械導出する手段が無く、現行規則の再構成が読者の頭の中でしか起きない。実測: req.comfortable-viewer.deep-linking は decision 8件のチェーンで、現行ルールの再構成には「直前 decision 01KXFQMTTXHE2BWJ0Y476GKPPA を改訂し supersede する」（01KXFT1QFB0A7TNW5CKQZK1X3N の why）といった prose を時系列順に本文読解するしかない。リンクを二値（置換した/してない）にしないのは、実チェーンの大半が部分改訂・意図的例外だから——deep-linking 8件中、全文置換は1件（01KXFT1QFB0A7TNW5CKQZK1X3N が 01KXFQMTTXHE2BWJ0Y476GKPPA の presentation を置換）のみで、他は除外条項の精緻化や一般則への意識的例外（01KXFT24RXR7Q0Z4XJVY9CZ264 の別タブ既定）である。二値だと現行仕様を誤って失効させる。よって mode を supersede|amend|exception の3値にし、derive は保守的に supersede のみ失効扱いにする。既定 amend は「失効させ忘れ」の系統誤りを生むため、skill は decide 時に「全文置換か？」を必ず1問挟む。\n\nstaleness の半分は decide イベントの外で生まれる——レコードの desc は後続の実装・decision で古くなるのに、それを検知する配線が decide 経路にしか無い。実際フェーズ2 の retrofit は、materialize 完了後も未 materialize と書かれた軸 desc や、削除 API 実装後も旧状態を述べる desc といった時点依存語を手作業で一括是正した（いずれも是正済み）。この「後から腐る」パターンの再発を防ぐには、desc 現在形ゲートを decide・viewer 採用・実装結線（add-commit）の三点に配線する必要がある（decide は append-only 保存後に書き直せないため保存前プレビューで advisory を返す）。時刻比較型の鮮度検査は採らない——spec-first では実装 commit が常に desc より新しく原理的に効かない。代わりにレコード変更 commit に decision 追加が同伴しない場合のみ「要再確認」を info で出す（git から導出・保存ゼロ・機械マイグレーション型 commit の偽陽性が残るため容認可能とする）。\n\n実装との三角形も閉じていない。実測（2026-07-19）: decision 96件中 58件が commits 未結線で、未結線を列挙する手段が無い。decision link は commits 追記（add-commit）と同型の「追記専用メタデータ・判断欄位不可侵」であり、DESIGN §3.5 の append-only の精緻化第2弾として正当化する（第1弾は add-commit を導入した既決）。既存チェーンの後付け結線（backfill）と未結線棚卸し（--unlinked）はこの機構が無いと新規 decision 発生まで永久に宙吊りになる。",
   "changed": "1. Decision.supersedes（[{id, mode}], omitempty・mode=supersede|amend|exception・既定 amend）新設。旧 decision は無改変（新が旧を指す＝append-only 完全保持）。\n2. scholia decision link \u003cnew\u003e --supersedes \u003cold\u003e[:mode] 新設（追記専用・id 実在/自己参照/循環を検証）＋ decide --supersedes。\n3. rules／decision list／viewer が現行/部分改訂(amend)/失効(supersede)を区分表示・--current で mode=supersede の被参照のみ失効畳み・superseded-by 逆リンクは derive（保存しない）。\n4. desc 現在形ゲート三点配線（decide 保存前プレビュー・viewer adopt 応答・add-commit 同一ターン。検査本体は既存 stale-tense コア）。\n5. lint decision-stale（info・「レコード変更 commit に decision 追加が同伴しない」条件のみ・acknowledges で容認可能・rename 一括 commit は rename ペア照合で除外）。\n6. scholia decision list --unlinked（commits 空の列挙）新設。\n7. skill: decide 時の1問「全文置換か？」・実装着地手順に add-commit をゲート化。\n8. DESIGN §3.5 の「commits[] だけ追記可」を「commits[]＋supersedes[]（link 経由）」へ改訂。",
   "ref": "#45 設計合意（2026-07-17）",
-  "at": "2026-07-19T08:08:49Z"
+  "at": "2026-07-19T08:08:49Z",
+  "commits": [
+    "5704372",
+    "25f4ccf",
+    "61681ff",
+    "18b5157",
+    "ea532b4",
+    "03bcde0",
+    "fc4d0c7"
+  ]
 }

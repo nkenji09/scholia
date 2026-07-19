@@ -7,5 +7,10 @@
   "why": "decision 96件のうち viewer の一覧・検索・permalink で横断到達できるのは HOME 直近5件だけで、残りは「付いているタグを知っている人」しか辿れない。tag 宛・transition 宛の decision はカード上で own 表示されるが、横断到達（一覧・why 込み検索・共有可能な URL）が無い。このため束4 で機械化する現行性（supersedes バッジ・--current）も、容認（acknowledged の decision リンク）も、人間に届く読み面を持たない。束3/4 で入れる宣言スロットの消費面のうち依存の薄い部分——decision の第一級ページ化と検索編入——だけを Step 3 に前倒しする。これは「宣言は三点（write 検査・derive 消費・読み面描画）で閉じて初めて足す」の読み面部分を束5〜7 まで遅らせないための最小実装であり、governs 並置・軸構造表示など own-only 既決 01KXDFD2RZJ118T2VVAF5F07RW の改訂を要する部分は束7（D10b）に残す。一覧・詳細ページの新設はカード表示の own-only 原則と非矛盾ゆえ、その amend は本 decision では行わない。\n\n検索は検証で2系統（CLI の全域検索と viewer の index 検索）と判明している。本 decision では viewer index コーパスに decision の why/changed を追加編入するに留め（CLI search は既に decision を対象に含む）、両系統の query コア一本化と面間整合原則の正本化は束7 の D10b で行う——それまで両面の検索結果に粒度差が残ることをここに開示する。\n\ntarget の req.comfortable-viewer.decision-browse は本 decision で新設する子要件（parent=req.comfortable-viewer）で、既存 decision-display（カード上の own-only 表示）とはスコープが別（一覧・検索・横断到達）。実装で viewer 遷移を記録するまで requirement-gap warn が立つが、これは読み面の未実装を正しく可視化する意図した状態。",
   "changed": "1. viewer に #/decisions 一覧ページ（target 種別・タグ・期間フィルタ。現行/失効フィルタは D7 着地後に有効化）。\n2. #/decision/\u003culid\u003e 詳細ページ＋permalink（why 段落保持・changed 構造描画・commits hash チップ・ref リンク化・supersedes/superseded-by バッジ〔D7 依存〕・acknowledges バッジ〔D6 依存〕）。\n3. viewer index 検索コーパスに decision why/changed を編入（種別フィルタ併設）。\n4. static export（scholia export --html）に一覧・詳細を同梱。\n5. CLI scholia decision show \u003cid\u003e（詳細ページと同一内容）。\n6. 仕様カードの関連仕様行に givenLabels を描画（API 送出済み・未使用＝同一 action 複数遷移が同文に潰れる縮退の解消）。\n7. HOME 直近5件の導線は維持。\n8. 新設タグ req.comfortable-viewer.decision-browse（kind=requirement・parent=req.comfortable-viewer）を本 decision の家として作成。",
   "ref": "#45 設計合意（2026-07-17）",
-  "at": "2026-07-19T08:08:49Z"
+  "at": "2026-07-19T08:08:49Z",
+  "commits": [
+    "cd99ed5",
+    "000c02d",
+    "fc4d0c7"
+  ]
 }
