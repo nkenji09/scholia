@@ -52,7 +52,7 @@ func listTransitionsHandler(s *store.Store) http.HandlerFunc {
 		q := r.URL.Query()
 		facet, tagID, kind := q.Get("facet"), q.Get("tag"), q.Get("kind")
 
-		if facet != "" && !containsStr(snap.Config.TagKinds, facet) {
+		if facet != "" && !containsStr(snap.Config.TagKindIDs(), facet) {
 			writeError(w, http.StatusBadRequest, fmt.Sprintf("facet %q は config.tagKinds に未宣言です", facet))
 			return
 		}

@@ -53,7 +53,7 @@ func getTagsHandler(s *store.Store) http.HandlerFunc {
 			return
 		}
 		kind := r.URL.Query().Get("kind")
-		if kind != "" && !containsStr(snap.Config.TagKinds, kind) {
+		if kind != "" && !containsStr(snap.Config.TagKindIDs(), kind) {
 			writeError(w, http.StatusBadRequest, fmt.Sprintf("kind %q は config.tagKinds に未宣言です", kind))
 			return
 		}

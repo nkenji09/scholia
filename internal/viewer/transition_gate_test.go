@@ -21,7 +21,7 @@ func seedAxisConflict(t *testing.T, s *store.Store) {
 	}
 	cfg, err := s.LoadConfig()
 	must(err)
-	cfg.TagKinds = append(cfg.TagKinds, "axis")
+	cfg.TagKinds = append(cfg.TagKinds, model.KindDecl{ID: "axis"})
 	must(s.SaveConfig(cfg))
 	must(s.SaveTag(model.Tag{ID: "axis.mode", Name: "モード", Kind: "axis"}))
 	must(s.SaveVocab(model.VocabEntry{ID: "cond.mode-a", Category: model.CategoryCondition, Label: "モードA", Tags: []string{"axis.mode"}}))

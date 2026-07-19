@@ -47,7 +47,7 @@ func newTagEditCmd() *cobra.Command {
 				t.Name = name
 			}
 			if cmd.Flags().Changed("kind") {
-				if kind != "" && !containsStr(snap.Config.TagKinds, kind) {
+				if kind != "" && !containsStr(snap.Config.TagKindIDs(), kind) {
 					return fmt.Errorf("kind %q は config.tagKinds に未宣言です", kind)
 				}
 				t.Kind = kind

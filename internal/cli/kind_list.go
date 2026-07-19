@@ -30,7 +30,7 @@ func newKindListCmd() *cobra.Command {
 				return enc.Encode(cfg.Kinds)
 			}
 			w := cmd.OutOrStdout()
-			fmt.Fprintf(w, "condition: %s\n", strings.Join(cfg.Kinds.Condition, ", "))
+			fmt.Fprintf(w, "condition: %s\n", strings.Join(cfg.KindsFor("condition"), ", "))
 			fmt.Fprintf(w, "action:    %s\n", strings.Join(cfg.Kinds.Action, ", "))
 			fmt.Fprintf(w, "effect:    %s\n", strings.Join(cfg.Kinds.Effect, ", "))
 			return nil

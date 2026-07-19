@@ -45,7 +45,10 @@ func getConfigHandler(s *store.Store) http.HandlerFunc {
 // same as any other field here; ConfigView.tsx always round-trips the full
 // draft it loaded, so a normal save never does this by accident.
 type configPatch struct {
-	TagKinds          []string            `json:"tagKinds"`
+	// TagKinds は #45 D9 で []model.KindDecl（union 型）に移行。object 宣言
+	// （label/description/behaviors）を round-trip で保全し、port だけ変えた PUT で
+	// behaviors が黙って消えないようにする。応答は縮退 Marshal（string 形に戻る）。
+	TagKinds          []model.KindDecl    `json:"tagKinds"`
 	FacetKinds        []string            `json:"facetKinds"`
 	TraceabilityKinds []string            `json:"traceabilityKinds"`
 	Roots             []string            `json:"roots"`
@@ -74,8 +77,9 @@ func putConfigHandler(s *store.Store) http.HandlerFunc {
 			return
 		}
 
-		// tagKinds の除去は使用中の tag があれば拒否する（scholia config set と同等・DESIGN §6・config_set.go）。
-		if removed := diffStrings(cfg.TagKinds, patch.TagKinds); len(removed) > 0 {
+		// tagKinds の除去は使用中の tag があれば拒否する（scholia config set と同等・
+		// DESIGN §6・config_set.go）。id 比較のまま（#45 D9・object 宣言でも id で判定）。
+		if removed := diffStrings(kindDeclIDs(cfg.TagKinds), kindDeclIDs(patch.TagKinds)); len(removed) > 0 {
 			snap, err := s.LoadAll()
 			if err != nil {
 				writeError(w, http.StatusInternalServerError, err.Error())
@@ -104,6 +108,16 @@ func putConfigHandler(s *store.Store) http.HandlerFunc {
 		cfg.Branch = diff.CurrentBranch(filepath.Dir(s.Dir))
 		writeJSON(w, http.StatusOK, cfg)
 	}
+}
+
+// kindDeclIDs は KindDecl スライスから id のみを取り出す（#45 D9・使用中検査は
+// object 宣言でも id 比較で行う）。
+func kindDeclIDs(decls []model.KindDecl) []string {
+	out := make([]string, 0, len(decls))
+	for _, d := range decls {
+		out = append(out, d.ID)
+	}
+	return out
 }
 
 func diffStrings(before, after []string) []string {

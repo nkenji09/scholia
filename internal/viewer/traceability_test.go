@@ -29,7 +29,7 @@ func newTraceabilityTestHandler(t *testing.T) http.Handler {
 	}
 	cfg.Kinds.Action = []string{"user"}
 	cfg.Kinds.Effect = []string{"state"}
-	cfg.TagKinds = []string{"requirement"}
+	cfg.TagKinds = []model.KindDecl{{ID: "requirement"}}
 	cfg.FacetKinds = []string{"requirement"}
 	cfg.TraceabilityKinds = []string{"requirement"}
 	if err := s.SaveConfig(cfg); err != nil {

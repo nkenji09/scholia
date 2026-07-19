@@ -14,7 +14,7 @@ import (
 func gateSnap() store.Snapshot {
 	return store.Snapshot{
 		Config: model.Config{
-			TagKinds: []string{"requirement", "subject", "axis"},
+			TagKinds: []model.KindDecl{{ID: "requirement"}, {ID: "subject"}, {ID: "axis"}},
 		},
 		Tags: []model.Tag{
 			{ID: "axis.mode", Name: "モード", Kind: "axis"}, // total=false（全軸対象の証）

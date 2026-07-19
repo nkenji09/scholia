@@ -35,7 +35,7 @@ func newListCmd() *cobra.Command {
 				return err
 			}
 
-			if facet != "" && !containsStr(snap.Config.TagKinds, facet) {
+			if facet != "" && !containsStr(snap.Config.TagKindIDs(), facet) {
 				return fmt.Errorf("--facet %q は config.tagKinds に未宣言です", facet)
 			}
 			if tagID != "" && !s.TagExists(tagID) {

@@ -1,6 +1,8 @@
 // Package model defines the record types persisted under .scholia/ (§3 of DESIGN.md).
 package model
 
+import "encoding/json"
+
 // カテゴリ（遷移の文法）は固定・設定不可（DESIGN §2）。
 const (
 	CategoryCondition = "condition"
@@ -176,11 +178,64 @@ func ValidSupersedeMode(mode string) bool {
 	return false
 }
 
+// KindDecl は kind 宣言 1 件（#45 D9・意味論の宣言制移行）。旧来の string 形
+// （id のみ）と新しい object 形（id/label/description/behaviors）を同一スロットに
+// 混在させるための union 型。JSON 上は string または object のいずれでも書ける:
+//   - string  "axis"                                   → KindDecl{ID: "axis"}
+//   - object  {"id":"axis","behaviors":["axis"],…}     → 全欄
+//
+// Behaviors は kind に付与する機械的意味論のフラグ集合（現状 "axis" のみ・将来
+// 値は消費面が設計できるまで枠を切らない＝三点閉鎖原則）。flow/lint の literal
+// "axis" 参照はこの Behaviors 読取に置換される。旧 string "axis" 宣言は
+// KindHasBehavior が互換で axis 挙動に対応させる（後方互換の不変条件③）。
+type KindDecl struct {
+	ID          string   `json:"id"`
+	Label       string   `json:"label,omitempty"`
+	Description string   `json:"description,omitempty"`
+	Behaviors   []string `json:"behaviors,omitempty"`
+}
+
+// UnmarshalJSON は string（id のみ）・object（全欄）のいずれの JSON からも
+// KindDecl を復元する。旧 config.json の string 配列を無改修で読むための互換読み。
+func (k *KindDecl) UnmarshalJSON(data []byte) error {
+	// string 形（"axis" 等）: id のみの縮退宣言。
+	if len(data) > 0 && data[0] == '"' {
+		var s string
+		if err := json.Unmarshal(data, &s); err != nil {
+			return err
+		}
+		*k = KindDecl{ID: s}
+		return nil
+	}
+	// object 形（{id,label,description,behaviors}）。別名 alias で再帰回避。
+	type kindDeclAlias KindDecl
+	var a kindDeclAlias
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	*k = KindDecl(a)
+	return nil
+}
+
+// MarshalJSON は縮退マーシャルを行う: label/description/behaviors がいずれも空
+// なら string ID に縮退して出力し、それ以外は object を出力する。これにより
+// 既存の string 宣言を round-trip しても object に膨らまず、git diff を汚さない
+// （後方互換の不変条件①）。
+func (k KindDecl) MarshalJSON() ([]byte, error) {
+	if k.Label == "" && k.Description == "" && len(k.Behaviors) == 0 {
+		return json.Marshal(k.ID)
+	}
+	type kindDeclAlias KindDecl
+	return json.Marshal(kindDeclAlias(k))
+}
+
 // Kinds はカテゴリごとの kind 宣言集合（§3.6）。カテゴリ軸自体は固定のため型で表す（マップにしない）。
+// Condition は #45 D9 で []KindDecl（union 型）に移行し、description 付き kind を
+// 宣言できる。action/effect は今回スコープ外で []string のまま。
 type Kinds struct {
-	Condition []string `json:"condition"`
-	Action    []string `json:"action"`
-	Effect    []string `json:"effect"`
+	Condition []KindDecl `json:"condition"`
+	Action    []string   `json:"action"`
+	Effect    []string   `json:"effect"`
 }
 
 // IDPrefix は id の命名規約（ソフト・grep 用。強制は kind フィールドが担う）。
@@ -210,14 +265,22 @@ type DisplayConfig struct {
 
 // Config はプロジェクト設定（singleton・§3.6）。
 type Config struct {
-	SchemaVersion     int          `json:"schemaVersion"`
-	Kinds             Kinds        `json:"kinds"`
-	TagKinds          []string     `json:"tagKinds"`
-	FacetKinds        []string     `json:"facetKinds"`
-	TraceabilityKinds []string     `json:"traceabilityKinds"`
-	IDPrefix          IDPrefix     `json:"idPrefix"`
-	Roots             []string     `json:"roots"`
-	Viewer            ViewerConfig `json:"viewer"`
+	SchemaVersion int   `json:"schemaVersion"`
+	Kinds         Kinds `json:"kinds"`
+	// TagKinds は tag kind の宣言集合（#45 D9 で []KindDecl の union 型に移行）。
+	// object 宣言（label/description/behaviors）と旧来の string 宣言が同一スロット
+	// に混在できる。id 集合だけが欲しい消費箇所は TagKindIDs() を使う。
+	TagKinds          []KindDecl `json:"tagKinds"`
+	FacetKinds        []string   `json:"facetKinds"`
+	TraceabilityKinds []string   `json:"traceabilityKinds"`
+	// OwnerKind は effect の owner を subject タグ id 参照に構造化するオプトイン
+	// 宣言（#45 D9）。非空のとき vocab add/edit --owner が「owner 値が kind==OwnerKind
+	// の実在タグ id か」を write-time 検証し候補を提示する。空文字（既定・未宣言）
+	// のときは owner を自由文字列として許容する（後方互換の不変条件②）。
+	OwnerKind string       `json:"ownerKind,omitempty"`
+	IDPrefix  IDPrefix     `json:"idPrefix"`
+	Roots     []string     `json:"roots"`
+	Viewer    ViewerConfig `json:"viewer"`
 	// TagKindLabels is an additive, optional display-label map for
 	// TagKinds entries (2026-07-11 tweaks3 §2: "requirement" → "要件" etc).
 	// TagKinds itself stays the single source of truth for which kinds are
@@ -300,11 +363,13 @@ func DefaultConfig() Config {
 	return Config{
 		SchemaVersion: 1,
 		Kinds: Kinds{
-			Condition: []string{},
+			Condition: []KindDecl{},
 			Action:    []string{"user", "api", "lifecycle", "system", "cron", "webhook"},
 			Effect:    []string{"emit", "state", "http", "storage", "log"},
 		},
-		TagKinds:          []string{"requirement", "concern", "subject"},
+		// tagKinds は string 相当（Label 等空）で維持——縮退 Marshal により
+		// 既定 config は string 形で書き戻り、object に膨らまない（不変条件①）。
+		TagKinds:          []KindDecl{{ID: "requirement"}, {ID: "concern"}, {ID: "subject"}},
 		FacetKinds:        []string{"subject", "requirement", "concern"},
 		TraceabilityKinds: []string{"requirement"},
 		IDPrefix: IDPrefix{
@@ -327,11 +392,13 @@ func DefaultConfig() Config {
 	}
 }
 
-// KindsFor はカテゴリ名から config.kinds の該当スライスを返す（write-time / lint 共用）。
+// KindsFor はカテゴリ名から config.kinds の該当 kind id スライスを返す（write-time
+// / lint 共用）。condition は #45 D9 で []KindDecl になったため id のみに射影して返す
+// （消費側は「宣言された kind id 集合」だけを見るため縮退で十分）。
 func (c Config) KindsFor(category string) []string {
 	switch category {
 	case CategoryCondition:
-		return c.Kinds.Condition
+		return kindDeclIDs(c.Kinds.Condition)
 	case CategoryAction:
 		return c.Kinds.Action
 	case CategoryEffect:
@@ -340,3 +407,63 @@ func (c Config) KindsFor(category string) []string {
 		return nil
 	}
 }
+
+// kindDeclIDs は KindDecl スライスから id のみを取り出す（union 型の id 射影）。
+func kindDeclIDs(decls []KindDecl) []string {
+	out := make([]string, 0, len(decls))
+	for _, d := range decls {
+		out = append(out, d.ID)
+	}
+	return out
+}
+
+// TagKindIDs は tagKinds の id 集合を返す（互換アクセサ・#45 D9）。id 集合だけが
+// 欲しい既存消費箇所（kind の実在検査等）はこれを使う。
+func (c Config) TagKindIDs() []string {
+	return kindDeclIDs(c.TagKinds)
+}
+
+// TagKindLabel は tagKind id の表示ラベルを解決する（#45 D9）。優先順位:
+// ① 当該 KindDecl の Label（object 宣言で明示されたもの）／② 互換 map
+// TagKindLabels[id]（旧 tweaks3 §2 の別立て map・現状維持）／③ 素の id。
+func (c Config) TagKindLabel(id string) string {
+	for _, d := range c.TagKinds {
+		if d.ID == id {
+			if d.Label != "" {
+				return d.Label
+			}
+			break
+		}
+	}
+	if lbl, ok := c.TagKindLabels[id]; ok && lbl != "" {
+		return lbl
+	}
+	return id
+}
+
+// KindHasBehavior は「kindID の tagKind 宣言が behavior を持つか」を返す（#45 D9・
+// flow/lint の literal "axis" 判定を置換する述語）。明示宣言があれば明示が勝つ。
+// 互換: kindID=="axis" && behavior=="axis" のときは Behaviors 未宣言でも true
+// （旧 string "axis" 宣言を axis 挙動に対応させる後方互換の不変条件③）。
+func (c Config) KindHasBehavior(kindID, behavior string) bool {
+	for _, d := range c.TagKinds {
+		if d.ID != kindID {
+			continue
+		}
+		for _, b := range d.Behaviors {
+			if b == behavior {
+				return true
+			}
+		}
+		break
+	}
+	if kindID == "axis" && behavior == BehaviorAxis {
+		return true
+	}
+	return false
+}
+
+// BehaviorAxis は tagKind に付与できる唯一の behaviors 値（#45 D9・網羅検査の
+// 軸となる kind を示す）。将来値（exclusive/ordered 等）は消費面が設計できるまで
+// 枠を切らない（三点閉鎖原則）。
+const BehaviorAxis = "axis"

@@ -9,7 +9,7 @@ import (
 
 func baseConfig() model.Config {
 	cfg := model.DefaultConfig()
-	cfg.Kinds.Condition = []string{"foo"}
+	cfg.Kinds.Condition = []model.KindDecl{{ID: "foo"}}
 	return cfg
 }
 

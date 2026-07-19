@@ -40,7 +40,7 @@ func setupRetrofitStore(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
-	cfg.TagKinds = append(cfg.TagKinds, "axis")
+	cfg.TagKinds = append(cfg.TagKinds, model.KindDecl{ID: "axis"})
 	if err := s.SaveConfig(cfg); err != nil {
 		t.Fatalf("SaveConfig: %v", err)
 	}

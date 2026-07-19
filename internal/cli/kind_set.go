@@ -67,12 +67,33 @@ func newKindSetCmd() *cobra.Command {
 func setKindsFor(cfg *model.Config, category string, kinds []string) {
 	switch category {
 	case model.CategoryCondition:
-		cfg.Kinds.Condition = kinds
+		// #45 D9: condition は []KindDecl（union）。CSV を id 集合として解釈し、
+		// 既存 object 宣言（label/description）を id が残る限り保持する（description
+		// 付き condition kind を string CSV set で消さない）。
+		cfg.Kinds.Condition = mergeCondKindIDs(cfg.Kinds.Condition, kinds)
 	case model.CategoryAction:
 		cfg.Kinds.Action = kinds
 	case model.CategoryEffect:
 		cfg.Kinds.Effect = kinds
 	}
+}
+
+// mergeCondKindIDs は id 集合を既存 condition KindDecl 群に反映する（object
+// メタデータを id が残る限り保持・新規は string 宣言で追加）。
+func mergeCondKindIDs(existing []model.KindDecl, ids []string) []model.KindDecl {
+	byID := make(map[string]model.KindDecl, len(existing))
+	for _, d := range existing {
+		byID[d.ID] = d
+	}
+	out := make([]model.KindDecl, 0, len(ids))
+	for _, id := range ids {
+		if d, ok := byID[id]; ok {
+			out = append(out, d)
+		} else {
+			out = append(out, model.KindDecl{ID: id})
+		}
+	}
+	return out
 }
 
 // splitNonEmpty splits a comma-separated flag value, trimming whitespace and

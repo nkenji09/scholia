@@ -28,7 +28,7 @@ func newTagListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if kind != "" && !containsStr(snap.Config.TagKinds, kind) {
+			if kind != "" && !containsStr(snap.Config.TagKindIDs(), kind) {
 				return fmt.Errorf("--kind %q は config.tagKinds に未宣言です", kind)
 			}
 

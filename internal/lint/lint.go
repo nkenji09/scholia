@@ -223,7 +223,7 @@ func checkKindValid(snap store.Snapshot) []Finding {
 		if t.Kind == "" {
 			continue
 		}
-		if !contains(snap.Config.TagKinds, t.Kind) {
+		if !contains(snap.Config.TagKindIDs(), t.Kind) {
 			out = append(out, finding("kind-valid", SeverityError, t.ID,
 				"tag %s: kind %q は config.tagKinds に未宣言です", t.ID, t.Kind))
 		}

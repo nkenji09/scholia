@@ -39,7 +39,7 @@ const (
 func configKeyValue(cfg model.Config, key string) (any, error) {
 	switch key {
 	case configKeyTagKinds:
-		return cfg.TagKinds, nil
+		return cfg.TagKindIDs(), nil
 	case configKeyFacetKinds:
 		return cfg.FacetKinds, nil
 	case configKeyTraceabilityKinds:

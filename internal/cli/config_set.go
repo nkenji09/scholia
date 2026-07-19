@@ -33,8 +33,11 @@ func newConfigSetCmd() *cobra.Command {
 
 			switch key {
 			case configKeyTagKinds:
-				kinds := splitNonEmpty(value)
-				removed := diffStrings(cfg.TagKinds, kinds)
+				// #45 D9: CSV を id 集合として解釈する。既存 object 宣言は id が残る
+				// 限り Label/Description/Behaviors を保持し、新規 id は string 追加、
+				// 除去は使用中検査後（behaviors 等のメタ編集は本コマンド外）。
+				ids := splitNonEmpty(value)
+				removed := diffStrings(cfg.TagKindIDs(), ids)
 				if len(removed) > 0 {
 					snap, err := s.LoadAll()
 					if err != nil {
@@ -46,7 +49,7 @@ func newConfigSetCmd() *cobra.Command {
 							strings.Join(removed, ","), len(inUse), strings.Join(inUse, ", "))
 					}
 				}
-				cfg.TagKinds = kinds
+				cfg.TagKinds = mergeTagKindIDs(cfg.TagKinds, ids)
 			case configKeyFacetKinds:
 				cfg.FacetKinds = splitNonEmpty(value)
 			case configKeyTraceabilityKinds:
@@ -105,6 +108,26 @@ func parseLabelMap(value string) (map[string]string, error) {
 		out[k] = v
 	}
 	return out, nil
+}
+
+// mergeTagKindIDs は「新しい id 集合」を既存 KindDecl 群に反映する（#45 D9・
+// config set tagKinds の id 集合解釈）。出力は ids の順序どおりで、id が既存宣言に
+// あれば object メタデータ（Label/Description/Behaviors）ごと保持し、無ければ
+// string 宣言（id のみ）として追加する。ids に無い既存宣言は落とす（除去）。
+func mergeTagKindIDs(existing []model.KindDecl, ids []string) []model.KindDecl {
+	byID := make(map[string]model.KindDecl, len(existing))
+	for _, d := range existing {
+		byID[d.ID] = d
+	}
+	out := make([]model.KindDecl, 0, len(ids))
+	for _, id := range ids {
+		if d, ok := byID[id]; ok {
+			out = append(out, d)
+		} else {
+			out = append(out, model.KindDecl{ID: id})
+		}
+	}
+	return out
 }
 
 func tagsUsingKinds(tags []model.Tag, kinds []string) []string {
