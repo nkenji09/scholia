@@ -3,12 +3,14 @@
 // append-only とは「decision ファイル完全不変」ではなく「判断欄位の不変＋来歴
 // 欄位の単調追記」である:
 //   - 判断欄位（why / changed / ref / at・target.type）は凍結（不可侵）。
-//   - commits[] は追記のみ許容（既存要素の削除・改変・並べ替えは違反）。
+//   - commits[]・acknowledges[]（#45 D6）・supersedes[]（#45 D7）は追記のみ
+//     許容（既存要素の削除・改変・並べ替えは違反）。supersedes は {id,mode} 単位で
+//     順序保存包含を要求する（mode 改変も既存 link の改変＝違反）。
 //   - target.id は正本レコード側の rename／merge の機械追随でのみ張替わる——
 //     同一 diff 内のペア照合（旧 id 消滅＋新 id 出現＝rename、旧 transition
 //     消滅＋現存 transition 宛＝merge・決定⑩）が取れる場合のみ許容。
-//   - 未知 additive フィールド（将来 P7 の supersedes[] 等）の追記は violation に
-//     しない（前方互換）。model.Decision decode が未知フィールドを無視するため、
+//   - 本実装がまだ知らない将来 additive フィールドの追記は violation にしない
+//     （前方互換）。model.Decision decode が未知フィールドを無視するため、
 //     そのような変更はそもそも Changed に現れない（diffDecisions のコメント参照）。
 //
 // これにより `decision add-commit`・`tag/tx/vocab rename`・`tx merge` の正規操作が
@@ -93,7 +95,43 @@ func classifyDecisionChange(b, a model.Decision, ctx *pairContext) (allowed, vio
 			violated = append(violated, "commits")
 		}
 	}
+	// Supersedes（#45 D7）は commits と同型の追記専用: 既存 link（{id,mode}
+	// 単位）の順序保存包含のみ許容（追記のみ）。既存 link の削除・改変（mode
+	// 変更を含む）・並べ替えは違反。model に Supersedes を足すと未知フィールド
+	// でなくなり reflect.DeepEqual が変更を検出する——ここで分類しないと既存 link
+	// の改変が allowed にも violated にも入らず黙認される穴（append-only 破れ）に
+	// なるため、必ず分類する。
+	if !reflect.DeepEqual(b.Supersedes, a.Supersedes) {
+		if supersedesAppendOnly(b.Supersedes, a.Supersedes) {
+			allowed = append(allowed, fmt.Sprintf("supersedes(+%d)", len(a.Supersedes)-len(b.Supersedes)))
+		} else {
+			violated = append(violated, "supersedes")
+		}
+	}
+	// Acknowledges（#45 D6）も追記専用: 既存要素を削除すると、過去に畳んで
+	// いた finding が retroactively 蘇る（容認の取り消し＝判断の書き換え）。
+	// commits と同型に、既存⊆新の順序保存包含のみ許容する。
+	if !reflect.DeepEqual(b.Acknowledges, a.Acknowledges) {
+		if commitsAppendOnly(b.Acknowledges, a.Acknowledges) {
+			allowed = append(allowed, fmt.Sprintf("acknowledges(+%d)", len(a.Acknowledges)-len(b.Acknowledges)))
+		} else {
+			violated = append(violated, "acknowledges")
+		}
+	}
 	return allowed, violated
+}
+
+// supersedesAppendOnly は before の各 link（{id,mode} 完全一致）が after に
+// 順序保存で包含される（既存 link の削除・mode 改変・並べ替えなし＝追記のみ）
+// かを返す。commitsAppendOnly の {id,mode} 版。
+func supersedesAppendOnly(before, after []model.SupersedeLink) bool {
+	i := 0
+	for _, l := range after {
+		if i < len(before) && before[i] == l {
+			i++
+		}
+	}
+	return i == len(before)
 }
 
 // commitsAppendOnly は before が after に順序保存で包含される（既存要素の削除・
