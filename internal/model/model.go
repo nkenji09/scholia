@@ -28,6 +28,21 @@ type VocabEntry struct {
 	Owner       string   `json:"owner,omitempty"` // effect のみ
 	Tags        []string `json:"tags,omitempty"`
 	Description string   `json:"description,omitempty"` // markdown・任意
+	// Ref は外部契約・仕様本文へのアンカー（#45 D5・additive/omitempty）。契約の
+	// 全文は desc に散文で埋めず、versioned 文書（DESIGN の § 参照・OpenAPI 等の
+	// 外部正本）を指す1行。Tag.Ref との非対称を解消する。file:line 形式は
+	// ref-freshness lint（warn）で警告される。
+	Ref string `json:"ref,omitempty"`
+	// AltLabels は別表記・同義語（#45 D5・additive/omitempty）。別の言い回しから
+	// 既存語彙へ到達させ、重複新設を構造的に防ぐ。検索編入3面（CLI search・
+	// viewer index 検索・viewer フィルタ/サジェスト）の検索対象に含まれる。
+	AltLabels []string `json:"altLabels,omitempty"`
+	// Establishes は「この効果が成立させる condition」の直接参照
+	// （#45 D5・additive/omitempty・category=effect のみ有効）。値は現存 condition
+	// の id（write-time 検証＋参照整合 lint）。transition 間の明示辺は持たないと
+	// いう既決を維持したまま状態連鎖を機械可読にする（例: eff.state.save-scroll-
+	// to-session が cond.view-scroll-in-session を成立させる）。
+	Establishes []string `json:"establishes,omitempty"`
 }
 
 func (v VocabEntry) GetID() string { return v.ID }
@@ -51,15 +66,20 @@ type Tag struct {
 
 func (t Tag) GetID() string { return t.ID }
 
-// DecisionTarget は decision が指す対象（transition か tag）。
+// DecisionTarget は decision が指す対象（transition・tag・vocab）。
 type DecisionTarget struct {
-	Type string `json:"type"` // "transition" | "tag"
+	Type string `json:"type"` // "transition" | "tag" | "vocab"
 	ID   string `json:"id"`
 }
 
 const (
 	DecisionTargetTransition = "transition"
 	DecisionTargetTag        = "tag"
+	// DecisionTargetVocab は decision の対象種別 vocab（#45 D5）。語彙の why・
+	// 外部契約・状態連鎖の判断を語彙自身に付けられるようにする。旧バイナリは
+	// 未知種別として decision-target lint で error 扱いするため、採用後は
+	// 「バイナリ更新が先・レコード追加が後」の順序を守る（移行注記・D5 changed⑨）。
+	DecisionTargetVocab = "vocab"
 )
 
 // Decision は意思決定 1 件（append-only・§3.5）。型定義のみ（decide コマンドは Phase 1）。
