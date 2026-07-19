@@ -21,6 +21,24 @@ import (
 // (config.tagKinds must declare it; DESIGN §3.4).
 const AxisTagKind = "axis"
 
+// flow finding の rule 名（#45 D6 の typed 容認キー）。lint/flow を横断する
+// 「有効な rule id 集合」の source of truth の一部で、acknowledges で名指しできる
+// のはここに列挙した名前と lint.Rules の名前に限る。
+const (
+	// RuleSubsetShadow: 証明可能な多重発火（Given(A)⊊Given(B)）。
+	RuleSubsetShadow = "subset-shadow"
+	// RuleTotalGap: total=true 軸の値が given に一度も現れない（L-total 抜け）。
+	RuleTotalGap = "total-gap"
+	// RuleOverlap: 宣言軸 cell を 2+ 遷移が取り合う（subset-shadow で説明されない）。
+	RuleOverlap = "overlap"
+)
+
+// RuleNames は flow finding の rule 名の全列挙（有効 rule id 集合・容認畳みの
+// 消費側が参照する source of truth）。
+func RuleNames() []string {
+	return []string{RuleSubsetShadow, RuleTotalGap, RuleOverlap}
+}
+
 // RemainderTagID is the well-known tag id a transition carries to declare
 // itself as the action's single "acknowledged remainder" default
 // (req.action-flow.acknowledged-remainder). No transition in this repo's own

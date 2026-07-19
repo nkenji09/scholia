@@ -277,3 +277,68 @@ func TestCheckWriteDecisionWhyFileLineAdvisory(t *testing.T) {
 		t.Fatalf("decision に reject 規則は無いはず: %+v", res.Rejections)
 	}
 }
+
+// decide 経路 (d) unknown-acknowledges（#45 D6）: 新規 decision の acknowledges
+// が有効な rule id に解決しないなら保存前に弾く（typo・候補提示）。
+func TestCheckWriteRejectsUnknownAcknowledges(t *testing.T) {
+	snap := gateSnap()
+	d := model.Decision{ID: "01TESTULID0000000000000000",
+		Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.x"},
+		Why:    "意図的に容認する", At: "2026-01-01T00:00:00Z",
+		Acknowledges: []string{"requirement-gap", "not-a-real-rule"}}
+	res := CheckWrite(snap, WriteOp{Decision: &d, IsNew: true})
+	if len(res.Rejections) != 1 || res.Rejections[0].Rule != GateUnknownAcknowledges {
+		t.Fatalf("未知 rule id の acknowledges は unknown-acknowledges reject のはず: %+v", res.Rejections)
+	}
+	if res.Rejections[0].Quote != "not-a-real-rule" {
+		t.Fatalf("reject の Quote は未知 rule 名のはず: %+v", res.Rejections[0])
+	}
+	if !strings.Contains(res.Rejections[0].Message, "有効") {
+		t.Fatalf("reject メッセージに有効 rule 候補が含まれるべき: %q", res.Rejections[0].Message)
+	}
+}
+
+// 実在 rule id（lint.Rules 名・flow rule 名の両方）の acknowledges は通す。
+func TestCheckWriteAllowsKnownAcknowledges(t *testing.T) {
+	snap := gateSnap()
+	d := model.Decision{ID: "01TESTULID0000000000000001",
+		Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.x"},
+		Why:    "意図的に容認する", At: "2026-01-01T00:00:00Z",
+		Acknowledges: []string{"requirement-gap", "total-gap", "overlap"}}
+	res := CheckWrite(snap, WriteOp{Decision: &d, IsNew: true})
+	for _, f := range res.Rejections {
+		if f.Rule == GateUnknownAcknowledges {
+			t.Fatalf("実在 rule id の acknowledges が弾かれた: %+v", f)
+		}
+	}
+}
+
+// add-commit（IsNew=false）や既存 decision の再検査はしない（新規のみ検査）。
+func TestCheckWriteAcknowledgesOnlyCheckedForNew(t *testing.T) {
+	snap := gateSnap()
+	d := model.Decision{ID: "01TESTULID0000000000000002",
+		Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.x"},
+		Why:    "既存", At: "2026-01-01T00:00:00Z",
+		Acknowledges: []string{"legacy-renamed-rule"}}
+	res := CheckWrite(snap, WriteOp{Decision: &d, IsNew: false})
+	for _, f := range res.Rejections {
+		if f.Rule == GateUnknownAcknowledges {
+			t.Fatalf("IsNew=false の再検査で unknown-acknowledges が出た（新規のみのはず）: %+v", f)
+		}
+	}
+}
+
+// dangling-acknowledges lint: 既存 decision の解決しない acknowledges を info で警告。
+func TestDanglingAcknowledgesLint(t *testing.T) {
+	snap := gateSnap()
+	snap.Decisions = []model.Decision{
+		{ID: "01D0", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.x"},
+			Why: "ok", At: "2026-01-01T00:00:00Z", Acknowledges: []string{"requirement-gap"}},
+		{ID: "01D1", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.x"},
+			Why: "dangling", At: "2026-01-01T00:00:00Z", Acknowledges: []string{"gone-rule"}},
+	}
+	out := checkDanglingAcknowledges(snap)
+	if len(out) != 1 || out[0].Target != "01D1" || !out[0].AcknowledgeOnly {
+		t.Fatalf("宙吊り acknowledges 1件を acknowledge-only info で返すはず: %+v", out)
+	}
+}

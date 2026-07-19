@@ -109,6 +109,16 @@ var Rules = []Rule{
 	{Name: "duplicate-atom", Severity: SeverityInfo, Tier: TierAdvisory, Check: checkDuplicateAtom},
 	{Name: "dangling-id", Severity: SeverityInfo, Tier: TierAdvisory, Check: checkDanglingID},
 	{Name: "dead-doc-ref", Severity: SeverityInfo, Tier: TierAdvisory, Check: checkDeadDocRef},
+	// dangling-acknowledges（#45 D6）は init() で追加する（下記）。checkDanglingAcknowledges
+	// が ValidRuleIDs 経由で Rules を参照するため、静的初期化子に直書きすると
+	// Go の初期化サイクル検出に引っかかる。実行時（init 後）に append する。
+}
+
+func init() {
+	Rules = append(Rules, Rule{
+		Name: "dangling-acknowledges", Severity: SeverityInfo, Tier: TierAdvisory,
+		Check: checkDanglingAcknowledges,
+	})
 }
 
 // Run は全ルールを実行し、検出結果を返す。

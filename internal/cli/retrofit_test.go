@@ -116,8 +116,11 @@ func TestRetrofitJSONCarriesCountsAndTier(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &resp); err != nil {
 		t.Fatalf("json decode: %v\noutput:\n%s", err, out)
 	}
-	if len(resp.Rules) != 8 {
-		t.Fatalf("advisory 8 規則のはず: %v", resp.Rules)
+	// #45 D6 で dangling-acknowledges（TierAdvisory）を追加したため 8→9。
+	// retrofit は TierAdvisory 規則を動的に拾うので、新 advisory 規則が正しく
+	// 走査対象に入っていることの確認でもある。
+	if len(resp.Rules) != 9 {
+		t.Fatalf("advisory 9 規則のはず: %v", resp.Rules)
 	}
 	for _, f := range resp.Findings {
 		if f.Tier != lint.TierAdvisory || f.Severity != lint.SeverityInfo {

@@ -52,16 +52,21 @@ type GateResult struct {
 	Advisories []Finding
 }
 
-// reject 3 規則の rule id（決定③）。
+// reject 規則の rule id（決定③＋#45 D6 の unknown-acknowledges）。
 const (
 	GateExclusiveViolation = "exclusive-violation"
 	GateTotalKindMismatch  = "total-kind-mismatch"
 	GateIDPolicy           = "id-policy"
+	// GateUnknownAcknowledges（#45 D6）: 新規 decision の acknowledges が有効な
+	// rule id に解決しない（typo）＝保存前に弾く。id-policy 同様、新規レコードの
+	// 書き込み時のみ検査する（既存 decision の再検査はしない——rule 改名で後から
+	// 宙吊りになるのは lint dangling-acknowledges の領分）。
+	GateUnknownAcknowledges = "unknown-acknowledges"
 )
 
 // GateRejectRuleNames は reject 規則 id の全列挙（--allow の検証用）。
 func GateRejectRuleNames() []string {
-	return []string{GateExclusiveViolation, GateTotalKindMismatch, GateIDPolicy}
+	return []string{GateExclusiveViolation, GateTotalKindMismatch, GateIDPolicy, GateUnknownAcknowledges}
 }
 
 // DescLengthThreshold は write-time advisory「desc 長」の閾値（字数・rune）。
@@ -165,6 +170,37 @@ func checkRejections(after store.Snapshot, op WriteOp) []Finding {
 	// (c) id-policy: 新規 id のみ（既存 id の edit は対象外）。
 	if op.IsNew {
 		out = append(out, idPolicyViolations(after.Config, op)...)
+		// (d) unknown-acknowledges（#45 D6）: 新規 decision の acknowledges が
+		// 有効な rule id に解決しないなら弾く（typo は同一ターン error＋候補提示）。
+		// id-policy 同様「新規のみ」——add-commit（IsNew=false）や既存 decision の
+		// 再検査はしない（append-only なので後付けの宙吊りは lint が拾う）。
+		if op.Decision != nil {
+			out = append(out, unknownAcknowledgesViolations(*op.Decision)...)
+		}
+	}
+	return out
+}
+
+// unknownAcknowledgesViolations は decision.acknowledges の各 rule id が有効な
+// rule id 集合（lint.Rules 名＋flow rule 名）に実在するかを照合し、未知なら
+// reject を返す（typo として候補提示）。
+func unknownAcknowledgesViolations(d model.Decision) []Finding {
+	if len(d.Acknowledges) == 0 {
+		return nil
+	}
+	valid := ValidRuleIDs()
+	var out []Finding
+	for _, rule := range d.Acknowledges {
+		if valid[rule] {
+			continue
+		}
+		out = append(out, Finding{
+			Rule: GateUnknownAcknowledges, Severity: SeverityError,
+			Target: d.ID, TargetType: targetDecision,
+			Field: "acknowledges", Quote: rule,
+			Message: fmt.Sprintf("decision %s: acknowledges %q は有効な rule id ではありません（有効: %s）",
+				d.ID, rule, strings.Join(SortedValidRuleIDs(), " / ")),
+		})
 	}
 	return out
 }
