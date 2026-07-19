@@ -200,15 +200,9 @@ func checkStaleTense(snap store.Snapshot) []Finding {
 	excludes := compileStalePatternExcludes(snap.Config)
 	var out []Finding
 	check := func(targetType, id, desc string) {
-		matches := uniquePatternMatches(staleTensePattern, desc)
-		matches = filterExcludedMatches(matches, excludes)
-		if len(matches) == 0 {
-			return
+		if f, ok := staleTenseFinding(targetType, id, desc, excludes); ok {
+			out = append(out, f)
 		}
-		q := strings.Join(matches, "・")
-		out = append(out, advisory("stale-tense", targetType, id, "description", q,
-			"時点依存語を除き、現在形の「これは何か」だけに書き直す（経緯・工程は decision が保持する）",
-			"%s %s: description に時点依存語（%s）が残っています（record が古びると嘘になる書き方）", targetType, id, q))
 	}
 	for _, t := range snap.Tags {
 		if t.Description != "" {
@@ -221,6 +215,47 @@ func checkStaleTense(snap store.Snapshot) []Finding {
 		}
 	}
 	return out
+}
+
+// staleTenseFinding は 1 レコードの desc に stale-tense finding があれば返す
+// （検査コア・全量走査と desc 現在形ゲート三点配線で共有・#45 D7）。
+func staleTenseFinding(targetType, id, desc string, excludes []*regexp.Regexp) (Finding, bool) {
+	matches := uniquePatternMatches(staleTensePattern, desc)
+	matches = filterExcludedMatches(matches, excludes)
+	if len(matches) == 0 {
+		return Finding{}, false
+	}
+	q := strings.Join(matches, "・")
+	return advisory("stale-tense", targetType, id, "description", q,
+		"時点依存語を除き、現在形の「これは何か」だけに書き直す（経緯・工程は decision が保持する）",
+		"%s %s: description に時点依存語（%s）が残っています（record が古びると嘘になる書き方）", targetType, id, q), true
+}
+
+// TargetDescStaleTense は decision の target（tag/vocab）の desc に対する
+// stale-tense 検査（desc 現在形ゲート三点配線・#45 D7）。decide 保存前プレビュー・
+// review adopt 応答・add-commit 同一ターンが同じコアで対象 desc の鮮度を見る。
+// transition は desc を持たないため対象外（tag/vocab のみ）。
+func TargetDescStaleTense(snap store.Snapshot, target model.DecisionTarget) []Finding {
+	excludes := compileStalePatternExcludes(snap.Config)
+	switch target.Type {
+	case model.DecisionTargetTag:
+		for _, t := range snap.Tags {
+			if t.ID == target.ID && t.Description != "" {
+				if f, ok := staleTenseFinding(targetTag, t.ID, t.Description, excludes); ok {
+					return []Finding{f}
+				}
+			}
+		}
+	case model.DecisionTargetVocab:
+		for _, v := range snap.Vocab {
+			if v.ID == target.ID && v.Description != "" {
+				if f, ok := staleTenseFinding(targetVocab, v.ID, v.Description, excludes); ok {
+					return []Finding{f}
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // compileStalePatternExcludes は config.lint.stalePatternExcludes を

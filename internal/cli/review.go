@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/nkenji09/scholia/internal/lint"
 	"github.com/nkenji09/scholia/internal/model"
 	"github.com/nkenji09/scholia/internal/review"
 )
@@ -239,12 +240,26 @@ func newReviewDecideCmd(kind reviewDecideKind) *cobra.Command {
 				return err
 			}
 
+			// desc 現在形ゲート三点配線の第2点（#45 D7）: adopt 応答に対象 desc の
+			// stale-tense advisory を添える（採用した判断の対象 record が古びていないか
+			// を同一ターンに気づかせる）。
+			var descAdvisories []lint.Finding
+			if snap, err := s.LoadAll(); err == nil {
+				descAdvisories = lint.TargetDescStaleTense(snap, d.Target)
+			}
+
 			if asJSON {
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
-				return enc.Encode(d)
+				return enc.Encode(struct {
+					model.Decision
+					Advisories []lint.Finding `json:"advisories,omitempty"`
+				}{Decision: d, Advisories: descAdvisories})
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "review %s を decision %s に昇格し、review を削除しました（%s:%s）\n", id, d.ID, targetType, r.RecordRef.ID)
+			for _, f := range descAdvisories {
+				fmt.Fprintf(cmd.OutOrStdout(), "advisory(%s): %s\n", f.Rule, f.Message)
+			}
 			return nil
 		},
 	}
