@@ -4,5 +4,6 @@
   "label": "列挙した軸／don't-care 扱いした条件／保証の外（軸に属さない単独フラグ・連続量・未宣言軸・default 残余）を必ず印字し、素の『no gaps』を決して出さない",
   "kind": "emit",
   "owner": "フロー解析器（viewer/CLI 共有）",
-  "description": "**軸0件時の開示（req.action-flow.scope-honesty）**：宣言軸が0件のときは2つの異なる状態を同一文言で潰さず、原因別に actionable に開示する。\n\n- **(a)** store に `kind=\"axis\"` のタグが1枚も無い（軸機構そのものが未導入）。\n- **(b)** 軸タグは在るが、this action のどの transition の given にも軸条件が載っていない（軸が this action に効いていない）。\n\n(a)/(b) は store の axis タグ数と this action の given universe でその場で判定でき、それぞれ次の一手を促すヒントを添える（例：(a)→「`tag create --kind axis` で軸を作れます」／(b)→「軸はありますが this action の transition は given が空/軸条件を含みません。条件別に given を張って軸を効かせてください」）。素の単一文言は「軸で何も検出できない理由」を隠して false confidence を残すため不可。ヒント文言は実装詳細（区別と actionable であることが spec 上の要件）。"
+  "description": "flow/gaps の解析結果に「保証の外」（列挙した軸・don't-care 条件・未宣言軸・default 残余）を必ず印字する開示 emit。素の「no gaps」は出さない。軸0件時は (a) axis タグ未宣言／(b) this action に軸が効いていない、を区別して開示する（契約全文は ref 先・確定判断は decision 01KXNGQYRM718XH18RGSNSQCW1）。",
+  "ref": "DESIGN.md §5.5.1 scope-disclosure 契約"
 }

@@ -1,0 +1,9 @@
+{
+  "id": "01KXWAEEKXS4PSGPWB03PQCC3P",
+  "target": {
+    "type": "vocab",
+    "id": "cond.update-apply"
+  },
+  "why": "cond.update-check-flag の complement として新設した語彙（新設判断の正本は 01KXMRBNXTN8742KDJVV4HW15V・2026-07-16）。axis.update.mode（total=true）の2値目を materialize するのが目的で、どの遷移の given にも現れない状態は意図した結果——「--check でない実更新がモード軸として明示されていない」という #39 設計検討時の欠落（原文書は散逸・要旨は本 why が正本）を L-total 抜けとして可視化するための placeholder である。Level 1 では語彙追加のみで遷移の given 書き換えは行わないというスコープ判断も同 decision に記録済み。desc に書かれていたこれらの why・時点依存の想定を本 decision へ移設し、desc は「これは何か」1行に痩せさせる。",
+  "at": "2026-07-19T04:34:13Z"
+}

@@ -5,5 +5,5 @@
   "tags": [
     "axis.update.mode"
   ],
-  "description": "cond.update-check-flag の complement。axis.update.mode の2値目で、`--check` でない場合の実更新（実際にバイナリを置換する経路）を表す。"
+  "description": "`--check` なし実行（apply モード）。axis.update.mode の値の1つで、cond.update-check-flag の complement。"
 }

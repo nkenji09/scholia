@@ -3,5 +3,8 @@
   "category": "effect",
   "label": "現在のスクロール位置を sessionStorage へ保存する",
   "kind": "state",
-  "owner": "viewer-web"
+  "owner": "viewer-web",
+  "establishes": [
+    "cond.view-scroll-in-session"
+  ]
 }
