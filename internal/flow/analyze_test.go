@@ -697,3 +697,37 @@ func TestAnalyze_ScopeDisclosureListsDeclaredAxesAndDontCareConditions(t *testin
 		t.Fatalf("cond.check carries an axis tag and must not be listed as undeclared: %v", r.Scope.UndeclaredGiven)
 	}
 }
+
+// #45 D9: axis 挙動は string "axis" 宣言（compat）でも別名 kind の object
+// behaviors:["axis"] 宣言でも完全同一の flow 出力になる（後方互換の不変条件③）。
+// Analyze が literal "axis" ではなく config.behaviors を読むことを固定する。
+func TestAnalyze_AxisBehaviorViaAliasKindMatchesCompatAxis(t *testing.T) {
+	vocab := []model.VocabEntry{
+		condVocab("cond.check", "dim.mode"),
+		condVocab("cond.apply", "dim.mode"),
+	}
+	txs := []model.Transition{
+		{ID: "T-1", Action: "act.a", Given: []string{"cond.check"}, Then: []string{"eff.a"}},
+	}
+	// (A) compat: kind=="axis" without any behaviors declaration.
+	tagsCompat := []model.Tag{{ID: "dim.mode", Name: "mode", Kind: "axis", Total: true}}
+	snapA, ixA := buildAnalyzeFixture(txs, vocab, tagsCompat)
+	rA := Analyze(snapA, ixA, "act.a")
+
+	// (B) alias kind "dimension" declared with behaviors:["axis"].
+	tagsAlias := []model.Tag{{ID: "dim.mode", Name: "mode", Kind: "dimension", Total: true}}
+	snapB, ixB := buildAnalyzeFixture(txs, vocab, tagsAlias)
+	snapB.Config.TagKinds = append(snapB.Config.TagKinds, model.KindDecl{ID: "dimension", Behaviors: []string{"axis"}})
+	ixB = index.Build(snapB)
+	rB := Analyze(snapB, ixB, "act.a")
+
+	if !reflect.DeepEqual(rA.Axes, rB.Axes) {
+		t.Fatalf("axis-declared-as-alias Axes differ:\n compat=%+v\n alias =%+v", rA.Axes, rB.Axes)
+	}
+	if !reflect.DeepEqual(rA.TotalGaps, rB.TotalGaps) {
+		t.Fatalf("TotalGaps differ:\n compat=%+v\n alias =%+v", rA.TotalGaps, rB.TotalGaps)
+	}
+	if len(rA.Axes) != 1 {
+		t.Fatalf("expected 1 relevant axis under compat, got %+v", rA.Axes)
+	}
+}

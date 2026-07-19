@@ -157,9 +157,10 @@ func checkRejections(after store.Snapshot, op WriteOp) []Finding {
 			out = append(out, f)
 		}
 	case op.Tag != nil:
-		// (b) total-kind-mismatch: total=true は axis 挙動を持つ kind（現状
-		// Go 定数 "axis"。宣言制への移行は P9）のタグにしか意味を持たない。
-		if op.Tag.Total && op.Tag.Kind != "axis" {
+		// (b) total-kind-mismatch: total=true は axis 挙動を持つ kind のタグにしか
+		// 意味を持たない。#45 D9 で literal "axis" 判定を config の behaviors 宣言
+		// 読取（KindHasBehavior）へ移行——別名 kind の axis 化を宣言だけで許す。
+		if op.Tag.Total && !after.Config.KindHasBehavior(op.Tag.Kind, model.BehaviorAxis) {
 			out = append(out, Finding{
 				Rule: GateTotalKindMismatch, Severity: SeverityError,
 				Target: op.Tag.ID, TargetType: targetTag,

@@ -253,7 +253,7 @@ func checkComplementMissing(snap store.Snapshot) []Finding {
 
 	var out []Finding
 	for _, t := range snap.Tags {
-		if t.Kind != "axis" || !t.Total {
+		if !snap.Config.KindHasBehavior(t.Kind, model.BehaviorAxis) || !t.Total {
 			continue
 		}
 		if n := valueCount[t.ID]; n < 2 {
@@ -269,7 +269,7 @@ func checkComplementMissing(snap store.Snapshot) []Finding {
 func axisValueTags(snap store.Snapshot) map[string][]string {
 	axisKind := make(map[string]bool)
 	for _, t := range snap.Tags {
-		if t.Kind == "axis" {
+		if snap.Config.KindHasBehavior(t.Kind, model.BehaviorAxis) {
 			axisKind[t.ID] = true
 		}
 	}
@@ -310,7 +310,7 @@ func checkUnusedVocab(snap store.Snapshot) []Finding {
 	}
 	axisKind := make(map[string]bool)
 	for _, t := range snap.Tags {
-		if t.Kind == "axis" {
+		if snap.Config.KindHasBehavior(t.Kind, model.BehaviorAxis) {
 			axisKind[t.ID] = true
 		}
 	}

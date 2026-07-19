@@ -142,7 +142,7 @@ func checkDerivedValueInDesc(snap store.Snapshot) []Finding {
 	condsByAxis := make(map[string][]string)
 	axisKind := make(map[string]bool)
 	for _, t := range snap.Tags {
-		if t.Kind == "axis" {
+		if snap.Config.KindHasBehavior(t.Kind, model.BehaviorAxis) {
 			axisKind[t.ID] = true
 		}
 	}
@@ -159,7 +159,7 @@ func checkDerivedValueInDesc(snap store.Snapshot) []Finding {
 
 	var out []Finding
 	for _, t := range snap.Tags {
-		if t.Kind != "axis" || t.Description == "" {
+		if !snap.Config.KindHasBehavior(t.Kind, model.BehaviorAxis) || t.Description == "" {
 			continue
 		}
 		var quotes []string
@@ -395,7 +395,7 @@ func checkAxisWithoutDecision(snap store.Snapshot) []Finding {
 	counts := tagDecisionCounts(snap.Decisions)
 	var out []Finding
 	for _, t := range snap.Tags {
-		if t.Kind != "axis" || counts[t.ID] > 0 {
+		if !snap.Config.KindHasBehavior(t.Kind, model.BehaviorAxis) || counts[t.ID] > 0 {
 			continue
 		}
 		out = append(out, advisory("axis-without-decision", targetTag, t.ID, "", "",

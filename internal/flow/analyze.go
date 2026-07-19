@@ -17,9 +17,23 @@ import (
 	"github.com/nkenji09/scholia/internal/store"
 )
 
-// AxisTagKind is the tagKind that marks a tag record as an axis declaration
-// (config.tagKinds must declare it; DESIGN §3.4).
+// AxisTagKind is the compat default tagKind id that marks a tag record as an
+// axis declaration (config.tagKinds must declare it; DESIGN §3.4). Kept as the
+// well-known default, but axis-ness is now decided by config behaviors
+// (#45 D9): a tag counts as an axis when its kind's declaration carries the
+// "axis" behavior, which the compat map in model.Config.KindHasBehavior grants
+// to kind=="axis" even without an explicit behaviors list. Analyze reads
+// axis-ness through cfg, never this literal, so an alias kind declared
+// behaviors:["axis"] participates on equal footing.
 const AxisTagKind = "axis"
+
+// isAxisTag reports whether a tag participates as an axis under the project's
+// config (#45 D9). Replaces the former literal tag.Kind=="axis" checks so a
+// differently-named kind declared with behaviors:["axis"] is treated as an axis
+// too, while the compat rule keeps plain kind=="axis" working unchanged.
+func isAxisTag(cfg model.Config, tag model.Tag) bool {
+	return cfg.KindHasBehavior(tag.Kind, model.BehaviorAxis)
+}
 
 // flow finding の rule 名（#45 D6 の typed 容認キー）。lint/flow を横断する
 // 「有効な rule id 集合」の source of truth の一部で、acknowledges で名指しできる
@@ -309,7 +323,7 @@ func Analyze(snap *store.Snapshot, ix *index.Index, actionID string) Report {
 			report.TotalGaps = totalGaps(axes, specifics)
 		}
 		report.Overlaps = overlaps(report.Cells, report.SubsetShadows, specifics)
-	} else if anyAxisTagDeclared(ix) {
+	} else if anyAxisTagDeclared(snap.Config, ix) {
 		report.AxesAbsence = AxesAbsenceNotOnThisAction
 	} else {
 		report.AxesAbsence = AxesAbsenceNoneDeclared
@@ -502,30 +516,32 @@ func conditionsInGiven(txs []model.Transition) []string {
 	return out
 }
 
-// anyAxisTagDeclared reports whether the store has at least one kind="axis"
+// anyAxisTagDeclared reports whether the store has at least one axis-behavior
 // tag anywhere — distinguishes (a) the axis mechanism being wholly unused in
 // this project from (b) axes existing but not reaching the analyzed action
-// (#40 ①, eff.emit.scope-disclosure).
-func anyAxisTagDeclared(ix *index.Index) bool {
+// (#40 ①, eff.emit.scope-disclosure). Axis-ness is decided through cfg
+// (#45 D9), not a literal kind string.
+func anyAxisTagDeclared(cfg model.Config, ix *index.Index) bool {
 	for _, tag := range ix.TagByID {
-		if tag.Kind == AxisTagKind {
+		if isAxisTag(cfg, tag) {
 			return true
 		}
 	}
 	return false
 }
 
-// axisTagsOf returns the kind="axis" tags directly attached to a vocab
+// axisTagsOf returns the axis-behavior tags directly attached to a vocab
 // entry's Tags[] (no ancestor expansion — axis membership is a direct,
-// possibly-multiple assignment, DESIGN §3.4/§7.1).
-func axisTagsOf(ix *index.Index, vocabID string) []model.Tag {
+// possibly-multiple assignment, DESIGN §3.4/§7.1). Axis-ness is decided through
+// cfg (#45 D9).
+func axisTagsOf(cfg model.Config, ix *index.Index, vocabID string) []model.Tag {
 	v, ok := ix.VocabByID[vocabID]
 	if !ok {
 		return nil
 	}
 	var out []model.Tag
 	for _, tagID := range v.Tags {
-		if tag, ok := ix.TagByID[tagID]; ok && tag.Kind == AxisTagKind {
+		if tag, ok := ix.TagByID[tagID]; ok && isAxisTag(cfg, tag) {
 			out = append(out, tag)
 		}
 	}
@@ -540,7 +556,7 @@ func axisTagsOf(ix *index.Index, vocabID string) []model.Tag {
 func relevantAxes(snap *store.Snapshot, ix *index.Index, conditionUniverse []string) []Axis {
 	relevant := make(map[string]model.Tag)
 	for _, condID := range conditionUniverse {
-		for _, tag := range axisTagsOf(ix, condID) {
+		for _, tag := range axisTagsOf(snap.Config, ix, condID) {
 			relevant[tag.ID] = tag
 		}
 	}
