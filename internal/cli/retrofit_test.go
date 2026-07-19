@@ -208,11 +208,14 @@ func TestRetrofitDogfoodCounts(t *testing.T) {
 	// #45 束5（D8）で update 5遷移への priority 宣言＋tx.flow effect vocab の意味論改訂を
 	// 束ねた data-work commit（正本 decision は前もって base commit で記録済・当該 commit
 	// 自体には decision 非同伴）が decision-stale の3件目として真ヒットし 15/15 → 16/16。
-	// これは D7 が「機械マイグレーション/データ作業型 commit は偽陽性として残り acknowledges
-	// で容認可」と規定した挙動どおり（info・lint --ci は warn を数えるため緑）。retrofit で
-	// 実測が変わったら追随する方針に沿って更新（新実測を確認済み・regression ではない）。
-	if resp.AcknowledgeOnly.FindingCount != 16 || resp.AcknowledgeOnly.RecordCount != 16 {
-		t.Fatalf("dogfood acknowledgeOnly = %d findings / %d records, want 16/16", resp.AcknowledgeOnly.FindingCount, resp.AcknowledgeOnly.RecordCount)
+	// #45 束6（D9）の data-work commit（owner 60・condition kind 47・subject 2枚・
+	// ownerKind 宣言＝107 vocab＋config を編集・正本 decision 01KXY6PXRR… は前もって
+	// base commit で記録済ゆえ当該 commit 自体には decision 非同伴）が decision-stale の
+	// 4件目として真ヒットし 16/16 → 17/17。D7 が「機械マイグレーション/データ作業型
+	// commit は偽陽性として残り acknowledges で容認可」と規定した挙動どおりの新実測
+	// （info・lint --ci は warn を数えるため緑・regression ではない）。
+	if resp.AcknowledgeOnly.FindingCount != 17 || resp.AcknowledgeOnly.RecordCount != 17 {
+		t.Fatalf("dogfood acknowledgeOnly = %d findings / %d records, want 17/17", resp.AcknowledgeOnly.FindingCount, resp.AcknowledgeOnly.RecordCount)
 	}
 	if total := resp.Fixable.ByRule["dead-doc-ref"] + resp.AcknowledgeOnly.ByRule["dead-doc-ref"]; total != 8 {
 		t.Fatalf("dogfood dead-doc-ref total = %d, want 8", total)
