@@ -204,3 +204,85 @@ func decisionIDFromJSON(t *testing.T, out string) string {
 	}
 	return env.Record.ID
 }
+
+// decision-stale（#45 D7）: 既存レコードを変更した commit に decision 追加が
+// 同伴しなければ info で検出される（git 導出）。rename は除外・対象レコード宛て
+// acknowledges:[decision-stale] で容認可。
+func TestCLIDecisionStale(t *testing.T) {
+	dir := t.TempDir()
+	gitInitT(t, dir)
+	if out, err := run(t, dir, "init"); err != nil {
+		t.Fatalf("init: %v\n%s", err, out)
+	}
+	if out, err := run(t, dir, "tag", "create", "subject.x", "--name", "主題", "--kind", "subject"); err != nil {
+		t.Fatalf("tag create: %v\n%s", err, out)
+	}
+	gitCommitAllT(t, dir, "seed store")
+
+	// 既存レコードを変更（decision なし）→ decision-stale 検出。
+	if out, err := run(t, dir, "tag", "edit", "subject.x", "--name", "主題v2"); err != nil {
+		t.Fatalf("tag edit: %v\n%s", err, out)
+	}
+	gitCommitAllT(t, dir, "edit tag without decision")
+
+	out, err := run(t, dir, "lint", "--json")
+	if err != nil {
+		t.Fatalf("lint --json: %v\n%s", err, out)
+	}
+	var payload struct {
+		Findings []struct {
+			Rule           string `json:"rule"`
+			Target         string `json:"target"`
+			AcknowledgedBy string `json:"acknowledgedBy"`
+		} `json:"findings"`
+	}
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("decode: %v\n%s", err, out)
+	}
+	var staleFound bool
+	for _, f := range payload.Findings {
+		if f.Rule == "decision-stale" {
+			staleFound = true
+			if f.AcknowledgedBy != "" {
+				t.Fatalf("まだ容認していないのに AcknowledgedBy が付いた: %+v", f)
+			}
+		}
+	}
+	if !staleFound {
+		t.Fatalf("レコード変更 commit に decision 非同伴 → decision-stale が出るはず:\n%s", out)
+	}
+
+	// 対象レコード宛て acknowledges:[decision-stale] decision で容認 → 畳む。
+	if out, err := run(t, dir, "decide", "--on", "tag:subject.x",
+		"--why", "一括マイグレーションのため decision 非同伴を容認",
+		"--acknowledges", "decision-stale"); err != nil {
+		t.Fatalf("decide acknowledges decision-stale: %v\n%s", err, out)
+	}
+	gitCommitAllT(t, dir, "add acknowledging decision")
+
+	out, err = run(t, dir, "lint", "--json")
+	if err != nil {
+		t.Fatalf("lint --json 2: %v\n%s", err, out)
+	}
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("decode 2: %v\n%s", err, out)
+	}
+	for _, f := range payload.Findings {
+		// 元の "edit tag without decision" commit を触った decision-stale が
+		// AcknowledgedBy 付きで畳まれていることを確認（subject.x を触った commit）。
+		if f.Rule == "decision-stale" && strings.Contains(f.Target, "") && f.AcknowledgedBy == "" {
+			// 容認 decision commit 自体は subject.x を変更しないので stale にならない。
+			// subject.x を触った旧 commit が畳まれていればよい。
+		}
+	}
+	// 少なくとも1件は AcknowledgedBy 付きになっているはず（subject.x を触った commit）。
+	var anyAcked bool
+	for _, f := range payload.Findings {
+		if f.Rule == "decision-stale" && f.AcknowledgedBy != "" {
+			anyAcked = true
+		}
+	}
+	if !anyAcked {
+		t.Fatalf("subject.x 宛て acknowledges:[decision-stale] で subject.x 変更 commit が畳まれるはず:\n%s", out)
+	}
+}

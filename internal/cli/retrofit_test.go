@@ -116,11 +116,11 @@ func TestRetrofitJSONCarriesCountsAndTier(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &resp); err != nil {
 		t.Fatalf("json decode: %v\noutput:\n%s", err, out)
 	}
-	// #45 D6 で dangling-acknowledges（TierAdvisory）を追加したため 8→9。
-	// retrofit は TierAdvisory 規則を動的に拾うので、新 advisory 規則が正しく
-	// 走査対象に入っていることの確認でもある。
-	if len(resp.Rules) != 9 {
-		t.Fatalf("advisory 9 規則のはず: %v", resp.Rules)
+	// #45 D6 で dangling-acknowledges・D7 で decision-stale（両 TierAdvisory）を
+	// 追加したため 8→10。retrofit は TierAdvisory 規則を動的に拾うので、新 advisory
+	// 規則が正しく走査対象に入っていることの確認でもある。
+	if len(resp.Rules) != 10 {
+		t.Fatalf("advisory 10 規則のはず: %v", resp.Rules)
 	}
 	for _, f := range resp.Findings {
 		if f.Tier != lint.TierAdvisory || f.Severity != lint.SeverityInfo {
@@ -199,8 +199,11 @@ func TestRetrofitDogfoodCounts(t *testing.T) {
 	if resp.Fixable.FindingCount != 0 || resp.Fixable.RecordCount != 0 {
 		t.Fatalf("dogfood fixable = %d findings / %d records, want 0/0", resp.Fixable.FindingCount, resp.Fixable.RecordCount)
 	}
-	if resp.AcknowledgeOnly.FindingCount != 13 || resp.AcknowledgeOnly.RecordCount != 13 {
-		t.Fatalf("dogfood acknowledgeOnly = %d findings / %d records, want 13/13", resp.AcknowledgeOnly.FindingCount, resp.AcknowledgeOnly.RecordCount)
+	// #45 D7 で decision-stale（git 導出・commit 対象・AcknowledgeOnly=true）を
+	// 追加したため 13/13 → 14/14。増分は「レコード変更 commit に decision 非同伴」の
+	// 1 commit（record 編集では是正できず acknowledges でのみ解消＝ack-only）。
+	if resp.AcknowledgeOnly.FindingCount != 14 || resp.AcknowledgeOnly.RecordCount != 14 {
+		t.Fatalf("dogfood acknowledgeOnly = %d findings / %d records, want 14/14", resp.AcknowledgeOnly.FindingCount, resp.AcknowledgeOnly.RecordCount)
 	}
 	if total := resp.Fixable.ByRule["dead-doc-ref"] + resp.AcknowledgeOnly.ByRule["dead-doc-ref"]; total != 8 {
 		t.Fatalf("dogfood dead-doc-ref total = %d, want 8", total)
