@@ -1,0 +1,21 @@
+{
+  "id": "01KXY6Q49Z3RMWJXNWCWD458BK",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.faceted-nav"
+  },
+  "why": "## D9 随伴・owner 構造化に伴う viewer 既決2件の amend\n\n### 結論\n\n`ownerKind` 宣言下では owner が subject タグ id 参照になる。これにより owner 表示の2既決の前提が部分的に古くなるため amend する。いずれも **ownerKind 未宣言のプロジェクトでは現状のまま**（オプトイン原則）。\n\n### なぜ\n\n- `01KXM6H6XT66TEGJGFSCSCDPG0` は『owner は正準ルートを持たないため owner の⋮メニューは「検索条件に追加」のみ（「リンク先を開く」なし）』とした。**ownerKind 宣言下では owner は subject タグ id 参照になり正準ルート（タグ詳細）を持つ**ため、この制限の根拠が消える——owner チップにも『リンク先を開く』を出せる。\n- `01KXESDDXZDMRXX7CBVB9P9V9T` のサジェスト3系統（コンポーネント/タグ/owner・排他）は、owner がタグの部分集合になることで owner 系統とタグ系統が重なる。3系統の区分は表示上維持しつつ、**owner 系統の候補源を ownerKind のタグに差し替える**。\n\n### 変更（changed）\n\nowner チップ: ownerKind 宣言下で正準ルート（タグ詳細）への『リンク先を開く』を追加／owner サジェスト: 候補源を ownerKind のタグ集合に差替（3系統の排他 UI は維持）／ownerKind 未宣言プロジェクト: 変更なし。\n\n### 補足\n\nowner チップ・評価順バッジ・kind バッジ tooltip の実際の見せ方（情報量・既定折りたたみ）は、D9 機構が入った viewer を実 UI で PO と一緒に確認して確定する（束7）。本 amend は「正準ルートを持つようになった」という**根拠の変化の記録**であり、具体的 UI レイアウトの確定ではない。\n\n### 置き換え（adopt 時に decision link で結線）\n\n`01KXM6H6XT66TEGJGFSCSCDPG0`（owner 正準ルート）と `01KXESDDXZDMRXX7CBVB9P9V9T`（サジェスト排他）を各 mode=amend。",
+  "changed": "owner チップ: ownerKind 宣言下で正準ルート（タグ詳細）への『リンク先を開く』を追加／owner サジェスト: 候補源を ownerKind のタグ集合へ差替（3系統排他 UI 維持）／ownerKind 未宣言プロジェクト: 変更なし",
+  "ref": "DESIGN §3.6",
+  "at": "2026-07-19T22:07:32Z",
+  "supersedes": [
+    {
+      "id": "01KXM6H6XT66TEGJGFSCSCDPG0",
+      "mode": "amend"
+    },
+    {
+      "id": "01KXESDDXZDMRXX7CBVB9P9V9T",
+      "mode": "amend"
+    }
+  ]
+}
