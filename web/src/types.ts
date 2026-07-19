@@ -347,6 +347,8 @@ export interface FlowMatrixRow {
   transitionId: string;
   given: string[];
   then: string[];
+  // #45 D8: 同一 action 内の評価順（未宣言なら省略）。評価順バッジ描画用。
+  priority?: number;
 }
 
 export interface FlowMatrix {
@@ -357,6 +359,10 @@ export interface FlowMatrix {
 export interface FlowSubsetShadow {
   subset: string;
   superset: string;
+  // #45 D8: 評価順で解決済みか（異 priority ペア）。true なら既定の穴カウントから
+  // 畳まれ、winner が先に評価される遷移。
+  resolved?: boolean;
+  winner?: string;
 }
 
 export interface FlowAxis {
@@ -376,9 +382,21 @@ export interface FlowTotalGap {
   value: string;
 }
 
+export interface FlowEffectiveGiven {
+  transitionId: string;
+  priority: number;
+  given: string[];
+  // 先行 priority 遷移群の given（否定される world・else の導出源）。
+  excludes?: string[];
+}
+
 export interface FlowOverlap {
   cell: Record<string, string>;
   transitions: string[];
+  // #45 D8: 評価順で解決済みか（関与遷移が全て相異なる priority）。true なら
+  // 既定の穴カウントから畳まれ、effectiveGiven に derive した else が載る。
+  resolved?: boolean;
+  effectiveGiven?: FlowEffectiveGiven[];
 }
 
 export interface FlowRemainder {

@@ -1,0 +1,12 @@
+{
+  "id": "01KXX7NB30W3NZ5AW9NKYNA4D6",
+  "target": {
+    "type": "vocab",
+    "id": "cond.update-apply"
+  },
+  "why": "amend③（01KXX6DYM45364TBJGKP2BN8WB）で cond.update-apply の位置づけが『Level2 で遷移 given に materialize 待ち』から『axis.update.mode の値の placeholder として容認』へ変わった。P8 の priority 宣言が given の書き換えなしで重なり11件を解決したため materialize は不要になり、この condition はどの遷移の given にも出ないまま軸 axis.update.mode の第2値（実更新モード）を占める placeholder として残す。宣言的残余（tx.update.self-replace）が L-total を受けるため total-gap は既に免除済みで、残る finding は unused-vocab のみ。これを D6 機構で typed 容認する（placeholder 容認・怠慢な放置ではなく決定に裏打ちされた保持）。",
+  "at": "2026-07-19T13:04:47Z",
+  "acknowledges": [
+    "unused-vocab"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "01KXX6DYJWV3017FEV380G6GYY",
+  "target": {
+    "type": "tag",
+    "id": "req.action-flow"
+  },
+  "why": "01KXMGGD6DS88CHGRJ9GPRBRVX は「arbitrary priority（transition に順序/否定を持つ案F）は trade を承知で当面棄却」を確定した。その再考条件は姉妹 decision 01KXMGH6ND8N7CQ4A4J9JZPKM0 が明記している: 棄却は defeat でなく authoring 経済 vs 機械検査可能性の trade であり、「中間 priority が実データで頻出したら再考」。#45 診断でこの条件は充足された——旗艦 act.user.update だけで、一段の tier 境界（specifics 全部=tier0／default=tier1）では表現できない5段の評価順（source→windows→check→already-latest→self-replace）が実装に存在し、それを記録できないために重なり11件が恒常表示され、順序の正本は desc prose に漏れて実装と食い違ったまま腐っていた。よって案Fのうち priority（同一 action 内の評価順宣言）だけを再訪して採用する。当時の trade の両面には次で答える: authoring 負担側は「負条件（else）は宣言から自動導出」「解決は異 priority ペアのみの保守限定」で、機械検査可能性側は「宣言由来・実装一致は非検証、を常時開示」（DESIGN §8 が戒める drift への honesty-first の答え）で。案Fのもう半分（否定条件の第一級化）は引き続き採らない——priority が else を導出するため不要で、この部分の棄却は現行のまま生きる。ゆえに mode=amend（部分改訂）であり全文置換ではない。",
+  "changed": "「当面棄却」のうち priority 部分の棄却を解除（本文は D8 本体 decision）。否定第一級化の棄却・到達点（軸注釈まで）・product-coverage を網羅と称さない方針は不変。",
+  "ref": "#45 設計合意（2026-07-17）",
+  "at": "2026-07-19T12:43:16Z",
+  "commits": [
+    "c517bcf"
+  ],
+  "supersedes": [
+    {
+      "id": "01KXMGGD6DS88CHGRJ9GPRBRVX",
+      "mode": "amend"
+    }
+  ]
+}

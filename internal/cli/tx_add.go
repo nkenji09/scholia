@@ -12,6 +12,7 @@ import (
 func newTxAddCmd() *cobra.Command {
 	var action string
 	var given, then, tags []string
+	var priority int
 	var asJSON bool
 	var gate *gateFlags
 	cmd := &cobra.Command{
@@ -25,6 +26,14 @@ func newTxAddCmd() *cobra.Command {
 			}
 			if len(then) == 0 {
 				return fmt.Errorf("--then は必須です（empty-then）")
+			}
+			var priorityPtr *int
+			if cmd.Flags().Changed("priority") {
+				if priority < 1 {
+					return fmt.Errorf("--priority は 1 以上の整数です（nil=未宣言・小さいほど先に評価・同一 action 内でのみ意味）")
+				}
+				p := priority
+				priorityPtr = &p
 			}
 
 			s, err := openStore()
@@ -63,7 +72,7 @@ func newTxAddCmd() *cobra.Command {
 				}
 			}
 
-			t := model.Transition{ID: id, Action: action, Given: given, Then: then, Tags: tags}
+			t := model.Transition{ID: id, Action: action, Given: given, Then: then, Tags: tags, Priority: priorityPtr}
 			// 書き込みゲート二層（#45 U3）: reject（exclusive-violation・
 			// id-policy）なら保存せず exit 1。advisory は保存後に同一ターン表示。
 			advisories, allowed, gateErr := runWriteGate(cmd, snap, lint.WriteOp{Transition: &t, IsNew: true}, gate)
@@ -90,6 +99,7 @@ func newTxAddCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&given, "given", nil, "condition の語彙 id（カンマ区切り、複数指定可）")
 	cmd.Flags().StringSliceVar(&then, "then", nil, "effect の語彙 id（カンマ区切り、順序保存、必須）")
 	cmd.Flags().StringSliceVar(&tags, "tags", nil, "タグ id（カンマ区切り、複数指定可）")
+	cmd.Flags().IntVar(&priority, "priority", 0, "同一 action 内の評価順（1 始まり・小さいほど先・未指定＝未宣言・#45 D8）")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "作成したレコードを応答封筒 { record, advisories } の JSON で出力する")
 	gate = addGateAllowFlags(cmd)
 	return cmd

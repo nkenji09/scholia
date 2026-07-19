@@ -1,0 +1,5 @@
+{
+  "id": "cond.priority-declared",
+  "category": "condition",
+  "label": "解析対象 action の遷移が評価順(priority)を宣言している（overlap/subset-shadow の解決や宣言的残余の判定に使う。全遷移が相異なる priority を持つときだけ『評価順で解決済み』に畳む）"
+}

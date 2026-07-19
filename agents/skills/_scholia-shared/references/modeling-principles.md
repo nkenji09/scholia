@@ -92,6 +92,7 @@ vocab と tag は形が近い（id・label・kind）が役割が直交する。*
 
 - **既に別 action に割れている排他値**（`open`/`close` 等）は軸にしない——偽の L-total（抜け）を生む。同じ outcome に落ちる値は束ねる。
 - **no-op 側を持つ 2 値軸は `total=false`**（DESIGN §8 lint の `complement-missing`／既存の axis-gaps 系 decision と整合。詳細は DESIGN §3.4 の #40）。
+- **重なり（overlap）は given を完全修飾で割るより `priority`（評価順）で解決する方が安い**（#45 D8）。同じ cell を取り合う遷移が実装で決定的な if/else 順を持つなら、given を disjoint な完全修飾に書き換える（authoring 負担が遷移×軸に爆発する）代わりに `tx edit --priority <n>` で評価順を宣言する。畳めるのは**全遷移が相異なる priority を持つときだけ**（部分宣言・同 priority は未解決のまま）。全遷移に振ると最後尾が宣言的残余になり L-total を免除する。番号は実装の分岐順を読んで振る（desc の散文を鵜呑みにしない）。詳細は SKILL の「評価順」節・DESIGN §3.4。
 
 ---
 

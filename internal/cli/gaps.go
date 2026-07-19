@@ -19,6 +19,7 @@ import (
 // (req.action-flow.scope-honesty).
 func newGapsCmd() *cobra.Command {
 	var asJSON bool
+	var verbose bool
 	cmd := &cobra.Command{
 		Use:   "gaps <action>",
 		Short: "きっかけ(action)の gap（抜け・重なり・subset-shadow）と scope-disclosure だけを表示する（派生・§3.4・#39）",
@@ -45,10 +46,11 @@ func newGapsCmd() *cobra.Command {
 				enc.SetIndent("", "  ")
 				return enc.Encode(report.Gaps())
 			}
-			flow.WriteGapsText(cmd.OutOrStdout(), report)
+			flow.WriteGapsText(cmd.OutOrStdout(), report, verbose)
 			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, "JSON で出力する")
+	cmd.Flags().BoolVar(&verbose, "verbose", false, "評価順で解決済みの重なり/subset-shadow と derive した実効 given（else）も開示する（#45 D8）")
 	return cmd
 }

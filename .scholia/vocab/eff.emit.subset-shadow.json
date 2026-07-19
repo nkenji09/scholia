@@ -1,7 +1,7 @@
 {
   "id": "eff.emit.subset-shadow",
   "category": "effect",
-  "label": "同一 action で Given(A)⊊Given(B) の証明可能な重複（B が発火する world では A も必ず発火）を、宣言も不変条件も無しに報告する",
+  "label": "同一 action で Given(A)⊊Given(B) の証明可能な重複（B が発火する world では A も必ず発火）を、宣言も不変条件も無しに報告する。ペアが相異なる priority を持つとき eff.emit.evaluation-order 側で『評価順で解決済み』（勝者＝小さい priority）に畳む（#45 D8）",
   "kind": "emit",
   "owner": "フロー解析器（viewer/CLI 共有）"
 }

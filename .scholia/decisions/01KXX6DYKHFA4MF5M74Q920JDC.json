@@ -1,0 +1,21 @@
+{
+  "id": "01KXX6DYKHFA4MF5M74Q920JDC",
+  "target": {
+    "type": "tag",
+    "id": "req.action-flow.acknowledged-remainder"
+  },
+  "why": "01KXMGH6ND8N7CQ4A4J9JZPKM0 は scoped default を「(a) 自身の decision で『残り全部が本当に Y』を署名 (b) author 明示 cell とは別枠で報告 (c) 決して coverage に数えない」と確定した。catch-all default が全未被覆 cell を吸収して「常に no gaps」になり gap 検出を破壊する、という恐れが根拠だった。P8 の宣言的残余（全遷移が priority を持つ action の最後尾遷移）はこの scoped default の後継であり、次の2点だけを改める: (1) 残余の宣言方法——実装が導入した残余マーカーのタグ規約（この repo の store では使用ゼロ）から、「全遷移に priority が宣言された action の最後尾」という構造的宣言へ（旧マーカーは互換読み）。(2) L-total との関係——従来は免除規定なし、今後は全宣言 action に限り最後尾が L-total を免除する。原 decision の核である (c) は維持する: 残余は今後も coverage に数えず別枠開示のまま。gap 検出破壊への防衛も保存される——部分宣言では免除せず、免除は「全遷移が評価順を署名した」action だけに限られる（一段 tier の署名が5段の署名に精緻化されただけで、署名なしの吸収は今後も起きない）。ゆえに mode=amend。",
+  "changed": "宣言方法: 残余マーカーのタグ規約→全宣言 action の最後尾（構造的宣言・旧マーカーは互換読み）／L-total: 全宣言 action に限り最後尾が免除（新規定）／coverage 非算入・別枠報告・decision 署名要求: 不変。",
+  "ref": "#45 設計合意（2026-07-17）",
+  "at": "2026-07-19T12:43:16Z",
+  "commits": [
+    "cf353b6",
+    "6e947bf"
+  ],
+  "supersedes": [
+    {
+      "id": "01KXMGH6ND8N7CQ4A4J9JZPKM0",
+      "mode": "amend"
+    }
+  ]
+}

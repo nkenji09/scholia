@@ -94,4 +94,7 @@ func printTxView(cmd *cobra.Command, v txView, resolve bool) {
 	if len(v.Tags) > 0 {
 		fmt.Fprintf(out, "tags: %s\n", strings.Join(v.Tags, ", "))
 	}
+	if v.Priority != nil {
+		fmt.Fprintf(out, "priority: %d（同一 action 内の評価順・小さいほど先）\n", *v.Priority)
+	}
 }

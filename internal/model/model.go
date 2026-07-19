@@ -15,6 +15,16 @@ type Transition struct {
 	Given  []string `json:"given"`
 	Then   []string `json:"then"`
 	Tags   []string `json:"tags,omitempty"`
+	// Priority は同一 action 内での評価順の第一級宣言（#45 D8・additive/
+	// omitempty）。nil=未宣言（従来どおり）・1 始まりの正整数・小さいほど先に
+	// 評価される。同一 action 内でのみ意味を持ち、action をまたいだ比較は無意味。
+	// flow は「あるグループの全遷移が相異なる priority を持つ」ときだけ overlap／
+	// subset-shadow を『評価順で解決済み』に畳み、1つでも未宣言 or 同 priority が
+	// 混じれば従来どおり『優先順位未定義』で報告する（保守的解決）。全遷移が
+	// priority 宣言済みの action は最後尾（最大 priority 番号）が宣言的残余として
+	// L-total を免除される（部分宣言は免除しない）。*int は nil=未宣言と 0 の区別が
+	// 本質のため（U3）——保存されるのは 1 以上の値のみ。
+	Priority *int `json:"priority,omitempty"`
 }
 
 func (t Transition) GetID() string { return t.ID }

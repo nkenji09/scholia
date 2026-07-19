@@ -1,7 +1,7 @@
 {
   "id": "eff.emit.overlap-ambiguity",
   "category": "effect",
-  "label": "宣言軸上で2つの transition が同じ cell を取り合う『重なり（優先順位が未定義）』を、宣言軸に相対的に sound な ambiguity として報告する",
+  "label": "宣言軸上で2+ transition が同じ cell を取り合う『重なり』のうち、priority 未宣言 or 同 priority が絡む未解決分（優先順位が未定義）を、宣言軸に相対的に sound な ambiguity として報告する。全 transition が相異なる priority を持つ重なりは eff.emit.evaluation-order 側で解決済みに畳む（#45 D8）",
   "kind": "emit",
   "owner": "フロー解析器（viewer/CLI 共有）"
 }

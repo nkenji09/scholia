@@ -54,6 +54,10 @@ type MatrixRow struct {
 	TransitionID string   `json:"transitionId"`
 	Given        []string `json:"given"`
 	Then         []string `json:"then"`
+	// Priority は同一 action 内の評価順（#45 D8・additive/omitempty）。nil=未宣言。
+	// viewer が評価順バッジを描くための載せ替え——priority 未宣言 action では
+	// 全 row とも nil で、従来と完全同一の描画になる。
+	Priority *int `json:"priority,omitempty"`
 }
 
 // Matrix is the trust core's visualization: every transition of the action,
@@ -75,6 +79,14 @@ type SubsetShadow struct {
 	// いずれかの transition 宛て decision が acknowledges で subset-shadow を
 	// 名指ししていれば非空（additive・omitempty）。
 	AcknowledgedBy string `json:"acknowledgedBy,omitempty"`
+	// Resolved は評価順で解決済みか（#45 D8）。ペアの2遷移が相異なる priority を
+	// 持つとき true——multi-fire は残るが「どちらが勝つか」は宣言 priority で定まる
+	// ため『優先順位未定義』ではなくなる。既定表示から畳み --verbose で開示する。
+	// priority が絡まないペア（未宣言 or 同 priority）は false で従来どおり無条件
+	// sound な重複として報告する（additive・omitempty）。
+	Resolved bool `json:"resolved,omitempty"`
+	// Winner は Resolved のとき先に評価される遷移の id（priority が小さい方）。
+	Winner string `json:"winner,omitempty"`
 }
 
 // Axis is one declared axis relevant to the analyzed action (at least one
@@ -133,11 +145,38 @@ type Overlap struct {
 	// transition のいずれか宛ての decision が acknowledges で overlap を名指し
 	// していれば非空（additive・omitempty）。
 	AcknowledgedBy string `json:"acknowledgedBy,omitempty"`
+	// Resolved は評価順で解決済みか（#45 D8）。この cell を取り合う遷移群の全てが
+	// 相異なる priority を持つとき true——同じ cell に複数遷移が残っても評価順で
+	// 勝者が定まるため『優先順位未定義』ではなくなる。既定表示から畳み --verbose
+	// で derive した補集合込みで開示する。1つでも priority 未宣言 or 同 priority の
+	// ペアが混じれば false で従来どおり『優先順位未定義』として報告する（本物の穴の
+	// 置き場・additive・omitempty）。
+	Resolved bool `json:"resolved,omitempty"`
+	// EffectiveGiven は Resolved のとき各遷移の「宣言 given ∧ ¬(より小さい
+	// priority の遷移群の given の和)」＝ derive された実効 given（else の自動導出）。
+	// priority 昇順に並ぶ・非検証（宣言 priority に相対的）。--verbose 表示用
+	// （additive・omitempty）。
+	EffectiveGiven []EffectiveGiven `json:"effectiveGiven,omitempty"`
 }
 
-// Remainder is a transition acknowledged (via RemainderTagID) as the
-// action's single scoped default. Reported separately; never counted toward
-// coverage (req.action-flow.acknowledged-remainder).
+// EffectiveGiven は解決済み overlap における1遷移の derive された実効 given
+// （#45 D8）。TransitionID の宣言 given から、より小さい priority の遷移群の
+// given（＝先に評価されて捌かれる world）を除いた補集合を Excludes に持つ。
+// 「この解決は宣言された priority に相対的で、実装の if/else 順との一致は非検証」。
+type EffectiveGiven struct {
+	TransitionID string   `json:"transitionId"`
+	Priority     int      `json:"priority"`
+	Given        []string `json:"given"`
+	// Excludes は先行 priority 遷移群の given（否定される world・else の導出源）。
+	Excludes []string `json:"excludes,omitempty"`
+}
+
+// Remainder is a transition acknowledged as the action's scoped default —
+// declared either via the RemainderTagID tag (原型・互換読み) or, for an
+// action whose transitions all declare a priority, as the last-evaluated
+// (largest priority) transition (#45 D8's structural declarative remainder).
+// Reported separately; never counted toward coverage
+// (req.action-flow.acknowledged-remainder).
 type Remainder struct {
 	TransitionID string `json:"transitionId"`
 }
@@ -177,7 +216,12 @@ var disclosureBoilerplate = []string{
 	"排他の真偽（宣言軸の2値が実際に両立しないか）はツールが検査できません（authoring 上の申告を信じるのみ）。",
 	"軸の網羅性（列挙した軸が action に関係する全ての区別を尽くしているか）はツールが検査できません。",
 	"軸に属さない単独フラグ・連続量の条件は直積に入らず、その次元の穴は不可視です。",
-	"acknowledged-remainder が宣言されている場合、その受け皿は coverage に数えません（別枠報告）。",
+	// #45 D8: 評価順による解決の相対性を常時開示（宣言 priority に相対的・実装
+	// 一致は非検証）——honesty-first を宣言層まで貫く。
+	"評価順と『解決済み』は宣言された priority に相対的です。実装の if/else 順との一致は検証していません。",
+	// #45 D8/amend②: 宣言的残余（全遷移 priority 宣言 action の最後尾）も
+	// acknowledged-remainder と同じく coverage に数えない別枠報告。
+	"宣言的残余の受け皿は coverage に数えません（別枠報告）。acknowledged-remainder が宣言されている場合も同様です。",
 }
 
 // GapsReport is `scholia gaps <action>`'s focused JSON shape — the same fields
@@ -216,15 +260,43 @@ func Analyze(snap *store.Snapshot, ix *index.Index, actionID string) Report {
 		Matrix:      buildMatrix(txs),
 	}
 
-	remainderIDs, specifics := splitRemainder(txs)
-	for _, id := range remainderIDs {
+	// Two remainder forms are handled differently (#45 D8/amend②):
+	//
+	//   - TAG remainder (RemainderTagID・原型): a declared catch-all with no
+	//     priority. Removed from the "specifics" the direct/axis analysis runs
+	//     over — it is a lowest-priority default, not a source of
+	//     undefined-priority ambiguity, and would otherwise spawn spurious
+	//     subset-shadows via its catch-all given.
+	//
+	//   - DECLARATIVE remainder (all-priority-declared action's tail): a REAL
+	//     transition with a real given whose priority cleanly resolves the
+	//     overlaps it participates in. It is reported separately and exempts
+	//     L-total, but it STAYS in specifics so its evaluation-order resolution
+	//     of overlaps/subset-shadows is not silently erased (the 旗艦
+	//     act.user.update wants all 11 overlaps folded as resolved, not 10 with
+	//     one vanishing because the tail was dropped from the cell).
+	tagRemainderIDs, specifics := splitTagRemainder(txs)
+	declTail, hasDeclarativeRemainder := declarativeRemainderTail(txs)
+	for _, id := range tagRemainderIDs {
 		report.Remainder = append(report.Remainder, Remainder{TransitionID: id})
 	}
+	if hasDeclarativeRemainder {
+		// avoid double-reporting if the tail also carried the tag.
+		alreadyReported := false
+		for _, id := range tagRemainderIDs {
+			if id == declTail {
+				alreadyReported = true
+				break
+			}
+		}
+		if !alreadyReported {
+			report.Remainder = append(report.Remainder, Remainder{TransitionID: declTail})
+		}
+	}
+	hasRemainder := len(report.Remainder) > 0
 
-	// subset-shadow/axis analysis run over "specifics" only — the
-	// acknowledged remainder is a declared lowest-priority catch-all, not a
-	// source of undefined-priority ambiguity, and design says it must never
-	// count toward coverage (req.action-flow.acknowledged-remainder).
+	// subset-shadow/axis analysis run over "specifics" (all transitions minus
+	// any TAG remainder; the declarative remainder stays in).
 	report.SubsetShadows = subsetShadows(specifics)
 
 	conditionUniverse := conditionsInGiven(specifics)
@@ -233,15 +305,17 @@ func Analyze(snap *store.Snapshot, ix *index.Index, actionID string) Report {
 
 	if len(axes) > 0 {
 		report.Cells = productCells(axes, specifics)
-		report.TotalGaps = totalGaps(axes, specifics)
-		report.Overlaps = overlaps(report.Cells, report.SubsetShadows)
+		if !hasDeclarativeRemainder {
+			report.TotalGaps = totalGaps(axes, specifics)
+		}
+		report.Overlaps = overlaps(report.Cells, report.SubsetShadows, specifics)
 	} else if anyAxisTagDeclared(ix) {
 		report.AxesAbsence = AxesAbsenceNotOnThisAction
 	} else {
 		report.AxesAbsence = AxesAbsenceNoneDeclared
 	}
 
-	report.Scope = buildScope(axes, conditionUniverse, len(remainderIDs) > 0)
+	report.Scope = buildScope(axes, conditionUniverse, hasRemainder)
 
 	// typed 容認（#45 D6）: 対象宛て decision の acknowledges で名指しされた
 	// flow finding を「容認済み」に畳む（AcknowledgedBy を書き込む・消しはしない）。
@@ -267,7 +341,12 @@ func buildMatrix(txs []model.Transition) Matrix {
 		for _, g := range t.Given {
 			condSet[g] = true
 		}
-		rows = append(rows, MatrixRow{TransitionID: t.ID, Given: append([]string(nil), t.Given...), Then: append([]string(nil), t.Then...)})
+		var prio *int
+		if t.Priority != nil {
+			p := *t.Priority
+			prio = &p
+		}
+		rows = append(rows, MatrixRow{TransitionID: t.ID, Given: append([]string(nil), t.Given...), Then: append([]string(nil), t.Then...), Priority: prio})
 	}
 	conds := make([]string, 0, len(condSet))
 	for c := range condSet {
@@ -279,7 +358,13 @@ func buildMatrix(txs []model.Transition) Matrix {
 
 // subsetShadows finds every pair whose given sets are in a strict subset
 // relation — 100% sound, no declaration needed (req.action-flow.subset-shadow).
+// A pair whose two transitions carry DISTINCT declared priorities is marked
+// Resolved (#45 D8): the multi-fire still happens, but which "then" wins is
+// no longer undefined — it's the smaller-priority (earlier-evaluated)
+// transition. Pairs where priority is absent on either side, or where both
+// declare the same priority, stay Resolved=false and are reported as before.
 func subsetShadows(txs []model.Transition) []SubsetShadow {
+	prio := priorityByID(txs)
 	var out []SubsetShadow
 	for i := range txs {
 		for j := range txs {
@@ -288,7 +373,18 @@ func subsetShadows(txs []model.Transition) []SubsetShadow {
 			}
 			a, b := txs[i], txs[j]
 			if isProperSubset(a.Given, b.Given) {
-				out = append(out, SubsetShadow{Subset: a.ID, Superset: b.ID})
+				s := SubsetShadow{Subset: a.ID, Superset: b.ID}
+				if pa, okA := prio[a.ID]; okA {
+					if pb, okB := prio[b.ID]; okB && pa != pb {
+						s.Resolved = true
+						if pa < pb {
+							s.Winner = a.ID
+						} else {
+							s.Winner = b.ID
+						}
+					}
+				}
+				out = append(out, s)
 			}
 		}
 	}
@@ -299,6 +395,19 @@ func subsetShadows(txs []model.Transition) []SubsetShadow {
 		return out[i].Superset < out[j].Superset
 	})
 	return out
+}
+
+// priorityByID maps every transition that declares a priority to its value.
+// Transitions with nil Priority are absent from the map — callers distinguish
+// "declared" from "undeclared" by presence, never by a sentinel value.
+func priorityByID(txs []model.Transition) map[string]int {
+	m := make(map[string]int, len(txs))
+	for _, t := range txs {
+		if t.Priority != nil {
+			m[t.ID] = *t.Priority
+		}
+	}
+	return m
 }
 
 // isProperSubset reports whether a is a strict subset of b. The empty set is
@@ -321,11 +430,13 @@ func isProperSubset(a, b []string) bool {
 	return true
 }
 
-// splitRemainder separates the (at most one, per convention) transition
+// splitTagRemainder separates the (at most one, per convention) transition
 // tagged RemainderTagID from the "specifics" the direct/axis analysis runs
-// over — the remainder is reported separately and never counted toward
-// coverage (req.action-flow.acknowledged-remainder).
-func splitRemainder(txs []model.Transition) (remainderIDs []string, specifics []model.Transition) {
+// over — the tag remainder is a lowest-priority catch-all, reported separately
+// and never counted toward coverage (req.action-flow.acknowledged-remainder).
+// The declarative remainder (all-priority tail) is NOT removed here — see the
+// comment in Analyze: it stays in specifics so its priority resolves overlaps.
+func splitTagRemainder(txs []model.Transition) (remainderIDs []string, specifics []model.Transition) {
 	for _, t := range txs {
 		isRemainder := false
 		for _, tagID := range t.Tags {
@@ -341,6 +452,39 @@ func splitRemainder(txs []model.Transition) (remainderIDs []string, specifics []
 		}
 	}
 	return remainderIDs, specifics
+}
+
+// declarativeRemainderTail returns the id of the last-evaluated transition
+// (largest priority number) when EVERY transition of the action declares a
+// priority — the "全宣言 action の最後尾" that acts as the declarative
+// remainder and is exempt from L-total (#45 D8/amend②). Returns ok=false when
+// any transition is unpriority-declared (partial declaration never creates a
+// remainder) or when there are fewer than 2 transitions (a lone transition is
+// its own specific, not a catch-all). Ties on the max priority also yield
+// ok=false — an ambiguous tail is not a well-defined single remainder.
+func declarativeRemainderTail(txs []model.Transition) (string, bool) {
+	if len(txs) < 2 {
+		return "", false
+	}
+	maxP := 0
+	tail := ""
+	tie := false
+	for _, t := range txs {
+		if t.Priority == nil {
+			return "", false // partial declaration: no declarative remainder
+		}
+		p := *t.Priority
+		switch {
+		case p > maxP:
+			maxP, tail, tie = p, t.ID, false
+		case p == maxP:
+			tie = true
+		}
+	}
+	if tie {
+		return "", false
+	}
+	return tail, true
 }
 
 func conditionsInGiven(txs []model.Transition) []string {
@@ -551,11 +695,25 @@ func totalGaps(axes []Axis, txs []model.Transition) []TotalGap {
 // explain). Dropping a whole transition whenever *any* one of its pairs is a
 // shadow would silently erase that remaining ambiguity, so the fix reports
 // every transition that appears in at least one non-shadow pair.
-func overlaps(cells []Cell, shadows []SubsetShadow) []Overlap {
+//
+// #45 D8: an overlap whose involved transitions ALL carry DISTINCT declared
+// priorities is marked Resolved — the cell is still contended, but evaluation
+// order (smallest priority first) settles which "then" wins, so it is no
+// longer an undefined-priority hole. Any undeclared priority among the
+// involved transitions, or any two sharing the same priority, leaves the whole
+// overlap Resolved=false (conservative: one un-orderable pair poisons the
+// group — this is where real holes still land). Resolved overlaps also carry
+// the derived complement (EffectiveGiven), disclosed under --verbose.
+func overlaps(cells []Cell, shadows []SubsetShadow, txs []model.Transition) []Overlap {
 	shadowPair := make(map[[2]string]bool, len(shadows)*2)
 	for _, s := range shadows {
 		shadowPair[[2]string{s.Subset, s.Superset}] = true
 		shadowPair[[2]string{s.Superset, s.Subset}] = true
+	}
+	prio := priorityByID(txs)
+	givenByID := make(map[string][]string, len(txs))
+	for _, t := range txs {
+		givenByID[t.ID] = t.Given
 	}
 
 	var out []Overlap
@@ -582,7 +740,68 @@ func overlaps(cells []Cell, shadows []SubsetShadow) []Overlap {
 			unexplained = append(unexplained, t)
 		}
 		sort.Strings(unexplained)
-		out = append(out, Overlap{Cell: cell.Values, Transitions: unexplained})
+		o := Overlap{Cell: cell.Values, Transitions: unexplained}
+		if resolved, ordered := allDistinctPriorities(unexplained, prio); resolved {
+			o.Resolved = true
+			o.EffectiveGiven = deriveComplement(ordered, prio, givenByID)
+		}
+		out = append(out, o)
+	}
+	return out
+}
+
+// allDistinctPriorities reports whether every id in the group declares a
+// priority AND all priorities are pairwise distinct (#45 D8's conservative
+// resolution predicate). On success it also returns the ids sorted by
+// ascending priority (evaluation order). One undeclared or duplicated
+// priority fails the whole check.
+func allDistinctPriorities(ids []string, prio map[string]int) (ok bool, ordered []string) {
+	seen := make(map[int]bool, len(ids))
+	ordered = make([]string, 0, len(ids))
+	for _, id := range ids {
+		p, declared := prio[id]
+		if !declared {
+			return false, nil
+		}
+		if seen[p] {
+			return false, nil
+		}
+		seen[p] = true
+		ordered = append(ordered, id)
+	}
+	sort.Slice(ordered, func(i, j int) bool { return prio[ordered[i]] < prio[ordered[j]] })
+	return true, ordered
+}
+
+// deriveComplement builds the effective given of each transition in an
+// evaluation-ordered group (#45 D8): transition at priority p is only reached
+// in worlds NOT already captured by any smaller-priority transition, so its
+// effective given is (declared given) ∧ ¬(union of earlier transitions'
+// givens). The negated part is surfaced as Excludes — the else the tool
+// derives from priority, never verified against the implementation.
+func deriveComplement(ordered []string, prio map[string]int, givenByID map[string][]string) []EffectiveGiven {
+	out := make([]EffectiveGiven, 0, len(ordered))
+	var excludes []string
+	seenExcl := make(map[string]bool)
+	for _, id := range ordered {
+		eg := EffectiveGiven{
+			TransitionID: id,
+			Priority:     prio[id],
+			Given:        append([]string(nil), givenByID[id]...),
+		}
+		if len(excludes) > 0 {
+			eg.Excludes = append([]string(nil), excludes...)
+		}
+		out = append(out, eg)
+		// accumulate this transition's given into the running exclusion set
+		// for all later (larger-priority) transitions.
+		for _, g := range givenByID[id] {
+			if !seenExcl[g] {
+				seenExcl[g] = true
+				excludes = append(excludes, g)
+			}
+		}
+		sort.Strings(excludes)
 	}
 	return out
 }

@@ -1,0 +1,7 @@
+{
+  "id": "eff.emit.evaluation-order",
+  "category": "effect",
+  "label": "宣言された priority による評価順（小さいほど先）で overlap/subset-shadow を『解決済み』に畳み、各遷移の実効 given（derive した else・宣言 priority に相対的で実装一致は非検証）を --verbose で開示する。全遷移が priority 宣言済みなら最後尾を宣言的残余として L-total を免除する",
+  "kind": "emit",
+  "owner": "フロー解析器（viewer/CLI 共有）"
+}

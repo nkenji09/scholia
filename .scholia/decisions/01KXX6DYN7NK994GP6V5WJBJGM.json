@@ -1,0 +1,20 @@
+{
+  "id": "01KXX6DYN7NK994GP6V5WJBJGM",
+  "target": {
+    "type": "tag",
+    "id": "req.self-update"
+  },
+  "why": "01KXM2JP2HDGKHPV4HFTW9M8DC が新設した req.self-update desc の「### 分岐の優先順位（実装ガイド）」節は、順序を書く正本欄が無いことへの代替として置かれた散文だが、実装（commit d2a19e9 の runUpdate）と食い違ったまま残っていた: 散文は「--check 指定 → dry-run 報告で終了」を第一判定とするが、実装は source→windows の導入方式/OS 判定が先で、source/go install 導入や windows では --check を付けても dry-run 報告ではなく案内が出る。この drift は採用以降レビューでも lint でも検出されず、#45 の実装照合で初めて見つかった——順序の正本欄が無い限り prose は腐る。P8 で評価順の正本は Transition.priority（tx.update.guide-source=1〜tx.update.self-replace=5）に移ったため、本節を削除する。受け入れ基準・スコープ外（MVP）節は現在形のまま正しく維持する（--check 行への「自己置換可の導入方式のとき」の限定付記はユーザー判断）。ゆえに mode=amend（要件本体は不変・desc の一節の担い手交代）。",
+  "changed": "req.self-update desc から「### 分岐の優先順位（実装ガイド）」節を削除（順序の正本は5遷移の priority 宣言へ移管）／受け入れ基準・スコープ外節: 不変。",
+  "ref": "#45 設計合意（2026-07-17）",
+  "at": "2026-07-19T12:43:17Z",
+  "commits": [
+    "b1ef61c"
+  ],
+  "supersedes": [
+    {
+      "id": "01KXM2JP2HDGKHPV4HFTW9M8DC",
+      "mode": "amend"
+    }
+  ]
+}

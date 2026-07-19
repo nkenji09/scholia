@@ -1,0 +1,17 @@
+{
+  "id": "tx.flow.priority-resolved",
+  "action": "act.user.flow",
+  "given": [
+    "cond.axis-declared",
+    "cond.index-built",
+    "cond.priority-declared"
+  ],
+  "then": [
+    "eff.emit.evaluation-order",
+    "eff.log.action-flow-report"
+  ],
+  "tags": [
+    "req.action-flow.axis-gaps",
+    "subject.cli"
+  ]
+}

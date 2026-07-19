@@ -1,7 +1,7 @@
 {
   "id": "eff.emit.scope-disclosure",
   "category": "effect",
-  "label": "列挙した軸／don't-care 扱いした条件／保証の外（軸に属さない単独フラグ・連続量・未宣言軸・default 残余）を必ず印字し、素の『no gaps』を決して出さない",
+  "label": "列挙した軸／don't-care 扱いした条件／保証の外（軸に属さない単独フラグ・連続量・未宣言軸・残余の受け皿）を必ず印字し素の『no gaps』を決して出さない。評価順と『解決済み』は宣言 priority に相対的で実装一致は非検証、宣言的残余は coverage に数えない旨も常時併記する（#45 D8）",
   "kind": "emit",
   "owner": "フロー解析器（viewer/CLI 共有）",
   "description": "flow/gaps の解析結果に「保証の外」（列挙した軸・don't-care 条件・未宣言軸・default 残余）を必ず印字する開示 emit。素の「no gaps」は出さない。軸0件時は (a) axis タグ未宣言／(b) this action に軸が効いていない、を区別して開示する（契約全文は ref 先・確定判断は decision 01KXNGQYRM718XH18RGSNSQCW1）。",

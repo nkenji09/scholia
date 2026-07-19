@@ -1,7 +1,7 @@
 {
   "id": "eff.emit.acknowledged-remainder",
   "category": "effect",
-  "label": "action ごとに1つだけ許す scoped な default（残余の受け皿）遷移を、author 明示 cell とは別枠で報告し、coverage には決して数えない",
+  "label": "action の scoped な default（残余の受け皿）遷移を author 明示 cell とは別枠で報告し coverage には決して数えない。宣言方法は RemainderTagID タグ（原型・互換読み）または全遷移が priority 宣言済み action の最後尾（構造的宣言・#45 D8）。後者は L-total を免除する（部分宣言は免除しない）",
   "kind": "emit",
   "owner": "フロー解析器（viewer/CLI 共有）"
 }

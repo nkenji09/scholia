@@ -504,6 +504,176 @@ func hasCondition(list []string, want string) bool {
 	return i < len(list) && list[i] == want
 }
 
+func intp(n int) *int { return &n }
+
+// #45 D8: an overlap whose involved transitions all carry distinct declared
+// priorities is folded to Resolved (evaluation order settles the winner);
+// any undeclared or duplicated priority leaves it unresolved. A third
+// higher-priority transition (T-tail) keeps the action from being a
+// 2-transition full-declaration action (which would fold one of the pair into
+// the declarative remainder) — here it never covers cond.a1, so the
+// contending pair on cond.a1 is what we assert on.
+func TestAnalyze_OverlapResolvedOnlyWhenAllPrioritiesDistinct(t *testing.T) {
+	tags := []model.Tag{{ID: "axis.a", Name: "a", Kind: "axis", Total: true}}
+	vocab := []model.VocabEntry{
+		condVocab("cond.a1", "axis.a"), condVocab("cond.a2", "axis.a"),
+		condVocab("cond.x"), condVocab("cond.y"),
+	}
+	// T-1 and T-2 both cover cell axis.a=cond.a1, contending — an overlap.
+	// T-tail pins axis.a=cond.a2, so it never enters the cond.a1 cell but its
+	// undeclared/declared priority is irrelevant to that cell's resolution.
+	base := func(p1, p2 *int) []model.Transition {
+		return []model.Transition{
+			{ID: "T-1", Action: "act.a", Given: []string{"cond.a1", "cond.x"}, Then: []string{"eff.a"}, Priority: p1},
+			{ID: "T-2", Action: "act.a", Given: []string{"cond.a1", "cond.y"}, Then: []string{"eff.b"}, Priority: p2},
+			{ID: "T-tail", Action: "act.a", Given: []string{"cond.a2"}, Then: []string{"eff.c"}, Priority: intp(9)},
+		}
+	}
+	cond := func(r Report) *Overlap {
+		for i, o := range r.Overlaps {
+			if o.Cell["axis.a"] == "cond.a1" && len(o.Transitions) >= 2 {
+				return &r.Overlaps[i]
+			}
+		}
+		return nil
+	}
+
+	// distinct priorities → resolved, winner = smaller priority.
+	snap, ix := buildAnalyzeFixture(base(intp(1), intp(2)), vocab, tags)
+	c := cond(Analyze(snap, ix, "act.a"))
+	if c == nil {
+		t.Fatalf("expected overlap on cell axis.a=cond.a1")
+	}
+	if !c.Resolved {
+		t.Fatalf("distinct priorities must resolve the overlap, got %+v", c)
+	}
+
+	// same priority → NOT resolved (a real, still-undefined hole).
+	snap2, ix2 := buildAnalyzeFixture(base(intp(1), intp(1)), vocab, tags)
+	if c := cond(Analyze(snap2, ix2, "act.a")); c == nil || c.Resolved {
+		t.Fatalf("same priority must NOT resolve the overlap: %+v", c)
+	}
+
+	// one undeclared → NOT resolved.
+	snap3, ix3 := buildAnalyzeFixture(base(intp(1), nil), vocab, tags)
+	if c := cond(Analyze(snap3, ix3, "act.a")); c == nil || c.Resolved {
+		t.Fatalf("an undeclared priority must NOT resolve the overlap: %+v", c)
+	}
+}
+
+// #45 D8: a resolved overlap carries the derived complement — each
+// transition's effective given excludes the union of smaller-priority
+// transitions' givens (the else derived from priority).
+func TestAnalyze_ResolvedOverlapCarriesDerivedComplement(t *testing.T) {
+	tags := []model.Tag{{ID: "axis.a", Name: "a", Kind: "axis", Total: true}}
+	vocab := []model.VocabEntry{
+		condVocab("cond.a1", "axis.a"), condVocab("cond.a2", "axis.a"),
+		condVocab("cond.x"), condVocab("cond.y"),
+	}
+	txs := []model.Transition{
+		{ID: "T-1", Action: "act.a", Given: []string{"cond.a1", "cond.x"}, Then: []string{"eff.a"}, Priority: intp(1)},
+		{ID: "T-2", Action: "act.a", Given: []string{"cond.a1", "cond.y"}, Then: []string{"eff.b"}, Priority: intp(2)},
+		{ID: "T-tail", Action: "act.a", Given: []string{"cond.a2"}, Then: []string{"eff.c"}, Priority: intp(9)},
+	}
+	snap, ix := buildAnalyzeFixture(txs, vocab, tags)
+	r := Analyze(snap, ix, "act.a")
+
+	var contended *Overlap
+	for i, o := range r.Overlaps {
+		if o.Cell["axis.a"] == "cond.a1" && len(o.Transitions) >= 2 {
+			contended = &r.Overlaps[i]
+		}
+	}
+	if contended == nil || !contended.Resolved {
+		t.Fatalf("expected a resolved overlap on cond.a1, got %+v", r.Overlaps)
+	}
+	if len(contended.EffectiveGiven) != 2 {
+		t.Fatalf("expected 2 effective-given entries, got %+v", contended.EffectiveGiven)
+	}
+	// ordered by ascending priority: first entry (p1) excludes nothing.
+	if contended.EffectiveGiven[0].TransitionID != "T-1" || len(contended.EffectiveGiven[0].Excludes) != 0 {
+		t.Fatalf("first (p1) entry should be T-1 with no excludes, got %+v", contended.EffectiveGiven[0])
+	}
+	// second entry (p2) excludes T-1's given (cond.a1, cond.x).
+	got := contended.EffectiveGiven[1]
+	if got.TransitionID != "T-2" || !reflect.DeepEqual(got.Excludes, []string{"cond.a1", "cond.x"}) {
+		t.Fatalf("second (p2) entry should be T-2 excluding [cond.a1 cond.x], got %+v", got)
+	}
+}
+
+// #45 D8: a subset-shadow pair with distinct declared priorities folds to
+// Resolved (the winner is well-defined); an undeclared/same-priority pair
+// stays unconditionally reported.
+func TestAnalyze_SubsetShadowResolvedOnDistinctPriorities(t *testing.T) {
+	// A third transition (T-tail, unrelated disjoint given, highest priority)
+	// keeps this from being a 2-transition full-declaration action whose tail
+	// would fold into the declarative remainder and vanish from the pair.
+	mk := func(p1, p2 *int) []model.Transition {
+		return []model.Transition{
+			{ID: "T-general", Action: "act.a", Given: []string{"cond.x"}, Then: []string{"eff.a"}, Priority: p1},
+			{ID: "T-specific", Action: "act.a", Given: []string{"cond.x", "cond.y"}, Then: []string{"eff.b"}, Priority: p2},
+			{ID: "T-tail", Action: "act.a", Given: []string{"cond.z"}, Then: []string{"eff.c"}, Priority: intp(9)},
+		}
+	}
+	shadow := func(r Report) *SubsetShadow {
+		for i := range r.SubsetShadows {
+			s := &r.SubsetShadows[i]
+			if s.Subset == "T-general" && s.Superset == "T-specific" {
+				return s
+			}
+		}
+		return nil
+	}
+	// distinct → resolved, winner is the smaller-priority transition.
+	snap, ix := buildAnalyzeFixture(mk(intp(2), intp(1)), nil, nil)
+	if s := shadow(Analyze(snap, ix, "act.a")); s == nil || !s.Resolved || s.Winner != "T-specific" {
+		t.Fatalf("distinct priorities must resolve subset-shadow with winner=T-specific (p1), got %+v", s)
+	}
+	// undeclared → not resolved.
+	snap2, ix2 := buildAnalyzeFixture(mk(nil, nil), nil, nil)
+	if s := shadow(Analyze(snap2, ix2, "act.a")); s == nil || s.Resolved {
+		t.Fatalf("undeclared priorities must NOT resolve subset-shadow, got %+v", s)
+	}
+}
+
+// #45 D8/amend②: an action whose transitions ALL declare a priority exempts
+// L-total — the last-evaluated transition is the declarative remainder that
+// receives the otherwise-missing total axis value. Partial declaration must
+// NOT exempt (the gap stays visible; a false "no gaps" is forbidden).
+func TestAnalyze_DeclarativeRemainderExemptsLTotalOnlyOnFullDeclaration(t *testing.T) {
+	tags := []model.Tag{{ID: "axis.mode", Name: "mode", Kind: "axis", Total: true}}
+	vocab := []model.VocabEntry{
+		condVocab("cond.check", "axis.mode"),
+		condVocab("cond.apply", "axis.mode"), // never given → would be an L-total
+	}
+	// full declaration: both transitions have a priority → tail is declarative
+	// remainder, exempting the cond.apply L-total.
+	full := []model.Transition{
+		{ID: "T-check", Action: "act.a", Given: []string{"cond.check"}, Then: []string{"eff.a"}, Priority: intp(1)},
+		{ID: "T-tail", Action: "act.a", Given: nil, Then: []string{"eff.z"}, Priority: intp(2)},
+	}
+	snap, ix := buildAnalyzeFixture(full, vocab, tags)
+	r := Analyze(snap, ix, "act.a")
+	if len(r.TotalGaps) != 0 {
+		t.Fatalf("full-declaration action must exempt L-total via declarative remainder, got %+v", r.TotalGaps)
+	}
+	if len(r.Remainder) != 1 || r.Remainder[0].TransitionID != "T-tail" {
+		t.Fatalf("T-tail (max priority) must be the declarative remainder, got %+v", r.Remainder)
+	}
+
+	// partial declaration: one transition has no priority → NO declarative
+	// remainder, L-total stays visible.
+	partial := []model.Transition{
+		{ID: "T-check", Action: "act.a", Given: []string{"cond.check"}, Then: []string{"eff.a"}, Priority: intp(1)},
+		{ID: "T-tail", Action: "act.a", Given: nil, Then: []string{"eff.z"}}, // no priority
+	}
+	snap2, ix2 := buildAnalyzeFixture(partial, vocab, tags)
+	r2 := Analyze(snap2, ix2, "act.a")
+	if len(r2.TotalGaps) != 1 || r2.TotalGaps[0].Value != "cond.apply" {
+		t.Fatalf("partial declaration must NOT exempt L-total (gap stays visible), got %+v", r2.TotalGaps)
+	}
+}
+
 func TestAnalyze_ScopeDisclosureListsDeclaredAxesAndDontCareConditions(t *testing.T) {
 	tags := []model.Tag{{ID: "axis.mode", Name: "mode", Kind: "axis", Total: true}}
 	vocab := []model.VocabEntry{

@@ -11,5 +11,6 @@
   "tags": [
     "req.self-update",
     "subject.cli"
-  ]
+  ],
+  "priority": 4
 }

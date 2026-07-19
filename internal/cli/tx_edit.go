@@ -12,6 +12,8 @@ import (
 func newTxEditCmd() *cobra.Command {
 	var action string
 	var given, then, tags []string
+	var priority int
+	var clearPriority bool
 	var asJSON bool
 	var gate *gateFlags
 	cmd := &cobra.Command{
@@ -72,6 +74,18 @@ func newTxEditCmd() *cobra.Command {
 				}
 				t.Tags = tags
 			}
+			if clearPriority && cmd.Flags().Changed("priority") {
+				return fmt.Errorf("--priority と --clear-priority は同時指定できません")
+			}
+			if clearPriority {
+				t.Priority = nil
+			} else if cmd.Flags().Changed("priority") {
+				if priority < 1 {
+					return fmt.Errorf("--priority は 1 以上の整数です（nil へ戻すには --clear-priority・#45 D8）")
+				}
+				p := priority
+				t.Priority = &p
+			}
 
 			// 書き込みゲート二層（#45 U3）: 既存 id の edit のため id-policy は
 			// 対象外だが、exclusive-violation は編集後の given に対して検査する。
@@ -99,6 +113,8 @@ func newTxEditCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&given, "given", nil, "condition の語彙 id（カンマ区切り・完全置換）")
 	cmd.Flags().StringSliceVar(&then, "then", nil, "effect の語彙 id（カンマ区切り・順序保存・完全置換）")
 	cmd.Flags().StringSliceVar(&tags, "tags", nil, "タグ id（カンマ区切り・完全置換）")
+	cmd.Flags().IntVar(&priority, "priority", 0, "同一 action 内の評価順（1 始まり・小さいほど先・#45 D8）")
+	cmd.Flags().BoolVar(&clearPriority, "clear-priority", false, "priority を未宣言（nil）へ戻す（#45 D8）")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "更新後のレコードを応答封筒 { record, advisories } の JSON で出力する")
 	gate = addGateAllowFlags(cmd)
 	return cmd

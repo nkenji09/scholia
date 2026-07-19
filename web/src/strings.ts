@@ -141,7 +141,7 @@ const ja = {
     // フル scope-disclosure ほど詳しくする必要はなく、「宣言軸＝完全な区別
     // 集合」と読者に誤読させない最小限の注意書きで足りる、というのが
     // decision の骨子（why は tx.viewer.action-flow-render 側に記録）。
-    scopeCaveat: '※ この図は宣言軸のみに基づく整理です。網羅は保証しません（全量は scholia flow）',
+    scopeCaveat: '※ この図は宣言軸のみに基づく整理です。評価順は宣言された priority によるもので実装との一致は未検証。網羅は保証しません（全量は scholia flow）',
   },
   // BROWSE(タグ/仕様) — 旧 Browse(3ペイン)/TagsView(ツリー)/SpecView を検索
   // レール＋カード一覧の1つの型に統合した画面（.concierge/decision.md A-2）。
@@ -522,7 +522,7 @@ const en: Strings = {
     legendSubsetShadow: 'Dotted line (one-way) = fires together',
     gapLabel: 'Undefined',
     legendGap: 'Red = undefined (no transition explicitly requires this)',
-    scopeCaveat: '※ This diagram reflects declared axes only. Coverage is not guaranteed (see `scholia flow` for the full picture).',
+    scopeCaveat: '※ This diagram reflects declared axes only. Evaluation order follows declared priority and is not verified against the implementation. Coverage is not guaranteed (see `scholia flow` for the full picture).',
   },
   browse: {
     searchPlaceholder: 'Search by keyword or tag',

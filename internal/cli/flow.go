@@ -11,6 +11,7 @@ import (
 
 func newFlowCmd() *cobra.Command {
 	var asJSON bool
+	var verbose bool
 	cmd := &cobra.Command{
 		Use:   "flow <action>",
 		Short: "きっかけ(action)の given×transition マトリクスと honesty-first な gap 検出を表示する（派生・§3.4・#39）",
@@ -37,10 +38,11 @@ func newFlowCmd() *cobra.Command {
 				enc.SetIndent("", "  ")
 				return enc.Encode(report)
 			}
-			flow.WriteText(cmd.OutOrStdout(), report)
+			flow.WriteText(cmd.OutOrStdout(), report, verbose)
 			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, "JSON で出力する")
+	cmd.Flags().BoolVar(&verbose, "verbose", false, "評価順で解決済みの重なり/subset-shadow と derive した実効 given（else）も開示する（#45 D8）")
 	return cmd
 }

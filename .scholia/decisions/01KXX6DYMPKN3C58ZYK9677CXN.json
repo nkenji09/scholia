@@ -1,0 +1,21 @@
+{
+  "id": "01KXX6DYMPKN3C58ZYK9677CXN",
+  "target": {
+    "type": "transition",
+    "id": "tx.flow.axis-overlap"
+  },
+  "why": "01KXMGH6P1ARSMCS01RX2H5QV0 は overlap-ambiguity 検出を「重なり＝優先順位未定義」として採用し、surface 方法は実装フェーズのユーザー確定に委ねた。P8 で優先順位が宣言可能になるため「未定義」が恒常状態ではなくなり、報告の意味論を次のとおり改訂する: (1) 異なる priority を持つペアの重なりは「評価順で解決済み」として既定表示から畳み、--verbose で derive された補集合込みで開示する。(2) priority 未宣言遷移が絡む重なり・同 priority のペアは従来どおり「優先順位未定義」として報告する（ここが本物の穴の置き場になる）。(3) 解決済み表示には「宣言された priority に相対的・実装の if/else 順との一致は非検証」を常時併記する。原 decision が明示した誠実さの区分——overlap は宣言軸に相対的に sound で、subset-shadow（無条件 sound）とは度合いが違う——は変えず、priority による解決は「宣言 priority に相対的」という第三の相対性として scope 印字に加わる（01KXMGH6N6HTDVYFT9JBK6A7S9 の枠内）。旗艦 act.user.update では11件全件が異 priority ペア（5遷移すべてに宣言）となり既定表示から消え、未解決 0件が実力どおりの報告になる。",
+  "changed": "overlap 報告: 全件表示→未解決のみ既定表示（異 priority ペアは解決済み・--verbose 開示）／解決済みへの相対性開示文の常時併記／tx.flow.axis-overlap の意味は「未解決 overlap の報告」へ狭まる（given/then の変更は D8 本体の tx.flow.* 改訂リストに従う）。",
+  "ref": "#45 設計合意（2026-07-17）",
+  "at": "2026-07-19T12:43:17Z",
+  "commits": [
+    "cf353b6",
+    "6e947bf"
+  ],
+  "supersedes": [
+    {
+      "id": "01KXMGH6P1ARSMCS01RX2H5QV0",
+      "mode": "amend"
+    }
+  ]
+}

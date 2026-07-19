@@ -146,7 +146,11 @@ function buildDiagram(
     // — see the subset-shadow/overlap edge-drawing code below.
     const rt = nextId('r');
     txByToken.set(rt, txId);
-    lines.push(`  ${rt}["${esc(resultLabel)}"]`);
+    // #45 D8: 評価順バッジ——priority 宣言済みの遷移は結果ノードに評価順(p番号)を
+    // 前置する（小さいほど先に評価）。未宣言 action は全 row とも priority=undefined
+    // で従来と完全同一の描画になる。
+    const badge = row.priority != null ? `p${row.priority}・` : '';
+    lines.push(`  ${rt}["${esc(badge + resultLabel)}"]`);
     lines.push(`  class ${rt} effNode`);
     lines.push(`  ${cur} --> ${rt}`);
 
