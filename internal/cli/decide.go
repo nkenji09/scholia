@@ -61,11 +61,12 @@ func newDecideCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			snapForLinks, err := s.LoadAll()
+			// snapshot は supersede 実在照合・書き込みゲート・desc 鮮度で共用（1 回だけ読む）。
+			snap, err := s.LoadAll()
 			if err != nil {
 				return err
 			}
-			if err := validateSupersedeTargets(snapForLinks.Decisions, links); err != nil {
+			if err := validateSupersedeTargets(snap.Decisions, links); err != nil {
 				return err
 			}
 
@@ -81,13 +82,9 @@ func newDecideCmd() *cobra.Command {
 				Supersedes:   links,
 			}
 
-			// 書き込みゲート二層（#45 U3）: decision に reject 規則は無いが、
-			// why/changed/ref への advisory を保存前に検査できる。append-only
+			// 書き込みゲート二層（#45 U3）: decision に unknown-acknowledges reject が
+			// あり、why/changed/ref への advisory を保存前に検査できる。append-only
 			// のため「保存後に直す」が効かない——--dry-run はここで止まる。
-			snap, err := s.LoadAll()
-			if err != nil {
-				return err
-			}
 			advisories, allowed, gateErr := runWriteGate(cmd, snap, lint.WriteOp{Decision: &d, IsNew: true}, nil)
 			if gateErr != nil {
 				return gateErr
