@@ -39,6 +39,11 @@ type Finding struct {
 	// advisory finding。append-only により是正が原理的に不能（fixable:false
 	// 相当）で、是正リスト・残件の分母から別掲する（#45 U2）。
 	AcknowledgeOnly bool `json:"acknowledgeOnly,omitempty"`
+	// AcknowledgedBy は typed 容認（#45 D6）で畳んだ decision の id。当該 finding
+	// の target 宛ての decision が acknowledges で当該 rule を名指ししているとき
+	// のみ非空。非空 finding は「容認済み（decision リンク付き）」に落とし、
+	// baseline ratchet の新規 warn に数えない（additive・omitempty）。
+	AcknowledgedBy string `json:"acknowledgedBy,omitempty"`
 	// TargetType/Field/Quote/Suggestion は retrofit の
 	// 「record×rule×該当引用×修正候補」出力用（additive・omitempty）。
 	TargetType string `json:"targetType,omitempty"` // tag|vocab|transition|decision

@@ -29,14 +29,37 @@ func checkRequirementGap(snap store.Snapshot) []Finding {
 	}
 
 	directDecisions := tagDecisionCounts(snap.Decisions)
+	acks := indexAcknowledges(snap.Decisions)
 	var out []Finding
 	for _, t := range snap.Tags {
-		if !traceKinds[t.Kind] || covered[t.ID] {
+		if !traceKinds[t.Kind] {
 			continue
 		}
-		out = append(out, finding("requirement-gap", SeverityWarn, t.ID,
-			"tag %s: traceability kind %q ですが、実効タグとしてこれを持つ遷移が 0 件です（未充足要件・direct decision %d 件）",
-			t.ID, t.Kind, directDecisions[t.ID]))
+		isProperty := t.Fulfillment == model.FulfillmentProperty
+		// fulfillment=property のタグは遷移充足検査から外す（性質型要件は遷移
+		// では構造的に充足されない）。それ以外のタグは従来どおり遷移充足で緑。
+		if !isProperty && covered[t.ID] {
+			continue
+		}
+		var f Finding
+		if isProperty {
+			f = finding("requirement-gap", SeverityWarn, t.ID,
+				"tag %s: fulfillment=property（遷移では充足されない性質型要件）ですが、当該タグ宛てで acknowledges:[requirement-gap] を含む decision がありません（怠慢な property 宣言・direct decision %d 件）",
+				t.ID, directDecisions[t.ID])
+		} else {
+			f = finding("requirement-gap", SeverityWarn, t.ID,
+				"tag %s: traceability kind %q ですが、実効タグとしてこれを持つ遷移が 0 件です（未充足要件・direct decision %d 件）",
+				t.ID, t.Kind, directDecisions[t.ID])
+		}
+		f.TargetType = targetTag
+		// typed 容認（#45 D6）: 当該タグ宛ての direct decision が acknowledges で
+		// requirement-gap を名指ししていれば「容認済み」に畳む。property 宣言だけ
+		// では畳まない——ここで acknowledges を要求することで、宣言のみ（decision
+		// 無し）は warn のまま（怠慢な宣言・偽陰性ガード）に保つ。
+		if id, ok := acks.acknowledgedBy(model.DecisionTargetTag, t.ID, "requirement-gap"); ok {
+			f.AcknowledgedBy = id
+		}
+		out = append(out, f)
 	}
 	return out
 }

@@ -93,8 +93,16 @@ func printLintText(cmd *cobra.Command, findings []lint.Finding, verbose bool) {
 
 	displayed := make([]lint.Finding, 0, len(findings))
 	ackOnly := make([]lint.Finding, 0)
+	typedAck := make([]lint.Finding, 0)
 	for _, f := range findings {
 		if f.Coverage != "" && f.Coverage != lint.CoverageNone {
+			continue
+		}
+		// typed 容認（#45 D6）で畳んだ finding は「容認済み（decision リンク付き）」
+		// 区分に落とす（既定は件数のみ・--verbose で展開）。是正対象の displayed には
+		// 混ぜない（信じられる緑を返すため）。
+		if f.AcknowledgedBy != "" {
+			typedAck = append(typedAck, f)
 			continue
 		}
 		if f.AcknowledgeOnly {
@@ -103,11 +111,19 @@ func printLintText(cmd *cobra.Command, findings []lint.Finding, verbose bool) {
 		}
 		displayed = append(displayed, f)
 	}
-	if len(displayed) == 0 && len(ackOnly) == 0 {
+	if len(displayed) == 0 && len(ackOnly) == 0 && len(typedAck) == 0 {
 		fmt.Fprintln(out, "lint: 問題は見つかりませんでした")
 	}
 	for _, f := range displayed {
 		fmt.Fprintf(out, "[%s] %s: %s\n", f.Severity, f.Rule, f.Message)
+	}
+	if len(typedAck) > 0 {
+		fmt.Fprintf(out, "typed 容認済み（decision で意図的に残す gap・#45 D6）: %d 件\n", len(typedAck))
+		if verbose {
+			for _, f := range typedAck {
+				fmt.Fprintf(out, "  [%s] %s: %s → 容認 decision %s\n", f.Severity, f.Rule, f.Target, f.AcknowledgedBy)
+			}
+		}
 	}
 	if len(ackOnly) > 0 {
 		fmt.Fprintf(out, "acknowledge-only（decision 判断欄位・append-only により是正不能・容認で畳む対象）: %d 件\n", len(ackOnly))
@@ -184,6 +200,13 @@ func evaluateCI(s *store.Store, findings []lint.Finding) (*ciResult, error) {
 	currentWarns := make(map[store.BaselineEntry]bool)
 	for _, f := range findings {
 		if f.Severity != lint.SeverityWarn {
+			continue
+		}
+		// typed 容認（#45 D6）で畳んだ warn は「意図して残す gap」＝新規 warn に
+		// 数えない（baseline ratchet の対象外）。currentWarns にも入れない——
+		// 容認済みは stale 判定にも関与させない（baseline に載っていた entry が
+		// 容認へ移行しても stale 扱いにせず、次の baseline update で自然整理する）。
+		if f.AcknowledgedBy != "" {
 			continue
 		}
 		key := store.BaselineEntry{Rule: f.Rule, Target: f.Target}

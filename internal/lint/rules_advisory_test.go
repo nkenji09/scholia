@@ -60,6 +60,77 @@ func TestRequirementGapDirectDecisionCountAnnotated(t *testing.T) {
 	}
 }
 
+// #45 D6: fulfillment=property のタグは遷移充足検査から外すが、
+// acknowledges:[requirement-gap] を含む direct decision が無ければ warn のまま
+// （怠慢な property 宣言を許さない・偽陰性ガード）。
+func TestRequirementGapPropertyNeedsAcknowledgingDecision(t *testing.T) {
+	cfg := model.DefaultConfig()
+	// property 宣言のみ・decision 無し → warn（畳まない）。
+	declOnly := store.Snapshot{
+		Config: cfg,
+		Tags:   []model.Tag{{ID: "req.standalone", Name: "standalone", Kind: "requirement", Fulfillment: model.FulfillmentProperty}},
+	}
+	got := checkRequirementGap(declOnly)
+	if len(got) != 1 || got[0].AcknowledgedBy != "" {
+		t.Fatalf("property 宣言のみ（decision 無し）は warn のまま・未容認のはず: %+v", got)
+	}
+	if !strings.Contains(got[0].Message, "fulfillment=property") {
+		t.Fatalf("property の warn メッセージが専用文言でない: %q", got[0].Message)
+	}
+
+	// property + acknowledges:[requirement-gap] を含む direct decision → 容認済み。
+	folded := store.Snapshot{
+		Config: cfg,
+		Tags:   []model.Tag{{ID: "req.standalone", Name: "standalone", Kind: "requirement", Fulfillment: model.FulfillmentProperty}},
+		Decisions: []model.Decision{
+			{ID: "01ACK", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "req.standalone"},
+				Why: "単一バイナリは遷移で充足されない性質", At: "2026-01-01T00:00:00Z",
+				Acknowledges: []string{"requirement-gap"}},
+		},
+	}
+	got = checkRequirementGap(folded)
+	if len(got) != 1 || got[0].AcknowledgedBy != "01ACK" {
+		t.Fatalf("property + 容認 decision は AcknowledgedBy 付きで畳むはず: %+v", got)
+	}
+}
+
+// #45 D6: 無関係な（requirement-gap を acknowledge しない）decision では畳まない
+// ——untyped 容認の偽陰性を再導入しない。
+func TestRequirementGapUnrelatedDecisionDoesNotFold(t *testing.T) {
+	cfg := model.DefaultConfig()
+	snap := store.Snapshot{
+		Config: cfg,
+		Tags:   []model.Tag{{ID: "req.standalone", Name: "standalone", Kind: "requirement", Fulfillment: model.FulfillmentProperty}},
+		Decisions: []model.Decision{
+			// 別 rule を acknowledge している decision（requirement-gap ではない）。
+			{ID: "01OTHER", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "req.standalone"},
+				Why: "別の話", At: "2026-01-01T00:00:00Z", Acknowledges: []string{"overlap"}},
+		},
+	}
+	got := checkRequirementGap(snap)
+	if len(got) != 1 || got[0].AcknowledgedBy != "" {
+		t.Fatalf("requirement-gap を acknowledge しない decision では畳んではいけない: %+v", got)
+	}
+}
+
+// #45 D6: transitions 型（fulfillment 未設定）のタグも、requirement-gap を
+// acknowledge する direct decision があれば畳む（性質型でなくても typed 容認は効く）。
+func TestRequirementGapTransitionsKindFoldsWithAcknowledge(t *testing.T) {
+	cfg := model.DefaultConfig()
+	snap := store.Snapshot{
+		Config: cfg,
+		Tags:   []model.Tag{{ID: "req.auth", Name: "auth", Kind: "requirement"}}, // fulfillment 未設定
+		Decisions: []model.Decision{
+			{ID: "01ACK2", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "req.auth"},
+				Why: "意図的に未充足", At: "2026-01-01T00:00:00Z", Acknowledges: []string{"requirement-gap"}},
+		},
+	}
+	got := checkRequirementGap(snap)
+	if len(got) != 1 || got[0].AcknowledgedBy != "01ACK2" {
+		t.Fatalf("transitions 型でも acknowledge があれば容認済みに畳むはず: %+v", got)
+	}
+}
+
 func TestRequirementGapCoversViaAncestorAndVocabPath(t *testing.T) {
 	cfg := model.DefaultConfig()
 	snap := store.Snapshot{
