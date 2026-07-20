@@ -88,6 +88,34 @@ func TestGetSearch_EmptyQueryReturnsEmptyResult(t *testing.T) {
 	}
 }
 
+func TestGetSearch_RecordsAdditiveAcrossTypes(t *testing.T) {
+	h, _ := newTestHandler(t)
+	// d1 (seed) is a decision on subject.auth with why "認証は httpOnly cookie で発行".
+	rec := doRequest(t, h, http.MethodGet, "/api/search?q="+"認証", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	// transitions field is still present (backward-compat) — index.SearchResult
+	// decodes it — and records is additive with non-transition types.
+	base := decodeJSON[index.SearchResult](t, rec)
+	if base.Transitions == nil {
+		t.Fatalf("transitions field must still be present (backward-compat)")
+	}
+	resp := decodeJSON[searchResponse](t, rec)
+	if resp.Records == nil {
+		t.Fatalf("records must be present (additive)")
+	}
+	sawDecision := false
+	for _, m := range resp.Records {
+		if m.Type == index.RecordDecision {
+			sawDecision = true
+		}
+	}
+	if !sawDecision {
+		t.Fatalf("records should include the decision matching 認証, got %+v", resp.Records)
+	}
+}
+
 func assertSearchHitsInclude(t *testing.T, out index.SearchResult, txID string) {
 	t.Helper()
 	for _, tx := range out.Transitions {

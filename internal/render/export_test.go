@@ -156,7 +156,7 @@ func TestExportHTML_WritesSelfContainedIndexHTML(t *testing.T) {
 
 	found := false
 	for _, doc := range data.SearchCorpus {
-		if doc.TransitionID == "T-login" {
+		if doc.Type == "transition" && doc.ID == "T-login" {
 			found = true
 		}
 	}

@@ -17,6 +17,7 @@ import type {
   VocabEntry,
   Decision,
   DecisionPostBody,
+  GovernsEntry,
   Review,
 } from './types';
 import { loadLang } from './i18n';
@@ -66,34 +67,61 @@ function query(params: Record<string, string | undefined>): string {
   return qs ? `?${qs}` : '';
 }
 
-// runStaticSearch mirrors internal/index.Search's per-candidate substring
-// test over the baked corpus (window.__SCHOLIA_STATIC__.searchCorpus) instead
-// of hitting GET /api/search. The corpus itself — which candidates exist
-// per transition (effective tags, vocab labels, kind) — is derived once in
-// Go (index.SearchCorpus, the same function Search() itself uses); only the
-// trivial "does this query substring occur" test is re-run here per
-// keystroke.
+// runStaticSearch mirrors internal/index's per-candidate substring test over
+// the baked corpus (window.__SCHOLIA_STATIC__.searchCorpus) instead of hitting
+// GET /api/search. The corpus itself — which candidates exist per record
+// (effective tags, vocab labels, kind, decision why/changed, …) — is derived
+// once in Go (index.SearchCorpus, from the same fields SearchRecords scans);
+// only the trivial "does this query substring occur" test is re-run here per
+// keystroke. Produces both the transition-grouped view (transitions/matchedOn,
+// unchanged) and the 4-type records list (#45 D10b-3), from the one corpus.
 function runStaticSearch(data: ScholiaStaticData, q: string): SearchResult {
   const query = q.trim().toLowerCase();
-  const result: SearchResult = { transitions: [], matchedOn: {} };
+  const result: SearchResult = { transitions: [], matchedOn: {}, records: [] };
   if (!query) return result;
 
   const byId = new Map(data.transitionsByTag['']?.transitions?.map((t) => [t.id, t]) ?? []);
+  const records: SearchResult['records'] = [];
   for (const doc of data.searchCorpus) {
     const seen = new Set<string>();
     const labels: string[] = [];
     for (const c of doc.candidates) {
-      if (seen.has(c.label) || !c.text.includes(query)) continue;
-      seen.add(c.label);
-      labels.push(c.label);
+      if (!c.text.includes(query)) continue;
+      if (!seen.has(c.label)) {
+        seen.add(c.label);
+        labels.push(c.label);
+      }
+      // 4型 records: dedupe は type|id|field 単位（Go 側 SearchRecords と対称）。
+      records!.push({ type: doc.type, id: doc.id, field: c.label, snippet: snippetOf(c.text, query) });
     }
-    if (labels.length === 0) continue;
-    const t = byId.get(doc.transitionId);
-    if (!t) continue;
-    result.transitions.push(t);
-    result.matchedOn[doc.transitionId] = labels;
+    if (doc.type === 'transition' && labels.length > 0) {
+      const t = byId.get(doc.id);
+      if (t) {
+        result.transitions.push(t);
+        result.matchedOn[doc.id] = labels;
+      }
+    }
   }
+  // dedupe records by type|id|field (a label can repeat across candidates).
+  const seenRec = new Set<string>();
+  result.records = records!.filter((r) => {
+    const k = r.type + '|' + r.id + '|' + r.field;
+    if (seenRec.has(k)) return false;
+    seenRec.add(k);
+    return true;
+  });
   return result;
+}
+
+// snippetOf approximates the Go Snippet (a ~20-char window around the match);
+// the static corpus text is already lowercased, so this is best-effort for
+// display only (records' snippets aren't shown in the current UI).
+function snippetOf(text: string, query: string): string {
+  const idx = text.indexOf(query);
+  if (idx < 0) return text.slice(0, 80);
+  const start = Math.max(0, idx - 20);
+  const end = Math.min(text.length, idx + query.length + 20);
+  return (start > 0 ? '…' : '') + text.slice(start, end) + (end < text.length ? '…' : '');
 }
 
 function staticTraceability(data: ScholiaStaticData, kind?: string): TraceabilityResponse {
@@ -267,6 +295,17 @@ export const api = {
     staticData ? Promise.resolve(staticTraceability(staticData, kind)) : request<TraceabilityResponse>('/api/traceability' + query({ kind })),
 
   search: (q: string) => (staticData ? Promise.resolve(runStaticSearch(staticData, q)) : request<SearchResult>('/api/search' + query({ q }))),
+
+  // per-record governs（#45 D10b-1）— exactly one of tag/tx/vocab. static は
+  // record ref（"tag:<id>" 等）で焼き込み済み map を引く（transitionsByTag と
+  // 同流儀）。live は GET /api/governs に委譲。
+  getGoverns: (ref: { tag?: string; tx?: string; vocab?: string }) => {
+    if (staticData) {
+      const key = ref.tag ? `tag:${ref.tag}` : ref.tx ? `transition:${ref.tx}` : ref.vocab ? `vocab:${ref.vocab}` : '';
+      return Promise.resolve({ entries: staticData.governs[key] ?? [] });
+    }
+    return request<{ entries: GovernsEntry[] }>('/api/governs' + query(ref));
+  },
 };
 
 export { ApiError };

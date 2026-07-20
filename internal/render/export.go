@@ -33,7 +33,7 @@ type staticData struct {
 	Traceability     traceabilityPayload               `json:"traceability"`
 	TransitionsByTag map[string]transitionsPayload     `json:"transitionsByTag"`
 	TransitionDetail map[string]index.TransitionDetail `json:"transitionDetail"`
-	SearchCorpus     []index.TransitionSearchDoc       `json:"searchCorpus"`
+	SearchCorpus     []index.RecordSearchDoc           `json:"searchCorpus"`
 	Lint             lintPayload                       `json:"lint"`
 	Spec             map[string]SpecReport             `json:"spec"`
 	// Flow mirrors GET /api/flow/<action> (tx.viewer.action-flow-render),

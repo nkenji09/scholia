@@ -19,6 +19,10 @@ type Index struct {
 	TagByID        map[string]model.Tag
 	VocabByID      map[string]model.VocabEntry
 
+	// Decisions は snapshot の decision 全件（読み取り専用・検索コーパスの
+	// decision 型フィールド〔why/changed/target.id〕の供給に使う・#45 D10b-3）。
+	Decisions []model.Decision
+
 	// EffectiveTags[txID] は §3.7 の実効タグ（祖先展開済み・ソート済み）。
 	EffectiveTags map[string][]string
 
@@ -34,6 +38,7 @@ func Build(snap *store.Snapshot) *Index {
 		TransitionByID:   make(map[string]model.Transition, len(snap.Transitions)),
 		TagByID:          make(map[string]model.Tag, len(snap.Tags)),
 		VocabByID:        make(map[string]model.VocabEntry, len(snap.Vocab)),
+		Decisions:        append([]model.Decision{}, snap.Decisions...),
 		EffectiveTags:    make(map[string][]string, len(snap.Transitions)),
 		tagTransitions:   make(map[string]map[string]bool),
 		tagChildren:      make(map[string][]string),
