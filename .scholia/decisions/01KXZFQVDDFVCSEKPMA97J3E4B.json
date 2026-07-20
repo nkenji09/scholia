@@ -1,0 +1,15 @@
+{
+  "id": "01KXZFQVDDFVCSEKPMA97J3E4B",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.faceted-nav"
+  },
+  "why": "## viewer 検索/絞り込み UX の一貫化 — BrowseRail パターンの適用範囲を #/decisions・#/flow 一覧へ拡張（既決の amend）\n\n### 結論\nfaceted-nav が確立した共有絞り込みパターン（単一 combobox＋除去可能な AND 条件チップ＋kind facet ボタン行＋レスポンシブな off-canvas ドロワー＝`BrowseRail`）の適用範囲を、これまで対象だった語彙/タグ/仕様（`VocabView`/`BrowseView`）に加えて **#/decisions 一覧・#/flow 一覧へ拡張**する。パターンそのものは変えず、適用面を増やす（mode=amend）。deep-linking を #/decisions へ拡張した `01KXYED63EKN9DXTZ3XT498Q3M` と同型の「原則は不変・適用対象を新面へ外挿」。\n\n### なぜ\n現状 #/decisions は4つの独立した native `\u003cselect\u003e`（対象種別・タグ＝単一選択・現行/失効・期間）で、#/flow は label/id の部分一致検索のみでタグ絞り込みが存在しない。他ページが持つ combobox＋AND＋ドロワーの UX を持たず、ページ間で操作が不一致。利用者要望の駆動は2つ: (1) ページ間の UX 一貫性、(2) 構成部品の規模（UI dateinput だけでも多数あり、複数コンポーネント横断の絞り込みが実用上の前提）。faceted-nav の価値（どの軸からも目的に到達）を、これまで手薄だった decisions/flow 一覧にも及ぼす。\n\n### 非矛盾と整理する既決\n- `req.comfortable-viewer.view-state-continuity`（往復状態保持）は「往復で検索条件/スクロールがリセットされる痛みは、新しいブラウズUIを足すのではなく既存3ビューの状態を永続化して最小に解く」と定めた。本 amend はその痛みへの解ではなく、別駆動（ページ間一貫性＋部品規模）による既存 decisions/flow ビューの絞り込み UI 拡充であり、view-state-continuity が退けた「往復状態保持の代替としての新ブラウズUI」には当たらない（非矛盾）。ただし同 decision の複雑性回避の価値観は残るため、本件は「一貫性と実用規模のために許容する複雑性増」として PO が意識的に adopt する対象、と明記する。\n- faceted-nav の中核既決（`01KXDRHARZQDHGHPZFAXWJNWES`＝vocab へのコンポタグ誤帰属を避ける／`01KXESDDXZDMRXX7CBVB9P9V9T`＝単一 combobox へ集約）は不変。decisions/flow への適用でもタグは二次フィルタ（AND チップ）に留め、共有プリミティブに component/requirement タグを撒く誤帰属はしない。\n\n### 変更\n`BrowseRail`（単一 combobox＋AND 条件チップ＋kind facet＋レスポンシブ・ドロワー）の適用範囲に #/decisions 一覧・#/flow 一覧を追加する。各面の具体的 filter 内容・widget 形状は対象タグ（`req.comfortable-viewer.decision-browse`／`req.comfortable-viewer.flow-browse`）の decision に委ね、本 decision はパターンの到達範囲拡張のみを記録する。\n\n### 置き換え（adopt 時に `decision link` で結線）\n`01KXESDDXZDMRXX7CBVB9P9V9T`（単一 combobox 統一）を mode=amend。",
+  "at": "2026-07-20T10:04:27Z",
+  "supersedes": [
+    {
+      "id": "01KXESDDXZDMRXX7CBVB9P9V9T",
+      "mode": "amend"
+    }
+  ]
+}

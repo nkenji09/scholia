@@ -1,0 +1,9 @@
+{
+  "id": "req.comfortable-viewer.flow-browse",
+  "name": "フローの横断ブラウズ",
+  "kind": "requirement",
+  "parentIds": [
+    "req.comfortable-viewer"
+  ],
+  "description": "**As a** きっかけ（action）が多数あるフローを辿りたい人間（開発者/レビュアー）\n**I want** #/flow のフロー一覧を、フリーワードとタグ/kind の絞り込みで横断ブラウズしたい\n**so that** action が増えても一覧から目的のフローに絞り込みで到達でき、他の一覧ページと操作が一貫する\n\n### 受け入れ基準\n- #/flow 一覧に、他一覧（語彙/タグ/仕様）と同型の絞り込み（フリーワード combobox＋除去可能な AND 条件チップ＋kind facet）\n- 狭い画面では絞り込み UI を off-canvas ドロワー化し「絞り込み」トグルで開閉する\n- 絞り込み状態を reload/ブラウザバック/タブ切替で復元できる"
+}

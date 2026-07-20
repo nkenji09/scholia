@@ -1,0 +1,15 @@
+{
+  "id": "01KXZFREF2CHABEDFD5ZBSQB7T",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.deep-linking"
+  },
+  "why": "## deep-linking の適用範囲を #/flow 一覧の絞り込み状態へ拡張（既決の amend）\n\n### 結論\n`01KXDFD2S9MWHKH4RC52SJ2A8N` が定めた settled セマンティクス（検索条件・アンカーを URL に反映し reload/ブラウザバックで同じ絞り込み・同じ場所を復元する）の適用対象に、**#/flow 一覧の絞り込み状態（フリーワード＋タグ/kind）**を加える。原則自体は変えず、適用面を新面へ拡張する（mode=amend）。#/decisions のフィルタを URL 化した `01KXYED63EKN9DXTZ3XT498Q3M` と同型の外挿。\n\n### なぜ\n現状 #/flow の検索語はローカル `useState` のみで URL に載らず、reload・ブラウザバック・タブ切替で検索語を失う。#/flow に絞り込み（別 decision で新設）を入れる以上、他一覧（#/decisions ほか）と同じく「今見ている絞り込みをそのまま共有・復元できる」価値を持たせるべきで、これが無いと絞り込んだ一覧は「その場限り」に戻る。deep-linking の価値の適用対象の外挿であって新原則ではない。タブ切替時の維持も、絞り込み状態が URL に載ることで既存の view 単位永続（`view-state-continuity` の URL 分岐）に自然に乗る。\n\n### 不変と明記する既決\n- settled セマンティクス本体（`01KXDFD2S9...`）・#/decisions への拡張（`01KXYED63EKN9DXTZ3XT498Q3M`）は不変。本 amend は #/flow を適用面に足すのみ。\n- スクロール位置は sessionStorage・検索条件は URL という `view-state-continuity` の保持先分割は不変。#/flow の絞り込み状態は URL 側に載る。\n- URL のキー名は実装詳細とし本 decision には書かない（腐る時点依存記述を decision に載せない規律・`01KXYED...` と同じ）。\n\n### 変更\n#/flow 一覧の絞り込み状態（フリーワード＋タグ/kind）を URL query に載せ、reload/ブラウザバック/タブ切替で復元（既存 settled セマンティクス準拠）。static export でも同一ルートが解決する。URL キー名は実装詳細とし本 decision には書かない。\n\n### 置き換え（adopt 時に `decision link` で結線）\n`01KXDFD2S9MWHKH4RC52SJ2A8N`（settled セマンティクス）を mode=amend（#/decisions を拡張した `01KXYED63EKN9DXTZ3XT498Q3M` と同じ拡張パターン）。",
+  "at": "2026-07-20T10:04:46Z",
+  "supersedes": [
+    {
+      "id": "01KXDFD2S9MWHKH4RC52SJ2A8N",
+      "mode": "amend"
+    }
+  ]
+}

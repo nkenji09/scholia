@@ -1,0 +1,15 @@
+{
+  "id": "01KXZFR37KZYDEMF47ASFRVE3V",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.decision-browse"
+  },
+  "why": "## #/decisions のタグ絞り込み widget を BrowseRail combobox（AND 複数選択）へ／絞り込みをレスポンシブ・ドロワーへ（既決の amend）\n\n### 結論\n`01KXWPQDGX7QM3V2A8MB9TTW6J` が定めた #/decisions のフィルタ機能（対象種別・タグ・現行/失効・期間＋why/changed 検索）のうち、**タグ絞り込みを単一 native `\u003cselect\u003e` から `BrowseRail` の combobox（フリーワード＋サジェスト・除去可能な AND 条件チップによる複数タグ AND）へ**変える。あわせて絞り込みコントロール全体を、他一覧と同型のレスポンシブな off-canvas ドロワー（狭い画面では「絞り込み」トグルで開閉）に収める。フィルタの機能集合（何で絞れるか）は変えず、widget 形状と配置（どう絞るか）を変える（mode=amend）。\n\n### なぜ\n`01KXWPQDGX...` は「#/decisions 一覧: target 種別・タグ・期間フィルタ」と**どの軸で絞れるか**は定めたが、**widget 形状（select か combobox か）・AND 複数選択の可否・モバイルのドロワー化には触れていない**。現状の実装はタグを単一 `\u003cselect\u003e`（1タグしか選べない）＋インライン `\u003csection class=\"decisions-controls\"\u003e`（モバイル・トグル無し）で描画しており、他ページ（語彙/タグ/仕様）が持つ combobox＋AND＋ドロワーの UX と不一致。利用者は「複数タグの AND で意思決定を絞りたい」「他ページと同じ操作にしたい」を要望。faceted-nav の combobox 統一（`01KXESDDXZDMRXX7CBVB9P9V9T`）の帰結を #/decisions にも及ぼすもので、`01KXWPQDGX...` の機能集合とは非矛盾（silent だった widget 面を埋める精緻化）。\n\n### 不変と明記する既決\n- `01KXWPQDGX...` のフィルタ軸（対象種別・タグ・現行/失効・期間）と検索コーパスへの why/changed 編入・permalink・static export 同梱は不変。\n- #/decisions のフィルタ状態を URL に載せ reload/バックで復元する `01KXYED63EKN9DXTZ3XT498Q3M`（deep-linking）は不変。combobox 化後も URL 永続化の対象は同じ（タグは複数 id を保持する形へ広がるが、URL キー名は実装詳細）。\n\n### 変更\n#/decisions のタグ絞り込みを `BrowseRail` の combobox（サジェスト＋除去可能な AND 条件チップで複数タグ AND）に置換。対象種別・現行/失効・期間の各絞り込みと自由文字列検索を同じレスポンシブ・ドロワーに収め、狭い画面では「絞り込み」トグルで開閉する。フィルタの機能集合（絞れる軸）は不変。URL 永続化はタグ複数選択に対応する（キー名は実装詳細）。\n\n### 置き換え（adopt 時に `decision link` で結線）\n`01KXWPQDGX7QM3V2A8MB9TTW6J`（#/decisions 一覧の確立）を mode=amend。",
+  "at": "2026-07-20T10:04:35Z",
+  "supersedes": [
+    {
+      "id": "01KXWPQDGX7QM3V2A8MB9TTW6J",
+      "mode": "amend"
+    }
+  ]
+}
