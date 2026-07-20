@@ -1,0 +1,13 @@
+{
+  "id": "01KXZK5BWEX3HH15B78E4Z3BXK",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.decision-browse"
+  },
+  "why": "実装還元（viewer-search-consistency）。#/decisions のタグ絞り込みを combobox＋AND 複数選択チップへ変える既決 amend が silent だった「絞り込み対象＝どの実効タグ集合か」を確定する。decision のタグ集合＝その target の own タグの祖先クロージャ（parentIds ロールアップ）とし、AND は選択した全タグをこの集合に持つ decision のみ一致とする。target 種別ごと: tag→自身、vocab→その VocabEntry の tags、transition→その Transition の own tags。いずれも親タグ（祖先）へロールアップする。なぜ実効集合か: (1) 従来の単一 select は「target が丁度そのタグ」の一致で、これを複数タグ AND にすると常に空になり無意味。AND を意味あるものにするには decision が複数タグを持てる必要があり、それが own＋祖先＝実効タグである。(2) 親タグで絞ると子タグ target の decision も辿れる（要件サブツリーの通覧）＝実効タグの ancestor source と整合。(3) transition/vocab target の decision も own タグ経由でタグ絞り込みに乗る（従来は tag target のみ一致だった穴を埋める）。近似と開示: transition の実効タグは own タグ＋祖先のみで算出し vocab 派生タグは含めない（一覧ビューで per-transition の getTransition を避け getTransitions の own タグ1回で賄う範囲に留める・ブラウズ用途で許容）。機能集合（絞れる軸＝タグ）は不変で、単一→AND・target 完全一致→実効集合の包含、という widget 面の精緻化。",
+  "changed": "#/decisions タグ絞り込みの一致判定＝選択した全タグが decision の実効タグ集合に含まれること。実効タグ集合＝target の own タグ（tag は自身・vocab/transition はそれぞれの own タグ）の祖先クロージャ（parentIds ロールアップ）。AND 複数選択に対応。transition の実効タグは own＋祖先の近似で vocab 派生タグは非包含。",
+  "at": "2026-07-20T11:04:16Z",
+  "commits": [
+    "5f2609c"
+  ]
+}

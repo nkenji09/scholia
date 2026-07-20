@@ -1,0 +1,13 @@
+{
+  "id": "01KXZK5BXRNDRDVXY9ZCQDKF88",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.flow-browse"
+  },
+  "why": "実装還元（viewer-search-consistency）。#/flow 一覧に BrowseRail 絞り込みを新設する既決が abstract に残した「action が消費するタグ/kind」を確定する。action の実効タグ集合＝その action を action フィールドに持つ全 transition の own タグ union の祖先クロージャ（parentIds ロールアップ）とする。タグ AND は選択した全タグをこの集合に持つ action のみ一致。kind facet はこの実効タグ集合の kind（tag.kind）で、その kind のタグを1つ以上持つ action を残す。フリーワードは従来どおり action の label/id 部分一致（維持）。なぜ: action 単体はタグを持たず、意味づけは transition 経由なので「消費するタグ」＝その action の全 transition の own タグ合併が自然。祖先クロージャで親タグ絞り込み（サブツリー）も効く。kind を tag.kind に採るのは BrowseView の仕様 facet（transition の実効タグ kind で絞る）と同型。近似: transition の own タグのみ（vocab 派生タグは非包含）。表示内容（mermaid・scope-honesty）は不変。",
+  "changed": "#/flow のタグ AND＝選択した全タグが action の実効タグ集合に含まれること。実効タグ集合＝その action を持つ全 transition の own タグ union の祖先クロージャ（parentIds ロールアップ）。kind facet＝実効タグの kind。フリーワードは action の label/id 部分一致で不変。",
+  "at": "2026-07-20T11:04:16Z",
+  "commits": [
+    "5f2609c"
+  ]
+}

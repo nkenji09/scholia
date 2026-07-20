@@ -7,6 +7,8 @@
   ],
   "tags": [
     "req.comfortable-viewer.faceted-nav",
+    "req.comfortable-viewer.flow-browse",
+    "subject.viewer.flow",
     "subject.viewer.tags",
     "subject.viewer.vocab"
   ]
