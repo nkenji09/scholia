@@ -199,8 +199,8 @@ scholia review list [--on <transition|vocab|tag>:<id>] [--json]
 scholia show tx <id> [--resolve] [--json]
 scholia spec <subjectTag> [--json]
 scholia list [--facet <tagKind>] [--tag <id>] [--kind <k>] [--json]
-scholia rules [--tag <id> | --tx <id> | --facet <k>] [--sort chrono|target] [--json]
-scholia search <keyword> [--type tag|transition|vocab|decision] [--json]   # keyword で横断逆引き（id 未確定な入口）
+scholia rules [--tag <id> | --tx <id> | --vocab <id> | --facet <k>] [--sort chrono|target] [--json]  # --vocab=own∪ vocab.tags＋祖先（#45 D10b）
+scholia search <keyword> [--type tag|transition|vocab|decision] [--json]   # keyword で横断逆引き（id 未確定な入口）。transition は実効タグ・action kind でもヒット（viewer 検索と同一コア・#45 D10b）
 scholia lint [--json]
 scholia retrofit [--rule <id>] [--json]                       # advisory 規則で store を read-only 走査し是正候補を棚卸し（--fix なし・exit 0）
 scholia diff [<ref1> [<ref2>]] [--json]                       # 現在 vs ref1、または ref1 vs ref2（landed 監査）
@@ -213,4 +213,5 @@ scholia export --html <dir>
 `scholia view` は既定 `127.0.0.1`（ローカル専用）。LAN 公開（スマホ等で見る）は `--host 0.0.0.0` 等の明示指定が
 要る opt-in（`scholia view --help` が真値）。レビュー提示（deep-link route。DESIGN §7・hash ルーティング）:
 タグ spec=`#/spec/<tagId>`、transition=`#/browse/tx/<txId>`（tag と組み合わせ可: `#/browse/tag/<tagId>/tx/<txId>`）、
-vocab=`#/vocab/<id>`（実ルートの正本は `web/src/router.ts`）。
+vocab=`#/vocab/<id>`、フロー=`#/flow`（nav タブの一覧）／`#/flow/<action>`（個別・#45 D10b で入口を nav・action 語彙カード・spec ケバブの3系統へ昇格）、
+意思決定=`#/decisions`（一覧・フィルタは URL 復元）／`#/decision/<ulid>`（permalink）。実ルートの正本は `web/src/router.ts`。
