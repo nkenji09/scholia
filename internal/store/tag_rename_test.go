@@ -178,30 +178,30 @@ func TestRenameTag_CaseOnlyRenameSucceeds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Init: %v", err)
 	}
-	seedTag(t, s, "subject.uisamplerangeinput", "widget")
-	seedTag(t, s, "subject.child", "child", "subject.uisamplerangeinput")
+	seedTag(t, s, "subject.widgetalpha", "widget")
+	seedTag(t, s, "subject.child", "child", "subject.widgetalpha")
 
-	if _, err := s.RenameTag("subject.uisamplerangeinput", "subject.UISampleRangeInput", false); err != nil {
+	if _, err := s.RenameTag("subject.widgetalpha", "subject.WidgetAlpha", false); err != nil {
 		t.Fatalf("case-only RenameTag: %v", err)
 	}
 
 	// The renamed record must be loadable under the new (cased) id with the
 	// file on disk named accordingly, and the child's parent repointed.
-	nt, err := s.LoadTag("subject.UISampleRangeInput")
+	nt, err := s.LoadTag("subject.WidgetAlpha")
 	if err != nil {
 		t.Fatalf("LoadTag new case: %v", err)
 	}
-	if nt.ID != "subject.UISampleRangeInput" {
+	if nt.ID != "subject.WidgetAlpha" {
 		t.Fatalf("id not updated: %q", nt.ID)
 	}
 	// The directory entry must carry the new case exactly (case-preserving).
 	entries, _ := os.ReadDir(filepath.Join(s.Dir, tagsDir))
 	found := false
 	for _, e := range entries {
-		if e.Name() == "subject.UISampleRangeInput.json" {
+		if e.Name() == "subject.WidgetAlpha.json" {
 			found = true
 		}
-		if e.Name() == "subject.uisamplerangeinput.json" {
+		if e.Name() == "subject.widgetalpha.json" {
 			t.Fatalf("old-case file still present: %s", e.Name())
 		}
 	}
@@ -210,10 +210,10 @@ func TestRenameTag_CaseOnlyRenameSucceeds(t *testing.T) {
 		for _, e := range entries {
 			names = append(names, e.Name())
 		}
-		t.Fatalf("new-case file subject.UISampleRangeInput.json not found; entries=%v", names)
+		t.Fatalf("new-case file subject.WidgetAlpha.json not found; entries=%v", names)
 	}
 	child, _ := s.LoadTag("subject.child")
-	if !containsID(child.ParentIDs, "subject.UISampleRangeInput") {
+	if !containsID(child.ParentIDs, "subject.WidgetAlpha") {
 		t.Fatalf("child parent not repointed to new case: %v", child.ParentIDs)
 	}
 }

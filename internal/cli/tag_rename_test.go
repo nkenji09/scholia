@@ -69,15 +69,15 @@ func TestCLI_TagRenameCascadeThenLintGreen(t *testing.T) {
 func TestCLI_TagRenameCaseOnly(t *testing.T) {
 	dir := t.TempDir()
 	mustRun(t, dir, "init")
-	mustRun(t, dir, "tag", "create", "subject.uisamplerangeinput", "--name", "widget", "--kind", "subject")
+	mustRun(t, dir, "tag", "create", "subject.widgetalpha", "--name", "widget", "--kind", "subject")
 
-	mustRun(t, dir, "tag", "rename", "subject.uisamplerangeinput", "subject.UISampleRangeInput")
+	mustRun(t, dir, "tag", "rename", "subject.widgetalpha", "subject.WidgetAlpha")
 
 	if lintOut, err := run(t, dir, "lint"); err != nil {
 		t.Fatalf("expected lint green after case-only rename. output:\n%s", lintOut)
 	}
 	tree := mustRun(t, dir, "tag", "list", "--tree")
-	if !strings.Contains(tree, "subject.UISampleRangeInput") {
+	if !strings.Contains(tree, "subject.WidgetAlpha") {
 		t.Fatalf("case-only rename not reflected:\n%s", tree)
 	}
 }
