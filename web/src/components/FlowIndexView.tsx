@@ -7,7 +7,7 @@ import { routeHash } from '../router';
 import type { Tag, Transition, VocabEntry } from '../types';
 import { BrowseRail } from './browse/BrowseRail';
 import type { ConditionChip, IndexItem, KindOption, SuggestionItem } from './browse/BrowseRail';
-import { ancestorClosure, transitionVocabTagIds } from './browse/filters';
+import { ancestorClosure, tagTextMatches, textMatches, transitionVocabTagIds, vocabOwnMatches } from './browse/filters';
 import { Resizer } from './layout/Resizer';
 import { RAIL_WIDTH } from './layout/resizableWidths';
 import { kindColor } from './shared/Chip';
@@ -118,8 +118,16 @@ export function FlowIndexView({ onSelectAction, searchQuery, kindFacet, flowTags
     return Array.from(byAction.entries())
       .map(([id, txs]) => {
         const own = new Set<string>();
-        for (const tx of txs) for (const tg of transitionVocabTagIds(tx, vocabById)) own.add(tg);
-        return { id, label: vocabLabel(id), count: txs.length, tags: ancestorClosure(Array.from(own), parents) };
+        const vocabIds = new Set<string>();
+        const ownTagIds = new Set<string>();
+        for (const tx of txs) {
+          for (const tg of transitionVocabTagIds(tx, vocabById)) own.add(tg);
+          vocabIds.add(tx.action);
+          for (const g of tx.given) vocabIds.add(g);
+          for (const th of tx.then) vocabIds.add(th);
+          for (const tg of tx.tags || []) ownTagIds.add(tg);
+        }
+        return { id, label: vocabLabel(id), count: txs.length, tags: ancestorClosure(Array.from(own), parents), vocabIds, ownTagIds };
       })
       .sort((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
     // vocabLabel closes over lookups (id fallback is stable enough); excluded
@@ -145,15 +153,29 @@ export function FlowIndexView({ onSelectAction, searchQuery, kindFacet, flowTags
   if (!transitions) return <main class="flow-index-view dim">{t.flow.loading}</main>;
 
   const q = query.trim().toLowerCase();
-  const matchesText = (a: { label: string; id: string }) => !q || a.label.toLowerCase().includes(q) || a.id.toLowerCase().includes(q);
   const matchesKind = (a: { tags: Set<string> }) => facet === 'all' || hasKind(a, facet);
+
+  // req.comfortable-viewer.faceted-nav amend: 1=action's own + given/then
+  // vocab's id/label/description/altLabels (own identity), 2=the action's
+  // transitions' own tags + ancestors (name/description, never id), 3=
+  // referenced vocab's tags + ancestors (name/description). Lower tier =
+  // more relevant; null = no match.
+  const actionTier = (a: (typeof actions)[number]): number | null => {
+    if (textMatches(q, a.id, a.label) || Array.from(a.vocabIds).some((vid) => vocabOwnMatches(vocabById.get(vid), q))) return 1;
+    if (tagTextMatches(a.ownTagIds, tagById, parents, q)) return 2;
+    const refTagIds = Array.from(a.vocabIds).flatMap((vid) => vocabById.get(vid)?.tags || []);
+    if (tagTextMatches(refTagIds, tagById, parents, q)) return 3;
+    return null;
+  };
 
   // Base = the kind facet only (query-independent, like BrowseView): the free
   // text narrows the shown suggestions by tag name inside BrowseRail but must
   // not shrink the candidate pool, or typing a tag name absent from every
   // action's label/id would surface no suggestion.
   const kindBase = actions.filter(matchesKind);
-  const filtered = kindBase.filter(matchesText).filter((a) => selectedTags.every((tg) => a.tags.has(tg)));
+  const filtered = kindBase
+    .filter((a) => (!q || actionTier(a) !== null) && selectedTags.every((tg) => a.tags.has(tg)))
+    .sort((a, b) => (q ? (actionTier(a) ?? 4) - (actionTier(b) ?? 4) : 0));
 
   const scrollToRow = (id: string) => {
     rowRefs.current.get(id)?.scrollIntoView({ block: 'start' });

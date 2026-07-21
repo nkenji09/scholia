@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { api } from '../api';
 import { useLookups } from '../lookups';
 import { useDrawer } from '../drawer';
@@ -10,7 +10,7 @@ import type { ConditionChip, KindOption, SuggestionItem } from './browse/BrowseR
 import { Resizer } from './layout/Resizer';
 import { RAIL_WIDTH } from './layout/resizableWidths';
 import type { FilterCondition } from './browse/filters';
-import { encodeFilters, decodeFilters } from './browse/filters';
+import { encodeFilters, decodeFilters, textMatches, tagTextMatches } from './browse/filters';
 import type { SearchStateChange } from './browse/BrowseView';
 import {
   buildCategoryKindIndex,
@@ -79,6 +79,7 @@ export function VocabView({
   // tagKindLabel: facet チップ/サジェストの種別ラベルを選択タグの kind から解決
   // （②・combobox の facet kind を反映。単一の「コンポーネント」ハードコードを廃す）。
   const { tagById, tagKindLabel } = useLookups();
+  const parents = useMemo(() => new Map(Array.from(tagById.values()).map((tg) => [tg.id, tg.parentIds || []])), [tagById]);
   const { closeDrawer } = useDrawer();
   const [vocab, setVocab] = useState<VocabEntry[] | null>(null);
   const [transitions, setTransitions] = useState<Transition[]>([]);
@@ -311,15 +312,27 @@ export function VocabView({
     count: activeVocab.filter((v) => v.category === c).length,
   }));
 
+  // req.comfortable-viewer.faceted-nav amend: 1=own id/label/description/
+  // altLabels（#45 D5 の別表記も同層のまま）, 2=own tags + ancestors の
+  // name/description（idは見ない）。フラットな一覧なので一致した後は
+  // tier 昇順で並べ替える（tier 内は既存の id 順を維持）。
+  const vocabTier = (v: VocabEntry): number | null => {
+    if (textMatches(q, v.id, v.label, v.description, ...(v.altLabels || []))) return 1;
+    if (tagTextMatches(v.tags || [], tagById, parents, q)) return 2;
+    return null;
+  };
+
   const visible = activeVocab
     .filter((v) => categoryFacet === 'all' || v.category === categoryFacet)
-    // altLabels（別表記・同義語）も全文検索の対象に含める（#45 D5・検索編入
-    // 3面の viewer フィルタ面。別名から既存語彙へ到達させる）。
-    .filter(
-      (v) => !q || (v.id + ' ' + v.label + ' ' + (v.description || '') + ' ' + (v.altLabels || []).join(' ')).toLowerCase().includes(q),
-    )
+    .filter((v) => !q || vocabTier(v) !== null)
     .filter((v) => filters.every((f) => matchesFilter(v, f)))
-    .sort((a, b) => a.id.localeCompare(b.id));
+    .sort((a, b) => {
+      if (q) {
+        const diff = (vocabTier(a) ?? 3) - (vocabTier(b) ?? 3);
+        if (diff !== 0) return diff;
+      }
+      return a.id.localeCompare(b.id);
+    });
 
   // vocab 宛 decision（#45 D5）を vocab id 別に索引する。
   const decisionsByVocab = new Map<string, Decision[]>();

@@ -6,7 +6,7 @@ import { useDrawer } from '../../drawer';
 import type { Decision, Tag, Transition, VocabEntry } from '../../types';
 import { BrowseRail } from '../browse/BrowseRail';
 import type { ConditionChip, IndexItem, SuggestionItem } from '../browse/BrowseRail';
-import { ancestorClosure, transitionVocabTagIds } from '../browse/filters';
+import { ancestorClosure, tagTextMatches, textMatches, transitionVocabTagIds, vocabOwnMatches } from '../browse/filters';
 import { Resizer } from '../layout/Resizer';
 import { RAIL_WIDTH } from '../layout/resizableWidths';
 import { kindColor } from '../shared/Chip';
@@ -193,11 +193,35 @@ export function DecisionsView({ searchQuery, targetKind, tagFilter, currency, pe
     });
   }, [decisions, currencyIndex, kind, cur, per, now]);
 
-  const matchesQuery = (d: Decision): boolean => {
-    if (!q) return true;
-    // Search corpus: why + changed + target id/label + acknowledges.
-    const hay = [d.why, d.changed || '', d.target.id, targetLabel(d), (d.acknowledges || []).join(' ')].join(' ').toLowerCase();
-    return hay.includes(q);
+  // req.comfortable-viewer.faceted-nav amend: 1=decision's own why/changed/
+  // ref/acknowledges + target's own identity (tag→id/name/description・
+  // vocab→id/label/description/altLabels・transition→referenced vocab's
+  // same), 2=target's tag classification (tag→ancestors・vocab→own tags+
+  // ancestors・transition→own tags+ancestors, name/description only — never
+  // id), 3=transition targets only: referenced vocab's tags + ancestors.
+  // Lower tier = more relevant; null = no match.
+  const decisionTier = (d: Decision): number | null => {
+    const target = d.target;
+    const ownHit = textMatches(q, d.why, d.changed, d.ref, target.id, targetLabel(d), ...(d.acknowledges || []));
+    if (target.type === 'tag') {
+      const tg = tagById.get(target.id);
+      if (ownHit || (tg && textMatches(q, tg.description))) return 1;
+      if (tagTextMatches(tg?.parentIds || [], tagById, parents, q)) return 2;
+      return null;
+    }
+    if (target.type === 'vocab') {
+      const v = vocabById.get(target.id);
+      if (ownHit || vocabOwnMatches(v, q)) return 1;
+      if (tagTextMatches(v?.tags || [], tagById, parents, q)) return 2;
+      return null;
+    }
+    const tx = txById.get(target.id);
+    const vocabIds = tx ? [tx.action, ...tx.given, ...tx.then] : [];
+    if (ownHit || vocabIds.some((vid) => vocabOwnMatches(vocabById.get(vid), q))) return 1;
+    if (tx && tagTextMatches(tx.tags || [], tagById, parents, q)) return 2;
+    const refTagIds = vocabIds.flatMap((vid) => vocabById.get(vid)?.tags || []);
+    if (tagTextMatches(refTagIds, tagById, parents, q)) return 3;
+    return null;
   };
   const matchesTags = (d: Decision): boolean => {
     if (selectedTags.length === 0) return true;
@@ -206,7 +230,14 @@ export function DecisionsView({ searchQuery, targetKind, tagFilter, currency, pe
   };
 
   const filtered = useMemo(
-    () => filterBase.filter(matchesQuery).filter(matchesTags).slice().reverse(), // newest-first (getRules is chronological asc)
+    () => {
+      const base = filterBase
+        .filter((d) => !q || decisionTier(d) !== null)
+        .filter(matchesTags)
+        .slice()
+        .reverse(); // newest-first (getRules is chronological asc)
+      return q ? base.sort((a, b) => (decisionTier(a) ?? 4) - (decisionTier(b) ?? 4)) : base;
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [filterBase, q, effTagsById, selectedTags],
   );

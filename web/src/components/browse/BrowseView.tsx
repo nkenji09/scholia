@@ -14,7 +14,7 @@ import { TagCard } from './TagCard';
 import { SpecCard } from './SpecCard';
 import { TombstoneCard } from './TombstoneCard';
 import { NewTransitionForm } from './NewTransitionForm';
-import { parentsOf, childrenOf, tagMatchesFilters, specMatchesFilters, encodeFilters, decodeFilters } from './filters';
+import { parentsOf, childrenOf, tagMatchesFilters, specMatchesFilters, encodeFilters, decodeFilters, textMatches, tagTextMatches, vocabOwnMatches } from './filters';
 import type { FilterCondition } from './filters';
 import { buildFolderIndex, loadCollapsed, saveCollapsed } from './indexTree';
 import { kindColor, OWNER_COLOR } from '../shared/Chip';
@@ -420,6 +420,7 @@ export function BrowseView({
   };
 
   const tagById = useMemo(() => new Map((tags || []).map((t) => [t.id, t])), [tags]);
+  const parents = useMemo(() => new Map((tags || []).map((t) => [t.id, t.parentIds || []])), [tags]);
   const gapByTagId = useMemo(() => new Map((traceability?.entries || []).map((e) => [e.tag.id, e])), [traceability]);
 
   if (error) return <div class="browse-view error">{error}</div>;
@@ -442,7 +443,11 @@ export function BrowseView({
     const visible = order.filter(({ id }) => {
       const t = tagById.get(id);
       if (!t) return false;
-      if (q && !(t.id + ' ' + (t.name || '') + ' ' + (t.description || '')).toLowerCase().includes(q)) return false;
+      // req.comfortable-viewer.faceted-nav amend: own id/name/description
+      // (MATCH_TIER_OWN) OR ancestor tags' name/description (MATCH_TIER_TAGS,
+      // never id). Tree order is preserved (not re-sorted by tier) — this
+      // facet renders as a nested hierarchy, not a flat relevance list.
+      if (q && !textMatches(q, t.id, t.name, t.description) && !tagTextMatches(t.parentIds || [], tagById, parents, q)) return false;
       return tagMatchesFilters(t, filters, facetsData.roots);
     });
 
@@ -513,25 +518,31 @@ export function BrowseView({
       count: Object.values(txDetails).filter((d) => (d.effectiveTags || []).some((et) => tagById.get(et.id)?.kind === k)).length,
     }));
 
+    // req.comfortable-viewer.faceted-nav amend: 1=tx.id + referenced vocab's
+    // own id/label/description/altLabels (own identity), 2=the transition's
+    // own tags + ancestors (name/description), 3=referenced vocab's tags +
+    // ancestors (name/description). Lower tier = more relevant; null = no
+    // match. A flat list (unlike the tags facet's tree), so matches also
+    // get re-sorted by tier below.
+    const specTier = (tx: Transition): number | null => {
+      const vocabIds = [tx.action, ...tx.given, ...tx.then];
+      if (textMatches(q, tx.id) || vocabIds.some((vid) => vocabOwnMatches(vocabById.get(vid), q))) return 1;
+      if (tagTextMatches(tx.tags || [], tagById, parents, q)) return 2;
+      const refTagIds = vocabIds.flatMap((vid) => vocabById.get(vid)?.tags || []);
+      if (tagTextMatches(refTagIds, tagById, parents, q)) return 3;
+      return null;
+    };
+
     const list = txList || [];
-    const visible = list.filter((tx) => {
-      const detail = txDetails[tx.id];
-      if (!detail) return false;
-      if (kindFacet !== 'all' && !(detail.effectiveTags || []).some((et) => tagById.get(et.id)?.kind === kindFacet)) return false;
-      if (q) {
-        const hay = (
-          tx.id +
-          ' ' +
-          (detail.actionLabel || '') +
-          ' ' +
-          (detail.givenLabels || []).join(' ') +
-          ' ' +
-          (detail.thenLabels || []).join(' ')
-        ).toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return specMatchesFilters(detail, filters, vocabById);
-    });
+    const visible = list
+      .filter((tx) => {
+        const detail = txDetails[tx.id];
+        if (!detail) return false;
+        if (kindFacet !== 'all' && !(detail.effectiveTags || []).some((et) => tagById.get(et.id)?.kind === kindFacet)) return false;
+        if (q && specTier(tx) === null) return false;
+        return specMatchesFilters(detail, filters, vocabById);
+      })
+      .sort((a, b) => (q ? (specTier(a) ?? 4) - (specTier(b) ?? 4) : 0));
 
     // §8.8 P5「削除」の tombstone（§3 の 3種別表）: removed from the working
     // tree, so there's no TransitionDetail to run specMatchesFilters/

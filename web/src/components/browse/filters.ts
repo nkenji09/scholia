@@ -55,6 +55,44 @@ export function transitionVocabTagIds(tx: Transition, vocabById: Map<string, Voc
   return ids;
 }
 
+// Unified free-text search relevance (req.comfortable-viewer.faceted-nav
+// amend): every faceted-nav screen (タグ/語彙/仕様/フロー/意思決定) ranks a
+// query match by how directly it hit the row, lower tier = more relevant.
+// 1=own identity (id/name/label/description — the row's own content), 2=the
+// row's own tag classification (name/description only — never id, since a
+// tag's id is an internal identifier like req.x.1-1, not something a human
+// types when searching by topic — plus ancestor tags), 3=one hop further via
+// a referenced record's tag classification (only transitions/decisions-on-
+// transitions have this hop — what a transition references, and what THAT
+// references, is tagged). Each screen composes these primitives into its own
+// tier function since what "own identity" and "referenced record" mean
+// differs per row type (Tag/VocabEntry/Transition/Decision).
+export const MATCH_TIER_OWN = 1;
+export const MATCH_TIER_TAGS = 2;
+export const MATCH_TIER_REF_TAGS = 3;
+
+/** Case-insensitive substring test against `q` (already lowercased by the
+    caller) — true if any given part contains it. */
+export function textMatches(q: string, ...parts: Array<string | undefined>): boolean {
+  return parts.some((p) => !!p && p.toLowerCase().includes(q));
+}
+
+/** True if `q` matches the name/description of any tag in `tagIds` or their
+    ancestors (id is deliberately excluded — see MATCH_TIER_* doc above). */
+export function tagTextMatches(tagIds: Iterable<string>, tagById: Map<string, Tag>, parents: Map<string, string[]>, q: string): boolean {
+  for (const id of ancestorClosure(Array.from(tagIds), parents)) {
+    const tg = tagById.get(id);
+    if (tg && textMatches(q, tg.name, tg.description)) return true;
+  }
+  return false;
+}
+
+/** Own-identity match text for a vocab entry (id/label/description/altLabels
+    — the fields a referenced vocab entry contributes at MATCH_TIER_OWN). */
+export function vocabOwnMatches(v: VocabEntry | undefined, q: string): boolean {
+  return !!v && textMatches(q, v.id, v.label, v.description, ...(v.altLabels || []));
+}
+
 /** All tag ids in the subtree rooted at `rootId` (inclusive of rootId itself). */
 export function descendantIds(roots: FacetTreeNode[], rootId: string): Set<string> {
   const out = new Set<string>();

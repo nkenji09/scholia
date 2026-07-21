@@ -1,0 +1,16 @@
+{
+  "id": "01KY1TAR30C555KV9PBZQ816N9",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.faceted-nav"
+  },
+  "why": "タグ・語彙・仕様・フロー・意思決定の5画面すべてで、単一comboboxの自由記述検索が一貫した関係度モデルで動くよう意味論をamendする（体験の一貫性が駆動）。原理: 行の実体が自分で持つ最も直接的な情報を最優先し、タグによる分類は一段落とし、分類階層では常にid（内部識別子）でなくname/descriptionだけを見る。具体的なTier（数字が小さいほど高優先）: Tier1=行自身の直接的なアイデンティティ（タグ自身のid/name/description、語彙自身のid/label/description/altLabels、意思決定は自身のwhy/changed/ref＋targetの直接アイデンティティ）。Tier2=行自身のタグ分類（own tags＋祖先タグのname/description・idは対象外）。Tier3=一段先の分類（transitionが参照するvocabのタグ＋祖先・タグ画面と語彙画面には無し）。いずれかのTierで一致すれば表示（OR・空クエリ時は全件）。フラットな一覧（語彙/仕様/フロー/意思決定）はクエリがある時だけTier昇順で並べ替え、Tier内は既存の並びを保つ。タグ画面はネストしたツリー表示のため、一致判定の拡張のみで並べ替えはしない（階層順を壊さない）。動機: フロー/意思決定画面のタグ検索コンボボックスで、番号付き子要件タグ（idにのみ親コンポーネント名を含む）が大量にヒットし、本来最優先で出したい親タグ（nameが直接一致）を8件の候補上限から押し出す実地の不具合が発端。調べると仕様/フロー/意思決定いずれの画面も現状の自由記述検索は語彙のdescや タグのname/descをそもそも見ておらず（仕様画面でさえvocabのlabelのみ）、5画面で対象範囲もバラバラだった。id一致の除去（タグの分類階層のみ）と関係度Tierの導入で、この実地の不具合と画面間の不一致を同時に解消する。実装は追加通信なし（全画面が既にuseLookups()経由でtagById/vocabByIdをグローバルに持つ）。共有プリミティブ（textMatches/tagTextMatches/vocabOwnMatches）をfilters.tsに追加し、各画面は実体の違いに応じて自前のTier関数を組む。",
+  "ref": "web/src/components/browse/filters.ts,web/src/components/browse/BrowseView.tsx,web/src/components/VocabView.tsx,web/src/components/FlowIndexView.tsx,web/src/components/decisions/DecisionsView.tsx",
+  "at": "2026-07-21T07:48:01Z",
+  "supersedes": [
+    {
+      "id": "01KXZFQVDDFVCSEKPMA97J3E4B",
+      "mode": "amend"
+    }
+  ]
+}
