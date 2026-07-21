@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "scholia",
-  "version": "0.2.2",
+  "version": "0.2.4",
   "description": "scholia skills for Claude Code — record and evaluate product decisions (why) as a controlled vocabulary linked to code changes. Bundles the scholia / scholia-change / scholia-triage / scholia-config-setup skills.",
   "author": {
     "name": "Kenji Nakanishi",
