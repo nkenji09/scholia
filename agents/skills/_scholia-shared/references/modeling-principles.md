@@ -18,9 +18,10 @@ vocab と tag は形が近い（id・label・kind）が役割が直交する。*
 
 - **vocab を共有する ⟺ 実装が同一**（同じ component / composable / 関数を使う）。だから vocab の逆引き＝真の影響。
 - **概念が同じだけ**（型は同じ `v-model` でも A と B が独立実装）→ **vocab は分ける**。束ねるのは **tag（概念の族）**。共有にすると A を直しても B に影響しないのに**偽の影響**が逆引きに出る。
+- **逆に、usage が片コンポだけでも実装が共有なら共有を維持する**（usage で false-split しない）。範例: ある状態軸が複数コンポで共有される composable の実装なら真の共有なので、片コンポでしか使われないように見えても owner 名を付けて切ると false-split になる。**判定根拠は常に実装同一性——usage でも概念でもない**（概念で false-share せず・usage で false-split せず、を両方向で締める）。
 - **「この概念はこう振る舞うべき」という共有ルール**は、その概念 tag への **decision**。編集時に surface するのは誤爆ではなく「契約が変わるなら関係箇所を全部見直せ」という**正当な cross-cutting**。
 - **横断（concept）タグは「横断の観点＝軸」で作る**（重要）。`v-model` のような **generic な共通点**でグルーピングしない — v-model は全主題が持つので、プロジェクト全体では無関係な主題まで巻き込み、軸として意味を成さない。まず **「何の観点でこれらは横断されるのか」= 軸を特定**し、その軸で概念タグを作る。派生する個別ルールはその軸タグへの decision に置く。
-  - 例: UISampleRangeInput と UISampleRangePicker を横断させている軸は **「開始〜終了のレンジを扱う」**（`concept.sample-shared`）。v-model が `SampleRangeTuple` であること・phase（start/end）・start≤end 不変条件は、**すべて「レンジである」ことから派生する aspect** で、`concept.sample-shared` への decision（共有ルール）として置く。`concept.v-model` のような generic 名で切らない。
+  - 例: WidgetA と WidgetB を横断させている軸は **「下限〜上限のペア（range）を扱う」**（`concept.range`）。v-model が範囲タプル型であること・境界（lower/upper）・lower≤upper 不変条件は、**すべて「range である」ことから派生する aspect** で、`concept.range` への decision（共有ルール）として置く。`concept.v-model` のような generic 名で切らない。
   - 見分け方: 「これらが共通なのは、**何の性質を共有しているからか**？」を問う。その性質＝軸。軸が generic（どの主題にもある）なら、それは横断タグの単位として弱い。
 
 ### phase-boundary（重要）
@@ -91,6 +92,7 @@ vocab と tag は形が近い（id・label・kind）が役割が直交する。*
 ### 既存規律との接続
 
 - **既に別 action に割れている排他値**（`open`/`close` 等）は軸にしない——偽の L-total（抜け）を生む。同じ outcome に落ちる値は束ねる。
+- **独立実装を跨ぐ軸は per-component に分割する（軸 gaps 健全性）**——`scholia gaps` は軸値を**ストア全体からグローバルに列挙**して網羅検査するので、共有した 1 つの axis が独立実装の複数コンポを跨ぐと、各コンポの action に**他コンポ専用の軸値が偽の L-total（抜け）**として混入する（実証: WidgetA の action gaps に WidgetB 専用の軸値が抜けとして出た）。**ここで vocab と axis は非対称**: vocab は per-component が既定（§4）だが、**axis は単一 consumer なら概念scope維持でよく、独立実装が複数コンポを跨ぐときだけ per-component 分割**する（範例: ある軸が WidgetA/WidgetB で独立実装なら分割・単一コンポだけが consumer の軸は概念scope維持）。vocab だけ分割して軸を共有のまま残すと、この偽 L-total が残って壊れる。
 - **no-op 側を持つ 2 値軸は `total=false`**（DESIGN §8 lint の `complement-missing`／既存の axis-gaps 系 decision と整合。詳細は DESIGN §3.4 の #40）。
 - **重なり（overlap）は given を完全修飾で割るより `priority`（評価順）で解決する方が安い**（#45 D8）。同じ cell を取り合う遷移が実装で決定的な if/else 順を持つなら、given を disjoint な完全修飾に書き換える（authoring 負担が遷移×軸に爆発する）代わりに `tx edit --priority <n>` で評価順を宣言する。畳めるのは**全遷移が相異なる priority を持つときだけ**（部分宣言・同 priority は未解決のまま）。全遷移に振ると最後尾が宣言的残余になり L-total を免除する。番号は実装の分岐順を読んで振る（desc の散文を鵜呑みにしない）。詳細は SKILL の「評価順」節・DESIGN §3.4。
 
@@ -99,8 +101,9 @@ vocab と tag は形が近い（id・label・kind）が役割が直交する。*
 ## 4. 命名（衝突回避と可読性）
 
 - **desc / label は markdown で書ける**：prop 名やコマンドは `` `code` ``、強調は `**bold**` を使って読みやすくする。ただし長文をベタ書きしない（短さは §5 の原則）。
-- **transition id の prefix は `config.idPolicy` が正本**（宣言があると新規 id は保存時に強制される・P3 の reject 経由。既存 id と rename は対象外）。ポリシーを決めるときの指針：`tx.<Component>.<name>`（例 `tx.UISampleRangeInput.clear`）のような**主題名入りの prefix はファイル名衝突を避ける**（`tx.input-*` のような総称は他コンポと同名になりやすい／意図的な共有だけ `tx.shared.*`）。一方で総称 prefix（`T-` 等）を採る store もある。どちらが正かは store ごとに違うので、**迷ったら既存レコードの並びでなく `config.idPolicy` を見る**（他プロジェクトは自 config で別 prefix を宣言してよい）。
-- **vocab id は実装同一性で粒度を決める**：**独立実装は最初から `<eff|act>.<Owner>.<name>`（＝主題名で命名）が既定**。plain / 総称名（`eff.self.apply-size` 等）にすると、**プロジェクト全体 store では別主題が同名の独立実装を足したとき id 衝突→意図せず共有→主題横断の false-impact** を生む（size/blur/focus/status/loading 等の汎用挙動は必ず被る）。だから片主題専用でも owner 名で作る。plain id にしてよいのは**実装が共通と判明した共有**だけ（例: wrapper が inner を embed して同一コードを呼ぶ → owner=inner 名にして wrapper がそれを参照する）。「per-component で作り、共通と分かったら共通化」がルール。
+- **transition id の prefix は `config.idPolicy` が正本**（宣言があると新規 id は保存時に強制される・P3 の reject 経由。既存 id と rename は対象外）。ポリシーを決めるときの指針：`tx.<Component>.<name>`（例 `tx.WidgetA.clear`）のような**主題名入りの prefix はファイル名衝突を避ける**（`tx.input-*` のような総称は他コンポと同名になりやすい／意図的な共有だけ `tx.shared.*`）。一方で総称 prefix（`T-` 等）を採る store もある。どちらが正かは store ごとに違うので、**迷ったら既存レコードの並びでなく `config.idPolicy` を見る**（他プロジェクトは自 config で別 prefix を宣言してよい）。
+- **vocab id は実装同一性で粒度を決める**：**独立実装は最初から `<eff|act|cond>.<Owner>.<name>`（＝主題名で命名）が既定**。**effect / action だけでなく condition vocab も等しく owner-scope**——概念名で `cond.<共有概念>.<name>` のように切ると「概念scope＝共有」に見えて false-share になる（実装は各コンポ独立なのに逆引きが偽の影響を出す）。plain / 総称名（`eff.self.apply-size` 等）にすると、**プロジェクト全体 store では別主題が同名の独立実装を足したとき id 衝突→意図せず共有→主題横断の false-impact** を生む（size/blur/focus/status/loading 等の汎用挙動は必ず被る）。だから片主題専用でも owner 名で作る。plain id にしてよいのは**実装が共通と判明した共有**だけ（例: wrapper が inner を embed して同一コードを呼ぶ → owner=inner 名にして wrapper がそれを参照する）。「per-component で作り、共通と分かったら共通化」がルール。
+  - ※ **軸(`kind="axis"` タグ)の scope は vocab と非対称**——vocab は owner-scope が既定だが、axis は単一 consumer なら概念scope維持でよく、独立実装が複数コンポを跨ぐときだけ per-component 分割する（§3「独立実装を跨ぐ軸」）。命名規則を axis に機械適用しない。
 - **label**：action（きっかけ）は **「〜したとき」のトリガー表現**（例 `API setValue() を実行したとき`）。メソッドシグネチャの羅列にしない — `spec` の `WHEN 〜 THEN 〜` が読めなくなる。effect（結果）は**起きる事実**（`終了入力へフォーカスを送る`）。
   - ※ label / owner を変える CLI は無い（`vocab edit` は description のみ）。後から直すなら JSON の当該フィールドを直接編集。
 - **きっかけ・前提・結果を書き分ける（action / condition / effect のカテゴリ分離）**：一つの事柄を書く前に「これは *きっかけ*（action・WHEN で発火するトリガー）／*前提*（condition・GIVEN で真の状態）／*結果*（effect・THEN で起きること）のどれか」を決め、その一つの欄にだけ書く。とくに **condition の label には「そのとき成り立っている事実・状態」だけ**を書き、**結果（何が起きるか）は transition の `then`（effect）の責務**なので condition に埋め込まない。同じ 1 つの事柄を condition と effect の両方に書かない。
