@@ -1,0 +1,9 @@
+{
+  "id": "req.evaluate-change.adopt-dialogue",
+  "name": "adopt 前に変更前→変更後を対話で説明する",
+  "kind": "requirement",
+  "parentIds": [
+    "req.evaluate-change"
+  ],
+  "description": "**As a** 提案（pending .scholia 変更）をレビューする人\n**I want** AI（提案者）が Adopt を求める前に、変更点を変更前(before)→変更後(after)で言語化して説明することを\n**so that** viewer の深リンクで構造化 diff カードを見るだけでは得にくい「何がどう変わるのか」の判断材料を得て、深リンクを開いただけで吟味せず Adopt する事故を避けられる\n\n### 受け入れ基準\n- AI は Adopt を求める前に、提案全体のサマリー（いくつのグループに分かれるか・どれが観測可能な振る舞いを変えるか）を先に述べる\n- **合意の重さ＝重い**（観測可能な振る舞いを変える）項目は一括ではなく1項目ずつ承認を得る。各項目で変更前（実コード／実際の挙動から確認したもの・推測で書かない）・変更後・観測/再現手順（直接観測できないときは具体的な before/after 例）・トレードオフ・推奨とその理由を提示する\n- **合意の重さ＝軽い**（spec の記述精度のみで観測可能な振る舞いは変えない）項目はサマリー＋Adopt で足りる\n- 合意の重さの判定は scholia-triage が担い、AI（提案者）が持ち込む（判断＝triage・実行＝scholia-change の既存の役割分担を踏襲）\n- viewer の深リンクは一次資料として引き続き必須（req.evaluate-change.proposal-card の構造化 diff カードの価値は不変）——この対話プロトコルは深リンクを置き換えるのではなく補う"
+}
