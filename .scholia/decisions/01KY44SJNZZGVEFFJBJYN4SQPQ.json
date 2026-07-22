@@ -1,0 +1,13 @@
+{
+  "id": "01KY44SJNZZGVEFFJBJYN4SQPQ",
+  "target": {
+    "type": "tag",
+    "id": "req.evaluate-change.adopt-dialogue"
+  },
+  "why": "新設(D新規): 提案レビューは「AI が対象を開いた scholia view の深リンクを渡す」ことを軸にしてきた（req.evaluate-change.proposal-card の構造化 diff カード・scholia-change SKILL.md の既存記述）。だが深リンクは対象タグ・関連 transition・decision 履歴の一次資料としては十分でも、「今の挙動が何で、承認すると何がどう変わるか」を能動的に言語化して渡す役割までは担わない——カードを開いて読み解く負荷は人に残ったままで、「深リンクを渡された→開いた→ざっと見て Adopt」という、吟味を伴わない承認が起こりうる。\n\n是正: AI（提案者）に、Adopt を求める前の対話を義務付ける。ただし全項目に同じ重さを課すと、spec の言い回し精緻化のような軽微な変更にまで毎回フル対話を強いる摩擦になるため、変更が観測可能な振る舞いを変えるか（重い）／記述精度のみで振る舞いは変えないか（軽い）で対話の粒度を分岐する（合意の重さ）。重い項目は変更前・変更後・観測/再現手順・トレードオフ・推奨を個別に提示し1項目ずつ承認を得る。軽い項目はサマリー＋Adopt で足りる。深リンクは一次資料として引き続き必須——対話はこれを置き換えるのではなく補う（req.evaluate-change.proposal-card は不変）。\n\n合意の重さの判定は scholia-triage（A〜E 分類の際に B/D について合意の重さも判定して出力する）が担い、scholia-change の adopt 手順がそれを消費して対話の粒度を決める——判断＝triage／実行＝scholia-change という既存の役割分担（01KX6DGMZKQ76747WQ7WC74X0H）をそのまま踏襲する。",
+  "ref": "4e6e12b1db9324c21dbd2ec7a538349c56a9a3c3",
+  "at": "2026-07-22T05:29:21Z",
+  "commits": [
+    "4e6e12b1db9324c21dbd2ec7a538349c56a9a3c3"
+  ]
+}
