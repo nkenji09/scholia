@@ -1,7 +1,7 @@
 {
   "id": "eff.log.search-matches",
   "category": "effect",
-  "label": "該当した記録を型別(tag/transition/vocab/decision)に id と一致箇所を付けて列挙する",
+  "label": "該当した記録を型別(tag/transition/vocab/decision)に id と一致箇所を付けて列挙する（--type で型・--tag で指定タグのサブツリー〔実効タグ包含〕へ絞り込め、両者は keyword=OR と AND 合成）",
   "kind": "log",
   "owner": "subject.cli"
 }

@@ -1,0 +1,13 @@
+{
+  "id": "01KY6683364APZHJ60VX26YTRX",
+  "target": {
+    "type": "transition",
+    "id": "tx.cli.search"
+  },
+  "why": "search --tag に実在しないタグを渡したらエラー（--tag \"x\" が実在しません）にする。list --tag／rules --tag がいずれも実在しないタグをエラーにするのに揃える（面間整合）。静かな0件だとスコープ引数の typo を見逃すため明示エラーで拾う。当初 handoff 案の『存在しない tag で0件』からは意図的に逸脱し、list/rules 一貫性を優先した（ユーザー adopt 済み）。",
+  "at": "2026-07-23T00:33:14Z",
+  "commits": [
+    "b46578f",
+    "073d65f"
+  ]
+}

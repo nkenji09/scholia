@@ -1,0 +1,12 @@
+{
+  "id": "01KY66Y6F10DTDAAPS1VE1N3RQ",
+  "target": {
+    "type": "transition",
+    "id": "tx.cli.search"
+  },
+  "why": "案 B（発見性）: search 出力の各ヒットに owning subject を表示し、tagId を事前に知らなくても結果から scope 候補（属する subject）を見つけてそのまま --tag に渡せる導線にする（tagId の鶏と卵の解消）。--tag の記録（実効タグ包含）と一貫。表示形式は『各ヒット行に「· subject: \u003cids\u003e」を注記＋末尾に matched subjects を件数付きで要約（そのまま --tag に渡せる候補）』を採用——結果から scope を発見しそのまま絞り込む導線に最も資し、両方とも additive な suffix/行なので人間向け出力は後方互換。--json は match に subjects[] を additive 追加（既存 type/id/field/snippet 不変）。subject 帰属は --tag と同一判定を流用（index.OwningSubjects＝TagScope の双対: tag=subject 祖先／transition=subject 実効タグ／vocab=参照遷移の subject∪直接タグの subject 祖先／decision=target の subject）で重複実装しない。owning subject は config.ownerKind の subject タグで、未宣言なら注記なしへ degrade（後方互換）。",
+  "at": "2026-07-23T00:45:19Z",
+  "commits": [
+    "48145c2"
+  ]
+}

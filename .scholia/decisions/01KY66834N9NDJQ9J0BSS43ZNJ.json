@@ -1,0 +1,13 @@
+{
+  "id": "01KY66834N9NDJQ9J0BSS43ZNJ",
+  "target": {
+    "type": "transition",
+    "id": "tx.cli.search"
+  },
+  "why": "--tag の vocab スコープ判定は『サブツリーの遷移が参照する vocab（VocabBySubject・action/given/then 経由）』を主、『vocab が直接持つタグ（VocabEntry.Tags）がサブツリー内』を従とし、両者の和で判定する。scholia は『vocab は帰属タグを持たず、帰属は遷移側の実効タグに持たせる』設計（VocabBySubject の既決）ゆえ、直接タグだけで判定すると --tag \u003ccomponent\u003e --type vocab がほぼ空になり用をなさない。遷移経由を主にすることで、タグ無しの共有 vocab もそれを参照する遷移のサブツリーに正しく現れる。",
+  "at": "2026-07-23T00:33:14Z",
+  "commits": [
+    "b46578f",
+    "073d65f"
+  ]
+}

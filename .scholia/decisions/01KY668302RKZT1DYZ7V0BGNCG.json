@@ -1,0 +1,13 @@
+{
+  "id": "01KY668302RKZT1DYZ7V0BGNCG",
+  "target": {
+    "type": "transition",
+    "id": "tx.cli.search"
+  },
+  "why": "`search --tag \u003ctagId\u003e` のスコープ意味論を『指定タグのサブツリー包含（実効タグ・祖先展開）』に確定する。list --tag が HasEffectiveTag（tx の own/vocab タグが指定タグ自身またはその子孫）で絞るのと同一関数・同一意味論を再利用し、search --type transition --tag X の集合が list --tag X を keyword で更に絞った部分集合になるよう揃える（面間整合＝利用者の期待が list と一致）。tag は『指定タグ自身または子孫（祖先閉包に指定タグを含む）』、vocab/decision もこのサブツリー包含を各型へ一般化する。keyword=OR・--type=AND と AND 合成し、従来（--tag 無し）挙動は不変。別実装せず TagAncestors/HasEffectiveTag/VocabBySubject を合成する。",
+  "at": "2026-07-23T00:33:14Z",
+  "commits": [
+    "b46578f",
+    "073d65f"
+  ]
+}

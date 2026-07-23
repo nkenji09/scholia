@@ -1,0 +1,13 @@
+{
+  "id": "01KY66831PMSK83AZFFHG7GFQG",
+  "target": {
+    "type": "transition",
+    "id": "tx.cli.search"
+  },
+  "why": "スコープ絞り込みは --tag 1本に統合し、--subject を別フラグとして設けない。理由: (a) transition では spec \u003csubjectTag\u003e＝TransitionsByTag＝実効タグ包含で、list --tag/--tag と同一集合になり別フラグの意味が無い。(b) subject 束ねの主眼である『コンポの語彙』は --tag の vocab 判定に VocabBySubject（サブツリーの遷移が参照する vocab）として既に含めた(④)ので、--tag \u003csubject\u003e が spec 相当の subject 束ねを兼ねる。(c) フラグ1本の方が後方互換・最小驚き。将来別意味論が要れば additive に足せる（現時点で不要）。",
+  "at": "2026-07-23T00:33:14Z",
+  "commits": [
+    "b46578f",
+    "073d65f"
+  ]
+}
