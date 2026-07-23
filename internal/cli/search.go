@@ -36,11 +36,23 @@ type searchOutput struct {
 // rules/list/diff 同様に in-memory snapshot 上の query であり、何も保存しない。
 func newSearchCmd() *cobra.Command {
 	var types []string
+	var tags []string
 	var asJSON bool
 	cmd := &cobra.Command{
 		Use:   "search <keyword> [keyword...]",
 		Short: "keyword から tag/transition/vocab/decision を横断探索する（id を知らなくても記録に辿り着く逆引き・read-only）",
-		Args:  cobra.MinimumNArgs(1),
+		Long: `keyword から scholia 記録（tag/transition/vocab/decision）を横断探索する逆引き（read-only）。
+
+複数 keyword は OR（ヒットが広がる）。記録が増えると概念語だけではノイズが増えるため、
+--tag <tagId> で「その tag のサブツリー（実効タグ包含・list --tag と同義）に属する record」へ
+絞り込める（--type と AND 合成）。vocab はそのサブツリーの遷移が参照する語彙（コンポの語彙）も含む。
+
+例:
+  scholia search swap                                  # "swap" を全型から逆引き（広い）
+  scholia search swap --tag ui.date-range-picker       # そのコンポのサブツリーに絞る
+  scholia search swap --tag ui.date-range-picker --type transition
+  scholia search swap --tag a --tag b                  # tag は繰り返し可＝OR`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			for _, t := range types {
 				if !isValidSearchType(t) {
@@ -58,9 +70,23 @@ func newSearchCmd() *cobra.Command {
 				return fmt.Errorf("search キーワードを1つ以上指定してください")
 			}
 
+			scopeTags := make([]string, 0, len(tags))
+			for _, t := range tags {
+				if t = strings.TrimSpace(t); t != "" {
+					scopeTags = append(scopeTags, t)
+				}
+			}
+
 			s, err := openStore()
 			if err != nil {
 				return err
+			}
+			// --tag の存在検証は list --tag / rules --tag と揃える（実在しない tag は
+			// 静かな 0 件ではなくエラー＝スコープ引数の typo を拾う）。
+			for _, t := range scopeTags {
+				if !s.TagExists(t) {
+					return fmt.Errorf("--tag %q が実在しません", t)
+				}
 			}
 			snap, err := s.LoadAll()
 			if err != nil {
@@ -72,6 +98,9 @@ func newSearchCmd() *cobra.Command {
 			// snapshot を渡す（transition の実効タグ・action kind もヒットに含む）。
 			ix := index.Build(&snap)
 			matches := index.SearchRecords(ix, keywords, types)
+			// --tag: 概念ヒットを指定 tag のサブツリー（実効タグ包含・list --tag と
+			// 同義）に属する record へ絞る（keyword=OR・--type=AND と AND 合成・#1）。
+			matches = index.FilterMatchesByTags(ix, &snap, matches, scopeTags)
 
 			if asJSON {
 				enc := json.NewEncoder(cmd.OutOrStdout())
@@ -83,6 +112,7 @@ func newSearchCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringArrayVar(&types, "type", nil, "型で絞り込む（tag|transition|vocab|decision・繰り返し可・既定は全型）")
+	cmd.Flags().StringArrayVar(&tags, "tag", nil, "そのタグのサブツリー（実効タグ包含・list --tag と同義）に属する record へ絞り込む（繰り返し可＝OR・--type と AND 合成）")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "JSON で出力する")
 	return cmd
 }
