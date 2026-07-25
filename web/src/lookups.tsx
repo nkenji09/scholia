@@ -17,6 +17,30 @@ const EMPTY_TAG_KIND_LABELS: Record<string, string> = {};
 const DEFAULT_PRODUCT_NAME = 'scholia';
 const DEFAULT_SUBTITLE = 'scholia';
 
+// viewer-overview-browser: 概要ビュー（仕様シート）が依存する4つの「役割」。
+// 従来はリテラルの kind id（component/part/property/group）に固定していたが、
+// component 概念を別 kind id（例 subject）で表すプロジェクトでも仕様シートが
+//出るよう、config.tagKinds の behaviors 宣言で役割 → 実 kind id を解決する。
+export type SheetRole = 'component' | 'part' | 'constraint' | 'group';
+
+// 役割 → その役割を宣言する behaviors マーカー（KindDeclObject.behaviors に含む
+// と、その kind がこの役割を担う）。axis の behaviors:["axis"] と同じ仕組み。
+const ROLE_BEHAVIOR: Record<SheetRole, string> = {
+  component: 'component',
+  part: 'part',
+  constraint: 'constraint',
+  group: 'group',
+};
+// 役割 → behaviors 宣言が無いときのリテラル kind id フォールバック。behaviors を
+// 宣言しない既存プロジェクト（component/part/group/property を直に使う）が従来
+// どおり動く。constraint だけは歴史的経緯で property へ落ちる点に注意。
+const ROLE_FALLBACK_KIND: Record<SheetRole, string> = {
+  component: 'component',
+  part: 'part',
+  constraint: 'property',
+  group: 'group',
+};
+
 // Internal record ids (T-mfa-verify, tag/vocab ids) are the join keys the
 // UI navigates by, but v2 feedback was explicit: people reading the viewer
 // should see names/labels, not ids (調整3). This module fetches vocab/tags/
@@ -49,6 +73,11 @@ interface Lookups {
   /** #45 D9: config.ownerKind（オプトイン）。非空のとき owner は subject タグ id
       参照＝正準ルートを持つ。未宣言（""）なら owner は自由文字列のまま。 */
   ownerKind: string;
+  /** viewer-overview-browser: 概要ビューの4役割（component/part/constraint/
+      group）→ 実 kind id の前計算マップ。config.tagKinds の behaviors 宣言で
+      上書き、無ければリテラル id（constraint→property）へフォールバック。役割で
+      比較したい箇所は kind リテラルを直書きせずこれを引く（1箇所で解決）。 */
+  roleKinds: Record<SheetRole, string>;
   /** Header's product name: config.display.productName, falling back to
       "scholia" (2026-07-11 tweaks5 §2). */
   productName: string;
@@ -120,6 +149,21 @@ export function LookupsProvider({ children }: { children: ComponentChildren }) {
   const tagKindDescription = (kind: string | undefined) => (kind ? tagKindDescriptions[kind] : undefined);
   const ownerKind = config?.ownerKind || '';
 
+  // viewer-overview-browser: 役割 → 実 kind id を解決。各役割につき、その
+  // behaviors マーカーを含む最初の tagKind の id を採り、無ければリテラル
+  // フォールバックを使う（behaviors 未宣言の既存プロジェクトは従来どおり）。
+  const roleKinds: Record<SheetRole, string> = { ...ROLE_FALLBACK_KIND };
+  for (const role of Object.keys(ROLE_BEHAVIOR) as SheetRole[]) {
+    const marker = ROLE_BEHAVIOR[role];
+    for (const decl of config?.tagKinds || []) {
+      const o = kindDeclObject(decl);
+      if (o.behaviors && o.behaviors.includes(marker)) {
+        roleKinds[role] = o.id;
+        break; // 複数該当時は最初の1つ
+      }
+    }
+  }
+
   const describeMatch = (matchedOn: string) => {
     if (matchedOn === 'id') return t.lookups.searchById;
     const [prefix, ...rest] = matchedOn.split(':');
@@ -152,6 +196,7 @@ export function LookupsProvider({ children }: { children: ComponentChildren }) {
     tagKindLabel,
     tagKindDescription,
     ownerKind,
+    roleKinds,
     productName,
     headerSubtitle,
     tagline,

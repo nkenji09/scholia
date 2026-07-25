@@ -33,12 +33,57 @@ const ja = {
   // （2026-07-11 tweaks2 のユーザー視覚FBで語彙を概要の直後へ移動、
   // Header.tsx の NAV 配列参照）。
   nav: {
+    // IA-rework (viewer-overview-browser): ナビは「概要」と「ブラウザ」の2つに
+    // 畳む。旧タブ（home/tags/specs/vocab/flow）のラベルは他コードが参照しうる
+    // ため残すが、Header はもう overview/browse/config しか描画しない。
+    overview: '概要',
+    browse: 'ブラウザ',
     home: '概要',
     tags: 'タグ',
     specs: '仕様',
     vocab: '語彙',
     flow: 'フロー',
     config: '設定',
+  },
+  // 概要ビュー（viewer-overview-browser）: 左=構造ツリー、右=コンポーネント仕様
+  // シート。データは実 api（tags/transitions/vocab/traceability/rules/config）
+  // から導出。ラベルは lookups（vocabLabel/tagName/tagKindLabel）経由で、ここは
+  // chrome 文言のみ。
+  overview: {
+    loading: '読み込み中…',
+    treeHeading: '構造',
+    // シートに出すコンポーネントが選ばれていない（＝プロジェクトに component
+    // 種別のタグが無い旧スキーマ等）ときの空状態。
+    selectPrompt: '左の構造ツリーからコンポーネントを選ぶと、仕様シートが表示されます。',
+    noComponents: 'このプロジェクトには「コンポーネント」種別のタグがありません。ブラウザから全レコードを横断できます。',
+    openInBrowser: 'ブラウザで開く',
+    coverageHeading: 'カバレッジ',
+    coverageSuffix: 'の要件が仕様で充足',
+    coverageNone: '対象要件なし',
+    partCount: (n: number) => `構成要素 ${n}`,
+    ruleCount: (n: number) => `現行ルール ${n}`,
+    gapCount: (n: number) => `未充足 ${n}`,
+    responsibilityHeading: '責務',
+    behaviorsHeading: '構成要素ごとの振る舞い',
+    behaviorsHint: 'きっかけ → 前提 → 結果',
+    unconditional: '無条件',
+    satisfiesReqs: '満たす要件',
+    txCount: (n: number) => `${n} 遷移`,
+    constraintsHeading: '「〜しない」制約',
+    constraintsHint: '性質型要件 property',
+    readFull: '全文を読む',
+    backToSummary: '要約に戻す',
+    // decision を関連レコードの文脈にインライン展開するトグル（⑤）。N は当該レコード
+    // を target とする decision 総数（現行＋失効）。
+    rulesToggle: (n: number) => `規則 (${n})`,
+    componentRulesToggle: (n: number) => `このコンポーネントの規則 (${n})`,
+    // decision の出自ラベル（決定がこのコンポーネントに効く経路）。component 本体の
+    // 規則展開でのみ使う（tx/part/制約の展開は target 直下なので via を出さない）。
+    // viaSpec は part 配下に現れない直属 transition の decision を本体へ回収する際の
+    // ラベル（取りこぼし防止）。
+    viaComponent: 'このコンポーネントに直接',
+    viaSpec: 'この仕様に直接',
+    viaTag: (name: string) => `タグ〈${name}〉経由`,
   },
   header: {
     fontDec: '文字を小さく',
@@ -502,12 +547,42 @@ export type Lang = 'ja' | 'en';
 
 const en: Strings = {
   nav: {
+    overview: 'Overview',
+    browse: 'Browse',
     home: 'Home',
     tags: 'Tags',
     specs: 'Specs',
     vocab: 'Vocab',
     flow: 'Flow',
     config: 'Settings',
+  },
+  overview: {
+    loading: 'Loading…',
+    treeHeading: 'Structure',
+    selectPrompt: 'Pick a component from the structure tree on the left to see its spec sheet.',
+    noComponents: 'This project has no tags of kind "component". You can still browse every record from Browse.',
+    openInBrowser: 'Open in Browse',
+    coverageHeading: 'Coverage',
+    coverageSuffix: 'requirements satisfied by specs',
+    coverageNone: 'no scoped requirements',
+    partCount: (n) => `${n} parts`,
+    ruleCount: (n) => `${n} current rules`,
+    gapCount: (n) => `${n} unsatisfied`,
+    responsibilityHeading: 'Responsibility',
+    behaviorsHeading: 'Behavior by part',
+    behaviorsHint: 'trigger → given → result',
+    unconditional: 'Unconditional',
+    satisfiesReqs: 'Satisfies',
+    txCount: (n) => `${n} transitions`,
+    constraintsHeading: '"Never" constraints',
+    constraintsHint: 'property-kind requirements',
+    readFull: 'Read full text',
+    backToSummary: 'Back to summary',
+    rulesToggle: (n) => `Rules (${n})`,
+    componentRulesToggle: (n) => `Rules for this component (${n})`,
+    viaComponent: 'directly on this component',
+    viaSpec: 'directly on this spec',
+    viaTag: (name) => `via tag <${name}>`,
   },
   header: {
     fontDec: 'Decrease font size',

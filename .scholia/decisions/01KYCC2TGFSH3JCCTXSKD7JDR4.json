@@ -1,0 +1,12 @@
+{
+  "id": "01KYCC2TGFSH3JCCTXSKD7JDR4",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.decision-display"
+  },
+  "why": "意思決定を独立した平坦リストで並べず、関連レコード（transition / part / 制約 / コンポーネント）の文脈にインラインの「規則(N)」展開として置き、必要な時だけ開く。あわせて現行 decision と失効（superseded）を分離し、現行ルールは要約（why 1行目）を主表示・全文は展開の内側に置く。理由：どの記録に紐づく decision か不明な平坦リストは意味が取れず、履歴で現行の読み口が汚れるため。",
+  "at": "2026-07-25T10:10:40Z",
+  "commits": [
+    "daf00871115169aad53eb354781ae3d90853948a"
+  ]
+}

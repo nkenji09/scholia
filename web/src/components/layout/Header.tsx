@@ -29,37 +29,31 @@ export function Header({ view, onSelectView, railActive }: Props) {
   const { productName, headerSubtitle } = useLookups();
   const headerRef = useRef<HTMLElement>(null);
 
-  // Nav mirrors the design's segmented-pill control (概要/タグ/仕様 + icons),
-  // extended with Vocab — a screen the design didn't mock but which still
-  // needs a reachable nav slot (.concierge/decision.md §A-4). Order is
-  // 概要/語彙/タグ/仕様 per user visual feedback (2026-07-11 tweaks2: 語彙 moved
-  // between 概要 and タグ). Traceability/Compare were also in that "not mocked"
-  // set but were dropped from the nav entirely per an earlier user request —
-  // not in the design, so removed for now rather than left half-styled; git
-  // history has the prior version if they come back. 'spec' (the legacy
-  // per-tag-report hash) is deliberately NOT a nav entry: it renders the same
-  // BrowseView as 'tags' with a different initial focus, so having both as
-  // separate buttons would just be two nav items doing the same thing. Config
-  // is not here either — the design treats settings as a standalone icon
-  // button, not a nav tab (see the header switches cluster below).
+  // IA-rework (viewer-overview-browser): the nav collapses to just two tabs —
+  // 概要 (the structure tree + component spec sheet) and ブラウザ (the unified
+  // search/facet/detail surface). Every screen the old nav exposed as its own
+  // tab (タグ/語彙/仕様/フロー/意思決定) is NOT deleted — it stays reachable as an
+  // internal lens or detail route of these two (概要's sheet embeds coverage/
+  // current-rules; ブラウザ's detail embeds vocab/decisions/flow links). Config
+  // stays a standalone gear icon (design treats settings as a chrome control,
+  // not a nav tab — see the header switches cluster below).
   //
   // Built inside the component (not module scope) so it re-renders with the
   // active language — strings pulled from `t`, not a module-level `strings`.
   const NAV: Array<[ViewName, string, IconName]> = [
-    ['home', t.nav.home, 'layout-dashboard'],
-    ['tags', t.nav.tags, 'tags'],
-    ['vocab', t.nav.vocab, 'book-open'],
-    ['browse', t.nav.specs, 'scroll-text'],
-    // flow 入口の昇格（#45 D10b-5）— nav の「フロー」タブは #/flow の index を
-    // 出し、action を選ぶと #/flow/<action> へ。従来 SpecCard ケバブ1箇所しか
-    // 無かった入口を3系統（nav・vocab カード・spec ケバブ）へ増やす到達経路の
-    // 追加であって、flow の表示内容（mermaid のみ）は不変。
-    ['flow', t.nav.flow, 'git-fork'],
-    // 意思決定の read 面（D10a）— デザイン未対応だが独立の通覧タブが要る
-    // （語彙タブと同じ「未モックだが到達スロットが必要」枠）。#/decision/<ulid>
-    // の詳細もこのタブをアクティブ表示にする（spec→tags と同じ扱い）。
-    ['decisions', t.decisions.heading, 'gavel'],
+    ['overview', t.nav.overview, 'layout-dashboard'],
+    ['browse', t.nav.browse, 'search'],
   ];
+  // Which nav tab lights up for a given route. 概要 owns overview + the legacy
+  // #/home landing; ブラウザ owns every browse-family lens/detail route so a
+  // deep link (#/spec/<id>, #/decision/<ulid>, #/flow/<action>, …) still shows
+  // a highlighted tab instead of none.
+  const BROWSE_FAMILY: ViewName[] = ['browse', 'tags', 'spec', 'vocab', 'flow', 'decisions', 'decision'];
+  const isActive = (key: ViewName): boolean => {
+    if (key === 'overview') return view === 'overview' || view === 'home';
+    if (key === 'browse') return BROWSE_FAMILY.includes(view);
+    return view === key;
+  };
 
   // Rail responsiveness (drawer's fixed `top`, sticky rail's `top`/height,
   // backdrop's `inset`) all need the header's actual rendered height —
@@ -92,18 +86,12 @@ export function Header({ view, onSelectView, railActive }: Props) {
       </div>
 
       <nav class="topbar-nav">
-        {NAV.map(([key, label, icon]) => {
-          // 'spec' (legacy per-tag hash, kept for bookmark compat) renders
-          // the same BrowseView 'tags' facet does — highlight タグ for it
-          // too rather than leaving no tab active.
-          const active = view === key || (key === 'tags' && view === 'spec') || (key === 'decisions' && view === 'decision');
-          return (
-            <button key={key} type="button" class={'topbar-nav-btn' + (active ? ' active' : '')} onClick={() => onSelectView(key)}>
-              <Icon name={icon} size={16} />
-              <span>{label}</span>
-            </button>
-          );
-        })}
+        {NAV.map(([key, label, icon]) => (
+          <button key={key} type="button" class={'topbar-nav-btn' + (isActive(key) ? ' active' : '')} onClick={() => onSelectView(key)}>
+            <Icon name={icon} size={16} />
+            <span>{label}</span>
+          </button>
+        ))}
       </nav>
 
       <div class={'header-switches' + (showFilterToggle ? ' has-filter-toggle' : '')}>

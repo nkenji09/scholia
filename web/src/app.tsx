@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { Header } from './components/layout/Header';
-import { HomeView } from './components/home/HomeView';
+import { OverviewView } from './components/overview/OverviewView';
 import { BrowseView } from './components/browse/BrowseView';
 import { ConfigView } from './components/config/ConfigView';
 import { VocabView } from './components/VocabView';
@@ -32,6 +32,9 @@ const SEARCHABLE_VIEWS = new Set<ViewName>(['tags', 'browse', 'spec', 'vocab', '
 // (route.actionId present) has no rail, so the toggle must not appear there.
 function railActiveFor(view: ViewName, hasActionId: boolean): boolean {
   if (view === 'flow') return !hasActionId;
+  // 概要 (overview/home) has its own left rail (the structure tree), so the
+  // narrow-viewport 絞り込み/drawer toggle applies there too.
+  if (view === 'overview' || view === 'home') return true;
   return view === 'tags' || view === 'browse' || view === 'spec' || view === 'vocab' || view === 'decisions';
 }
 
@@ -150,7 +153,7 @@ export function App() {
   return (
     <>
       <Header view={view} onSelectView={setView} railActive={railActiveFor(view, !!route.actionId)} />
-      {view === 'home' && <HomeView onGoTags={() => setView('tags')} onSelectTag={openTagSpec} onSelectTx={openTransition} onGoDecisions={openDecisions} />}
+      {(view === 'overview' || view === 'home') && <OverviewView onOpenTag={openTagSpec} onOpenTx={openTransition} />}
       {view === 'browse' && (
         <BrowseView
           scrollKey="browse"
