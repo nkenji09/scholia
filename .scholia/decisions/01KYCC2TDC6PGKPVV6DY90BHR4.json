@@ -1,0 +1,12 @@
+{
+  "id": "01KYCC2TDC6PGKPVV6DY90BHR4",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer"
+  },
+  "why": "ナビをタスク軸の「概要／ブラウザ」2タブに畳む。概要は構造ツリー（config.roots→parentIds の group\u003ecomponent\u003epart）＋コンポーネント仕様シートで俯瞰を与え、ブラウザは検索＋詳細＋提案インライン。内部データ型そのままの旧多タブ（home/spec/tags/decisions/flow）は独立タブとしては廃し、機能をレンズ／文脈として2タブへ内包する。理由：利用者に「どのデータ型を見るか」を先に選ばせる構造をやめ、「俯瞰する／探して降りる」で入口を分けるため。",
+  "at": "2026-07-25T10:10:40Z",
+  "commits": [
+    "daf00871115169aad53eb354781ae3d90853948a"
+  ]
+}

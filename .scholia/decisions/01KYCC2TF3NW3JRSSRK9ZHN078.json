@@ -1,0 +1,12 @@
+{
+  "id": "01KYCC2TF3NW3JRSSRK9ZHN078",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer"
+  },
+  "why": "viewer はユーザーに生レコード id（tag / transition / part / decision の ULID）を表示しない。表示は name / label のみで、id は deep-link の href としてのみ用いる。理由：長い id はモバイルで見出しを即省略させ可読性を損なう。利用者が id を読みたい場面は基本的に無い。",
+  "at": "2026-07-25T10:10:40Z",
+  "commits": [
+    "daf00871115169aad53eb354781ae3d90853948a"
+  ]
+}

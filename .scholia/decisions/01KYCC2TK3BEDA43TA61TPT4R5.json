@@ -1,0 +1,12 @@
+{
+  "id": "01KYCC2TK3BEDA43TA61TPT4R5",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.collapsible-section"
+  },
+  "why": "仕様シートは段階的開示（progressive disclosure）を既定とする——下位セクションは初期折りたたみで、利用者が必要な部分だけ展開する。初期表示は全体を走査できる概要に留め、詳細はオンデマンドで開く。折りたたみの具体 UI・見出しの見た目は実装詳細で、この decision では規定しない。",
+  "at": "2026-07-25T10:10:40Z",
+  "commits": [
+    "daf00871115169aad53eb354781ae3d90853948a"
+  ]
+}

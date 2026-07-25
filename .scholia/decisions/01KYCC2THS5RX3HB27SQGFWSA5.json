@@ -1,0 +1,12 @@
+{
+  "id": "01KYCC2THS5RX3HB27SQGFWSA5",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.faceted-nav"
+  },
+  "why": "仕様シート／ツリーの役割 kind（component=シート単位・part=構成要素・constraint=性質型制約・group=フォルダ）をリテラル kind id 固定でなく、config.tagKinds の behaviors 宣言（axis の前例に倣う）で解決し、宣言が無ければ慣用 id へフォールバックする。理由：component 概念を別 id で表すプロジェクトでも仕様シートが出るよう、スキーマ駆動で汎用化するため。",
+  "at": "2026-07-25T10:10:40Z",
+  "commits": [
+    "daf00871115169aad53eb354781ae3d90853948a"
+  ]
+}
