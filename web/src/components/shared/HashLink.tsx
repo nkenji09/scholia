@@ -1,4 +1,4 @@
-import type { ComponentChildren } from 'preact';
+import type { ComponentChildren, JSX } from 'preact';
 
 // A modified click (Cmd/Ctrl/Shift or middle-button) is the browser's own
 // "open this link elsewhere" gesture — new tab, new window, copy. When one of
@@ -19,6 +19,10 @@ interface Props {
   onNavigate: () => void;
   class?: string;
   title?: string;
+  /** Inline style passthrough — lets callers set per-instance CSS custom
+      properties (e.g. a kind-color `--kc`) on the rendered <a>, the same way
+      the equivalent <button> chips do. */
+  style?: JSX.CSSProperties;
   /** Accessible name for the link — needed when the visible content is an
       icon only (aria-hidden), so the <a> would otherwise have no name. */
   ariaLabel?: string;
@@ -29,7 +33,7 @@ interface Props {
 // same targets that plain-click navigate within the SPA also support Cmd/Ctrl+
 // click (new tab), middle-click, and right-click "copy link" — the deep-linking
 // contract (any focus is a shareable URL) extended to the links themselves.
-export function HashLink({ href, onNavigate, class: className, title, ariaLabel, children }: Props) {
+export function HashLink({ href, onNavigate, class: className, title, style, ariaLabel, children }: Props) {
   const onClick = (e: MouseEvent) => {
     // Modified/middle click → leave the browser's default link handling alone.
     if (isModifiedClick(e)) return;
@@ -38,7 +42,7 @@ export function HashLink({ href, onNavigate, class: className, title, ariaLabel,
     onNavigate();
   };
   return (
-    <a href={href} class={className} title={title} aria-label={ariaLabel} onClick={onClick}>
+    <a href={href} class={className} title={title} style={style} aria-label={ariaLabel} onClick={onClick}>
       {children}
     </a>
   );

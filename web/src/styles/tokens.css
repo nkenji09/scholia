@@ -70,6 +70,16 @@
   --k-req: var(--tag-blue);
   --k-sub: var(--tag-slate);
   --k-con: var(--tag-teal);
+  /* Overview view kind badges (viewer-overview-browser): the structure tree
+     and component spec sheet color tags by kind name. Mapped to the neutral
+     --tag-* palette so both light/dark resolve automatically. A kind not in
+     this map falls back to --lm-text-dim in code (kindColorVar), so an
+     unknown/legacy tagKind never breaks. */
+  --k-grp: var(--tag-slate);
+  --k-cmp: var(--tag-violet);
+  --k-prt: var(--tag-teal);
+  --k-prop: var(--tag-blue);
+  --k-axis: var(--tag-amber);
   --t-act: var(--tag-violet);
   --t-giv: var(--lm-warning-ic);
   --t-then: var(--lm-success);

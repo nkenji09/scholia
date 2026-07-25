@@ -1,0 +1,889 @@
+/* 概要ビュー（viewer-overview-browser）: 左=構造ツリー rail、右=コンポーネント
+   仕様シート。design（scholia-viewer.dc.html の 概要/OVERVIEW ブロック）の値を
+   踏襲しつつ、色/余白/角丸は tokens.css のトークン参照のみ（生 hex/px を新規に
+   撒かない）。kind 色は要素に付く --kc（kindColorVar 由来）で受ける。
+   レスポンシブ rail は browse.css と同じ off-canvas ドロワー方式。 */
+
+.overview-view {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+/* ---- 左 rail（構造ツリー） ---- */
+.overview-rail {
+  width: var(--scholia-rail-width, 312px);
+  flex-shrink: 0;
+  border-right: 1px solid var(--lm-border);
+  background: var(--lm-bg);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  position: sticky;
+  top: var(--header-h, 56px);
+  align-self: flex-start;
+  height: calc(100dvh - var(--header-h, 56px));
+}
+
+.overview-rail-narrow {
+  position: fixed;
+  top: var(--header-h, 56px);
+  bottom: 0;
+  left: 0;
+  width: 86%;
+  max-width: 340px;
+  height: calc(100dvh - var(--header-h, 56px));
+  z-index: 70;
+  transform: translateX(-100%);
+  transition: transform 0.22s ease;
+  box-shadow: none;
+}
+
+.overview-rail-narrow.overview-rail-open {
+  transform: none;
+  box-shadow: var(--sh-lg);
+}
+
+.overview-backdrop {
+  position: fixed;
+  top: var(--header-h, 56px);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.32);
+  animation: lm-fade 0.15s ease-out;
+}
+
+.overview-rail-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: var(--sp-4) var(--sp-4) var(--sp-3);
+  border-bottom: 1px solid var(--lm-border);
+}
+
+.overview-rail-head-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--lm-text-dim);
+}
+
+.overview-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-3) var(--sp-2) var(--sp-6);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.overview-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: var(--r-sm);
+}
+
+.overview-tree-row.selected {
+  background: var(--lm-primary-weak);
+}
+
+.overview-tree-toggle {
+  width: 18px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--lm-text-dim);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.overview-tree-spacer {
+  width: 18px;
+  flex-shrink: 0;
+}
+
+.overview-tree-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 7px 8px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--lm-text-muted);
+}
+
+.overview-tree-label.kind-group {
+  font-weight: 700;
+  color: var(--lm-text);
+}
+
+.overview-tree-row.selected .overview-tree-label {
+  font-weight: 700;
+  color: var(--lm-primary-strong);
+}
+
+.overview-tree-label:hover {
+  color: var(--lm-text);
+}
+
+.overview-tree-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-full);
+  flex-shrink: 0;
+  background: var(--kc, var(--lm-text-dim));
+}
+
+.overview-tree-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overview-tree-gap {
+  color: var(--lm-warning-ic);
+  flex-shrink: 0;
+}
+
+.overview-tree-count {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-3xs);
+  color: var(--lm-text-dim);
+  flex-shrink: 0;
+}
+
+.overview-tree-row.selected .overview-tree-count {
+  color: var(--lm-primary-strong);
+}
+
+/* ---- 右 main（仕様シート） ---- */
+.overview-main {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.overview-empty {
+  max-width: 940px;
+  margin: 0 auto;
+  padding: var(--sp-8) var(--sp-6);
+  font-size: var(--fs-sm);
+  line-height: 1.8;
+}
+
+.overview-empty.dim {
+  color: var(--lm-text-dim);
+}
+
+.overview-sheet {
+  max-width: 940px;
+  margin: 0 auto;
+  padding: var(--sp-6) var(--sp-6) var(--sp-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+}
+
+.overview-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.overview-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  font-size: var(--fs-2xs);
+  color: var(--lm-text-dim);
+}
+
+.overview-crumb-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* kind チップ（design の chipStyle 相当）— 背景/文字/リングを --kc から作る。 */
+.overview-crumb,
+.overview-kind-badge,
+.overview-req-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--r-full);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  white-space: nowrap;
+  font-family: inherit;
+  background: color-mix(in srgb, var(--kc) 14%, transparent);
+  color: var(--kc);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kc) 30%, transparent);
+}
+
+.overview-req-chip {
+  height: 22px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.overview-head-id {
+  font-family: var(--lm-font-mono);
+  color: var(--lm-text-dim);
+}
+
+.overview-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.overview-title {
+  margin: 0;
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--lm-text-strong);
+}
+
+.overview-title-spacer {
+  flex: 1;
+}
+
+.overview-open-browser {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--lm-border);
+  background: var(--lm-s1);
+  color: var(--lm-text-muted);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.overview-open-browser:hover {
+  color: var(--lm-primary-strong);
+  border-color: var(--lm-primary-ring);
+}
+
+.overview-lead {
+  margin: 0;
+  max-width: 70ch;
+  font-size: var(--fs-md);
+  line-height: 1.8;
+  color: var(--lm-text-muted);
+}
+
+/* カバレッジ統計 */
+.overview-cov {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  padding: 11px var(--sp-4);
+  border: 1px solid var(--lm-border);
+  background: var(--lm-s1);
+  border-radius: var(--r-lg);
+}
+
+.overview-cov-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--lm-text-dim);
+}
+
+.overview-cov-ratio {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.overview-cov-num {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--lm-text-strong);
+  line-height: 1;
+  font-family: var(--lm-font-mono);
+  white-space: nowrap;
+}
+
+.overview-cov-suffix {
+  font-size: var(--fs-2xs);
+  color: var(--lm-text-muted);
+}
+
+.overview-cov-none {
+  font-size: var(--fs-2xs);
+}
+
+.overview-cov-bar {
+  flex: 1;
+  min-width: 90px;
+  height: 6px;
+  border-radius: var(--r-full);
+  background: var(--lm-s3);
+  overflow: hidden;
+  display: flex;
+}
+
+.overview-cov-bar-fill {
+  height: 100%;
+  background: var(--lm-success);
+}
+
+.overview-cov-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-2xs);
+  color: var(--lm-text-dim);
+}
+
+.overview-cov-dot {
+  opacity: 0.5;
+}
+
+.overview-gap {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  flex-wrap: wrap;
+  padding: 10px var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--lm-warning-weak);
+}
+
+.overview-gap-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--lm-warning-ic);
+  flex-shrink: 0;
+}
+
+.overview-gap-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.overview-gap-chip {
+  border: 1px solid color-mix(in srgb, var(--lm-warning-ic) 35%, transparent);
+  background: transparent;
+  color: var(--lm-warning-ic);
+  border-radius: var(--r-full);
+  padding: 3px 11px;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+/* セクション */
+.overview-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding-top: var(--sp-5);
+  border-top: 1px solid var(--lm-border);
+}
+
+.overview-section-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.overview-section-icon {
+  color: var(--lm-primary-strong);
+}
+
+.overview-section-title {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--lm-text-dim);
+}
+
+.overview-section-hint {
+  font-size: var(--fs-2xs);
+  color: var(--lm-text-dim);
+}
+
+.overview-responsibility {
+  max-width: 72ch;
+  font-size: var(--fs-base);
+  line-height: 1.85;
+  color: var(--lm-text);
+  margin: 0;
+}
+
+/* 構成要素ごとの振る舞い */
+.overview-part {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  scroll-margin-top: 16px;
+}
+
+/* ④: part 見出しは chip ではなく heading。ヘッダクリックで開閉（chevron 付き）。
+   kind 色は小さなドットのアクセントに留め、タイポで見出しを表す。 */
+.overview-part-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--lm-border);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.overview-part-chevron {
+  color: var(--lm-text-dim);
+  flex-shrink: 0;
+}
+
+.overview-part-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-full);
+  background: var(--kc, var(--k-prt));
+  flex-shrink: 0;
+}
+
+.overview-part-title {
+  flex: 1;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  color: var(--lm-text-strong);
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.overview-part-head:hover .overview-part-title {
+  color: var(--lm-primary-strong);
+}
+
+.overview-part-spacer {
+  flex: 0;
+}
+
+.overview-part-id {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-3xs);
+  color: var(--lm-text-dim);
+  flex-shrink: 0;
+}
+
+.overview-part-count {
+  font-size: var(--fs-3xs);
+  color: var(--lm-text-dim);
+  flex-shrink: 0;
+}
+
+.overview-part-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.overview-behavior {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid var(--lm-border);
+  background: var(--lm-s1);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4) var(--sp-4) var(--sp-4) var(--sp-5);
+}
+
+.overview-when {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.overview-when-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  color: var(--t-act);
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.overview-when-text {
+  flex: 1;
+  min-width: 180px;
+  font-size: var(--fs-md);
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--lm-text-strong);
+}
+
+.overview-open-tx {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--lm-text-dim);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+.overview-open-tx:hover {
+  color: var(--lm-primary-strong);
+  background: var(--lm-s2);
+}
+
+.overview-gt {
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  gap: 8px var(--sp-3);
+  align-items: baseline;
+}
+
+.overview-slot-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+}
+
+.overview-slot-label.given {
+  color: var(--t-giv);
+}
+
+.overview-slot-label.then {
+  color: var(--t-then);
+}
+
+.overview-slot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.overview-slot-empty {
+  font-size: var(--fs-sm);
+  color: var(--lm-text-dim);
+  font-style: italic;
+}
+
+.overview-slot-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--lm-text);
+}
+
+.overview-slot-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: var(--r-full);
+  margin-top: 8px;
+  flex-shrink: 0;
+}
+
+.overview-slot-dot.given {
+  background: var(--t-giv);
+}
+
+.overview-then-n {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  color: var(--t-then);
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.overview-reqs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding-top: 9px;
+  border-top: 1px solid var(--lm-border);
+}
+
+.overview-reqs-label {
+  font-size: var(--fs-3xs);
+  color: var(--lm-text-dim);
+}
+
+/* 「〜しない」制約 */
+.overview-props-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--sp-3);
+}
+
+.overview-prop-card {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: var(--sp-4);
+  border: 1px solid var(--lm-border);
+  background: var(--lm-s1);
+  border-left: 3px solid var(--k-prop);
+  border-radius: var(--r-md);
+  font-family: inherit;
+}
+
+/* ②: 制約名は実 <a>。カード全体ではなく名前がリンク（規則トグルと分離）。 */
+.overview-prop-name {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--lm-text-strong);
+  text-decoration: none;
+}
+
+.overview-prop-name:hover {
+  color: var(--lm-primary-strong);
+}
+
+.overview-prop-icon {
+  color: var(--k-prop);
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.overview-prop-why {
+  font-size: var(--fs-xs);
+  line-height: 1.7;
+  color: var(--lm-text-muted);
+}
+
+/* ⑤ decision のインライン展開（「規則 (N)」トグル）。各レコード文脈の直下に置く。 */
+.overview-rules-inline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.overview-rules-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  border: 1px solid var(--lm-border);
+  background: var(--lm-s1);
+  color: var(--lm-text-muted);
+  border-radius: var(--r-md);
+  padding: 5px 11px;
+  cursor: pointer;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+}
+
+.overview-rules-toggle:hover {
+  color: var(--lm-primary-strong);
+  border-color: var(--lm-primary-ring);
+}
+
+.overview-rules-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+/* 現行ルール（decision 行） */
+.overview-rule {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid var(--lm-border);
+  background: var(--lm-s1);
+  border-left: 3px solid var(--lm-primary);
+  border-radius: var(--r-md);
+  padding: 12px var(--sp-4);
+}
+
+.overview-rule.stale {
+  border-left-style: dashed;
+  border-left-color: var(--lm-border-strong);
+  opacity: 0.75;
+}
+
+.overview-rule-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.overview-rule-summary {
+  flex: 1;
+  min-width: 200px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 1.65;
+  color: var(--lm-text);
+}
+
+.overview-rule-summary.struck {
+  font-weight: 400;
+  color: var(--lm-text-muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--lm-border-strong);
+}
+
+.overview-rule-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: var(--r-full);
+  color: var(--lm-success);
+  background: var(--lm-success-weak);
+}
+
+.overview-rule-badge.amended {
+  color: var(--lm-warning-ic);
+  background: var(--lm-warning-weak);
+}
+
+.overview-rule-badge.stale {
+  color: var(--lm-text-dim);
+  background: var(--lm-s2);
+}
+
+.overview-rule-why {
+  margin: 0;
+  padding: 11px 13px;
+  background: var(--lm-s2);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-sm);
+  line-height: 1.85;
+  color: var(--lm-text-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.overview-rule-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.overview-rule-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: transparent;
+  color: var(--lm-primary-strong);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+
+.overview-rule-via {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-3xs);
+  color: var(--lm-text-dim);
+}
+
+/* ⑤: decision 行から target レコードへの deep-link（⌘/Ctrl+クリックで別タブ）。 */
+.overview-rule-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--lm-text-dim);
+  text-decoration: none;
+  border-radius: var(--r-sm);
+}
+
+.overview-rule-link:hover {
+  color: var(--lm-primary-strong);
+}
+
+.overview-rule-spacer {
+  flex: 1;
+}
+
+.overview-rule-at {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-3xs);
+  color: var(--lm-text-dim);
+}
+
+/* CommentButton（.comment-button）は comments.css で定義済み。ここでは
+   セクション見出し内での配置だけ整える。 */
+.overview-section-head .comment-button {
+  margin-left: 0;
+}

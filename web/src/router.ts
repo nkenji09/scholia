@@ -18,7 +18,14 @@ import { useEffect, useState } from 'preact/hooks';
 // evaluation moves inline into each Transition's comment drawer instead of
 // living on its own route. `getDiff` (api.ts) and the `/api/diff` backend
 // endpoint stay for that inline reuse (P2) — only this standalone view goes.
-export type ViewName = 'home' | 'browse' | 'vocab' | 'spec' | 'tags' | 'config' | 'flow' | 'decisions' | 'decision';
+// 'overview' is the IA-rework landing (viewer-overview-browser): the structure
+// tree + component spec sheet. It's the new DEFAULT_ROUTE. 'home' (the previous
+// landing) is kept as a valid view so old #/home bookmarks still resolve —
+// app.tsx renders OverviewView for both. Every other legacy route
+// (#/spec/#/vocab/#/flow/#/decisions/#/tags) is untouched: they're no longer
+// top-level nav tabs but stay reachable as internal lenses/detail routes of
+// 概要/ブラウザ (per the IA-rework: nothing is deleted, only demoted).
+export type ViewName = 'overview' | 'home' | 'browse' | 'vocab' | 'spec' | 'tags' | 'config' | 'flow' | 'decisions' | 'decision';
 
 export interface Route {
   view: ViewName;
@@ -70,14 +77,14 @@ export interface Route {
   flowTags?: string;
 }
 
-const VIEWS: ViewName[] = ['home', 'browse', 'vocab', 'spec', 'tags', 'config', 'flow', 'decisions', 'decision'];
-// HOME is the new landing page (.concierge/decision.md G-2, resolved:
-// default route moves from 'browse' to 'home'). An empty/unknown hash still
-// falls back to DEFAULT_ROUTE below, so bookmarks of `#` or the bare page
-// URL land on HOME now instead of Browse — every other existing route
-// (#/browse/..., #/spec/..., etc.) is unaffected since parseRoute only
-// consults DEFAULT_ROUTE when the hash's view segment is absent or unknown.
-const DEFAULT_ROUTE: Route = { view: 'home' };
+const VIEWS: ViewName[] = ['overview', 'home', 'browse', 'vocab', 'spec', 'tags', 'config', 'flow', 'decisions', 'decision'];
+// OVERVIEW is the IA-rework landing (viewer-overview-browser): default route
+// moves from 'home' to 'overview'. An empty/unknown hash still falls back to
+// DEFAULT_ROUTE below, so bookmarks of `#` or the bare page URL land on 概要
+// now — every other existing route (#/browse/..., #/spec/..., #/home) is
+// unaffected since parseRoute only consults DEFAULT_ROUTE when the hash's view
+// segment is absent or unknown.
+const DEFAULT_ROUTE: Route = { view: 'overview' };
 
 function isViewName(s: string): s is ViewName {
   return (VIEWS as string[]).includes(s);
