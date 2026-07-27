@@ -44,10 +44,13 @@ export function DecisionDetailView({ decisionId, onBack, onOpenDecision }: Props
     const m = linkMode(mode);
     return m === 'supersede' ? t.decisions.modeSupersede : m === 'exception' ? t.decisions.modeException : t.decisions.modeAmend;
   };
+  // 効力は2値（条項1）。「改訂」を状態として並べない——amend を付けられた
+  // decision はまだ効いており、下の「この意思決定を置き換え/改訂」欄が
+  // その関係（付帯情報・条項2/7）を明示的な導線として持っている。
   const currencyLabel = (c: Currency): string =>
-    c === 'superseded' ? t.decisions.currencySuperseded : c === 'amended' ? t.decisions.currencyAmended : t.decisions.currencyCurrent;
+    c === 'superseded' ? t.decisions.effectReplaced : t.decisions.effectInForce;
   const currencyCls = (c: Currency): string =>
-    c === 'superseded' ? 'decision-badge-superseded' : c === 'amended' ? 'decision-badge-amended' : 'decision-badge-current';
+    c === 'superseded' ? 'decision-badge-superseded' : 'decision-badge-current';
 
   if (error) return <main class="decision-detail-view error">{error}</main>;
   if (!decisions) return <main class="decision-detail-view dim">{t.decisions.loading}</main>;

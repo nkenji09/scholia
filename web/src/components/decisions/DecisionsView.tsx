@@ -12,7 +12,7 @@ import { Resizer } from '../layout/Resizer';
 import { RAIL_WIDTH } from '../layout/resizableWidths';
 import { kindColor } from '../shared/Chip';
 import { Icon } from '../shared/Icon';
-import { buildCurrencyIndex, currencyOf, type Currency } from './decisionModel';
+import { buildCurrencyIndex, currencyOf, effectOf, relatedDecisions, type Effect } from './decisionModel';
 
 const COLLAPSE_FACET = 'decisions';
 
@@ -52,12 +52,16 @@ interface Props {
 
 const PERIOD_DAYS: Record<Exclude<PeriodFilter, 'all'>, number> = { '30d': 30, '90d': 90, '1y': 365 };
 
-// Currency → badge class + label. 'amended' rides the same "still current but
-// caveated" bucket as current for the 現行/失効 filter, but keeps its own badge.
-function currencyBadge(c: Currency, t: ReturnType<typeof useT>): { cls: string; label: string } {
-  if (c === 'superseded') return { cls: 'decision-badge-superseded', label: t.decisions.currencySuperseded };
-  if (c === 'amended') return { cls: 'decision-badge-amended', label: t.decisions.currencyAmended };
-  return { cls: 'decision-badge-current', label: t.decisions.currencyCurrent };
+// 効力バッジは2値（01KYHW54B8ZXH0NEPH2J7N1X39 条項1）。記録の3値
+// （supersede/amend/exception）は不変で、変えるのは画面の状態列だけ。
+// かつてここは3値をそのまま出していて、amend を付けられただけの——**まだ
+// 効いている**——decision が「改訂」として現行と別の状態に見え、履歴側だと
+// 誤読された。付帯情報（後続に部分改訂・例外がある）は状態列ではなく行の
+// 補助情報として出す（条項2）。
+function effectBadge(e: Effect, t: ReturnType<typeof useT>): { cls: string; label: string } {
+  return e === 'replaced'
+    ? { cls: 'decision-badge-superseded', label: t.decisions.effectReplaced }
+    : { cls: 'decision-badge-current', label: t.decisions.effectInForce };
 }
 
 const splitTags = (v: string): string[] => (v ? v.split(',').filter(Boolean) : []);
@@ -393,7 +397,9 @@ export function DecisionsView({ searchQuery, targetKind, tagFilter, currency, pe
           ) : (
             <ul class="decisions-list">
               {filtered.map((d) => {
-                const badge = currencyBadge(currencyOf(d.id, currencyIndex), t);
+                const badge = effectBadge(effectOf(d.id, currencyIndex), t);
+                // 条項2: 「後続に部分改訂・例外が付いている」は状態ではなく付帯情報。
+                const related = relatedDecisions(d.id, currencyIndex);
                 return (
                   <li key={d.id}>
                     <button
@@ -414,6 +420,7 @@ export function DecisionsView({ searchQuery, targetKind, tagFilter, currency, pe
                       <p class="decision-row-why">{d.why}</p>
                       <div class="decision-row-bottom">
                         <span class="decision-row-at dim">{formatDecisionAt(d.at)}</span>
+                        {related.length > 0 && <span class="decision-row-related-note dim">{t.decisions.readTogether(related.length)}</span>}
                         <span class={'decision-badge ' + badge.cls}>{badge.label}</span>
                       </div>
                     </button>

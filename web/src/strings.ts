@@ -249,12 +249,10 @@ const ja = {
     parentLinkTitle: '親タグのカードへ移動',
     childLinkTitle: 'このカードへ移動',
     kindHeading: '種別',
-    // governs 並置（#45 D10b-1）: 「この記録を支配する規則」欄。own の意思決定は
-    // 従来位置のまま不変で、祖先/実効タグ経由の decision を出自バッジ付きで並置。
-    // 既定折りたたみ・件数バッジのみ常時表示。
+    // 継承した規則の開示（01KYHW4NBNVN9BFXYZMBX8MPF8 条項3）。「この記録を
+    // 支配する規則」欄（本文を全文で再掲していた）を廃止した代わりに、件数と
+    // 継承元と導線だけを出す。件数は**効いている規則の数**。
     governsHeading: 'この記録を支配する規則',
-    // 出自バッジ: own=この記録自身の判断／effective-tag=直接持つタグ経由／
-    // parent=祖先タグ経由。tagId は via バッジに添える経由タグ名。
     governsProvenanceOwn: 'この記録自身',
     governsProvenanceEffectiveTag: (tag: string) => `タグ経由〈${tag}〉`,
     governsProvenanceParent: (tag: string) => `親タグ経由〈${tag}〉`,
@@ -442,6 +440,18 @@ const ja = {
     currencyCurrent: '現行',
     currencySuperseded: '失効',
     currencyAmended: '改訂',
+    // 画面に出す効力は2値（01KYHW54B8ZXH0NEPH2J7N1X39 条項1・3）。記録の3値
+    // （supersede/amend/exception）は不変で、状態列だけを2値にする。
+    // 「失効」ではなく「置き換え済み」なのは、効いていない**理由**が語から
+    // 読めるようにするため（条項3）——「失効」は期限切れに読める。
+    effectInForce: '現行',
+    effectReplaced: '置き換え済み',
+    // 付帯情報（条項2）: 後続に部分改訂・例外が付いている。読み飛ばしてよいと
+    // 解釈できる語（補足・関連）は使わず、とるべき行動を述べる。
+    readTogether: (n: number) => `併せて読む意思決定 ${n}件`,
+    openReplacement: '置き換えた規則を見る',
+    // 置き換え済みを畳む口（条項4）。中身が「置き換えられたもの」だと分かる語。
+    replacedHeading: (n: number) => `置き換えられた規則 (${n})`,
     // 詳細ページの節見出し。
     whyHeading: 'なぜ',
     changedHeading: '変更内容',
@@ -870,6 +880,11 @@ const en: Strings = {
     currencyCurrent: 'Current',
     currencySuperseded: 'Superseded',
     currencyAmended: 'Amended',
+    effectInForce: 'In force',
+    effectReplaced: 'Replaced',
+    readTogether: (n: number) => `${n} decision(s) to read with this`,
+    openReplacement: 'Open the replacement',
+    replacedHeading: (n: number) => `Replaced rules (${n})`,
     whyHeading: 'Why',
     changedHeading: 'Changed',
     targetHeading: 'Target',
