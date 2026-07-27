@@ -60,6 +60,20 @@ func path(scholiaDir, id string) string {
 	return filepath.Join(scholiaDir, dirName, id+".json")
 }
 
+// NotFoundError は cond.review-exists が満たされないこと（指定 id の提案コメントが
+// 無い）。文字列ではなく型で返すのは、面ごとに見せ方が違うため——CLI は「どの id を
+// 指したか」を出す必要があるので Error() に id を含める。viewer は
+// 01KYCC2TF3NW3JRSSRK9ZHN078（viewer は生レコード id を表示しない・id は
+// deep-link の href としてのみ用いる）に従い、id を含まない文言を組み直す。
+// review の id は ULID なので、この文言をそのまま body に載せると漏れる。
+type NotFoundError struct {
+	ID string
+}
+
+func (e *NotFoundError) Error() string {
+	return fmt.Sprintf("review %q が実在しません", e.ID)
+}
+
 // Add atomically writes r to scholiaDir/reviews/<r.ID>.json (tmp-file-then-rename,
 // mirroring store.writeJSONAtomic).
 func Add(scholiaDir string, r Review) error {
@@ -103,7 +117,7 @@ func Get(scholiaDir, id string) (Review, error) {
 	data, err := os.ReadFile(path(scholiaDir, id))
 	if err != nil {
 		if os.IsNotExist(err) {
-			return Review{}, fmt.Errorf("review %q が実在しません", id)
+			return Review{}, &NotFoundError{ID: id}
 		}
 		return Review{}, err
 	}
@@ -123,7 +137,7 @@ func Get(scholiaDir, id string) (Review, error) {
 func Delete(scholiaDir, id string) error {
 	if err := os.Remove(path(scholiaDir, id)); err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("review %q が実在しません", id)
+			return &NotFoundError{ID: id}
 		}
 		return err
 	}

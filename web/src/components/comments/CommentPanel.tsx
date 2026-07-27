@@ -3,7 +3,8 @@ import { useComments, recordTypeMeta } from './useComments';
 import type { CommentRecord, DisplayComment } from './useComments';
 import { ProposalCard } from './ProposalCard';
 import { RecordDiffCard } from './RecordDiffCard';
-import { SupersedeConfirm, supersedeErrorMessage } from './SupersedeConfirm';
+import { SupersedeConfirm } from './SupersedeConfirm';
+import { adoptErrorMessage } from './adoptErrors';
 import { Markdown } from '../Markdown';
 import { usePendingDiff } from '../../pendingDiff';
 import { useT } from '../../i18n';
@@ -184,7 +185,7 @@ export function CommentPanel({ onGoto }: Props) {
     } catch (e) {
       // 結線の検証で落ちたときは code から自前の文言を選ぶ——サーバの文言は
       // CLI 向けで生 ULID を含みうる（01KYCC2TF3NW3JRSSRK9ZHN078）。
-      setDecideError(e instanceof ApiError ? supersedeErrorMessage(t, e.code, e.message) : String(e));
+      setDecideError(e instanceof ApiError ? adoptErrorMessage(t, e.code, e.message) : String(e));
     } finally {
       setDeciding(false);
     }

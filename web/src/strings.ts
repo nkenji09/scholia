@@ -379,6 +379,10 @@ const ja = {
     supersedeErrorSelfReference: '意思決定は自分自身を置き換えられません。',
     supersedeErrorEmptyId: '置き換え対象が指定されていません。',
     supersedeErrorModeRewrite: '宣言済みの置き換えの種別は変更できません（リンクは追記のみ）。',
+    // 昇格元コメントの掃除（DELETE /api/reviews/{id}）の失敗。review の id も
+    // ULID なので、サーバの文言をそのまま出さずここが持つ。
+    reviewErrorNotFound: 'この提案コメントは見つかりません（既に削除されています）。',
+    reviewErrorInvalidId: '提案コメントの指定が不正です。',
     // 却下（#35・tx.review.reject/tx.comment.reject）— 採用と対称の束ね操作。
     // decision として記録した上で昇格元コメントを削除する点は採用と同じ。
     rejectButton: '却下',
@@ -801,6 +805,8 @@ const en: Strings = {
     supersedeErrorSelfReference: 'A decision cannot replace itself.',
     supersedeErrorEmptyId: 'No replacement target was given.',
     supersedeErrorModeRewrite: 'A declared replacement kind cannot be changed (links are append-only).',
+    reviewErrorNotFound: 'That proposal comment no longer exists (it has already been deleted).',
+    reviewErrorInvalidId: 'The proposal comment reference is invalid.',
     rejectButton: 'Reject',
     rejectWhyLabel: 'Rejection reason (will be recorded as a decision)',
     rejectConfirm: 'Confirm rejection',

@@ -1,32 +1,6 @@
 import { useT } from '../../i18n';
-import type { Strings } from '../../i18n';
 import { Icon } from '../shared/Icon';
 import type { SupersedeLink, SupersedeTargetDetail } from '../../types';
-
-// 採用が結線の検証で落ちたときの文言を、サーバの code から選ぶ。
-//
-// サーバ（internal/model.SupersedeError）の Error() は「どの id を直せばよいか」
-// を含む CLI 向けの文言なので、そのまま出すとドロワーに生 ULID が出る
-// （01KYCC2TF3NW3JRSSRK9ZHN078: viewer は生レコード id を表示しない）。code を
-// 知らない失敗（閉路検査など・id を含まない）は message をそのまま出す。
-export function supersedeErrorMessage(t: Strings, code: string | undefined, fallback: string): string {
-  switch (code) {
-    case 'supersedes-missing-target':
-      return t.comments.supersedeErrorMissingTarget;
-    case 'supersedes-invalid-mode':
-      return t.comments.supersedeErrorInvalidMode;
-    case 'supersedes-duplicate':
-      return t.comments.supersedeErrorDuplicate;
-    case 'supersedes-self-reference':
-      return t.comments.supersedeErrorSelfReference;
-    case 'supersedes-empty-id':
-      return t.comments.supersedeErrorEmptyId;
-    case 'supersedes-mode-rewrite':
-      return t.comments.supersedeErrorModeRewrite;
-    default:
-      return fallback;
-  }
-}
 
 // 結線の確認（adopt が現行性リンクまで束ねる要件・01KYHE08WNA8H1Q1DM2H45Y4TK）。
 //

@@ -2,6 +2,7 @@ package viewer
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/nkenji09/scholia/internal/model"
@@ -152,5 +153,50 @@ func TestGetReviews_NoDeclarationStillReportsPriorCount(t *testing.T) {
 	}
 	if got[0].PriorDecisionCount != 1 {
 		t.Fatalf("priorDecisionCount = %d, want 1", got[0].PriorDecisionCount)
+	}
+}
+
+// DELETE /api/reviews/{id} の失敗文言に review の生 ULID を出さない
+// （01KYCC2TF3NW3JRSSRK9ZHN078）。ドロワーの Adopt は decision 昇格の直後に
+// この DELETE を呼ぶので、失敗すると同じエラー欄に出る。
+func TestDeleteReview_ErrorsCarryNoULID(t *testing.T) {
+	cases := []struct {
+		name       string
+		id         string
+		wantStatus int
+		wantCode   string
+	}{
+		{"実在しない review", "01KYHZZZZZZZZZZZZZZZZZZZZZ", http.StatusNotFound, "review-not-found"},
+		// パス区切りは %2F/%5C でエンコードされたときだけハンドラまで届く
+		// （生の "/" はルータが別ルートに振り、"a..b" のような形は素通りする）。
+		{"パス区切りを含む不正 id", "01KYHZZZZZZZZZZZZZZZZZZZZZ%2Fx", http.StatusBadRequest, "review-invalid-id"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h, _ := newTestHandler(t)
+			rec := doRequest(t, h, http.MethodDelete, "/api/reviews/"+tc.id, nil)
+			if rec.Code != tc.wantStatus {
+				t.Fatalf("status = %d, want %d: %s", rec.Code, tc.wantStatus, rec.Body.String())
+			}
+			got := decodeJSON[struct {
+				Error string `json:"error"`
+				Code  string `json:"code"`
+			}](t, rec)
+			if got.Code != tc.wantCode {
+				t.Fatalf("code = %q, want %q", got.Code, tc.wantCode)
+			}
+			if leaks := ulidPattern.FindAllString(got.Error, -1); len(leaks) > 0 {
+				t.Fatalf("失敗メッセージに生 ULID が漏れている: %v\nmessage: %s", leaks, got.Error)
+			}
+		})
+	}
+}
+
+// 逆側の固定: CLI 向けの文言（review.NotFoundError.Error()）は id を含み続ける。
+// 手で .scholia/reviews/ を触る人には「どの id を指したか」が要る。
+func TestReviewNotFoundError_CLIMessageKeepsID(t *testing.T) {
+	err := &review.NotFoundError{ID: "01KYHZZZZZZZZZZZZZZZZZZZZZ"}
+	if !strings.Contains(err.Error(), "01KYHZZZZZZZZZZZZZZZZZZZZZ") {
+		t.Fatalf("CLI 向け文言は id を含むべき: %q", err.Error())
 	}
 }

@@ -1,7 +1,7 @@
 package viewer
 
 import (
-	"fmt"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -178,12 +178,20 @@ type deleteReviewResponse struct {
 func deleteReviewHandler(s *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
+		// review の id は ULID なので、失敗文言に id を載せない
+		// （01KYCC2TF3NW3JRSSRK9ZHN078: viewer は生レコード id を表示しない）。
+		// 何が起きたかは code で伝え、読ませる文言はフロントが持つ。
 		if !validTransitionID(id) {
-			writeError(w, http.StatusBadRequest, fmt.Sprintf("id %q は不正です（'/' '\\' や '.'/'..' は使えません）", id))
+			writeErrorCode(w, http.StatusBadRequest, "提案コメントの指定が不正です", "review-invalid-id")
 			return
 		}
 		if err := review.Delete(s.Dir, id); err != nil {
-			writeError(w, http.StatusNotFound, err.Error())
+			var notFound *review.NotFoundError
+			if errors.As(err, &notFound) {
+				writeErrorCode(w, http.StatusNotFound, "この提案コメントは見つかりません（既に削除されています）", "review-not-found")
+				return
+			}
+			writeError(w, http.StatusInternalServerError, "提案コメントを削除できませんでした")
 			return
 		}
 		writeJSON(w, http.StatusOK, deleteReviewResponse{ID: id})
