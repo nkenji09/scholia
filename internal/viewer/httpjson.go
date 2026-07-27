@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/nkenji09/scholia/internal/review"
 	"github.com/nkenji09/scholia/internal/store"
@@ -63,6 +64,13 @@ func writeStoreError(w http.ResponseWriter, err error) {
 			"record-file-unreadable")
 		return
 	}
+	var writeErr *store.RecordWriteError
+	if errors.As(err, &writeErr) {
+		writeErrorCode(w, http.StatusInternalServerError,
+			writeFailedMessage(recordDirLabel(writeErr.Category), fsCause(err)),
+			"record-write-failed")
+		return
+	}
 	var revErr *review.FileError
 	if errors.As(err, &revErr) {
 		// 提案コメントは LoadAll の対象外（§8.4: reviews/ は lint から見えない）
@@ -85,6 +93,41 @@ func unreadableRecordMessage(dir, cmd string, parse bool) string {
 		how = "JSON として壊れています"
 	}
 	return fmt.Sprintf("%s のレコードファイルを1件読み込めません（%s）。端末で `%s` を実行すると、対象のファイル名と原因が表示されます。", dir, how, cmd)
+}
+
+// writeFailedMessage は保存に失敗したことを、宛先パス（decision は
+// `<新 ULID>.json`）を出さずに伝える。
+//
+// ここでも「id を出さない」と「原因に到達できる」を両立させる必要がある。FS 障害は
+// 運用者が直すものなので、原因を全部消すと直しようがなくなる——そこで**書き込み先の
+// ディレクトリ**と**OS レベルの原因（op と errno）**は残す。errno は
+// `permission denied` / `operation not permitted` / `no space left on device` の
+// ような、パスも id も含まない文字列。壊れたファイルを探す話ではないので、案内先は
+// CLI ではなくディレクトリの状態そのもの。
+//
+// 「保存されていません」を明示するのは、採用フローでは POST が失敗した時点で
+// 昇格元コメントの削除に進まない（＝提案は残っている）ため——人が次に何をすれば
+// よいかが変わる。
+func writeFailedMessage(dir, cause string) string {
+	if cause == "" {
+		return fmt.Sprintf("%s への書き込みに失敗したため、意思決定は保存されていません。ディレクトリの権限・空き容量・ファイルフラグを確認してください。", dir)
+	}
+	return fmt.Sprintf("%s への書き込みに失敗したため、意思決定は保存されていません（%s）。ディレクトリの権限・空き容量・ファイルフラグを確認してください。", dir, cause)
+}
+
+// fsCause は FS エラーから「op と errno」だけを取り出す。os.LinkError /
+// os.PathError の Error() はパスを含むが、内側の Err は含まない——ここが
+// 「原因は残すがパスは出さない」を成立させている分岐点。
+func fsCause(err error) string {
+	var linkErr *os.LinkError
+	if errors.As(err, &linkErr) {
+		return fmt.Sprintf("%s: %v", linkErr.Op, linkErr.Err)
+	}
+	var pathErr *os.PathError
+	if errors.As(err, &pathErr) {
+		return fmt.Sprintf("%s: %v", pathErr.Op, pathErr.Err)
+	}
+	return ""
 }
 
 // recordDirLabel は store のカテゴリ名を .scholia 配下のディレクトリ表記へ直す
