@@ -7,7 +7,7 @@ import type { IconName } from '../shared/Icon';
 import { useReviews } from '../../reviews';
 import { useLookups } from '../../lookups';
 import { api } from '../../api';
-import type { Review, Decision } from '../../types';
+import type { Review, Decision, SupersedeLink, SupersedeTargetDetail } from '../../types';
 
 // Comments (#18) — volatile, per-browser annotations. Deliberately NOT part
 // of the .scholia record model: everything here lives only in localStorage
@@ -99,6 +99,13 @@ export interface Task {
 // items, since composer targets are always built from human UI affordances).
 export interface DisplayComment extends CommentRecord {
   source: 'local' | 'ai';
+  // 結線の宣言（AI review のみ）: Adopt 前にドロワーで見せ、Adopt と一緒に
+  // POST /api/decision へ送る。人コメント（localStorage）は宣言を持たない
+  // ——結線先は AI が提案時に宣言する構造化フィールドで、viewer は review を
+  // 書かない（G-3 は反転しない）。
+  supersedes?: SupersedeLink[];
+  supersedesDetail?: SupersedeTargetDetail[];
+  priorDecisionCount?: number;
 }
 
 const REVIEW_BINDINGS_STORAGE_KEY = 'scholia-review-bindings-v1';
@@ -422,6 +429,9 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
       updatedAt: Date.parse(r.createdAt) || 0,
       replies: [],
       decisionId: reviewBindings[r.id]?.decisionId,
+      supersedes: r.supersedes,
+      supersedesDetail: r.supersedesDetail,
+      priorDecisionCount: r.priorDecisionCount,
       source: 'ai',
     }));
 

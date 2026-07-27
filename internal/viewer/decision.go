@@ -2,14 +2,29 @@ package viewer
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/nkenji09/scholia/internal/lint"
 	"github.com/nkenji09/scholia/internal/model"
 	"github.com/nkenji09/scholia/internal/store"
 )
+
+// withoutDecision は snapshot から id の decision を除いたコピーを返す（保存直後の
+// advisory 判定で「自分自身を既存 decision として数える」ことを避ける）。
+func withoutDecision(snap store.Snapshot, id string) store.Snapshot {
+	out := make([]model.Decision, 0, len(snap.Decisions))
+	for _, d := range snap.Decisions {
+		if d.ID != id {
+			out = append(out, d)
+		}
+	}
+	snap.Decisions = out
+	return snap
+}
 
 func registerDecisionRoutes(mux *http.ServeMux, s *store.Store) {
 	mux.HandleFunc("POST /api/decision", postDecisionHandler(s))
@@ -27,6 +42,11 @@ type decisionPostBody struct {
 	Changed string   `json:"changed,omitempty"`
 	Ref     string   `json:"ref,omitempty"`
 	Commits []string `json:"commits,omitempty"`
+	// Supersedes は提案が宣言した現行性リンク（adopt が結線まで束ねる要件・
+	// 01KYHE08WNA8H1Q1DM2H45Y4TK）。デコーダが DisallowUnknownFields を立てて
+	// いるので、型に持たない限りフロントが送ると 400 になる——ドロワーの Adopt
+	// が結線できるかどうかは、この1フィールドの有無で決まる。
+	Supersedes []model.SupersedeLink `json:"supersedes,omitempty"`
 }
 
 // postDecisionHandler serves POST /api/decision: the adopt flow's one write
@@ -77,24 +97,113 @@ func postDecisionHandler(s *store.Store) http.HandlerFunc {
 
 		id, err := model.NewULID()
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeStoreError(w, err)
 			return
 		}
+
+		// 現行性リンクの検証は CLI（decide --supersedes / decision link /
+		// review adopt）と同一の model 側関数を通す——面ごとに書き分けると
+		// 「CLI では弾かれるのに viewer では通る」宙吊りリンクが生まれる。
+		links, err := validateSupersedeBody(s, id, body.Supersedes)
+		if err != nil {
+			writeSupersedeError(w, err)
+			return
+		}
+
 		d := model.Decision{
-			ID:      id,
-			Target:  model.DecisionTarget{Type: targetType, ID: targetID},
-			Why:     body.Why,
-			Changed: body.Changed,
-			Ref:     body.Ref,
-			At:      time.Now().UTC().Format(time.RFC3339),
-			Commits: dedupeAppend(body.Commits),
+			ID:         id,
+			Target:     model.DecisionTarget{Type: targetType, ID: targetID},
+			Why:        body.Why,
+			Changed:    body.Changed,
+			Ref:        body.Ref,
+			At:         time.Now().UTC().Format(time.RFC3339),
+			Commits:    dedupeAppend(body.Commits),
+			Supersedes: links,
 		}
 		if err := s.SaveDecision(d); err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeStoreError(w, err)
 			return
 		}
-		writeJSON(w, http.StatusCreated, d)
+
+		// 未宣言はブロックせず advisory（adopt が結線まで束ねる要件・
+		// 01KYHE08WNA8H1Q1DM2H45Y4TK）。CLI review adopt と同じ非ブロック扱いで、
+		// 同じ検査コアを通す。埋め込みなので JSON は従来の Decision がフラットに
+		// 出たまま advisories が増えるだけ——既存の読み手は壊れない。
+		var advisories []lint.Finding
+		if snap, err := s.LoadAll(); err == nil {
+			advisories = lint.TargetUnlinkedSupersede(withoutDecision(snap, d.ID), d.Target, d.Supersedes)
+		}
+		writeJSON(w, http.StatusCreated, struct {
+			model.Decision
+			Advisories []lint.Finding `json:"advisories,omitempty"`
+		}{Decision: d, Advisories: advisories})
 	}
+}
+
+// writeSupersedeError は現行性リンクの検証違反を、生 ULID を含まない文言と
+// 機械可読な code で返す（01KYCC2TF3NW3JRSSRK9ZHN078: viewer は生レコード id を
+// 表示しない・id は deep-link の href としてのみ用いる）。
+//
+// model.SupersedeError.Error() は「どの id を直せばよいか」を含む CLI 向けの
+// 文言なので、viewer がそれをそのまま body に載せるとドロワーのエラー欄に
+// ULID が出る。Kind から組み直すことで、確認ブロック（supersedesDetail の
+// missing 表示）が既に使っている「対象不明の意思決定 / この意思決定は
+// 見つかりません」と同じ語彙に揃う。
+func writeSupersedeError(w http.ResponseWriter, err error) {
+	var se *model.SupersedeError
+	if !errors.As(err, &se) {
+		// 閉路検査など SupersedeError でない失敗。文言に id を含まない。
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeErrorCode(w, http.StatusBadRequest, supersedeViewerMessage(se), "supersedes-"+se.Kind)
+}
+
+// supersedeViewerMessage は code を知らないフロント向けのフォールバック文言。
+// 翻訳済みの文言はフロントが code から選ぶ（web/src/components/comments/
+// SupersedeConfirm.tsx）。どの分岐も id を含めない。
+func supersedeViewerMessage(se *model.SupersedeError) string {
+	switch se.Kind {
+	case model.SupersedeErrMissingTarget:
+		return "置き換え対象の意思決定が見つかりません（提案が宣言した結線先が既に消えています）"
+	case model.SupersedeErrInvalidMode:
+		return "置き換えの種別が不正です（全文置換・部分改訂・意識的例外のいずれかである必要があります）"
+	case model.SupersedeErrDuplicate:
+		return "同じ意思決定が二重に指定されています"
+	case model.SupersedeErrSelfReference:
+		return "意思決定は自分自身を置き換えられません"
+	case model.SupersedeErrEmptyID:
+		return "置き換え対象が指定されていません"
+	case model.SupersedeErrModeRewrite:
+		return "宣言済みの置き換えの種別は変更できません（リンクは追記のみ）"
+	}
+	return "置き換えの指定が不正です"
+}
+
+// validateSupersedeBody は POST body の supersedes[] を検証し、保存する形へ
+// 正規化する。mode 3値検証・自己参照禁止・重複指定・旧 decision の実在照合・
+// 閉路検査を、CLI と同じ model 側関数（と同じ順序）で通す。
+func validateSupersedeBody(s *store.Store, newID string, links []model.SupersedeLink) ([]model.SupersedeLink, error) {
+	if len(links) == 0 {
+		return nil, nil
+	}
+	// mode 3値・自己参照禁止・重複禁止は CLI の parse 段と同じ1関数を通す
+	// （viewer は構造化 JSON を受け取るので文字列解析だけが要らない）。
+	out, err := model.NormalizeSupersedeLinks(links, newID)
+	if err != nil {
+		return nil, err
+	}
+	snap, err := s.LoadAll()
+	if err != nil {
+		return nil, err
+	}
+	if err := model.ValidateSupersedeTargets(snap.Decisions, out); err != nil {
+		return nil, err
+	}
+	if model.SupersedeCreatesCycle(snap.Decisions, newID, out) {
+		return nil, fmt.Errorf("supersedes: この結線は decision の supersede グラフに循環を作ります（新→旧の有向グラフに閉路）")
+	}
+	return out, nil
 }
 
 // parseDecisionOn parses "transition:<id>" / "tag:<id>" / "vocab:<id>" — a

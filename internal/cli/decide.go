@@ -66,7 +66,7 @@ func newDecideCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := validateSupersedeTargets(snap.Decisions, links); err != nil {
+			if err := model.ValidateSupersedeTargets(snap.Decisions, links); err != nil {
 				return err
 			}
 

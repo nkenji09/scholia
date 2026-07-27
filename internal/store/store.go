@@ -3,6 +3,7 @@ package store
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -279,7 +280,10 @@ func dedupeSorted(sorted []string) []string {
 }
 
 func (s *Store) SaveDecision(d model.Decision) error {
-	return writeJSONAtomic(s.decisionPath(d.ID), d)
+	if err := writeJSONAtomic(s.decisionPath(d.ID), d); err != nil {
+		return &RecordWriteError{Category: "decision", Err: err}
+	}
+	return nil
 }
 
 func (s *Store) LoadDecision(id string) (model.Decision, error) {
@@ -316,6 +320,60 @@ type identifiable interface {
 	GetID() string
 }
 
+// RecordFileError は1件のレコードファイルが読めない／JSON として壊れていること。
+//
+// 文字列ではなく型で返すのは、面ごとに見せ方が違うため。decision のファイル名は
+// `<ULID>.json` なので、この文言をそのまま viewer の応答に載せると生 ULID が漏れる
+// （01KYCC2TF3NW3JRSSRK9ZHN078: viewer は生レコード id を表示しない）。かといって
+// ファイル名を落とすだけでは「どのファイルを直せばよいか」が分からなくなる——
+// 壊れたレコードに到達できることは、id を隠すことと同じくらい大事。
+//
+// そこで情報を型に持たせ、面ごとに出し分ける:
+//   - CLI は Error()（従来どおりファイル名＋原因）をそのまま出す。壊れたファイルを
+//     直すのは端末での作業なので、ここが到達手段の本体になる。
+//   - viewer は Category（どのレコード種別か）と Parse（壊れ方）だけを読ませ、
+//     ファイル名は「端末で scholia lint を実行すれば分かる」と案内する。
+//
+// Parse=true は JSON 構文エラー（原因文字列にパスを含まない）、false は読み取り
+// エラー（原因文字列に絶対パスを含みうる）。viewer が原因を添えてよいかの判断に使う。
+type RecordFileError struct {
+	Category string // "vocab" / "tag" / "transition" / "decision"
+	Name     string // "<id>.json"
+	Parse    bool
+	Err      error
+}
+
+func (e *RecordFileError) Error() string { return fmt.Sprintf("%s: %v", e.Name, e.Err) }
+func (e *RecordFileError) Unwrap() error { return e.Err }
+
+// RecordWriteError はレコードの保存に失敗したこと（FS 側の障害）。
+//
+// 保存は tmp ファイルを作って rename する2段構えなので、失敗の中身は
+// os.PathError（CreateTemp 失敗）か os.LinkError（rename 失敗）になる。
+// LinkError は**宛先パスを含む**——decision の宛先は
+// `.scholia/decisions/<新 ULID>.json` なので、この文言をそのまま viewer に
+// 載せると生 ULID が漏れる（01KYCC2TF3NW3JRSSRK9ZHN078）。
+//
+// RecordFileError と同じ流儀で、Error() は元の文言のまま（CLI は full path が
+// 要る／出力は不変）にし、viewer は Category と「パスを含まない原因」だけを
+// 読ませる。原因（op と errno）は残す——FS 障害は運用者が直すものなので、
+// 「どこへ・どの操作が・なぜ」失敗したかを消してしまうと原因に到達できない。
+type RecordWriteError struct {
+	Category string // "decision"
+	Err      error
+}
+
+// Error は元のエラー文言をそのまま返す（CLI の出力は不変）。
+func (e *RecordWriteError) Error() string { return e.Err.Error() }
+func (e *RecordWriteError) Unwrap() error { return e.Err }
+
+func newRecordFileError(category, name string, err error) *RecordFileError {
+	var syntaxErr *json.SyntaxError
+	var typeErr *json.UnmarshalTypeError
+	parse := errors.As(err, &syntaxErr) || errors.As(err, &typeErr)
+	return &RecordFileError{Category: category, Name: name, Parse: parse, Err: err}
+}
+
 func listRecords[T identifiable](dir, category string) ([]T, []IDMismatch, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -339,7 +397,7 @@ func listRecords[T identifiable](dir, category string) ([]T, []IDMismatch, error
 	for _, name := range names {
 		var rec T
 		if err := readJSON(filepath.Join(dir, name), &rec); err != nil {
-			return nil, nil, fmt.Errorf("%s: %w", name, err)
+			return nil, nil, newRecordFileError(category, name, err)
 		}
 		fileID := strings.TrimSuffix(name, ".json")
 		if rec.GetID() != fileID {

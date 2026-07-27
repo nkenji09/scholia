@@ -10,11 +10,14 @@ package review
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/nkenji09/scholia/internal/model"
 )
 
 const dirName = "reviews"
@@ -42,10 +45,53 @@ type Review struct {
 	Body      string    `json:"body"`
 	Source    string    `json:"source"`
 	CreatedAt string    `json:"createdAt"` // RFC3339
+	// Supersedes は「この提案が採用されたら、昇格先 decision が置き換える／改訂
+	// する／例外化する旧 decision」への宣言（additive/omitempty）。adopt が
+	// decision の supersedes[] へそのまま持ち上げるので、「adopt の後に手で
+	// scholia decision link する」手作業が要らなくなる。
+	//
+	// 結線先を本文（Body）の prose から推測しないための構造化フィールド:
+	// decision の link は追記専用で unlink が無く、誤結線を取り消せない
+	// （model.AppendSupersedeLinks は既存 link の mode 改変も拒否する）。
+	// 取り消せない操作を推測で行わないため、宣言由来のみを持ち上げる。
+	Supersedes []model.SupersedeLink `json:"supersedes,omitempty"`
 }
 
 func path(scholiaDir, id string) string {
 	return filepath.Join(scholiaDir, dirName, id+".json")
+}
+
+// NotFoundError は cond.review-exists が満たされないこと（指定 id の提案コメントが
+// 無い）。文字列ではなく型で返すのは、面ごとに見せ方が違うため——CLI は「どの id を
+// 指したか」を出す必要があるので Error() に id を含める。viewer は
+// 01KYCC2TF3NW3JRSSRK9ZHN078（viewer は生レコード id を表示しない・id は
+// deep-link の href としてのみ用いる）に従い、id を含まない文言を組み直す。
+// review の id は ULID なので、この文言をそのまま body に載せると漏れる。
+type NotFoundError struct {
+	ID string
+}
+
+func (e *NotFoundError) Error() string {
+	return fmt.Sprintf("review %q が実在しません", e.ID)
+}
+
+// FileError は1件の提案コメントファイルが読めない／JSON として壊れていること。
+// store.RecordFileError と同じ意図——ファイル名は `<ULID>.json` なので、CLI には
+// 「どのファイルを直すか」として出し、viewer には種別と壊れ方だけを渡す。
+// Parse=true は JSON 構文エラー（原因文字列にパスを含まない）。
+type FileError struct {
+	Name  string // "<id>.json"
+	Parse bool
+	Err   error
+}
+
+func (e *FileError) Error() string { return fmt.Sprintf("%s: %v", e.Name, e.Err) }
+func (e *FileError) Unwrap() error { return e.Err }
+
+func newFileError(name string, err error) *FileError {
+	var syntaxErr *json.SyntaxError
+	var typeErr *json.UnmarshalTypeError
+	return &FileError{Name: name, Parse: errors.As(err, &syntaxErr) || errors.As(err, &typeErr), Err: err}
 }
 
 // Add atomically writes r to scholiaDir/reviews/<r.ID>.json (tmp-file-then-rename,
@@ -91,13 +137,13 @@ func Get(scholiaDir, id string) (Review, error) {
 	data, err := os.ReadFile(path(scholiaDir, id))
 	if err != nil {
 		if os.IsNotExist(err) {
-			return Review{}, fmt.Errorf("review %q が実在しません", id)
+			return Review{}, &NotFoundError{ID: id}
 		}
 		return Review{}, err
 	}
 	var r Review
 	if err := json.Unmarshal(data, &r); err != nil {
-		return Review{}, fmt.Errorf("%s: %w", id, err)
+		return Review{}, newFileError(id+".json", err)
 	}
 	return r, nil
 }
@@ -111,7 +157,7 @@ func Get(scholiaDir, id string) (Review, error) {
 func Delete(scholiaDir, id string) error {
 	if err := os.Remove(path(scholiaDir, id)); err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("review %q が実在しません", id)
+			return &NotFoundError{ID: id}
 		}
 		return err
 	}
@@ -144,11 +190,11 @@ func List(scholiaDir string) ([]Review, error) {
 	for _, name := range names {
 		data, err := os.ReadFile(filepath.Join(dir, name))
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", name, err)
+			return nil, newFileError(name, err)
 		}
 		var r Review
 		if err := json.Unmarshal(data, &r); err != nil {
-			return nil, fmt.Errorf("%s: %w", name, err)
+			return nil, newFileError(name, err)
 		}
 		out = append(out, r)
 	}
