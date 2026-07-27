@@ -11,6 +11,7 @@ import { CommentButton } from '../comments/CommentButton';
 import { HashLink } from '../shared/HashLink';
 import { routeHash } from '../../router';
 import { useScrollRestore, useElementScrollRestore } from '../../scrollRestore';
+import { loadRegionShape, saveRegionShape } from '../../regionShape';
 import { loadCardSectionOpen, saveCardSectionOpen } from '../../collapseState';
 import { buildCurrencyIndex, currencyOf } from '../decisions/decisionModel';
 import type { Config, Decision, Tag, TraceabilityResponse } from '../../types';
@@ -91,7 +92,9 @@ const SEC_WHY = 'overview-why';
 // スクロール保持のキー。本体と独立スクロール領域で別空間を使い、互いを壊さない
 // （01KYGYYN44… / 01KYH0ESVG…）。#/home も同じ画面なので同じキーを共有する。
 const SCROLL_KEY = 'overview';
-const TREE_SCROLL_KEY = 'overview:tree';
+// 構造ツリー＝この面の独立スクロール領域。位置と形は同じ識別子で対にする
+// （01KYH8GX987GQX08C56G58JP2N）。
+const TREE_REGION = 'overview:tree';
 
 // kind → トークン色。design の KIND() の color を kind 名でマップ（tokens.css の
 // --k-*）。未知 kind は --lm-text-dim にフォールバック（ハードコード列挙に頼り
@@ -194,7 +197,12 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
   const [decisions, setDecisions] = useState<Decision[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [treeOpen, setTreeOpen] = useState<Record<string, boolean>>({});
+  // ツリーの展開状態＝この独立スクロール領域の「器の形」。位置と対で覚える
+  // （01KYH8GX987GQX08C56G58JP2N）——離脱前に開いていた枝が復帰時に畳まれると領域が
+  // 短くなり、覚えていた位置がそこに存在しなくなる。最初の描画から復元済みにするため
+  // effect ではなく初期化子で読む（ツリーが描かれた時点で高さが正しく、位置の復元がそこへ
+  // 着地できる）。
+  const [treeOpen, setTreeOpen] = useState<Record<string, boolean>>(() => loadRegionShape<Record<string, boolean>>(TREE_REGION) ?? {});
   // 各コンテキスト（tx / part / constraint / component）ごとの「規則 (N)」展開、part
   // セクションの開閉、decision 全文の開閉。既定は畳んだ状態（progressive disclosure・
   // ④⑤）だが、利用者が明示的に開閉した保存値があればそちらが勝つ（01KYGYYN8H…）。
@@ -299,13 +307,16 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
   const selFromUrl = componentId && tagById.get(componentId)?.kind === componentKind ? componentId : null;
   const sel = selFromUrl ?? defaultComponentId;
 
-  // ツリーの展開: group は既定で開き、現在地までの経路は常に開く。URL 直打ち・
-  // ブラウザバックで飛び込んできたときも、選ばれている行が畳まれた枝の中に隠れない。
+  // ツリーの展開: 覚えている形があればそれを使い、無ければ group を既定で開く。どちらの
+  // 場合も現在地までの経路は開く——URL 直打ち・ブラウザバックで飛び込んできたときに、
+  // 選ばれている行が畳まれた枝の中に隠れないため。
   useEffect(() => {
     if (!index) return;
     setTreeOpen((prev) => {
       const next = { ...prev };
       let changed = false;
+      // 既定は「覚えている形が無いとき」だけ効く。覚えている形があるなら、そこに畳まれた
+      // 枝があること自体が利用者の状態なので、既定で開き直さない。
       if (!Object.keys(prev).length) {
         for (const tg of index.tags) {
           if (tg.kind === groupKind && !next[tg.id]) {
@@ -330,6 +341,14 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index, sel]);
+
+  // 形を覚える。ツリーが実在してから（index が揃ってから）書く——それ以前に書くと、
+  // 復元した形をまだ組み立てていない空の状態で上書きしてしまう。位置側の「復元が済むまで
+  // 保存しない」と同じ考え方（01KXFEJ8HZWGTE6D7FHA5W9PS0）。
+  useEffect(() => {
+    if (!index) return;
+    saveRegionShape(TREE_REGION, treeOpen);
+  }, [index, treeOpen]);
 
   const toggleNode = (id: string) => setTreeOpen((p) => ({ ...p, [id]: !p[id] }));
 
@@ -387,12 +406,17 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
 
   // アンカーされた構成要素の位置まで寄せる。
   //
-  // 走る条件は3つ: URL のアンカーが変わったとき（直打ち・reload・バック・別の構成要素へ）、
-  // 現在地のコンポーネントが決まったとき（読み込み完了で sel が付くのを含む）、そして
-  // 行が押されたとき（anchorRequest）。3つ目が要るのは、同じ現在地にいる状態での
-  // 再クリックでは URL が変わらず再描画も起きないため——URL の変化だけを見ていると
-  // 「押しても何も起きない」になり、それは 01KXG8QRCXMG70PBW32R9ETCA7 が是正した欠陥
-  // そのものに戻る。
+  // 走る条件は4つ:
+  // - URL のアンカーが変わったとき（別の構成要素へ移る）
+  // - 現在地のコンポーネントが変わったとき
+  // - **シートが描かれたとき**（index が揃う）。アンカー付きの URL へバック／reload で
+  //   入ってくる経路では、この面が組み直される時点で partId も sel も最初から確定して
+  //   いる（タグ表は app 全体で共有されており読み込み済み）。つまり「変わった」瞬間が
+  //   無く、寄せ先の要素が現れるのはデータが揃った後——ここを依存に入れないと、
+  //   バックで戻ってきたときだけ寄らない。
+  // - 行が押されたとき（anchorRequest）。同じ現在地にいる状態での再クリックでは URL が
+  //   変わらず再描画も起きないため——URL の変化だけを見ていると「押しても何も起きない」に
+  //   なり、それは 01KXG8QRCXMG70PBW32R9ETCA7 が是正した欠陥そのものに戻る。
   //
   // 対象セクションは直前の effect の forceOpen で一拍遅れて展開されるため、最初の寄せの
   // 時点では document がまだ低く、ブラウザ側で位置が clamp される。これは「読み込み中の
@@ -412,7 +436,7 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
     const reinforce = setTimeout(() => find()?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 120);
     return () => clearTimeout(reinforce);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [partId, sel, anchorRequest]);
+  }, [partId, sel, index, anchorRequest]);
 
   // ---- 構造ツリー行（treeVals 相当） ----
   const treeRows: TreeRow[] = [];
@@ -623,7 +647,7 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
   useScrollRestore(SCROLL_KEY, !!index, !!partId);
   // 構造ツリーは本体とは別に独立してスクロールする領域。同じ規律で保持・復元する
   // （01KYH0ESVG…）。狭い画面でドロワーが閉じている間は要素そのものが無いので ready を落とす。
-  useElementScrollRestore(TREE_SCROLL_KEY, treeRef, !!index && (!isNarrow || drawerOpen));
+  useElementScrollRestore(TREE_REGION, treeRef, !!index && (!isNarrow || drawerOpen));
 
   // ---- render ----
   if (error) {
