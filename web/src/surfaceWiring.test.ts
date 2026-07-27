@@ -3,6 +3,12 @@ import { describe, expect, it } from 'vitest';
 // node 型を持たない＝アプリ側が node API を触れないようにしてあるので、そこを崩さない）。
 import appSource from './app.tsx?raw';
 import overviewSource from './components/overview/OverviewView.tsx?raw';
+import tagCardSource from './components/browse/TagCard.tsx?raw';
+import specCardSource from './components/browse/SpecCard.tsx?raw';
+import vocabCardSource from './components/browse/VocabCard.tsx?raw';
+import browseViewSource from './components/browse/BrowseView.tsx?raw';
+import inheritedRulesSource from './components/browse/InheritedRules.tsx?raw';
+import decisionListSource from './components/decisions/DecisionList.tsx?raw';
 
 // 「新しい面が共通配線を通っているか」を機械化するガード（A是正 01KYH2533234PGSN4MDQ6ZXJHA）。
 //
@@ -102,5 +108,121 @@ describe('app が概要タブを URL へ配線している', () => {
     expect(handler, 'openOverviewAt の定義が見つからない').not.toBeNull();
     expect(handler![2]).toMatch(/\bnavigate\s*\(/);
     expect(handler![2]).toMatch(/view:\s*'overview'/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 集約2面の廃止と、その代替の配線（01KYHW4NBNVN9BFXYZMBX8MPF8）
+//
+// この decision は「この記録を支配する規則」欄と概要タブの「このコンポーネントの
+// 規則」欄を**廃止する**と同時に、廃止したままにしない条件を課している——継承した
+// 規則の存在の開示（条項3）と祖先リンクの完備（条項4）。廃止だけが実装されて代替が
+// 落ちると、01KXYED61J6QBEX75H2XHVHW7Y が診断した欠陥（親に決定を持ち子に無い
+// レコードの why が viewer から不可視）がそのまま復活する——実測でタグ9件・
+// transition 36本・vocab 9件のカードが規則ゼロ表示になる。
+//
+// 代替は「無くても画面は成立してしまう」種類の配線なので、外れても誰も気づかない。
+// #3 のレビュー指摘（should-3「web 側の配線に回帰テストが皆無で、結線を丸ごと
+// 外しても緑のまま」）と同じ穴をここで作らないためのガード。
+//
+// 例によってこれは**配線ガード**で、見た目や件数の正しさは実機計測が担う。
+
+const CARDS: Array<{ name: string; source: string; kind: string; id: string }> = [
+  { name: 'TagCard', source: tagCardSource, kind: 'tag', id: 'tag.id' },
+  { name: 'SpecCard', source: specCardSource, kind: 'transition', id: 'detail.id' },
+  { name: 'VocabCard', source: vocabCardSource, kind: 'vocab', id: 'entry.id' },
+];
+
+describe('継承した規則の開示がカードに配線されている（条項3）', () => {
+  for (const card of CARDS) {
+    it(`${card.name}: そのレコードを指して InheritedRules を描いている`, () => {
+      // 「ファイルのどこかで InheritedRules に触れているか」では守れない——
+      // import だけ残して描画を消せる。record にそのカードのレコードが渡って
+      // いるところまで見る。
+      const re = new RegExp(`<InheritedRules[\\s\\S]{0,120}kind:\\s*'${card.kind}'[\\s\\S]{0,40}id:\\s*${card.id.replace('.', '\\.')}`);
+      expect(card.source).toMatch(re);
+    });
+  }
+
+  it('開示は継承ぶんだけを数える（own を混ぜない）', () => {
+    // own を数に含めると「継承した規則 N件」にそのレコード自身の決定が混ざる。
+    // タグカードで own が effective-tag として返っていたバグ（internal/index/
+    // query.go の GovernsForTag）を直したうえで、フロント側でも own を外す。
+    expect(inheritedRulesSource).toMatch(/provenance\s*!==\s*'own'/);
+  });
+
+  it('開示の件数は効いている規則だけを数える（条項5と同じ数え方）', () => {
+    expect(inheritedRulesSource).toMatch(/\bisInForce\s*\(/);
+  });
+});
+
+describe('祖先リンクが直接の親で止まっていない（条項4）', () => {
+  it('BrowseView が祖先の連なり全体を渡している', () => {
+    // parentsOf は直接の親1階層しか返さない。実測で継承した効いている規則 82件の
+    // うち4件が祖父由来で、直接の親だけではカードから到達手段が無かった。
+    expect(browseViewSource).toMatch(/ancestors=\{ancestorsOf\(/);
+    expect(browseViewSource).not.toMatch(/parents=\{parentsOf\(/);
+  });
+
+  it('TagCard が受け取った祖先を全部リンクにしている', () => {
+    // 先頭だけ描く（ancestors[0]）に差し替えられたらここで落ちる。
+    expect(tagCardSource).toMatch(/ancestors\.map\(/);
+    expect(tagCardSource).toMatch(/<HashLink[\s\S]{0,200}tagId:\s*p\.id/);
+  });
+});
+
+describe('廃止した集約2面が戻っていない（条項1・2）', () => {
+  it('どのカードにも「この記録を支配する規則」欄が無い', () => {
+    for (const card of CARDS) {
+      expect(card.source, card.name).not.toMatch(/GovernsSection/);
+    }
+  });
+
+  it('概要タブにコンポーネント本体の規則欄が無い', () => {
+    // 欄そのもの（componentRules の構築とトグル）が消えていること。構成要素・
+    // 振る舞い・制約のインライン展開は残すので renderRules 自体は残る。
+    expect(overviewSource).not.toMatch(/componentRules/);
+    expect(overviewSource).not.toMatch(/componentRulesToggle/);
+  });
+
+  it('概要タブは構成要素・振る舞い・制約のインライン展開を残している（消したら行き過ぎ）', () => {
+    expect(overviewSource).toMatch(/renderRules\('part:'/);
+    expect(overviewSource).toMatch(/renderRules\('tx:'/);
+    expect(overviewSource).toMatch(/renderRules\('prop:'/);
+  });
+});
+
+describe('意思決定欄が共有の描画口を通っている（01KYHW54B8ZXH0NEPH2J7N1X39）', () => {
+  for (const card of CARDS) {
+    it(`${card.name}: DecisionList を使っている`, () => {
+      // 面ごとに書き分けると、また面ごとに違う答えが出る（面間整合）。効力2値・
+      // 付帯情報・履歴の畳みは DecisionList が1箇所で担う。
+      expect(card.source).toMatch(/<DecisionList[\s\S]{0,200}decisions=\{/);
+    });
+  }
+
+  it('状態列に出る効力が2値である（3値をそのまま写さない）', () => {
+    // effectOf は in-force / replaced の2値。currencyOf（3値）を状態列に
+    // 直接使うと「現行 ⇔ 改訂」の対立が戻る。
+    expect(decisionListSource).toMatch(/\beffectOf\s*\(/);
+    expect(decisionListSource).not.toMatch(/currencyAmended/);
+    expect(overviewSource).toMatch(/\beffectOf\s*\(/);
+    expect(overviewSource).not.toMatch(/currencyAmended/);
+  });
+
+  it('「後続に部分改訂・例外がある」を付帯情報として出している（条項2）', () => {
+    expect(decisionListSource).toMatch(/relatedDecisions\s*\(/);
+    expect(decisionListSource).toMatch(/readTogether/);
+  });
+
+  it('置き換え済みを畳む口がある（条項4）', () => {
+    expect(decisionListSource).toMatch(/replacedHeading/);
+    expect(overviewSource).toMatch(/replacedHeading/);
+  });
+
+  it('要約は共有の切り出しを通る（条項6）', () => {
+    // 各面が独自に slice すると、また面ごとに違う長さの「要約」が出る。
+    expect(decisionListSource).toMatch(/from '\.\.\/\.\.\/decisionSummary'/);
+    expect(overviewSource).toMatch(/from '\.\.\/\.\.\/decisionSummary'/);
   });
 });
