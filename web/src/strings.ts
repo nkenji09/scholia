@@ -266,6 +266,12 @@ const ja = {
     rulesListLinkExact: 'このタグと配下の意思決定を一覧で見る',
     rulesListLinkScoped: (tag: string) => `〈${tag}〉と配下の意思決定を一覧で見る`,
     rulesListLinkTitle: 'このタグとその配下に付いた意思決定を一覧で開く',
+    // 全体をどこで読めるかの開示（追補 01KYJV3FYMDFRWQ939NBV2BPAC 条項3）。
+    // 事実（viewer に面が無い）は畳まず、手段（コマンド）だけ畳む。
+    wholeRulesFact: '規則の全体を通しで読む面は viewer にありません — CLI で読む',
+    wholeRulesHow: 'この記録に効いている規則（自身＋上位）を、本文ごと1つの並びで出します。',
+    wholeRulesCopy: 'コピー',
+    wholeRulesCopied: 'コピーしました',
     // 軸カードの構造表示（#45 D10b-6）。状態次元・total（宣言由来・非検証）・値・効く action。
     axisStructureHeading: '軸の構造',
     // 「軸」= 状態次元（分岐を束ねる分類軸）。kind バッジの「軸」とは別義（D9 の
@@ -745,6 +751,10 @@ const en: Strings = {
     rulesListLinkExact: 'See decisions on this tag and below',
     rulesListLinkScoped: (tag: string) => `See decisions on ⟨${tag}⟩ and below`,
     rulesListLinkTitle: 'Open the decisions list scoped to this tag and its descendants',
+    wholeRulesFact: 'No viewer surface reads them all in one sequence — read with the CLI',
+    wholeRulesHow: 'Prints every rule in force on this record (itself + above), in full, in one sequence.',
+    wholeRulesCopy: 'Copy',
+    wholeRulesCopied: 'Copied',
     axisStructureHeading: 'Axis structure',
     axisDimensionBadge: 'state dimension',
     axisTotalTrue: 'total declared (by declaration, unverified)',

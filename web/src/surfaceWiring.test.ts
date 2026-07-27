@@ -9,6 +9,7 @@ import vocabCardSource from './components/browse/VocabCard.tsx?raw';
 import browseViewSource from './components/browse/BrowseView.tsx?raw';
 import inheritedRulesSource from './components/browse/InheritedRules.tsx?raw';
 import rulesListLinkSource from './components/browse/RulesListLink.tsx?raw';
+import wholeRulesSource from './components/browse/WholeRules.tsx?raw';
 import { DICTS } from './strings';
 import decisionListSource from './components/decisions/DecisionList.tsx?raw';
 import inheritedSummarySource from './components/browse/inheritedSummary.ts?raw';
@@ -166,11 +167,54 @@ describe('継承した規則の開示がカードに配線されている（条�
     // 「配線もフィルタも JSX も残したまま先頭で return null する」変異は、
     // ソース文字列を見るだけのガードでは原理的に捕まらない（DOM を起こす
     // harness が要る）。そこで**早期 return の条件そのもの**を固定する:
-    // 出てよいのは「まだ取得していない」と「継承0件」の2つだけ。
+    // 出てよいのは「まだ取得していない」と「効いている規則が0件」の2つだけ。
+    // 「継承0件」で黙る形は追補 条項3 で退けた（下の describe）。
     const guards = [...inheritedRulesSource.matchAll(/^\s*if \(([^)]*)\) return null;/gm)].map((m) => m[1].trim());
-    expect(guards).toEqual(['!entries', 'total === 0']);
+    expect(guards).toEqual(['!entries', 'governing === 0']);
     // 条件の付いていない裸の return null も塞ぐ。
     expect(inheritedRulesSource).not.toMatch(/^\s*return null;\s*$/m);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 全体をどこで読めるかの開示（追補 01KYJV3FYMDFRWQ939NBV2BPAC 条項3）
+//
+// 件数と継承元の開示（条項3）だけでは「全体を通しで読む」用途に答えていない。
+// その受け皿は現状 CLI だけで、viewer には無い——**その事実と、いま使える手段を
+// カードが開示する**というのが追補の条項3。ここも「無くても画面は成立してしまう」
+// 種類の配線なので、外れても誰も気づかない形にしない。
+
+describe('全体をどこで読めるかがカードから読める（追補 条項3）', () => {
+  it('開示ブロックがそのレコードを渡して WholeRules を描いている', () => {
+    expect(inheritedRulesSource).toMatch(/<WholeRules[\s\S]{0,60}record=\{record\}/);
+  });
+
+  it('継承0件のカードでも出る（口の出し分けが継承の件数ではない）', () => {
+    // 継承の件数で早期 return すると、継承0・own ありのカード（実測 tag 21件）から
+    // 開示ごと消える。出し分けは「効いている規則が1件でもあるか」で決める。
+    expect(inheritedRulesSource).toMatch(/if \(governing === 0\) return null;/);
+    // 継承ブロック側は total で出し分ける（継承0で「継承した規則 0件」とは言わない）。
+    expect(inheritedRulesSource).toMatch(/\{total > 0 && \(/);
+  });
+
+  it('事実そのものは畳まれていない', () => {
+    // 「viewer には全体を通しで読む面が無い」は見出し行に出る。畳んだ内側に入れると、
+    // 開かなかった利用者には省略が伝わらない＝開示にならない。
+    const head = /<button[\s\S]{0,200}class="whole-rules-head"[\s\S]{0,400}<\/button>/.exec(wholeRulesSource);
+    expect(head, 'whole-rules-head の見出し行が見つからない').not.toBeNull();
+    expect(head![0]).toMatch(/t\.browse\.wholeRulesFact/);
+  });
+
+  it('手段（CLI コマンド）が共有の組み立てを通り、コピーできる形で出ている', () => {
+    // コマンド文字列そのものの正しさは rulesCommand.test.ts が値として守る。
+    // ここは「そこを通って画面に出て、コピーできる」ことだけを見る。
+    expect(wholeRulesSource).toMatch(/rulesCommand\(record\)/);
+    expect(wholeRulesSource).toMatch(/<code>\{cmd\}<\/code>/);
+    expect(wholeRulesSource).toMatch(/copyText\(cmd/);
+  });
+
+  it('開示を黙らせる早期 return が入っていない', () => {
+    expect(wholeRulesSource).not.toMatch(/return null/);
   });
 });
 

@@ -695,6 +695,89 @@
   color: #fff;
 }
 
+/* 全体をどこで読めるかの開示（追補 01KYJV3FYMDFRWQ939NBV2BPAC 条項3）。
+   継承の開示（上の破線ブロック）と違って**囲まない**——ここが言うのは「この
+   viewer には無い」という欠けの告知で、規則そのものではないから。見出し行は
+   常に見え、コマンドだけが開閉の内側にある。 */
+.whole-rules {
+  margin-top: var(--sp-2);
+}
+
+.whole-rules-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--lm-text-dim);
+  text-align: left;
+}
+
+.whole-rules-head:hover {
+  color: var(--lm-text);
+}
+
+.whole-rules-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 7px;
+  padding: 10px 12px;
+  border: 1px solid var(--lm-border);
+  border-radius: var(--r-md);
+  background: var(--lm-s2);
+}
+
+.whole-rules-note {
+  font-size: var(--fs-3xs);
+  color: var(--lm-text-dim);
+}
+
+.whole-rules-cmd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.whole-rules-cmd code {
+  flex: 1 1 auto;
+  padding: 5px 8px;
+  border-radius: var(--r-sm);
+  background: var(--lm-s1);
+  border: 1px solid var(--lm-border);
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-3xs);
+  color: var(--lm-text);
+  /* コマンドは選択してコピーできる必要がある（コピーボタンが使えない環境の
+     受け皿）。長い id も折り返して全体を見せる。 */
+  user-select: all;
+  overflow-wrap: anywhere;
+}
+
+.whole-rules-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid var(--lm-border);
+  border-radius: var(--r-sm);
+  background: var(--lm-s1);
+  color: var(--lm-text);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.whole-rules-copy:hover {
+  border-color: var(--lm-primary-ring);
+}
+
 /* 祖先の連なり（条項4）の区切り。直接の親だけでなく祖先全体を並べるので、
    階層の向きが読めるようにする。 */
 .tag-card-parent-sep {

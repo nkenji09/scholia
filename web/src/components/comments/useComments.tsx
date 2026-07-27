@@ -7,6 +7,7 @@ import type { IconName } from '../shared/Icon';
 import { useReviews } from '../../reviews';
 import { useLookups } from '../../lookups';
 import { api } from '../../api';
+import { copyText } from '../../clipboard';
 import type { Review, Decision, SupersedeLink, SupersedeTargetDetail } from '../../types';
 
 // Comments (#18) — volatile, per-browser annotations. Deliberately NOT part
@@ -290,23 +291,6 @@ function buildCopyText(t: Strings, comments: CommentRecord[], taskTitle: string)
   return lines.join('\n');
 }
 
-function fallbackCopy(text: string) {
-  try {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.top = '-9999px';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.focus();
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-  } catch {
-    // best-effort only
-  }
-}
-
 export function CommentsProvider({ children }: { children: ComponentChildren }) {
   const t = useT();
   // `comments` holds every task's comments; `activeTaskId` narrows what's
@@ -560,19 +544,13 @@ export function CommentsProvider({ children }: { children: ComponentChildren }) 
   const copyAll = () => {
     if (visibleComments.length === 0) return;
     const text = buildCopyText(t, visibleComments, activeTask?.title || '');
-    const done = () => {
+    // クリップボードへの書き込み（navigator.clipboard ＋ 使えないときの
+    // textarea 退避）は clipboard.ts が1箇所で持つ。カードの CLI コマンドの
+    // コピーと同じ経路。
+    copyText(text, () => {
       setCopyMsg(true);
       setTimeout(() => setCopyMsg(false), 2000);
-    };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done, () => {
-        fallbackCopy(text);
-        done();
-      });
-    } else {
-      fallbackCopy(text);
-      done();
-    }
+    });
   };
 
   const switchTask = (id: string) => {
