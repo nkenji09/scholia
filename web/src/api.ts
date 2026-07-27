@@ -18,7 +18,7 @@ import type {
   VocabEntry,
   Decision,
   DecisionPostBody,
-  GovernsEntry,
+  GovernsRef,
   Review,
 } from './types';
 import { loadLang } from './i18n';
@@ -332,7 +332,7 @@ export const api = {
       const key = ref.tag ? `tag:${ref.tag}` : ref.tx ? `transition:${ref.tx}` : ref.vocab ? `vocab:${ref.vocab}` : '';
       return Promise.resolve({ entries: staticData.governs[key] ?? [] });
     }
-    return request<{ entries: GovernsEntry[] }>('/api/governs' + query(ref));
+    return request<{ entries: GovernsRef[] }>('/api/governs' + query(ref));
   },
 };
 

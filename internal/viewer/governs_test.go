@@ -22,7 +22,7 @@ func TestGetGoverns_TransitionViaParent(t *testing.T) {
 	}
 	e := resp.Entries[0]
 	// d1 is on subject.auth, which is req.auth-happy's parent → via parent.
-	if e.Decision.ID != "d1" || e.Provenance != index.GovernsViaParent || e.ViaTag != "subject.auth" {
+	if e.DecisionID != "d1" || e.Provenance != index.GovernsViaParent || e.ViaTag != "subject.auth" {
 		t.Fatalf("entry = %+v, want d1 via parent subject.auth", e)
 	}
 }

@@ -3,7 +3,7 @@ import { api } from '../../api';
 import { useT } from '../../i18n';
 import { useLookups } from '../../lookups';
 import { routeHash } from '../../router';
-import type { GovernsEntry } from '../../types';
+import type { GovernsRef } from '../../types';
 import { HashLink } from '../shared/HashLink';
 import { Icon } from '../shared/Icon';
 import { isInForce } from '../decisions/decisionModel';
@@ -39,7 +39,7 @@ type RecordRef =
 export function InheritedRules({ record }: { record: RecordRef }) {
   const t = useT();
   const { tagName, currencyIndex } = useLookups();
-  const [entries, setEntries] = useState<GovernsEntry[] | null>(null);
+  const [entries, setEntries] = useState<GovernsRef[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;

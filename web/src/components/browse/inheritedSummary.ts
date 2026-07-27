@@ -1,4 +1,4 @@
-import type { GovernsEntry } from '../../types';
+import type { GovernsRef } from '../../types';
 
 // 継承した規則の開示に出す値の計算（01KYHW4NBNVN9BFXYZMBX8MPF8 条項3）。
 //
@@ -25,11 +25,11 @@ export interface InheritedSummary {
 }
 
 export function summarizeInherited(
-  entries: GovernsEntry[],
+  entries: GovernsRef[],
   isInForce: (id: string) => boolean,
   tagName: (id: string) => string,
 ): InheritedSummary {
-  const inherited = entries.filter((e) => e.provenance !== 'own' && isInForce(e.decision.id));
+  const inherited = entries.filter((e) => e.provenance !== 'own' && isInForce(e.decisionId));
   const byTag = new Map<string, number>();
   for (const e of inherited) {
     const via = e.viaTag || '';

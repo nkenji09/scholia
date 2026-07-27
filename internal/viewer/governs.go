@@ -18,8 +18,14 @@ func registerGovernsRoutes(mux *http.ServeMux, s *store.Store) {
 // functions the static export bakes and the same query core `scholia rules`
 // selects over — so CLI and viewer never diverge on which decisions govern a
 // record (面間整合原則 D10b-2).
+//
+// 返すのは**参照だけ**（decision id ＋ 出自）で本文は持たない（追補
+// 01KYJP68V2GR4QJ8HNW6HEP00T 条項2）。この形は静的書き出しの焼き込みと同一で、
+// 消費側（継承規則の開示）は live でも静的でも同じ1つのコードパスを通る——
+// 形が違うと2つの経路ができ、開示の答えが割れうる（同 条項3）。
+// 本文が要る面はもう無い（governs 欄は廃止済み・意思決定欄は own を別途持つ）。
 type governsResponse struct {
-	Entries []index.GovernsEntry `json:"entries"`
+	Entries []index.GovernsRef `json:"entries"`
 }
 
 func getGovernsHandler(s *store.Store) http.HandlerFunc {
@@ -49,10 +55,11 @@ func getGovernsHandler(s *store.Store) http.HandlerFunc {
 			writeError(w, http.StatusNotFound, err.Error())
 			return
 		}
-		if entries == nil {
-			entries = []index.GovernsEntry{}
+		refs := index.RefsOf(entries)
+		if refs == nil {
+			refs = []index.GovernsRef{}
 		}
-		writeJSON(w, http.StatusOK, governsResponse{Entries: entries})
+		writeJSON(w, http.StatusOK, governsResponse{Entries: refs})
 	}
 }
 

@@ -224,6 +224,35 @@ type GovernsEntry struct {
 	ViaTag string `json:"viaTag,omitempty"`
 }
 
+// GovernsRef is one governing decision reduced to what the disclosure needs:
+// which decision it is, and how it reaches the record (#5 追補
+// 01KYJP68V2GR4QJ8HNW6HEP00T 条項2「焼き込む形を開示が要する分に絞る」).
+//
+// 本文（why/changed/ref/commits/supersedes）は持たない。開示が出すのは件数と
+// 継承元だけで、本文はそのレコード自身の意思決定欄が別途持っている。静的書き出し
+// では decision の実体が `decisions` に丸ごと入っているので、ここで重複して運ぶと
+// 表示しないデータを積むことになる（実測で埋め込みデータの約37%がこの重複だった）。
+//
+// 効力（効いている / 置き換え済み）はここで判定しない。判定は decision 全体を
+// 見ないと決まらず、viewer は live でも静的でも同じ TS の索引で計算している——
+// Go 側にもう一つ実装を置くと、live と静的で開示の答えが割れうる。**id だけ返して
+// 判定を1箇所に残す**のが、追補 条項3（live と静的で答えが割れない）を構造で守る形。
+type GovernsRef struct {
+	DecisionID string            `json:"decisionId"`
+	Provenance GovernsProvenance `json:"provenance"`
+	// ViaTag is the tag id the decision was reached through (empty for own).
+	ViaTag string `json:"viaTag,omitempty"`
+}
+
+// RefsOf reduces governs entries to refs（本文を落とす）。
+func RefsOf(entries []GovernsEntry) []GovernsRef {
+	out := make([]GovernsRef, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, GovernsRef{DecisionID: e.Decision.ID, Provenance: e.Provenance, ViaTag: e.ViaTag})
+	}
+	return out
+}
+
 // GovernsForTag returns the decisions governing a tag record — the tag's own
 // decisions plus those on its ancestors — each tagged with provenance (#45
 // D10b-1). A decision whose target IS this tag is "own"; strict ancestors

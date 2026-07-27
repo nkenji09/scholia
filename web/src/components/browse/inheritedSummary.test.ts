@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { summarizeInherited } from './inheritedSummary';
-import type { GovernsEntry } from '../../types';
+import type { GovernsRef } from '../../types';
 
 // 継承した規則の開示に出す件数（01KYHW4NBNVN9BFXYZMBX8MPF8 条項3）。
 //
@@ -9,16 +9,11 @@ import type { GovernsEntry } from '../../types';
 // この件数が嘘をつくと開示が嘘になる（例: own を混ぜると、そのレコード自身の
 // 決定が「継承した規則」に化ける）。
 
-const d = (id: string, supersedes?: Array<{ id: string; mode?: string }>) => ({
-  id,
-  target: { type: 'tag' as const, id: 'whatever' },
-  why: 'w',
-  at: '2026-01-01T00:00:00Z',
-  ...(supersedes ? { supersedes } : {}),
+const entry = (id: string, provenance: GovernsRef['provenance'], viaTag?: string): GovernsRef => ({
+  decisionId: id,
+  provenance,
+  ...(viaTag ? { viaTag } : {}),
 });
-
-const entry = (id: string, provenance: GovernsEntry['provenance'], viaTag?: string): GovernsEntry =>
-  ({ decision: d(id) as GovernsEntry['decision'], provenance, ...(viaTag ? { viaTag } : {}) });
 
 const allInForce = () => true;
 const name = (id: string) => id;
