@@ -150,23 +150,21 @@ export function useScrollRestore(view: string, ready: boolean, skipRestore = fal
  *   前の状態から引き継いだ scrollTop が 0 へ clamp されて scroll イベントが飛ぶ。
  *   これを保存すると復元より先に保存値を壊す——本体側で差し戻し2回を要した罠と同型
  *   なので、対象が増えてもここは緩めない（01KXFEJ8HZWGTE6D7FHA5W9PS0）。
- * - 復元は「マウント時に捕まえた値」から行い、その時点の sessionStorage を読み直さない。
+ *
+ * 本体側と1点だけ違うのは**復元値をいつ読むか**。本体側は最初の描画時点で捕まえて以後
+ * 読み直さない——window は常に存在し、読み込み中の clamp が復元より先に保存値を壊し
+ * うるからで、その競合を避けるための措置だった。要素側にはその競合が無い（要素は
+ * `ready` が立つまで存在せず、保存を始めるのも下の `restored` ガードの後）。逆に要素は
+ * 出入りのたびに作り直されるので、**現れたその時点の保存値を読む**必要がある。1度だけ
+ * 捕まえる形にすると、いったん消えて再び現れた領域（狭い画面のドロワー等）が二度と
+ * 復元されない。規律（復元前は保存しない）はそのままに、読むタイミングだけを合わせる。
  *
  * `ready` は「要素が DOM にあり、中身が並び終わった」ことを呼び出し側が伝えるフラグ。
  * 要素は条件付きで描かれること（狭い画面でドロワーが閉じている等）があるので、その
  * 場合は ready を false にして呼ぶ——本フックは要素が無い間は何もしない。
  */
 export function useElementScrollRestore(key: string, ref: RefObject<HTMLElement | null>, ready: boolean, skipRestore = false): void {
-  // 本体側と同じく、最初の描画時点の保存値を捕まえておく（読み込み中の clamp が
-  // debounce 保存で焼き込まれても、復元はこの値を使う）。
-  const targetRef = useRef<number | null>(null);
-  const captured = useRef(false);
-  if (!captured.current) {
-    targetRef.current = readSaved(key);
-    captured.current = true;
-  }
-
-  const latest = useRef<number>(targetRef.current ?? 0);
+  const latest = useRef<number>(0);
   const restored = useRef(false);
 
   // 要素は ready が立ってから初めて存在するので、監視と復元を1つの effect にまとめる
@@ -192,8 +190,10 @@ export function useElementScrollRestore(key: string, ref: RefObject<HTMLElement 
       // 覚える（本体側 skipRestore と同じ扱い）。
       latest.current = el.scrollTop;
       restored.current = true;
-    } else if (!restored.current) {
-      const target = targetRef.current ?? 0;
+    } else {
+      // 要素が現れたこの時点の保存値を読む（上の注記参照）。保存を有効にするのは復元を
+      // 当ててから＝ここより前の scroll は利用者のものではないので残さない。
+      const target = readSaved(key) ?? 0;
       latest.current = target;
       restored.current = true;
       el.scrollTop = target;
@@ -207,6 +207,10 @@ export function useElementScrollRestore(key: string, ref: RefObject<HTMLElement 
       if (timer) clearTimeout(timer);
       if (reinforce) clearTimeout(reinforce);
       if (restored.current) writeSaved(key, latest.current);
+      // 要素が DOM から出た（ready が落ちた）ら、次に現れたときに改めて復元する。ここを
+      // 立てたままにすると、いったん消えた領域が二度と復元されない。以降 scroll が来ても
+      // 上のリスナは外れており、次の復元まで保存は起きない＝規律は保たれる。
+      restored.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, ready, skipRestore]);
