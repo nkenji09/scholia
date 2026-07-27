@@ -234,7 +234,10 @@ func TestUpdate_ChecksumMismatchAbortsWithoutReplace(t *testing.T) {
 	}
 }
 
-// isSourceInstall: version が実タグならソース導入と判定しない。
+// isSourceInstall: 導入方式は version 注入の有無（version 文字列の由来）だけで判定する。
+// version=dev→source、実タグ→非source。Go 1.24 の Main.Version stamping で release 版が
+// source 誤判定された回帰の防止線（req.self-update decision）。撤去した Main.Version 判定は
+// go test 環境では (devel) のため元々このテストで再現できなかった点に注意。
 func TestIsSourceInstall(t *testing.T) {
 	withInjected(t, "dev", "", "")
 	if !isSourceInstall() {
