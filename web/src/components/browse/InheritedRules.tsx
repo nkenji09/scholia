@@ -7,6 +7,8 @@ import type { GovernsEntry } from '../../types';
 import { HashLink } from '../shared/HashLink';
 import { Icon } from '../shared/Icon';
 import { isInForce } from '../decisions/decisionModel';
+import { summarizeInherited } from './inheritedSummary';
+import { RulesListLink } from './RulesListLink';
 
 // 継承した規則の開示（01KYHW4NBNVN9BFXYZMBX8MPF8 条項3・4）。
 //
@@ -34,12 +36,6 @@ type RecordRef =
   | { kind: 'transition'; id: string }
   | { kind: 'vocab'; id: string };
 
-/** 継承元1件ぶん（名前・件数・辿る先）。 */
-interface Source {
-  tagId: string;
-  count: number;
-}
-
 export function InheritedRules({ record }: { record: RecordRef }) {
   const t = useT();
   const { tagName, currencyIndex } = useLookups();
@@ -65,23 +61,16 @@ export function InheritedRules({ record }: { record: RecordRef }) {
 
   if (!entries) return null;
 
-  // own（このレコード自身への決定）は意思決定欄が本文で出しているので数えない。
-  // タグカードで own が effective-tag として返っていたバグ（internal/index/
-  // query.go の GovernsForTag）を直したので、ここは3種のカードで同じ意味になる。
-  const inherited = entries.filter((e) => e.provenance !== 'own' && isInForce(e.decision.id, currencyIndex));
-  if (inherited.length === 0) return null;
+  // 計算は純関数へ（inheritedRules.ts）。own を除き、効いているものだけを
+  // 継承元ごとに束ねる。0件なら口自体を出さない（条項3）。
+  const { total, sources } = summarizeInherited(entries, (id) => isInForce(id, currencyIndex), tagName);
+  if (total === 0) return null;
 
-  const byTag = new Map<string, number>();
-  for (const e of inherited) {
-    const via = e.viaTag || '';
-    if (!via) continue;
-    byTag.set(via, (byTag.get(via) || 0) + 1);
-  }
-  const sources: Source[] = [...byTag.entries()]
-    .map(([tagId, count]) => ({ tagId, count }))
-    .sort((a, b) => b.count - a.count || tagName(a.tagId).localeCompare(tagName(b.tagId)));
-
-  const heading = record.kind === 'transition' ? t.browse.inheritedFromTags(inherited.length) : t.browse.inheritedFromAncestors(inherited.length);
+  // 見出しは record.kind ではなく**実際の継承経路**で決める。vocab の継承元は
+  // 自身が持つタグ（effective-tag）で祖先とは限らないのに「上位から継承」と
+  // 出ていた（レビュー should-2）。祖先経由が1つも無ければ「タグから」。
+  const viaAncestor = entries.some((e) => e.provenance === 'parent');
+  const heading = viaAncestor ? t.browse.inheritedFromAncestors(total) : t.browse.inheritedFromTags(total);
 
   return (
     <div class="inherited-rules">
@@ -108,6 +97,11 @@ export function InheritedRules({ record }: { record: RecordRef }) {
           </HashLink>
         ))}
       </div>
+      {/* 条項5 の入口（transition / vocab 用）。一覧はこれらの単位で絞れないので、
+          規則を最も多く運んでいるタグで絞り、ラベルに範囲を名乗らせる。tag の
+          カードは TagCard が自身のタグで**継承0件でも**入口を出すので、ここでは
+          出さない（二重に置かない）。 */}
+      {record.kind !== 'tag' && <RulesListLink tagId={sources[0].tagId} exact={false} />}
     </div>
   );
 }

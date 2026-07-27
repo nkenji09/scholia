@@ -255,8 +255,11 @@ const ja = {
     inheritedFromAncestors: (n: number) => `上位から継承した規則 ${n}件`,
     inheritedFromTags: (n: number) => `タグから継承した規則 ${n}件`,
     inheritedSourceTitle: '継承元の記録を開く',
-    /** 祖先の連なり（条項4）。直接の親だけでなく祖先全体を辿れるようにする。 */
-    ancestorTrailTitle: '祖先の記録を開く',
+    // 条項5 の入口。exact はタグのカード（一覧の絞り込み単位と一致する）、
+    // scoped は transition / vocab（絞り込みに使うタグ名を必ず名乗る）。
+    rulesListLinkExact: 'この記録に効く規則を一覧で見る',
+    rulesListLinkScoped: (tag: string) => `〈${tag}〉の規則を一覧で見る`,
+    rulesListLinkTitle: '意思決定の一覧を対象で絞って開く',
     // 軸カードの構造表示（#45 D10b-6）。状態次元・total（宣言由来・非検証）・値・効く action。
     axisStructureHeading: '軸の構造',
     // 「軸」= 状態次元（分岐を束ねる分類軸）。kind バッジの「軸」とは別義（D9 の
@@ -415,7 +418,7 @@ const ja = {
   // why/changed 本文はデータなのでここには含めない。
   decisions: {
     heading: '意思決定',
-    intro: 'いつ・何を・なぜ変えたかの記録。現行と失効を区別して通覧できます。',
+    intro: 'いつ・何を・なぜ変えたかの記録。既定では効いている規則だけを出し、置き換え済みは絞り込みで切り替えます。',
     loading: 'loading…',
     empty: 'まだ意思決定が記録されていません',
     noMatch: '条件に一致する意思決定がありません',
@@ -440,7 +443,6 @@ const ja = {
     // 置き換えた。「改訂」= 他 decision が amend/exception で参照（置換はしない）。
     currencyCurrent: '現行',
     currencySuperseded: '失効',
-    currencyAmended: '改訂',
     // 画面に出す効力は2値（01KYHW54B8ZXH0NEPH2J7N1X39 条項1・3）。記録の3値
     // （supersede/amend/exception）は不変で、状態列だけを2値にする。
     // 「失効」ではなく「置き換え済み」なのは、効いていない**理由**が語から
@@ -736,7 +738,9 @@ const en: Strings = {
     inheritedFromAncestors: (n: number) => `${n} rule(s) inherited from above`,
     inheritedFromTags: (n: number) => `${n} rule(s) inherited from tags`,
     inheritedSourceTitle: 'Open the record it comes from',
-    ancestorTrailTitle: 'Open the ancestor record',
+    rulesListLinkExact: 'See all rules for this record',
+    rulesListLinkScoped: (tag: string) => `See rules for ⟨${tag}⟩`,
+    rulesListLinkTitle: 'Open the decisions list scoped to this target',
     axisStructureHeading: 'Axis structure',
     axisDimensionBadge: 'state dimension',
     axisTotalTrue: 'total declared (by declaration, unverified)',
@@ -880,7 +884,6 @@ const en: Strings = {
     period1y: 'Last year',
     currencyCurrent: 'Current',
     currencySuperseded: 'Superseded',
-    currencyAmended: 'Amended',
     effectInForce: 'In force',
     effectReplaced: 'Replaced',
     readTogether: (n: number) => `${n} decision(s) to read with this`,

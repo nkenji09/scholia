@@ -1,3 +1,4 @@
+import { Fragment } from 'preact';
 import { useLookups } from '../../lookups';
 import { usePendingDiff } from '../../pendingDiff';
 import { useT } from '../../i18n';
@@ -14,6 +15,7 @@ import { KebabMenu } from '../shared/KebabMenu';
 import { routeHash } from '../../router';
 import { DecisionList } from '../decisions/DecisionList';
 import { InheritedRules } from './InheritedRules';
+import { RulesListLink } from './RulesListLink';
 
 // VocabCard と同じ category→アイコン対応（きっかけ/前提/結果 = action/
 // condition/effect の固定3軸）。関連語彙行（H3）で流用する。
@@ -97,12 +99,12 @@ export function TagCard({ tag, report, isGap, ancestors, children, cardRef, onFi
             <span class="tag-card-parents dim">
               <Icon name="corner-down-right" size={13} />
               {ancestors.map((p, i) => (
-                <>
+                <Fragment key={p.id}>
                   {i > 0 && <span class="tag-card-parent-sep">›</span>}
-                  <HashLink key={p.id} href={routeHash({ view: 'spec', tagId: p.id })} class="tag-card-parent-link" onNavigate={() => onSelectParent(p.id)} title={t.browse.parentLinkTitle}>
+                  <HashLink href={routeHash({ view: 'spec', tagId: p.id })} class="tag-card-parent-link" onNavigate={() => onSelectParent(p.id)} title={t.browse.parentLinkTitle}>
                     {p.name || p.id}
                   </HashLink>
-                </>
+                </Fragment>
               ))}
             </span>
           )}
@@ -268,6 +270,12 @@ export function TagCard({ tag, report, isGap, ancestors, children, cardRef, onFi
           支配する規則」欄（全文を再掲していた）を廃止した代わり。本文は並べず、
           件数と継承元と導線だけを出す。 */}
       <InheritedRules record={{ kind: 'tag', id: tag.id }} />
+
+      {/* 条項5「カードはその入口を持つ」。廃止した集約2面が担っていた「この記録に
+          効いている規則の全体を1つの並びで読む」用途の受け皿への導線。タグは
+          一覧の絞り込み単位そのものなので厳密に一致する。継承が0件でも——own の
+          規則だけでも全体を通覧したい場面があるので——常に出す。 */}
+      <RulesListLink tagId={tag.id} exact />
 
       {/* H2: 下位のタグを件数付きで開閉可能に（5件以上で既定折りたたみ＝
           CollapsibleSection の既定しきい値そのまま）。specs/decisions と同じ

@@ -158,17 +158,19 @@ export function parentsOf(roots: FacetTreeNode[], tagId: string, tagById: Map<st
  *
  * タグ id のドットは階層ではない（`req.no-partition-burden` の親が
  * `req.design-principles`）ので、必ず parentIds を辿る。DAG なので同じ祖先に
- * 複数経路で着くことがある——訪問済みで枝刈りし、深い側を先に並べる。 */
+ * 複数経路で着くことがあり、**深いほうの深さが後から見つかることもある**——
+ * その場合は先へも伝播させないと並び順が狂うので、深さが増えたときだけ再訪する
+ * （単純な訪問済み枝刈りだと、複数経路で着く祖先が期待より手前に並ぶ）。
+ * 循環は「深さが増えたときだけ再訪」が単調増加の上限（タグ数）で止まることで
+ * 終わる。 */
 export function ancestorsOf(tagId: string, tagById: Map<string, Tag>): Tag[] {
   const depth = new Map<string, number>();
-  const seen = new Set<string>([tagId]);
   const walk = (id: string, d: number) => {
     for (const pid of tagById.get(id)?.parentIds || []) {
-      if (!tagById.has(pid)) continue;
-      // 同じ祖先に複数経路で着いたら遠いほうの深さを採る（先頭に置くため）。
-      depth.set(pid, Math.max(depth.get(pid) ?? 0, d));
-      if (seen.has(pid)) continue; // 循環・再訪の枝刈り
-      seen.add(pid);
+      if (!tagById.has(pid) || pid === tagId) continue; // 自分自身は祖先に含めない
+      const prev = depth.get(pid);
+      if (prev !== undefined && prev >= d) continue; // より深い経路を既に知っている
+      depth.set(pid, d);
       walk(pid, d + 1);
     }
   };

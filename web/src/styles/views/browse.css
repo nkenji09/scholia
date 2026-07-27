@@ -666,6 +666,25 @@
   border-color: var(--lm-primary-ring);
 }
 
+/* 条項5 の入口。開示ブロックの内側／カード末尾のどちらに置いても同じ見え方に
+   なるよう、単独のリンク行として組む。 */
+.rules-list-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  margin-top: var(--sp-2);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--lm-primary-strong);
+  text-decoration: none;
+  border-bottom: 1px solid var(--lm-primary-ring);
+}
+
+.inherited-rules .rules-list-link {
+  margin-top: 2px;
+}
+
 .inherited-rules-count {
   font-family: var(--lm-font-mono);
   font-size: var(--fs-3xs);

@@ -8,7 +8,11 @@ import specCardSource from './components/browse/SpecCard.tsx?raw';
 import vocabCardSource from './components/browse/VocabCard.tsx?raw';
 import browseViewSource from './components/browse/BrowseView.tsx?raw';
 import inheritedRulesSource from './components/browse/InheritedRules.tsx?raw';
+import rulesListLinkSource from './components/browse/RulesListLink.tsx?raw';
 import decisionListSource from './components/decisions/DecisionList.tsx?raw';
+import inheritedSummarySource from './components/browse/inheritedSummary.ts?raw';
+import decisionsViewSource from './components/decisions/DecisionsView.tsx?raw';
+import appSourceForList from './app.tsx?raw';
 
 // 「新しい面が共通配線を通っているか」を機械化するガード（A是正 01KYH2533234PGSN4MDQ6ZXJHA）。
 //
@@ -144,15 +148,66 @@ describe('継承した規則の開示がカードに配線されている（条�
     });
   }
 
-  it('開示は継承ぶんだけを数える（own を混ぜない）', () => {
-    // own を数に含めると「継承した規則 N件」にそのレコード自身の決定が混ざる。
-    // タグカードで own が effective-tag として返っていたバグ（internal/index/
-    // query.go の GovernsForTag）を直したうえで、フロント側でも own を外す。
-    expect(inheritedRulesSource).toMatch(/provenance\s*!==\s*'own'/);
+  it('件数の計算が純関数を通っている（値の正しさは inheritedSummary.test.ts が守る）', () => {
+    // own 除外・効いているものだけ・継承元ごとの束ね方は summarizeInherited の
+    // 振る舞いテストが守る。ここはそこを通っていることだけを見る。
+    expect(inheritedRulesSource).toMatch(/\bsummarizeInherited\s*\(/);
+    expect(inheritedRulesSource).toMatch(/\bisInForce\s*\(/);
+    expect(inheritedSummarySource).toMatch(/provenance\s*!==\s*'own'/);
   });
 
-  it('開示の件数は効いている規則だけを数える（条項5と同じ数え方）', () => {
-    expect(inheritedRulesSource).toMatch(/\bisInForce\s*\(/);
+  it('継承元が実際に描かれている（配線だけ残して中身を消させない）', () => {
+    expect(inheritedRulesSource).toMatch(/sources\.map\(/);
+    expect(inheritedRulesSource).toMatch(/inherited-rules-sources/);
+  });
+
+  it('開示を黙らせる早期 return が入っていない', () => {
+    // 「配線もフィルタも JSX も残したまま先頭で return null する」変異は、
+    // ソース文字列を見るだけのガードでは原理的に捕まらない（DOM を起こす
+    // harness が要る）。そこで**早期 return の条件そのもの**を固定する:
+    // 出てよいのは「まだ取得していない」と「継承0件」の2つだけ。
+    const guards = [...inheritedRulesSource.matchAll(/^\s*if \(([^)]*)\) return null;/gm)].map((m) => m[1].trim());
+    expect(guards).toEqual(['!entries', 'total === 0']);
+    // 条件の付いていない裸の return null も塞ぐ。
+    expect(inheritedRulesSource).not.toMatch(/^\s*return null;\s*$/m);
+  });
+});
+
+describe('規則の全体を読む入口がカードにある（条項5）', () => {
+  it('タグのカードは継承0件でも入口を出す', () => {
+    // 条項5 は条項3・4 と同格の「廃止するなら課す条件」。継承が無いカードでも
+    // own の規則を通覧する入口は要る。
+    expect(tagCardSource).toMatch(/<RulesListLink[\s\S]{0,60}tagId=\{tag\.id\}[\s\S]{0,20}exact/);
+  });
+
+  it('transition / vocab は開示ブロック側から入口を出す', () => {
+    expect(inheritedRulesSource).toMatch(/record\.kind !== 'tag' && <RulesListLink/);
+  });
+
+  it('入口が意思決定の一覧を対象で絞って指している', () => {
+    // 単票（#/decision/<id>）ではなく一覧（#/decisions?dt=…）を指すこと。
+    expect(rulesListLinkSource).toMatch(/view:\s*'decisions'/);
+    expect(rulesListLinkSource).toMatch(/decisionTag:\s*tagId/);
+  });
+});
+
+describe('意思決定の一覧が提案B の3面のひとつとして揃っている', () => {
+  it('要約が共有の切り出しを通る（条項6）', () => {
+    // 生の why を CSS の line-clamp で切ると markdown 記法のまま第1段落が流れる。
+    expect(decisionsViewSource).toMatch(/summaryOf\(d\.why\)/);
+    expect(decisionsViewSource).not.toMatch(/decision-row-why">\{d\.why\}/);
+  });
+
+  it('効力の語が2値で統一されている（条項3）', () => {
+    // 同じ画面でバッジが「置き換え済み」・絞り込みが「失効」だと語が2つ同居する。
+    expect(decisionsViewSource).toMatch(/effectInForce/);
+    expect(decisionsViewSource).toMatch(/effectReplaced/);
+    expect(decisionsViewSource).not.toMatch(/currencySuperseded/);
+  });
+
+  it('既定では効いているものだけを出す（条項4）', () => {
+    // 一覧には畳む器が無いので、既定の絞り込みがその役目を果たす。
+    expect(appSourceForList).toMatch(/route\.decisionCurrency \|\| 'current'/);
   });
 });
 
