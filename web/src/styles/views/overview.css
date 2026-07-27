@@ -116,6 +116,9 @@
   flex-shrink: 0;
 }
 
+/* 行は <a>（別レコードへ移動する行）と <button>（その場で開閉するだけの構造ノード）の
+   両方で使う——遷移リンクは実アンカーにするという一般則に合わせてアンカー化したが、
+   見た目は行として一続きに保つ（text-decoration/color をアンカー既定から引き戻す）。 */
 .overview-tree-label {
   display: flex;
   align-items: center;
@@ -125,6 +128,7 @@
   border: none;
   background: transparent;
   text-align: left;
+  text-decoration: none;
   padding: 7px 8px;
   border-radius: var(--r-sm);
   cursor: pointer;

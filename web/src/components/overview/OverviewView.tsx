@@ -10,6 +10,9 @@ import { Markdown } from '../Markdown';
 import { CommentButton } from '../comments/CommentButton';
 import { HashLink } from '../shared/HashLink';
 import { routeHash } from '../../router';
+import { useScrollRestore, useElementScrollRestore } from '../../scrollRestore';
+import { loadRegionShape, saveRegionShape } from '../../regionShape';
+import { loadCardSectionOpen, saveCardSectionOpen } from '../../collapseState';
 import { buildCurrencyIndex, currencyOf } from '../decisions/decisionModel';
 import type { Config, Decision, Tag, TraceabilityResponse } from '../../types';
 
@@ -21,11 +24,77 @@ import type { Config, Decision, Tag, TraceabilityResponse } from '../../types';
 // （どの .scholia でも config.tagKinds と実データだけで破綻なく描ける）。
 
 interface Props {
+  /** URL 上の現在地＝いま開いているコンポーネント（deep-linking の適用面拡張・
+      01KYGYYMZSS1Y0BFEJ69Q1JC40）。未指定なら既定（最初のコンポーネント）を選ぶ。
+      既定は URL に書き戻さない——初期表示で履歴を1件消費させないため。 */
+  componentId?: string;
+  /** URL 上のアンカー＝そのコンポーネント内の構成要素。指定されるとその位置まで寄せる。 */
+  partId?: string;
+  /** 現在地を移す。app 側の navigate を通るので、そのつど履歴に1件残る
+      （粒度の作り分けはしない＝01KYGYYMZSS… 条項(3)）。 */
+  onSelectComponent: (componentId: string, partId?: string) => void;
   /** タグ（コンポーネント/要件/制約）を ブラウザの詳細で開く（#/spec/<id>）。 */
   onOpenTag: (tagId: string) => void;
   /** 遷移（仕様）を ブラウザの詳細で開く（#/browse/tx/<id>）。 */
   onOpenTx: (txId: string) => void;
 }
+
+// 概要シートの折りたたみは「保存値 > 初期折りたたみ既定」で解決する
+// （collapsible-section の amend・01KYGYYN8HRNFQEDMBS3DZRRX7）。既定は
+// progressive disclosure に従って畳んだ状態（01KYCC2TK3…）だが、それが効くのは
+// 保存値が無いときだけ——一度開いた利用者の意思は再訪でも尊重される。
+//
+// 保存先・寿命はカード側の折りたたみと同じ（collapseState）。ここで独自の保存先を
+// 作らないのは、寿命を既決から動かさないため（01KXDFD2SRHJJ0E551V240JMKT(1)）。
+// localStorage の読み出しはキーごとに1度だけキャッシュし、描画のたびには叩かない。
+function useSectionOpen() {
+  const cache = useRef(new Map<string, boolean>());
+  const [, bump] = useState(0);
+  // 区切りは id/section のどちらにも現れない文字をエスケープ表記で置く。生の制御文字を
+  // ソースへ直接埋めると git がファイルをバイナリ扱いし、diff も grep も効かなくなる。
+  const cacheKey = (recordId: string, section: string) => `${recordId}\u0000${section}`;
+
+  const isOpen = (recordId: string, section: string, fallback: boolean): boolean => {
+    const k = cacheKey(recordId, section);
+    const hit = cache.current.get(k);
+    if (hit !== undefined) return hit;
+    const resolved = loadCardSectionOpen(recordId, section) ?? fallback;
+    cache.current.set(k, resolved);
+    return resolved;
+  };
+
+  const toggle = (recordId: string, section: string, fallback: boolean) => {
+    const next = !isOpen(recordId, section, fallback);
+    cache.current.set(cacheKey(recordId, section), next);
+    saveCardSectionOpen(recordId, section, next);
+    bump((n) => n + 1);
+  };
+
+  /** アンカー等の「開けというシグナル」。保存はしない——利用者自身の操作ではないので
+      永続値を書き換えず、この場の表示だけ開く（CollapsibleSection の focusOpen と同じ
+      一方向の扱い・01KXDFD2SRHJJ0E551V240JMKT(2)）。 */
+  const forceOpen = (recordId: string, section: string) => {
+    const k = cacheKey(recordId, section);
+    if (cache.current.get(k) === true) return;
+    cache.current.set(k, true);
+    bump((n) => n + 1);
+  };
+
+  return { isOpen, toggle, forceOpen };
+}
+
+// 折りたたみのセクション名（collapseState のキー空間。カード側と混ざらないよう
+// overview- を冠する）。
+const SEC_PART = 'overview-part';
+const SEC_RULES = 'overview-rules';
+const SEC_WHY = 'overview-why';
+
+// スクロール保持のキー。本体と独立スクロール領域で別空間を使い、互いを壊さない
+// （01KYGYYN44… / 01KYH0ESVG…）。#/home も同じ画面なので同じキーを共有する。
+const SCROLL_KEY = 'overview';
+// 構造ツリー＝この面の独立スクロール領域。位置と形は同じ識別子で対にする
+// （01KYH8GX987GQX08C56G58JP2N）。
+const TREE_REGION = 'overview:tree';
 
 // kind → トークン色。design の KIND() の color を kind 名でマップ（tokens.css の
 // --k-*）。未知 kind は --lm-text-dim にフォールバック（ハードコード列挙に頼り
@@ -104,10 +173,13 @@ interface TreeRow {
   isGap: boolean;
   count: number | null;
   onToggle?: () => void;
+  /** 別レコードへ移動する行の指し先。null なら「その場で開閉するだけ」の構造ノードで、
+      遷移ではないのでアンカーにしない（01KXFK3Q1NY9J8Q7FX14T31N7K の filter 除外と同じ趣旨）。 */
+  href: string | null;
   onClick: () => void;
 }
 
-export function OverviewView({ onOpenTag, onOpenTx }: Props) {
+export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag, onOpenTx }: Props) {
   const t = useT();
   const lookups = useLookups();
   const { vocabById, tagById, transitionById, tagName, vocabLabel, tagKindLabel, formatDecisionAt, roleKinds } = lookups;
@@ -125,16 +197,18 @@ export function OverviewView({ onOpenTag, onOpenTx }: Props) {
   const [decisions, setDecisions] = useState<Decision[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [sel, setSel] = useState<string | null>(null);
-  const [treeOpen, setTreeOpen] = useState<Record<string, boolean>>({});
-  const [openWhy, setOpenWhy] = useState<Record<string, boolean>>({});
-  // 各コンテキスト（tx / part / constraint / component）ごとの「規則 (N)」展開状態。
-  // 初期は全て畳む（キー未登録＝false）。part セクションの開閉も openParts で管理し、
-  // 初期は全 part 畳む（④）。決定はレコード文脈にインラインで on-demand 展開する（⑤）。
-  const [openRules, setOpenRules] = useState<Record<string, boolean>>({});
-  const [openParts, setOpenParts] = useState<Record<string, boolean>>({});
-  const scrollToPartRef = useRef<string | null>(null);
+  // ツリーの展開状態＝この独立スクロール領域の「器の形」。位置と対で覚える
+  // （01KYH8GX987GQX08C56G58JP2N）——離脱前に開いていた枝が復帰時に畳まれると領域が
+  // 短くなり、覚えていた位置がそこに存在しなくなる。最初の描画から復元済みにするため
+  // effect ではなく初期化子で読む（ツリーが描かれた時点で高さが正しく、位置の復元がそこへ
+  // 着地できる）。
+  const [treeOpen, setTreeOpen] = useState<Record<string, boolean>>(() => loadRegionShape<Record<string, boolean>>(TREE_REGION) ?? {});
+  // 各コンテキスト（tx / part / constraint / component）ごとの「規則 (N)」展開、part
+  // セクションの開閉、decision 全文の開閉。既定は畳んだ状態（progressive disclosure・
+  // ④⑤）だが、利用者が明示的に開閉した保存値があればそちらが勝つ（01KYGYYN8H…）。
+  const sections = useSectionOpen();
   const mainRef = useRef<HTMLElement>(null);
+  const treeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // roots/traceabilityKinds/tagKinds は config、gap は traceability、decision
@@ -226,65 +300,143 @@ export function OverviewView({ onOpenTag, onOpenTx }: Props) {
 
   const hasComponents = !!index && index.tags.some((tg) => tg.kind === componentKind);
 
-  // 既定選択（最初の component タグ）＋ ツリー初期展開（group 全て＋選択の祖先）。
+  // 現在地は URL が持つ（01KYGYYMZSS…）。URL が指すコンポーネントを優先し、無効な id
+  // や未指定なら既定（最初の component タグ）へ落とす。既定は URL へ書き戻さない
+  // ——素の #/overview が「既定のコンポーネント」を意味する（router.ts）。
+  const defaultComponentId = index ? (index.tags.find((tg) => tg.kind === componentKind)?.id ?? null) : null;
+  const selFromUrl = componentId && tagById.get(componentId)?.kind === componentKind ? componentId : null;
+  const sel = selFromUrl ?? defaultComponentId;
+
+  // ツリーの展開: 覚えている形があればそれを使い、無ければ group を既定で開く。どちらの
+  // 場合も現在地までの経路は開く——URL 直打ち・ブラウザバックで飛び込んできたときに、
+  // 選ばれている行が畳まれた枝の中に隠れないため。
   useEffect(() => {
     if (!index) return;
-    if (sel === null) {
-      const firstComp = index.tags.find((tg) => tg.kind === componentKind);
-      if (firstComp) setSel(firstComp.id);
-      setTreeOpen((prev) => {
-        if (Object.keys(prev).length) return prev;
-        const open: Record<string, boolean> = {};
-        for (const tg of index.tags) if (tg.kind === groupKind) open[tg.id] = true;
-        if (firstComp) {
-          open[firstComp.id] = true;
-          for (const a of index.ancestorsOf(firstComp.id)) open[a] = true;
+    setTreeOpen((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      // 既定は「覚えている形が無いとき」だけ効く。覚えている形があるなら、そこに畳まれた
+      // 枝があること自体が利用者の状態なので、既定で開き直さない。
+      if (!Object.keys(prev).length) {
+        for (const tg of index.tags) {
+          if (tg.kind === groupKind && !next[tg.id]) {
+            next[tg.id] = true;
+            changed = true;
+          }
         }
-        return open;
-      });
-    }
+      }
+      if (sel) {
+        if (!next[sel]) {
+          next[sel] = true;
+          changed = true;
+        }
+        for (const a of index.ancestorsOf(sel)) {
+          if (!next[a]) {
+            next[a] = true;
+            changed = true;
+          }
+        }
+      }
+      return changed ? next : prev;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index]);
+  }, [index, sel]);
+
+  // 形を覚える。ツリーが実在してから（index が揃ってから）書く——それ以前に書くと、
+  // 復元した形をまだ組み立てていない空の状態で上書きしてしまう。位置側の「復元が済むまで
+  // 保存しない」と同じ考え方（01KXFEJ8HZWGTE6D7FHA5W9PS0）。
+  useEffect(() => {
+    if (!index) return;
+    saveRegionShape(TREE_REGION, treeOpen);
+  }, [index, treeOpen]);
 
   const toggleNode = (id: string) => setTreeOpen((p) => ({ ...p, [id]: !p[id] }));
-  const toggleWhy = (id: string) => setOpenWhy((p) => ({ ...p, [id]: !p[id] }));
-  const toggleRules = (key: string) => setOpenRules((p) => ({ ...p, [key]: !p[key] }));
-  const togglePart = (id: string) => setOpenParts((p) => ({ ...p, [id]: !p[id] }));
 
-  const selectComponent = (id: string, scrollToPart?: string) => {
-    scrollToPartRef.current = scrollToPart || null;
-    setSel(id);
-    setTreeOpen((p) => ({ ...p, [id]: true }));
+  // 構成要素の行が押されたことを数える。URL の変化とは別に「寄せてくれ」という要求を
+  // 立てるための口で、下のアンカー effect の依存に入る。
+  //
+  // なぜ要るか: すでに同じ現在地にいるとき、平打ちしても URL は変わらない（navigate は
+  // 同一 hash なら何もしないのが正しい——BrowseView の URL 同期はその参照安定性に依って
+  // いる）。URL が変わらなければ再描画も起きないので、URL の変化だけを見ている限り
+  // 「押しても何も起きない」になる。平打ちが no-op になる欠陥は
+  // 01KXG8QRCXMG70PBW32R9ETCA7 が「クリックしたら必ず対象へ辿り着く」へ是正した既決で、
+  // main も同じ形（クリックのたびに寄せ先を立て直す）で満たしていた。URL 経由の到達
+  // （直打ち・reload・バック）は従来どおり partId の変化で走る。
+  const [anchorRequest, setAnchorRequest] = useState(0);
+
+  // 現在地の移動は必ず URL 経由（＝そのつど履歴に1件残る・条項(3)）。狭い画面で
+  // ドロワーから選んだときに閉じる従来の挙動はここで維持する（view が変わらないので
+  // app 側の view 監視では閉じない）。
+  const goTo = (id: string, part?: string) => {
     if (isNarrow) closeDrawer();
+    if (part) setAnchorRequest((n) => n + 1);
+    onSelectComponent(id, part);
   };
 
-  const onTreeClick = (tag: Tag) => {
-    if (!index) return;
-    if (tag.kind === componentKind) selectComponent(tag.id);
-    else if (tag.kind === partKind) {
-      const parent = (tag.parentIds || []).find((p) => tagById.get(p)?.kind === componentKind) || (tag.parentIds || [])[0];
-      if (parent) {
-        // part 行クリック（①）: 親コンポーネントを選択し、その part セクションを開いて
-        // ページ内アンカーへスクロール（別ページ遷移にしない）。
-        setOpenParts((p) => ({ ...p, [tag.id]: true }));
-        selectComponent(parent, tag.id);
-      } else onOpenTag(tag.id);
-    } else if ((index.childrenByParent.get(tag.id) || []).length) toggleNode(tag.id);
-    else onOpenTag(tag.id);
-  };
+  /** part タグの親コンポーネント。無ければ null＝ページ内アンカーにできないので、
+      その part はブラウザの詳細へ送る（コンポーネントでない親を選んでも仕様シートは
+      描けず、行き先の無い URL になるため）。 */
+  const componentParentOf = (tag: Tag): string | null => (tag.parentIds || []).find((p) => tagById.get(p)?.kind === componentKind) || null;
 
-  // part クリックで親コンポーネントを選び、その part セクションを開いてからカードへ
-  // スクロール。openParts も依存に入れる（対象 part が畳まれた状態から開かれた直後の
-  // commit で要素が出現するため）。ref が立っていない通常のトグルでは no-op。
-  useEffect(() => {
-    const partId = scrollToPartRef.current;
-    if (!partId || !mainRef.current) return;
-    const el = mainRef.current.querySelector<HTMLElement>(`[data-part="${cssEscape(partId)}"]`);
-    if (el) {
-      scrollToPartRef.current = null;
-      el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  // 行の指し先。別レコードへ移動する行は実アンカーにする（ページ内の遷移リンクは
+  // 本物の <a href> という一般則 01KXFK3Q1NY9J8Q7FX14T31N7K を概要にも及ぼす・条項(2)）。
+  // 子を持つ構造ノードだけは「その場で開閉するだけ」で遷移ではないので、従来どおり
+  // ボタンのまま＝一般則の対象外。
+  const treeLinkFor = (tag: Tag): { href: string; navigate: () => void } | null => {
+    if (!index) return null;
+    if (tag.kind === componentKind) {
+      return { href: routeHash({ view: 'overview', componentId: tag.id }), navigate: () => goTo(tag.id) };
     }
-  }, [sel, openParts]);
+    if (tag.kind === partKind) {
+      const parent = componentParentOf(tag);
+      if (parent) return { href: routeHash({ view: 'overview', componentId: parent, partId: tag.id }), navigate: () => goTo(parent, tag.id) };
+      return { href: routeHash({ view: 'spec', tagId: tag.id }), navigate: () => onOpenTag(tag.id) };
+    }
+    if ((index.childrenByParent.get(tag.id) || []).length) return null;
+    return { href: routeHash({ view: 'spec', tagId: tag.id }), navigate: () => onOpenTag(tag.id) };
+  };
+
+  // URL がアンカーする構成要素は開いて見せる。保存はしない（利用者の操作ではないので
+  // 永続値を書き換えない）——保存済みの「閉じ」があるときにマウント時点でそれを
+  // 上書きしないのは 01KXDFD2SRHJJ0E551V240JMKT(2) が守っている当のもの。
+  useEffect(() => {
+    if (partId) sections.forceOpen(partId, SEC_PART);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [partId]);
+
+  // アンカーされた構成要素の位置まで寄せる。
+  //
+  // 走る条件は4つ:
+  // - URL のアンカーが変わったとき（別の構成要素へ移る）
+  // - 現在地のコンポーネントが変わったとき
+  // - **シートが描かれたとき**（index が揃う）。アンカー付きの URL へバック／reload で
+  //   入ってくる経路では、この面が組み直される時点で partId も sel も最初から確定して
+  //   いる（タグ表は app 全体で共有されており読み込み済み）。つまり「変わった」瞬間が
+  //   無く、寄せ先の要素が現れるのはデータが揃った後——ここを依存に入れないと、
+  //   バックで戻ってきたときだけ寄らない。
+  // - 行が押されたとき（anchorRequest）。同じ現在地にいる状態での再クリックでは URL が
+  //   変わらず再描画も起きないため——URL の変化だけを見ていると「押しても何も起きない」に
+  //   なり、それは 01KXG8QRCXMG70PBW32R9ETCA7 が是正した欠陥そのものに戻る。
+  //
+  // 対象セクションは直前の effect の forceOpen で一拍遅れて展開されるため、最初の寄せの
+  // 時点では document がまだ低く、ブラウザ側で位置が clamp される。これは「読み込み中の
+  // レイアウト由来の位置は利用者の位置ではない」という既決（01KXFEJ8HZWGTE6D7FHA5W9PS0）
+  // が本体スクロール復元で受けているのと同型の罠なので、対処も同型にする——本体側
+  // （scrollRestore.ts の reinforce）と同じく、伸びたあとに一度だけ寄せ直す。新経路のために
+  // 別機構を作らない。
+  useEffect(() => {
+    if (!partId) return;
+    const root = mainRef.current;
+    if (!root) return;
+    const find = () => root.querySelector<HTMLElement>(`[data-part="${cssEscape(partId)}"]`);
+    const el = find();
+    if (!el) return;
+    el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    // rAF ではなく setTimeout なのも本体側と同じ理由（タブが背面でも動かすため）。
+    const reinforce = setTimeout(() => find()?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 120);
+    return () => clearTimeout(reinforce);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [partId, sel, index, anchorRequest]);
 
   // ---- 構造ツリー行（treeVals 相当） ----
   const treeRows: TreeRow[] = [];
@@ -303,6 +455,7 @@ export function OverviewView({ onOpenTag, onOpenTx }: Props) {
       const hasKids = structuralChildren.length > 0;
       const open = !!treeOpen[id];
       const isSel = tag.kind === componentKind && sel === id;
+      const link = treeLinkFor(tag);
       const count =
         tag.kind === componentKind
           ? kids.filter((c) => c.kind === partKind).length
@@ -321,7 +474,8 @@ export function OverviewView({ onOpenTag, onOpenTx }: Props) {
         isGap: index.gapSet.has(id),
         count: count > 0 ? count : null,
         onToggle: hasKids ? () => toggleNode(id) : undefined,
-        onClick: () => onTreeClick(tag),
+        href: link ? link.href : null,
+        onClick: link ? link.navigate : () => toggleNode(id),
       });
       if (!open) return;
       for (const cid of structuralChildren) walk(cid, depth + 1);
@@ -487,6 +641,14 @@ export function OverviewView({ onOpenTag, onOpenTx }: Props) {
     };
   }, [index, selTag, t, tagById, transitionById, vocabLabel, tagName, componentKind, partKind, constraintKind]);
 
+  // 本体のスクロール位置を面ごとに保持・復元する（01KYGYYN44…）。ready は「データが
+  // 揃って仕様シートが並んだ」時点。アンカー付きで来たときは寄せる先が別にあるので
+  // 復元しない（BrowseView が focus 時に譲るのと同じ扱い）。
+  useScrollRestore(SCROLL_KEY, !!index, !!partId);
+  // 構造ツリーは本体とは別に独立してスクロールする領域。同じ規律で保持・復元する
+  // （01KYH0ESVG…）。狭い画面でドロワーが閉じている間は要素そのものが無いので ready を落とす。
+  useElementScrollRestore(TREE_REGION, treeRef, !!index && (!isNarrow || drawerOpen));
+
   // ---- render ----
   if (error) {
     return (
@@ -531,7 +693,7 @@ export function OverviewView({ onOpenTag, onOpenTx }: Props) {
   const renderRuleRow = ({ d, via }: RuleEntry) => {
     const cur = currencyOf(d.id, index.currencyIndex);
     const stale = cur === 'superseded';
-    const open = !!openWhy[d.id];
+    const open = sections.isOpen(d.id, SEC_WHY, false);
     return (
       <div key={d.id} class={'overview-rule' + (stale ? ' stale' : '')}>
         <div class="overview-rule-top">
@@ -543,7 +705,7 @@ export function OverviewView({ onOpenTag, onOpenTx }: Props) {
         </div>
         {open && <p class="overview-rule-why">{d.why}</p>}
         <div class="overview-rule-meta">
-          <button type="button" class="overview-rule-toggle" onClick={() => toggleWhy(d.id)}>
+          <button type="button" class="overview-rule-toggle" onClick={() => sections.toggle(d.id, SEC_WHY, false)}>
             <Icon name={open ? 'chevron-up' : 'chevron-down'} size={13} />
             {open ? t.overview.backToSummary : t.overview.readFull}
           </button>
@@ -561,10 +723,10 @@ export function OverviewView({ onOpenTag, onOpenTx }: Props) {
   // decision 総数（現行＋失効）。中身は現行を先・失効を後ろに並べる（orderRules 済み）。
   const renderRules = (key: string, entries: RuleEntry[], label: string) => {
     if (!entries.length) return null;
-    const open = !!openRules[key];
+    const open = sections.isOpen(key, SEC_RULES, false);
     return (
       <div class="overview-rules-inline">
-        <button type="button" class="overview-rules-toggle" onClick={() => toggleRules(key)} aria-expanded={open}>
+        <button type="button" class="overview-rules-toggle" onClick={() => sections.toggle(key, SEC_RULES, false)} aria-expanded={open}>
           <Icon name={open ? 'chevron-down' : 'chevron-right'} size={13} />
           <Icon name="gavel" size={13} />
           {label}
@@ -588,7 +750,7 @@ export function OverviewView({ onOpenTag, onOpenTx }: Props) {
             {/* ③: 非機能な「たたむ」ボタンは撤去（PC で畳む要件なし）。モバイルの
                 ドロワー開閉は backdrop クリック／コンポーネント選択で従来どおり維持。 */}
           </div>
-          <div class="overview-tree">
+          <div class="overview-tree" ref={treeRef}>
             {treeRows.map((row) => (
               <div
                 key={row.key}
@@ -602,17 +764,31 @@ export function OverviewView({ onOpenTag, onOpenTx }: Props) {
                 ) : (
                   <span class="overview-tree-spacer" />
                 )}
-                <button
-                  type="button"
-                  class={'overview-tree-label kind-' + (row.kind || 'none')}
-                  style={{ '--kc': kindColorVar(row.kind) } as JSX.CSSProperties}
-                  onClick={row.onClick}
-                >
-                  <span class="overview-tree-dot" />
-                  <span class="overview-tree-name">{row.name}</span>
-                  {row.isGap && <Icon name="triangle-alert" size={12} class="overview-tree-gap" />}
-                  {row.count != null && <span class="overview-tree-count">{row.count}</span>}
-                </button>
+                {row.href ? (
+                  <HashLink
+                    href={row.href}
+                    onNavigate={row.onClick}
+                    class={'overview-tree-label kind-' + (row.kind || 'none')}
+                    style={{ '--kc': kindColorVar(row.kind) } as JSX.CSSProperties}
+                  >
+                    <span class="overview-tree-dot" />
+                    <span class="overview-tree-name">{row.name}</span>
+                    {row.isGap && <Icon name="triangle-alert" size={12} class="overview-tree-gap" />}
+                    {row.count != null && <span class="overview-tree-count">{row.count}</span>}
+                  </HashLink>
+                ) : (
+                  <button
+                    type="button"
+                    class={'overview-tree-label kind-' + (row.kind || 'none')}
+                    style={{ '--kc': kindColorVar(row.kind) } as JSX.CSSProperties}
+                    onClick={row.onClick}
+                  >
+                    <span class="overview-tree-dot" />
+                    <span class="overview-tree-name">{row.name}</span>
+                    {row.isGap && <Icon name="triangle-alert" size={12} class="overview-tree-gap" />}
+                    {row.count != null && <span class="overview-tree-count">{row.count}</span>}
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -721,10 +897,10 @@ export function OverviewView({ onOpenTag, onOpenTx }: Props) {
                 {sheet.partBlocks.map((p) => {
                   // ④: part 見出しは「ピル」でなく「見出し」。kind 色はドットのアクセントに
                   // 留め、タイポは見出し。ヘッダクリックで開閉（chevron 付き）・初期は畳む。
-                  const partOpen = !!openParts[p.id];
+                  const partOpen = sections.isOpen(p.id, SEC_PART, false);
                   return (
                   <div key={p.id} class="overview-part" data-part={p.id}>
-                    <button type="button" class="overview-part-head" onClick={() => togglePart(p.id)} aria-expanded={partOpen}>
+                    <button type="button" class="overview-part-head" onClick={() => sections.toggle(p.id, SEC_PART, false)} aria-expanded={partOpen}>
                       <Icon name={partOpen ? 'chevron-down' : 'chevron-right'} size={15} class="overview-part-chevron" />
                       <span class="overview-part-dot" style={{ '--kc': 'var(--k-prt)' } as JSX.CSSProperties} />
                       <span class="overview-part-title">{p.name}</span>

@@ -44,6 +44,17 @@ export interface Route {
       tx.viewer.decision-detail). Same "focus id in the path" shape as
       spec/vocab/flow above — the ulid is the shareable permalink key. */
   decisionId?: string;
+  /** 概要タブの現在地（deep-linking の適用面拡張・01KYGYYMZSS1Y0BFEJ69Q1JC40）:
+      いま仕様シートに開いているコンポーネント（#/overview/<componentId>）と、
+      そこでアンカーした構成要素（#/overview/<componentId>/part/<partId>）。
+      spec/vocab/flow/decision と同じ「focus id を path に置く」形で、componentId
+      は位置引数・partId は browse の tag/tx と同じ key/value ペアで続く（構成要素は
+      コンポーネントの中でしか意味を持たないので、単独では URL に現れない）。
+      省略時は「既定のコンポーネント」を意味する——初期選択を URL に書き戻すと
+      入口が汚れるうえ履歴が1件増えるので、既定は載せない（kindFacet の 'all' を
+      省くのと同じ扱い）。 */
+  componentId?: string;
+  partId?: string;
   /** BrowseView's search state (query/kindFacet/filters), carried as a query
       string appended to the hash path (e.g. #/browse/tag/<id>?q=..&f=..) so
       it composes with the existing path-segment routes above instead of
@@ -105,6 +116,16 @@ export function parseRoute(hash: string): Route {
 
   const route: Route = { view };
   switch (view) {
+    case 'overview':
+      // #/overview/<componentId>[/part/<partId>]。componentId は位置引数、構成要素
+      // アンカーは browse の tag/tx と同じ key/value ペアで続ける。'home'（旧ランディング）
+      // は同じ OverviewView を描くが、現在地を持たない素の入口として据え置く
+      // ——既存の #/home ブックマークの意味を変えないため。
+      if (parts[1]) route.componentId = parts[1];
+      for (let i = 2; i < parts.length - 1; i += 2) {
+        if (parts[i] === 'part') route.partId = parts[i + 1];
+      }
+      break;
     case 'browse':
       for (let i = 1; i < parts.length - 1; i += 2) {
         if (parts[i] === 'tag') route.tagId = parts[i + 1];
@@ -168,6 +189,15 @@ export function parseRoute(hash: string): Route {
 export function routeHash(route: Route): string {
   const seg: string[] = [route.view];
   switch (route.view) {
+    case 'overview':
+      // partId は componentId の下でしか意味を持たない（どのコンポーネントの構成要素か
+      // が決まらないと解決できない）ので、componentId が無ければ何も積まない＝
+      // 「既定のコンポーネント」を指す素の #/overview に落ちる。
+      if (route.componentId) {
+        seg.push(encodeURIComponent(route.componentId));
+        if (route.partId) seg.push('part', encodeURIComponent(route.partId));
+      }
+      break;
     case 'browse':
       if (route.tagId) seg.push('tag', encodeURIComponent(route.tagId));
       if (route.txId) seg.push('tx', encodeURIComponent(route.txId));
