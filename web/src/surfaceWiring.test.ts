@@ -9,6 +9,7 @@ import vocabCardSource from './components/browse/VocabCard.tsx?raw';
 import browseViewSource from './components/browse/BrowseView.tsx?raw';
 import inheritedRulesSource from './components/browse/InheritedRules.tsx?raw';
 import rulesListLinkSource from './components/browse/RulesListLink.tsx?raw';
+import { DICTS } from './strings';
 import decisionListSource from './components/decisions/DecisionList.tsx?raw';
 import inheritedSummarySource from './components/browse/inheritedSummary.ts?raw';
 import decisionsViewSource from './components/decisions/DecisionsView.tsx?raw';
@@ -173,10 +174,35 @@ describe('継承した規則の開示がカードに配線されている（条�
   });
 });
 
-describe('規則の全体を読む入口がカードにある（条項5）', () => {
+describe('一覧への入口が指す範囲を名乗っている（追補 条項2）', () => {
+  // 一覧のタグ絞り込みは「そのタグと配下」方向で、「この記録を支配する規則」＝
+  // 自身＋祖先とは向きが逆。支配する集合の名前をラベルに使うと、逆向きの集合を
+  // 指す入口になる——実測で9タグが「継承3件」と開示した直下から0件の面に着く。
+  for (const [lang, d] of Object.entries(DICTS)) {
+    it(`${lang}: 支配する規則の名前をラベルに使わない`, () => {
+      const labels = [d.browse.rulesListLinkExact, d.browse.rulesListLinkScoped('X')];
+      for (const label of labels) {
+        expect(label, label).not.toMatch(/効く|効いている|支配|governing|in force|applies/i);
+      }
+    });
+
+    it(`${lang}: 自身と配下の両方を名乗る（dt= は自身への decision も返す）`, () => {
+      // 「配下」だけだと、そのタグ自身に付いた意思決定を名乗り落とす。一覧が返すのは
+      // 「T を実効タグに持つ decision」＝ T 自身への decision も含む。
+      const labels = [d.browse.rulesListLinkExact, d.browse.rulesListLinkScoped('X')];
+      for (const label of labels) {
+        expect(label, label).toMatch(/と配下|and below/i);
+      }
+    });
+  }
+});
+
+describe('配下の意思決定の一覧への入口がカードにある', () => {
+  // この入口は条項5 が言う集合（この記録を支配する規則＝自身＋祖先）を**指していない**
+  // ——一覧は配下方向にしか絞れない、というのが追補 01KYJV3FYMDFRWQ939NBV2BPAC の
+  // 確定事項（条項2）。それ自体は使える眺めなので置いたままにし、範囲を名乗らせる。
+  // 条項5 が言う用途に答えるのは WholeRules（追補 条項3）。
   it('タグのカードは継承0件でも入口を出す', () => {
-    // 条項5 は条項3・4 と同格の「廃止するなら課す条件」。継承が無いカードでも
-    // own の規則を通覧する入口は要る。
     expect(tagCardSource).toMatch(/<RulesListLink[\s\S]{0,60}tagId=\{tag\.id\}[\s\S]{0,20}exact/);
   });
 

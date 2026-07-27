@@ -258,10 +258,13 @@ const ja = {
     // 一覧への入口。**一覧のタグ絞り込みは「そのタグとその配下」方向**（decision の
     // 実効タグ集合＝own タグの祖先クロージャに対する一致・01KXZK5BWEX3HH15B78E4Z3BXK）
     // で、「この記録を支配する規則」＝自身＋**祖先**とは向きが逆。ラベルは一覧が
-    // 実際に見せる集合を名乗る——「この記録に効く規則」と読ませない。
-    // 条項5 が求める向きの絞り込みは一覧にまだ無い（result.md §15 の残課題）。
-    rulesListLinkExact: 'このタグ配下の意思決定を一覧で見る',
-    rulesListLinkScoped: (tag: string) => `〈${tag}〉配下の意思決定を一覧で見る`,
+    // 実際に見せる集合を名乗る——「この記録に効く規則」と読ませない
+    // （追補 01KYJV3FYMDFRWQ939NBV2BPAC 条項2）。
+    // 「配下」だけだと**そのタグ自身に付いた意思決定**を名乗り落とす（dt=T は
+    // T を実効タグに持つ decision＝T 自身への decision も返す）ので、tooltip と
+    // 同じく「自身と配下」を名乗る。
+    rulesListLinkExact: 'このタグと配下の意思決定を一覧で見る',
+    rulesListLinkScoped: (tag: string) => `〈${tag}〉と配下の意思決定を一覧で見る`,
     rulesListLinkTitle: 'このタグとその配下に付いた意思決定を一覧で開く',
     // 軸カードの構造表示（#45 D10b-6）。状態次元・total（宣言由来・非検証）・値・効く action。
     axisStructureHeading: '軸の構造',
@@ -739,8 +742,8 @@ const en: Strings = {
     inheritedFromAncestors: (n: number) => `${n} rule(s) inherited from above`,
     inheritedFromTags: (n: number) => `${n} rule(s) inherited from tags`,
     inheritedSourceTitle: 'Open the record it comes from',
-    rulesListLinkExact: 'See decisions under this tag',
-    rulesListLinkScoped: (tag: string) => `See decisions under ⟨${tag}⟩`,
+    rulesListLinkExact: 'See decisions on this tag and below',
+    rulesListLinkScoped: (tag: string) => `See decisions on ⟨${tag}⟩ and below`,
     rulesListLinkTitle: 'Open the decisions list scoped to this tag and its descendants',
     axisStructureHeading: 'Axis structure',
     axisDimensionBadge: 'state dimension',
