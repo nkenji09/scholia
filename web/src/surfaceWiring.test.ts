@@ -30,6 +30,9 @@ const WIRING = {
   useScrollRestore: /\buseScrollRestore\s*\(/,
   /** 面が持つ独立スクロール領域も保持する（01KYH0ESVG1D5NGDH5C4TG920J）。 */
   useElementScrollRestore: /\buseElementScrollRestore\s*\(/,
+  /** その領域の「器の形」も位置と対で保持する（01KYH8GX987GQX08C56G58JP2N）。位置だけを
+      覚えても、戻ったときに器が縮んでいればその位置は存在しない。 */
+  regionShape: /\bloadRegionShape\s*[<(]/,
   /** 開閉の保存値を既定より優先して解決する（collapsible-section 01KYGYYN8HRNFQEDMBS3DZRRX7）。 */
   collapseState: /\bloadCardSectionOpen\s*\(/,
 } as const;
@@ -39,7 +42,7 @@ const SURFACES: Array<{ name: string; source: string; wiring: Array<keyof typeof
   {
     name: '概要タブ（構造ツリー＋コンポーネント仕様シート）',
     source: overviewSource,
-    wiring: ['useScrollRestore', 'useElementScrollRestore', 'collapseState'],
+    wiring: ['useScrollRestore', 'useElementScrollRestore', 'regionShape', 'collapseState'],
   },
 ];
 
