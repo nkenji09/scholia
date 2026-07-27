@@ -370,6 +370,15 @@ const ja = {
     supersedeUnknownTarget: '対象不明の意思決定',
     supersedeNoneWithPrior: (n: number) =>
       `置き換えの宣言はありません。このレコードには既に意思決定が ${n} 件あります——旧を改訂する提案なら、結線しないと現行規則の導出が旧のまま残ります。`,
+    // 採用が結線の検証で失敗したときの文言（01KYCC2TF3NW3JRSSRK9ZHN078:
+    // viewer は生レコード id を表示しない）。サーバは code だけを返し、
+    // 読ませる文言はここが持つ——上の確認ブロックと同じ語彙に揃える。
+    supersedeErrorMissingTarget: 'この意思決定は見つかりません。提案が宣言した置き換え先が既に消えています。',
+    supersedeErrorInvalidMode: '置き換えの種別が不正です（全文置換・部分改訂・意識的例外のいずれかである必要があります）。',
+    supersedeErrorDuplicate: '同じ意思決定が二重に指定されています。',
+    supersedeErrorSelfReference: '意思決定は自分自身を置き換えられません。',
+    supersedeErrorEmptyId: '置き換え対象が指定されていません。',
+    supersedeErrorModeRewrite: '宣言済みの置き換えの種別は変更できません（リンクは追記のみ）。',
     // 却下（#35・tx.review.reject/tx.comment.reject）— 採用と対称の束ね操作。
     // decision として記録した上で昇格元コメントを削除する点は採用と同じ。
     rejectButton: '却下',
@@ -786,6 +795,12 @@ const en: Strings = {
     supersedeUnknownTarget: 'Decision with unresolved target',
     supersedeNoneWithPrior: (n: number) =>
       `No replacement declared. This record already has ${n} decision(s) — if this proposal revises one of them, leaving it unlinked keeps the old rule showing as current.`,
+    supersedeErrorMissingTarget: 'That decision no longer exists — the replacement this proposal declared is gone.',
+    supersedeErrorInvalidMode: 'Invalid replacement kind (must be full replacement, partial amendment, or deliberate exception).',
+    supersedeErrorDuplicate: 'The same decision is listed twice.',
+    supersedeErrorSelfReference: 'A decision cannot replace itself.',
+    supersedeErrorEmptyId: 'No replacement target was given.',
+    supersedeErrorModeRewrite: 'A declared replacement kind cannot be changed (links are append-only).',
     rejectButton: 'Reject',
     rejectWhyLabel: 'Rejection reason (will be recorded as a decision)',
     rejectConfirm: 'Confirm rejection',

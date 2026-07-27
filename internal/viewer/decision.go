@@ -2,6 +2,7 @@ package viewer
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -105,7 +106,7 @@ func postDecisionHandler(s *store.Store) http.HandlerFunc {
 		// 「CLI では弾かれるのに viewer では通る」宙吊りリンクが生まれる。
 		links, err := validateSupersedeBody(s, id, body.Supersedes)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, err.Error())
+			writeSupersedeError(w, err)
 			return
 		}
 
@@ -137,6 +138,46 @@ func postDecisionHandler(s *store.Store) http.HandlerFunc {
 			Advisories []lint.Finding `json:"advisories,omitempty"`
 		}{Decision: d, Advisories: advisories})
 	}
+}
+
+// writeSupersedeError は現行性リンクの検証違反を、生 ULID を含まない文言と
+// 機械可読な code で返す（01KYCC2TF3NW3JRSSRK9ZHN078: viewer は生レコード id を
+// 表示しない・id は deep-link の href としてのみ用いる）。
+//
+// model.SupersedeError.Error() は「どの id を直せばよいか」を含む CLI 向けの
+// 文言なので、viewer がそれをそのまま body に載せるとドロワーのエラー欄に
+// ULID が出る。Kind から組み直すことで、確認ブロック（supersedesDetail の
+// missing 表示）が既に使っている「対象不明の意思決定 / この意思決定は
+// 見つかりません」と同じ語彙に揃う。
+func writeSupersedeError(w http.ResponseWriter, err error) {
+	var se *model.SupersedeError
+	if !errors.As(err, &se) {
+		// 閉路検査など SupersedeError でない失敗。文言に id を含まない。
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeErrorCode(w, http.StatusBadRequest, supersedeViewerMessage(se), "supersedes-"+se.Kind)
+}
+
+// supersedeViewerMessage は code を知らないフロント向けのフォールバック文言。
+// 翻訳済みの文言はフロントが code から選ぶ（web/src/components/comments/
+// SupersedeConfirm.tsx）。どの分岐も id を含めない。
+func supersedeViewerMessage(se *model.SupersedeError) string {
+	switch se.Kind {
+	case model.SupersedeErrMissingTarget:
+		return "置き換え対象の意思決定が見つかりません（提案が宣言した結線先が既に消えています）"
+	case model.SupersedeErrInvalidMode:
+		return "置き換えの種別が不正です（全文置換・部分改訂・意識的例外のいずれかである必要があります）"
+	case model.SupersedeErrDuplicate:
+		return "同じ意思決定が二重に指定されています"
+	case model.SupersedeErrSelfReference:
+		return "意思決定は自分自身を置き換えられません"
+	case model.SupersedeErrEmptyID:
+		return "置き換え対象が指定されていません"
+	case model.SupersedeErrModeRewrite:
+		return "宣言済みの置き換えの種別は変更できません（リンクは追記のみ）"
+	}
+	return "置き換えの指定が不正です"
 }
 
 // validateSupersedeBody は POST body の supersedes[] を検証し、保存する形へ

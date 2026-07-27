@@ -11,6 +11,53 @@ import "fmt"
 // 各面はここを呼ぶ。CLI 構文 "<ulid>[:<mode>]" の解析だけは CLI 側に残す
 // （viewer は構造化 JSON を受け取るので解析が要らない）。
 
+// SupersedeError は現行性リンクの検証違反。Kind で違反の種類を、ID/Mode で
+// どの link かを持つ。
+//
+// 文字列ではなく型で返すのは、面ごとに見せ方が違うため。CLI は「どの review
+// ファイルのどの id を直せばよいか」を出す必要があるので Error() に ULID を
+// 含める。viewer は 01KYCC2TF3NW3JRSSRK9ZHN078（viewer は生レコード id を
+// 表示しない・id は deep-link の href としてのみ用いる）に従い、Kind から
+// ULID 抜きの文言を組み直す。エラー文字列を正規表現で削るのではなく、
+// 構造化した情報から各面が自分の文言を作る。
+type SupersedeError struct {
+	Kind     string
+	ID       string
+	Mode     string
+	PrevMode string
+}
+
+// SupersedeError.Kind の値。viewer はこれを code としてフロントへ渡し、
+// フロントが自前の（翻訳済み・ULID 抜きの）文言を選ぶ。
+const (
+	SupersedeErrEmptyID       = "empty-id"
+	SupersedeErrInvalidMode   = "invalid-mode"
+	SupersedeErrSelfReference = "self-reference"
+	SupersedeErrDuplicate     = "duplicate"
+	SupersedeErrMissingTarget = "missing-target"
+	SupersedeErrModeRewrite   = "mode-rewrite"
+)
+
+// Error は CLI 向けの文言（どの id が問題かを含む）。viewer はこれを使わない。
+func (e *SupersedeError) Error() string {
+	switch e.Kind {
+	case SupersedeErrEmptyID:
+		return "supersedes: id が空です"
+	case SupersedeErrInvalidMode:
+		return fmt.Sprintf("supersedes: mode %q は supersede|amend|exception のいずれかである必要があります（%s）", e.Mode, e.ID)
+	case SupersedeErrSelfReference:
+		return fmt.Sprintf("supersedes: decision は自分自身（%s）を supersede できません", e.ID)
+	case SupersedeErrDuplicate:
+		return fmt.Sprintf("supersedes: 旧 decision %q が重複指定されています", e.ID)
+	case SupersedeErrMissingTarget:
+		return fmt.Sprintf("supersedes: 旧 decision %q が実在しません", e.ID)
+	case SupersedeErrModeRewrite:
+		return fmt.Sprintf("supersedes: 既存 link %s の mode（%s）を %s へ改変することはできません（追記専用・link は append-only）",
+			e.ID, e.PrevMode, e.Mode)
+	}
+	return "supersedes: リンクが不正です"
+}
+
 // NormalizeSupersedeLinks は link 集合そのものが満たすべき不変条件——mode が3値
 // （空＝既定 amend を含む）・id が空でない・自己参照でない・同一 id の重複が無い
 // ——を検査し、検査済みのコピーを返す。空集合は nil を返す。
@@ -33,16 +80,16 @@ func NormalizeSupersedeLinks(links []SupersedeLink, selfID string) ([]SupersedeL
 	out := make([]SupersedeLink, 0, len(links))
 	for _, l := range links {
 		if l.ID == "" {
-			return nil, fmt.Errorf("supersedes: id が空です")
+			return nil, &SupersedeError{Kind: SupersedeErrEmptyID}
 		}
 		if !ValidSupersedeMode(l.Mode) {
-			return nil, fmt.Errorf("supersedes: mode %q は supersede|amend|exception のいずれかである必要があります（%s）", l.Mode, l.ID)
+			return nil, &SupersedeError{Kind: SupersedeErrInvalidMode, ID: l.ID, Mode: l.Mode}
 		}
 		if selfID != "" && l.ID == selfID {
-			return nil, fmt.Errorf("supersedes: decision は自分自身（%s）を supersede できません", selfID)
+			return nil, &SupersedeError{Kind: SupersedeErrSelfReference, ID: selfID}
 		}
 		if seen[l.ID] {
-			return nil, fmt.Errorf("supersedes: 旧 decision %q が重複指定されています", l.ID)
+			return nil, &SupersedeError{Kind: SupersedeErrDuplicate, ID: l.ID}
 		}
 		seen[l.ID] = true
 		out = append(out, l)
@@ -62,7 +109,7 @@ func ValidateSupersedeTargets(all []Decision, links []SupersedeLink) error {
 	}
 	for _, l := range links {
 		if !exists[l.ID] {
-			return fmt.Errorf("supersedes: 旧 decision %q が実在しません", l.ID)
+			return &SupersedeError{Kind: SupersedeErrMissingTarget, ID: l.ID}
 		}
 	}
 	return nil
@@ -82,8 +129,8 @@ func AppendSupersedeLinks(existing, candidates []SupersedeLink) (added []Superse
 			if prev.SupersedeMode() == c.SupersedeMode() {
 				continue // 冪等 skip
 			}
-			return nil, fmt.Errorf("supersedes: 既存 link %s の mode（%s）を %s へ改変することはできません（追記専用・link は append-only）",
-				c.ID, prev.SupersedeMode(), c.SupersedeMode())
+			return nil, &SupersedeError{Kind: SupersedeErrModeRewrite, ID: c.ID,
+				PrevMode: prev.SupersedeMode(), Mode: c.SupersedeMode()}
 		}
 		if addedIDs[c.ID] {
 			continue

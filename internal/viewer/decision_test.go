@@ -3,6 +3,8 @@ package viewer
 import (
 	"net/http"
 	"reflect"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/nkenji09/scholia/internal/model"
@@ -235,5 +237,97 @@ func TestPostDecision_UnlinkedAdvisory(t *testing.T) {
 	}](t, rec)
 	if len(got.Advisories) != 0 {
 		t.Fatalf("既存 decision が無いのに advisory が出た: %s", rec.Body.String())
+	}
+}
+
+// --- 失敗メッセージに生 ULID を出さない（01KYCC2TF3NW3JRSSRK9ZHN078） ---
+
+// ulidPattern は Crockford Base32 の 26 文字 ULID。
+var ulidPattern = regexp.MustCompile(`\b[0-9A-HJKMNP-TV-Z]{26}\b`)
+
+// viewer は生レコード id を表示しない（id は deep-link の href としてのみ）。
+// POST /api/decision の失敗応答は人がドロワーでそのまま読む文字列になるので、
+// ここに ULID が乗ると決定の字義に反する。CLI 向けの文言（どの id を直せば
+// よいかを含む）を body へ素通しさせないことを、この API 面で固定する。
+func TestPostDecision_SupersedeErrorsCarryNoULID(t *testing.T) {
+	// 実在する旧 decision を作っておく（重複・mode 改変の材料）。
+	seed := func(t *testing.T) (http.Handler, string) {
+		t.Helper()
+		h, s := newTestHandler(t)
+		old := "01KYHZZZZZZZZZZZZZZZZZZZZZ"
+		if err := s.SaveDecision(model.Decision{
+			ID: old, Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.auth"},
+			Why: "旧", At: "2026-01-01T00:00:00Z",
+		}); err != nil {
+			t.Fatalf("seed decision: %v", err)
+		}
+		return h, old
+	}
+
+	cases := []struct {
+		name     string
+		body     func(old string) string
+		wantCode string
+	}{
+		{
+			name: "実在しない旧 decision",
+			body: func(string) string {
+				return `{"on":"tag:subject.auth","why":"x","commits":[],"supersedes":[{"id":"01KYHYYYYYYYYYYYYYYYYYYYYY"}]}`
+			},
+			wantCode: "supersedes-missing-target",
+		},
+		{
+			name: "3値でない mode",
+			body: func(o string) string {
+				return `{"on":"tag:subject.auth","why":"x","commits":[],"supersedes":[{"id":"` + o + `","mode":"bogus"}]}`
+			},
+			wantCode: "supersedes-invalid-mode",
+		},
+		{
+			name: "同一 id の重複",
+			body: func(o string) string {
+				return `{"on":"tag:subject.auth","why":"x","commits":[],"supersedes":[{"id":"` + o + `","mode":"amend"},{"id":"` + o + `","mode":"supersede"}]}`
+			},
+			wantCode: "supersedes-duplicate",
+		},
+		{
+			name: "空 id",
+			body: func(string) string {
+				return `{"on":"tag:subject.auth","why":"x","commits":[],"supersedes":[{"id":""}]}`
+			},
+			wantCode: "supersedes-empty-id",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h, old := seed(t)
+			rec := doRequest(t, h, http.MethodPost, "/api/decision", []byte(tc.body(old)))
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
+			}
+			got := decodeJSON[struct {
+				Error string `json:"error"`
+				Code  string `json:"code"`
+			}](t, rec)
+			if got.Code != tc.wantCode {
+				t.Fatalf("code = %q, want %q（フロントが翻訳済み文言を選ぶ鍵）", got.Code, tc.wantCode)
+			}
+			if leaks := ulidPattern.FindAllString(got.Error, -1); len(leaks) > 0 {
+				t.Fatalf("失敗メッセージに生 ULID が漏れている: %v\nmessage: %s", leaks, got.Error)
+			}
+		})
+	}
+}
+
+// CLI 向けの文言（model.SupersedeError.Error()）は逆に id を含み続ける——
+// どの review ファイルのどの id を直せばよいかを出す必要があるため。viewer と
+// CLI で見せ方を分ける前提そのものを固定する。
+func TestSupersedeError_CLIMessageKeepsID(t *testing.T) {
+	err := &model.SupersedeError{Kind: model.SupersedeErrMissingTarget, ID: "01KYHZZZZZZZZZZZZZZZZZZZZZ"}
+	if !strings.Contains(err.Error(), "01KYHZZZZZZZZZZZZZZZZZZZZZ") {
+		t.Fatalf("CLI 向け文言は id を含むべき: %q", err.Error())
+	}
+	if ulidPattern.MatchString(supersedeViewerMessage(err)) {
+		t.Fatalf("viewer 向け文言は id を含まないべき: %q", supersedeViewerMessage(err))
 	}
 }
