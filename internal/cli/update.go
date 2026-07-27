@@ -14,7 +14,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"runtime/debug"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -134,21 +133,17 @@ func runUpdate(cmd *cobra.Command, checkOnly bool) error {
 }
 
 // isSourceInstall は導入方式が source/go install かどうかを判定する
-// （cond.install-source-goinstall）。goreleaser のリリースビルドは常に
-// version を実タグへ ldflags 注入するため、注入されていない（"dev" のまま）
-// ことがそれ自体で source/go install の十分な兆候になる。加えて
-// runtime/debug.ReadBuildInfo がモジュール版（go install pkg@vX 由来）を
-// 示す場合も同様に扱う。
+// （cond.install-source-goinstall）。導入方式の正本は「version 文字列の由来」
+// （axis.update.install の既決）: goreleaser のリリースビルドは version を実タグへ
+// ldflags 注入するので、注入されていない（"dev" のまま）ことが source/go install の
+// 必要十分条件になる。
+//
+// かつては runtime/debug.ReadBuildInfo().Main.Version も併用していたが、Go 1.24 以降は
+// `go build`（tag 付き checkout の main module）でも Main.Version に VCS 由来版が刻まれる
+// ため、goreleaser のリリースビルドが go install pkg@vX と区別できず source と誤判定される
+// （req.self-update の decision 参照）。よって version 注入の有無だけで判定する。
 func isSourceInstall() bool {
-	if version == "dev" {
-		return true
-	}
-	if bi, ok := debug.ReadBuildInfo(); ok {
-		if bi.Main.Version != "" && bi.Main.Version != "(devel)" {
-			return true
-		}
-	}
-	return false
+	return version == "dev"
 }
 
 // normalizeTag は "v1.2.3" と goreleaser の {{.Version}}（"v" 無し）表記の

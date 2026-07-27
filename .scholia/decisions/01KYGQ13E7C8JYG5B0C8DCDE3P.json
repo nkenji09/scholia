@@ -1,0 +1,12 @@
+{
+  "id": "01KYGQ13E7C8JYG5B0C8DCDE3P",
+  "target": {
+    "type": "tag",
+    "id": "req.self-update"
+  },
+  "why": "A是正（バグ修正・Go 1.24 回帰）: リリース版バイナリ（install.sh/curl 導入）が「go install（source）経由」と誤判定され自己更新できない不具合を修正。原因は isSourceInstall の第2判定 ReadBuildInfo().Main.Version != \"\" かつ != \"(devel)\"——Go 1.24 以降は go build（tag 付き checkout の main module）でも Main.Version に VCS 由来版を刻むため、goreleaser のリリースビルドで Main.Version が実版になり go install pkg@vX と区別できず release 版が source と誤判定されていた（v0.2.10 の darwin_arm64 リリースで再現確認）。導入方式の正本は axis.update.install の既決どおり「version 文字列の由来＝ldflags 注入の有無」であり、注入されていない（version==\"dev\"）ことが source の必要十分条件。よって Main.Version 判定を撤去し isSourceInstall は version==\"dev\" のみで判定。回帰テスト TestIsSourceInstall が version 注入時に source 判定されないことを固定（撤去した Main.Version 経路は go test では (devel) のため元々再現不能だった）。",
+  "at": "2026-07-27T02:38:55Z",
+  "commits": [
+    "70b7ab1a61056704537d382959005871e24c5cbb"
+  ]
+}
