@@ -47,23 +47,11 @@ func parseSupersedeSpec(spec string) (id, mode string, err error) {
 	return id, mode, nil
 }
 
-// validateSupersedeTargets は各 link の旧 decision が実在するかを検査する
-// （実在照合・#45 D7）。
-func validateSupersedeTargets(all []model.Decision, links []model.SupersedeLink) error {
-	if len(links) == 0 {
-		return nil
-	}
-	exists := make(map[string]bool, len(all))
-	for _, d := range all {
-		exists[d.ID] = true
-	}
-	for _, l := range links {
-		if !exists[l.ID] {
-			return fmt.Errorf("supersedes: 旧 decision %q が実在しません", l.ID)
-		}
-	}
-	return nil
-}
+// 実在照合・追記マージ・閉路検査は model.ValidateSupersedeTargets /
+// model.AppendSupersedeLinks / model.SupersedeCreatesCycle にある——viewer の
+// POST /api/decision も同じ検証を通す必要があり、internal/viewer から
+// internal/cli は import できない（逆向きに依存している）ため。ここに残すのは
+// CLI 構文の解析（上）と derive（下）だけ。
 
 // supersededIDs は「mode=supersede で他 decision から指された decision の id 集合」
 // を返す（#45 D7・derive は保守的に supersede のみ失効扱い）。amend/exception は
@@ -95,46 +83,4 @@ func supersededByIndex(all []model.Decision) map[string][]supersededByRef {
 		}
 	}
 	return out
-}
-
-// supersedeCreatesCycle は「newID の supersedes に candidate 群を足すと、
-// decision の supersede 有向グラフ（新→旧）に閉路ができるか」を返す（#45 D7・
-// decision link の後付け結線で使う）。all は現在の全 decision（newID 自身を含む）。
-// 新規 decide では newID が未保存なので閉路は構造的に起きないが、link は既存
-// decision を編集するため検査が要る。
-func supersedeCreatesCycle(all []model.Decision, newID string, candidates []model.SupersedeLink) bool {
-	// 隣接リスト（id → supersede 先 id 群）を組み、candidates を newID に足す。
-	adj := make(map[string][]string, len(all)+1)
-	for _, d := range all {
-		for _, l := range d.Supersedes {
-			adj[d.ID] = append(adj[d.ID], l.ID)
-		}
-	}
-	for _, l := range candidates {
-		adj[newID] = append(adj[newID], l.ID)
-	}
-	// newID から DFS して newID に戻れれば閉路（自己参照は parse 段で弾き済みだが
-	// 多段の閉路 A→B→A をここで拾う）。
-	const (
-		white = 0
-		gray  = 1
-		black = 2
-	)
-	color := make(map[string]int)
-	var hasCycle bool
-	var visit func(string)
-	visit = func(u string) {
-		color[u] = gray
-		for _, v := range adj[u] {
-			switch color[v] {
-			case gray:
-				hasCycle = true
-			case white:
-				visit(v)
-			}
-		}
-		color[u] = black
-	}
-	visit(newID)
-	return hasCycle
 }

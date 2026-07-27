@@ -15,6 +15,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/nkenji09/scholia/internal/model"
 )
 
 const dirName = "reviews"
@@ -42,6 +44,16 @@ type Review struct {
 	Body      string    `json:"body"`
 	Source    string    `json:"source"`
 	CreatedAt string    `json:"createdAt"` // RFC3339
+	// Supersedes は「この提案が採用されたら、昇格先 decision が置き換える／改訂
+	// する／例外化する旧 decision」への宣言（additive/omitempty）。adopt が
+	// decision の supersedes[] へそのまま持ち上げるので、「adopt の後に手で
+	// scholia decision link する」手作業が要らなくなる。
+	//
+	// 結線先を本文（Body）の prose から推測しないための構造化フィールド:
+	// decision の link は追記専用で unlink が無く、誤結線を取り消せない
+	// （model.AppendSupersedeLinks は既存 link の mode 改変も拒否する）。
+	// 取り消せない操作を推測で行わないため、宣言由来のみを持ち上げる。
+	Supersedes []model.SupersedeLink `json:"supersedes,omitempty"`
 }
 
 func path(scholiaDir, id string) string {

@@ -359,6 +359,17 @@ const ja = {
     adoptedBadge: '採用済み',
     adoptedWhyHeading: '採用された why（decision）',
     adoptedNote: 'この提案は decision として記録されました（commits[] は空）。commit 後は `scholia decision add-commit <id> <hash>` で結線してください。',
+    // 結線の確認（adopt が supersedes まで束ねる要件・01KYHE08WNA8H1Q1DM2H45Y4TK）:
+    // 採用と同時に張る現行性リンクを、Adopt を押す前に見せて一緒に承認させる。
+    supersedeHeading: '採用と同時に張る現行性リンク',
+    // 戻り値を string に固定する（リテラル union に推論されると en 辞書の
+    // 同名関数が代入不能になる — 辞書は ja を型の正本にしている）。
+    supersedeModeLabel: (mode: string): string =>
+      mode === 'supersede' ? '全文置換（旧を失効させる）' : mode === 'exception' ? '意識的例外（旧は生きたまま）' : '部分改訂（旧は生きたまま）',
+    supersedeMissing: 'この意思決定は見つかりません（採用時にエラーになります）',
+    supersedeUnknownTarget: '対象不明の意思決定',
+    supersedeNoneWithPrior: (n: number) =>
+      `置き換えの宣言はありません。このレコードには既に意思決定が ${n} 件あります——旧を改訂する提案なら、結線しないと現行規則の導出が旧のまま残ります。`,
     // 却下（#35・tx.review.reject/tx.comment.reject）— 採用と対称の束ね操作。
     // decision として記録した上で昇格元コメントを削除する点は採用と同じ。
     rejectButton: '却下',
@@ -764,6 +775,17 @@ const en: Strings = {
     adoptedBadge: 'Adopted',
     adoptedWhyHeading: 'Adopted why (decision)',
     adoptedNote: 'This proposal was recorded as a decision (commits[] is empty). After committing, link it with `scholia decision add-commit <id> <hash>`.',
+    supersedeHeading: 'Currency links applied on adoption',
+    supersedeModeLabel: (mode: string) =>
+      mode === 'supersede'
+        ? 'Full replacement (retires the older decision)'
+        : mode === 'exception'
+          ? 'Deliberate exception (older stays current)'
+          : 'Partial amendment (older stays current)',
+    supersedeMissing: 'This decision no longer exists (adoption will fail)',
+    supersedeUnknownTarget: 'Decision with unresolved target',
+    supersedeNoneWithPrior: (n: number) =>
+      `No replacement declared. This record already has ${n} decision(s) — if this proposal revises one of them, leaving it unlinked keeps the old rule showing as current.`,
     rejectButton: 'Reject',
     rejectWhyLabel: 'Rejection reason (will be recorded as a decision)',
     rejectConfirm: 'Confirm rejection',

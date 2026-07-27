@@ -3,6 +3,7 @@ import { useComments, recordTypeMeta } from './useComments';
 import type { CommentRecord, DisplayComment } from './useComments';
 import { ProposalCard } from './ProposalCard';
 import { RecordDiffCard } from './RecordDiffCard';
+import { SupersedeConfirm } from './SupersedeConfirm';
 import { Markdown } from '../Markdown';
 import { usePendingDiff } from '../../pendingDiff';
 import { useT } from '../../i18n';
@@ -148,7 +149,18 @@ export function CommentPanel({ onGoto }: Props) {
     setDeciding(true);
     setDecideError(null);
     try {
-      const decision = await api.postDecision({ on: `${c.recordType}:${c.recordId}`, why, commits: [] });
+      // 結線まで1操作で束ねる（01KYHE08WNA8H1Q1DM2H45Y4TK）: 提案が宣言した
+      // 置き換え対象を decision 昇格と同じ POST に載せる。ここを送らないと
+      // 「adopt の後に手で scholia decision link する」手作業が残り、忘れた
+      // 瞬間に rules --current が改訂済みの旧 decision を現行として出す。
+      // reject は旧を改訂も失効もさせないので載せない。
+      const supersedes = decidingKind === 'adopt' ? c.supersedes : undefined;
+      const decision = await api.postDecision({
+        on: `${c.recordType}:${c.recordId}`,
+        why,
+        commits: [],
+        ...(supersedes && supersedes.length > 0 ? { supersedes } : {}),
+      });
       // レビュー major fix-back（#27 P5b）: consider() の reload 専用
       // 再取得を待たず、POST 応答の Decision（編集後 why を含む）を即座に
       // キャッシュへ入れる — 「採用された why」表示が編集前の AI 原文/
@@ -449,6 +461,13 @@ export function CommentPanel({ onGoto }: Props) {
                     <div class="comment-adopt-form-label">
                       {decidingKind === 'reject' ? t.comments.rejectWhyLabel : t.comments.adoptWhyLabel}
                     </div>
+                    {/* 結線の確認（adopt が supersedes まで束ねる要件・
+                        01KYHE08WNA8H1Q1DM2H45Y4TK）: 提案が宣言した置き換え
+                        対象を Adopt を押す前に見せ、人が昇格と結線をまとめて
+                        承認する。reject は旧を改訂も失効もさせないので出さない。 */}
+                    {decidingKind === 'adopt' && (
+                      <SupersedeConfirm details={c.supersedesDetail} declared={c.supersedes} priorDecisionCount={c.priorDecisionCount} />
+                    )}
                     <textarea
                       class="comment-adopt-form-input"
                       rows={3}

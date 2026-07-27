@@ -303,3 +303,283 @@ func TestCLI_ReviewAdopt_VocabTargetIsError(t *testing.T) {
 		t.Fatalf("expected error adopting a vocab-targeted review")
 	}
 }
+
+// --- 現行性リンクの結線（adopt が supersedes まで束ねる・01KYHE08WNA8H1Q1DM2H45Y4TK） ---
+
+// supersedeFixture は「旧 decision が1件ある transition」を作り、その旧 id を返す。
+func supersedeFixture(t *testing.T, dir string) (oldDecisionID string) {
+	t.Helper()
+	if _, err := run(t, dir, "init"); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	if _, err := run(t, dir, "tag", "create", "subject.auth", "--name", "認証", "--kind", "subject"); err != nil {
+		t.Fatalf("tag create: %v", err)
+	}
+	if _, err := run(t, dir, "vocab", "add", "action", "act.a", "--label", "a"); err != nil {
+		t.Fatalf("vocab add: %v", err)
+	}
+	if _, err := run(t, dir, "vocab", "add", "effect", "eff.a", "--label", "a"); err != nil {
+		t.Fatalf("vocab add effect: %v", err)
+	}
+	if _, err := run(t, dir, "tx", "add", "T-1", "--action", "act.a", "--then", "eff.a", "--tags", "subject.auth"); err != nil {
+		t.Fatalf("tx add: %v", err)
+	}
+	out, err := run(t, dir, "decide", "--on", "transition:T-1", "--why", "旧: A とする", "--json")
+	if err != nil {
+		t.Fatalf("decide: %v\noutput:\n%s", err, out)
+	}
+	var env struct {
+		Record struct {
+			ID string `json:"id"`
+		} `json:"record"`
+	}
+	if err := json.Unmarshal([]byte(out), &env); err != nil {
+		t.Fatalf("unmarshal decide envelope: %v\noutput:\n%s", err, out)
+	}
+	if env.Record.ID == "" {
+		t.Fatalf("decide が id を返していない:\n%s", out)
+	}
+	return env.Record.ID
+}
+
+type adoptedDecision struct {
+	ID         string `json:"id"`
+	Why        string `json:"why"`
+	Supersedes []struct {
+		ID   string `json:"id"`
+		Mode string `json:"mode"`
+	} `json:"supersedes"`
+	Advisories []struct {
+		Rule string `json:"rule"`
+	} `json:"advisories"`
+}
+
+func addReviewWithSupersedes(t *testing.T, dir string, specs ...string) string {
+	t.Helper()
+	args := []string{"review", "add", "--on", "transition:T-1", "--body", "AI: 改訂: A ではなく B とする", "--json"}
+	for _, s := range specs {
+		args = append(args, "--supersedes", s)
+	}
+	out, err := run(t, dir, args...)
+	if err != nil {
+		t.Fatalf("review add --supersedes: %v\noutput:\n%s", err, out)
+	}
+	var added struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(out), &added); err != nil {
+		t.Fatalf("unmarshal review: %v\noutput:\n%s", err, out)
+	}
+	return added.ID
+}
+
+// 回帰の芯: 提案が置き換えを宣言していれば、`review adopt` **だけ**で結線される
+// （`scholia decision link` を手で叩かない）。ここが落ちると本件の不具合が再発し、
+// rules --current が改訂済みの旧 decision を現行として出す。
+func TestCLI_ReviewAdopt_LinksDeclaredSupersedes(t *testing.T) {
+	dir := t.TempDir()
+	oldID := supersedeFixture(t, dir)
+	reviewID := addReviewWithSupersedes(t, dir, oldID+":supersede")
+
+	out, err := run(t, dir, "review", "adopt", reviewID, "--json")
+	if err != nil {
+		t.Fatalf("review adopt: %v\noutput:\n%s", err, out)
+	}
+	var d adoptedDecision
+	if err := json.Unmarshal([]byte(out), &d); err != nil {
+		t.Fatalf("unmarshal decision: %v\noutput:\n%s", err, out)
+	}
+	if len(d.Supersedes) != 1 || d.Supersedes[0].ID != oldID || d.Supersedes[0].Mode != "supersede" {
+		t.Fatalf("adopt だけで結線されるべき: supersedes = %+v, want [{%s supersede}]", d.Supersedes, oldID)
+	}
+
+	// 結線の効果まで見る: --current が旧を畳み、新だけを現行として出す。
+	rules, err := run(t, dir, "rules", "--tx", "T-1", "--current")
+	if err != nil {
+		t.Fatalf("rules --current: %v\noutput:\n%s", err, rules)
+	}
+	if strings.Contains(rules, "旧: A とする") {
+		t.Fatalf("supersede した旧 decision が --current に残っている:\n%s", rules)
+	}
+	if !strings.Contains(rules, "改訂: A ではなく B とする") {
+		t.Fatalf("新 decision が --current に出るべき:\n%s", rules)
+	}
+}
+
+// mode 省略時は既定 amend（旧は失効しない）。
+func TestCLI_ReviewAdopt_DefaultModeIsAmend(t *testing.T) {
+	dir := t.TempDir()
+	oldID := supersedeFixture(t, dir)
+	reviewID := addReviewWithSupersedes(t, dir, oldID)
+
+	out, err := run(t, dir, "review", "adopt", reviewID, "--json")
+	if err != nil {
+		t.Fatalf("review adopt: %v\noutput:\n%s", err, out)
+	}
+	var d adoptedDecision
+	if err := json.Unmarshal([]byte(out), &d); err != nil {
+		t.Fatalf("unmarshal: %v\noutput:\n%s", err, out)
+	}
+	if len(d.Supersedes) != 1 || d.Supersedes[0].ID != oldID {
+		t.Fatalf("supersedes = %+v, want 1 link to %s", d.Supersedes, oldID)
+	}
+	rules, err := run(t, dir, "rules", "--tx", "T-1", "--current")
+	if err != nil {
+		t.Fatalf("rules: %v", err)
+	}
+	if !strings.Contains(rules, "旧: A とする") {
+		t.Fatalf("amend は旧を失効させない（--current に残るべき）:\n%s", rules)
+	}
+}
+
+// 採用時にも `--supersedes` で足せる（提案時の宣言に追記される）。
+func TestCLI_ReviewAdopt_FlagAddsToDeclaration(t *testing.T) {
+	dir := t.TempDir()
+	oldA := supersedeFixture(t, dir)
+	out, err := run(t, dir, "decide", "--on", "transition:T-1", "--why", "旧B", "--json")
+	if err != nil {
+		t.Fatalf("decide B: %v\noutput:\n%s", err, out)
+	}
+	var env struct {
+		Record struct {
+			ID string `json:"id"`
+		} `json:"record"`
+	}
+	if err := json.Unmarshal([]byte(out), &env); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	oldB := env.Record.ID
+
+	reviewID := addReviewWithSupersedes(t, dir, oldA+":amend")
+	adoptOut, err := run(t, dir, "review", "adopt", reviewID, "--supersedes", oldB+":supersede", "--json")
+	if err != nil {
+		t.Fatalf("review adopt --supersedes: %v\noutput:\n%s", err, adoptOut)
+	}
+	var d adoptedDecision
+	if err := json.Unmarshal([]byte(adoptOut), &d); err != nil {
+		t.Fatalf("unmarshal: %v\noutput:\n%s", err, adoptOut)
+	}
+	if len(d.Supersedes) != 2 {
+		t.Fatalf("宣言＋フラグで 2 件になるべき: %+v", d.Supersedes)
+	}
+	got := map[string]string{}
+	for _, l := range d.Supersedes {
+		got[l.ID] = l.Mode
+	}
+	if got[oldA] != "amend" || got[oldB] != "supersede" {
+		t.Fatalf("supersedes = %+v, want %s:amend + %s:supersede", d.Supersedes, oldA, oldB)
+	}
+}
+
+// 提案時の宣言を採用時に黙って書き換えない（同一 id で mode 違いは error）。
+func TestCLI_ReviewAdopt_FlagCannotRewriteDeclaredMode(t *testing.T) {
+	dir := t.TempDir()
+	oldID := supersedeFixture(t, dir)
+	reviewID := addReviewWithSupersedes(t, dir, oldID+":amend")
+
+	if out, err := run(t, dir, "review", "adopt", reviewID, "--supersedes", oldID+":supersede"); err == nil {
+		t.Fatalf("宣言済み link の mode 改変は拒否されるべき:\n%s", out)
+	}
+	// 失敗しても review は残る（昇格していないので掃除もしない）。
+	if _, err := os.Stat(filepath.Join(dir, ".scholia", "reviews", reviewID+".json")); err != nil {
+		t.Fatalf("検証で落ちたときは review を消さない: %v", err)
+	}
+}
+
+// 実在しない旧 decision は宣言の時点（review add）で弾く。
+func TestCLI_ReviewAdd_RejectsNonexistentSupersedeTarget(t *testing.T) {
+	dir := t.TempDir()
+	supersedeFixture(t, dir)
+	if out, err := run(t, dir, "review", "add", "--on", "transition:T-1", "--body", "x",
+		"--supersedes", "01NONEXISTENT0000000000000"); err == nil {
+		t.Fatalf("実在しない旧 decision への宣言は弾かれるべき:\n%s", out)
+	}
+}
+
+// 同一 id の重複指定は弾く（decide/decision link と同じ検証経路）。
+func TestCLI_ReviewAdd_RejectsDuplicateSupersedeTarget(t *testing.T) {
+	dir := t.TempDir()
+	oldID := supersedeFixture(t, dir)
+	if out, err := run(t, dir, "review", "add", "--on", "transition:T-1", "--body", "x",
+		"--supersedes", oldID+":amend", "--supersedes", oldID+":supersede"); err == nil {
+		t.Fatalf("重複指定は弾かれるべき:\n%s", out)
+	}
+}
+
+// 不正な mode は弾く（3値のみ）。
+func TestCLI_ReviewAdd_RejectsInvalidSupersedeMode(t *testing.T) {
+	dir := t.TempDir()
+	oldID := supersedeFixture(t, dir)
+	if out, err := run(t, dir, "review", "add", "--on", "transition:T-1", "--body", "x",
+		"--supersedes", oldID+":replace"); err == nil {
+		t.Fatalf("mode=replace は弾かれるべき:\n%s", out)
+	}
+}
+
+// reject は旧 decision を改訂も失効もさせない——宣言があっても結線しない。
+func TestCLI_ReviewReject_DoesNotLinkSupersedes(t *testing.T) {
+	dir := t.TempDir()
+	oldID := supersedeFixture(t, dir)
+	reviewID := addReviewWithSupersedes(t, dir, oldID+":supersede")
+
+	out, err := run(t, dir, "review", "reject", reviewID, "--json")
+	if err != nil {
+		t.Fatalf("review reject: %v\noutput:\n%s", err, out)
+	}
+	var d adoptedDecision
+	if err := json.Unmarshal([]byte(out), &d); err != nil {
+		t.Fatalf("unmarshal: %v\noutput:\n%s", err, out)
+	}
+	if len(d.Supersedes) != 0 {
+		t.Fatalf("reject 経路に supersedes は載らないべき: %+v", d.Supersedes)
+	}
+	// reject には --supersedes フラグ自体を生やさない。
+	if out, err := run(t, dir, "review", "reject", "--supersedes", oldID); err == nil || !strings.Contains(out+err.Error(), "unknown flag") {
+		t.Fatalf("reject に --supersedes は無いべき: out=%s err=%v", out, err)
+	}
+}
+
+// 未宣言はブロックしない。ただし対象に既存 decision があるなら advisory を添える。
+func TestCLI_ReviewAdopt_UnlinkedAdvisory(t *testing.T) {
+	dir := t.TempDir()
+	supersedeFixture(t, dir) // T-1 に旧 decision が1件ある状態
+	reviewID := addReviewWithSupersedes(t, dir)
+
+	out, err := run(t, dir, "review", "adopt", reviewID, "--json")
+	if err != nil {
+		t.Fatalf("未宣言の adopt はブロックしないべき: %v\noutput:\n%s", err, out)
+	}
+	var d adoptedDecision
+	if err := json.Unmarshal([]byte(out), &d); err != nil {
+		t.Fatalf("unmarshal: %v\noutput:\n%s", err, out)
+	}
+	var found bool
+	for _, a := range d.Advisories {
+		if a.Rule == "supersede-unlinked" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("supersede-unlinked advisory が出るべき: %+v\noutput:\n%s", d.Advisories, out)
+	}
+}
+
+// 対象に既存 decision が無ければ advisory は出ない（純粋な新規追加は正当）。
+func TestCLI_ReviewAdopt_NoAdvisoryWithoutPriorDecision(t *testing.T) {
+	dir := t.TempDir()
+	reviewID := setupReviewFixture(t, dir) // decide していない＝T-1 に decision 0 件
+
+	out, err := run(t, dir, "review", "adopt", reviewID, "--json")
+	if err != nil {
+		t.Fatalf("review adopt: %v\noutput:\n%s", err, out)
+	}
+	var d adoptedDecision
+	if err := json.Unmarshal([]byte(out), &d); err != nil {
+		t.Fatalf("unmarshal: %v\noutput:\n%s", err, out)
+	}
+	for _, a := range d.Advisories {
+		if a.Rule == "supersede-unlinked" {
+			t.Fatalf("既存 decision が無いのに advisory が出た:\n%s", out)
+		}
+	}
+}

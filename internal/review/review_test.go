@@ -3,7 +3,10 @@ package review
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
+
+	"github.com/nkenji09/scholia/internal/model"
 )
 
 func TestList_MissingDirReturnsEmptyNotError(t *testing.T) {
@@ -38,8 +41,35 @@ func TestAddThenList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
-	if len(got) != 1 || got[0] != r {
+	if len(got) != 1 || !reflect.DeepEqual(got[0], r) {
 		t.Fatalf("List = %+v, want [%+v]", got, r)
+	}
+}
+
+// 結線の宣言（Supersedes）は review ファイルを往復しても保たれる。ここが落ちると
+// adopt が持ち上げる材料そのものが消える。
+func TestAddThenGet_PreservesSupersedes(t *testing.T) {
+	dir := t.TempDir()
+	r := Review{
+		ID:        "r-super",
+		RecordRef: RecordRef{Type: RecordTypeTag, ID: "req.x"},
+		Body:      "why",
+		Source:    SourceAI,
+		CreatedAt: "2026-01-01T00:00:00Z",
+		Supersedes: []model.SupersedeLink{
+			{ID: "01OLD0000000000000000000AA", Mode: model.ModeSupersede},
+			{ID: "01OLD0000000000000000000BB"}, // mode 省略＝既定 amend
+		},
+	}
+	if err := Add(dir, r); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	got, err := Get(dir, "r-super")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if !reflect.DeepEqual(got.Supersedes, r.Supersedes) {
+		t.Fatalf("Supersedes = %+v, want %+v", got.Supersedes, r.Supersedes)
 	}
 }
 
@@ -60,7 +90,7 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
-	if got != r {
+	if !reflect.DeepEqual(got, r) {
 		t.Fatalf("Get = %+v, want %+v", got, r)
 	}
 }

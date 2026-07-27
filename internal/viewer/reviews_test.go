@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/nkenji09/scholia/internal/model"
 	"github.com/nkenji09/scholia/internal/review"
 )
 
@@ -82,5 +83,74 @@ func TestDeleteReview_MissingIsNotFound(t *testing.T) {
 	rec := doRequest(t, h, http.MethodDelete, "/api/reviews/does-not-exist", nil)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// GET /api/reviews は宣言された結線先を解決して返す（derive・保存しない）。
+// ドロワーが Adopt を押す前に「何を失効/改訂させるか」を人へ見せるための材料で、
+// 生 ULID を読ませないために name/label・日付・why 要約まで解決する。
+func TestGetReviews_ResolvesSupersedesDetail(t *testing.T) {
+	h, s := newTestHandler(t)
+	if err := review.Add(s.Dir, review.Review{
+		ID:         "r-super",
+		RecordRef:  review.RecordRef{Type: review.RecordTypeTag, ID: "subject.auth"},
+		Body:       "AI: 改訂案",
+		Source:     review.SourceAI,
+		CreatedAt:  "2026-01-02T00:00:00Z",
+		Supersedes: []model.SupersedeLink{{ID: "d1", Mode: model.ModeSupersede}, {ID: "missing-one"}},
+	}); err != nil {
+		t.Fatalf("review.Add: %v", err)
+	}
+
+	rec := doRequest(t, h, http.MethodGet, "/api/reviews", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	got := decodeJSON[[]reviewResponse](t, rec)
+	if len(got) != 1 {
+		t.Fatalf("reviews = %+v, want 1", got)
+	}
+	d := got[0].SupersedesDetail
+	if len(d) != 2 {
+		t.Fatalf("supersedesDetail = %+v, want 2", d)
+	}
+	if d[0].ID != "d1" || d[0].Mode != model.ModeSupersede {
+		t.Fatalf("detail[0] = %+v, want d1/supersede", d[0])
+	}
+	if d[0].TargetID != "subject.auth" || d[0].TargetName != "認証" {
+		t.Fatalf("対象レコードの読める名前まで解決すべき: %+v", d[0])
+	}
+	if d[0].WhySummary != "認証は httpOnly cookie で発行" {
+		t.Fatalf("whySummary = %q", d[0].WhySummary)
+	}
+	// 実在しない宣言は missing で返す（採用時にエラーになることを押す前に見せる）。
+	if !d[1].Missing {
+		t.Fatalf("detail[1] は missing であるべき: %+v", d[1])
+	}
+	// 未宣言の判断材料: 対象レコードちょうどに付いた decision の件数（d1 の1件）。
+	if got[0].PriorDecisionCount != 1 {
+		t.Fatalf("priorDecisionCount = %d, want 1", got[0].PriorDecisionCount)
+	}
+}
+
+// 宣言が無ければ detail は出ない（omitempty）が、件数は返る。
+func TestGetReviews_NoDeclarationStillReportsPriorCount(t *testing.T) {
+	h, s := newTestHandler(t)
+	if err := review.Add(s.Dir, review.Review{
+		ID:        "r-plain",
+		RecordRef: review.RecordRef{Type: review.RecordTypeTag, ID: "subject.auth"},
+		Body:      "AI: 宣言なし",
+		Source:    review.SourceAI,
+		CreatedAt: "2026-01-02T00:00:00Z",
+	}); err != nil {
+		t.Fatalf("review.Add: %v", err)
+	}
+	rec := doRequest(t, h, http.MethodGet, "/api/reviews", nil)
+	got := decodeJSON[[]reviewResponse](t, rec)
+	if len(got) != 1 || len(got[0].SupersedesDetail) != 0 {
+		t.Fatalf("supersedesDetail は空であるべき: %+v", got)
+	}
+	if got[0].PriorDecisionCount != 1 {
+		t.Fatalf("priorDecisionCount = %d, want 1", got[0].PriorDecisionCount)
 	}
 }
