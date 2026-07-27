@@ -255,11 +255,14 @@ const ja = {
     inheritedFromAncestors: (n: number) => `上位から継承した規則 ${n}件`,
     inheritedFromTags: (n: number) => `タグから継承した規則 ${n}件`,
     inheritedSourceTitle: '継承元の記録を開く',
-    // 条項5 の入口。exact はタグのカード（一覧の絞り込み単位と一致する）、
-    // scoped は transition / vocab（絞り込みに使うタグ名を必ず名乗る）。
-    rulesListLinkExact: 'この記録に効く規則を一覧で見る',
-    rulesListLinkScoped: (tag: string) => `〈${tag}〉の規則を一覧で見る`,
-    rulesListLinkTitle: '意思決定の一覧を対象で絞って開く',
+    // 一覧への入口。**一覧のタグ絞り込みは「そのタグとその配下」方向**（decision の
+    // 実効タグ集合＝own タグの祖先クロージャに対する一致・01KXZK5BWEX3HH15B78E4Z3BXK）
+    // で、「この記録を支配する規則」＝自身＋**祖先**とは向きが逆。ラベルは一覧が
+    // 実際に見せる集合を名乗る——「この記録に効く規則」と読ませない。
+    // 条項5 が求める向きの絞り込みは一覧にまだ無い（result.md §15 の残課題）。
+    rulesListLinkExact: 'このタグ配下の意思決定を一覧で見る',
+    rulesListLinkScoped: (tag: string) => `〈${tag}〉配下の意思決定を一覧で見る`,
+    rulesListLinkTitle: 'このタグとその配下に付いた意思決定を一覧で開く',
     // 軸カードの構造表示（#45 D10b-6）。状態次元・total（宣言由来・非検証）・値・効く action。
     axisStructureHeading: '軸の構造',
     // 「軸」= 状態次元（分岐を束ねる分類軸）。kind バッジの「軸」とは別義（D9 の
@@ -738,9 +741,9 @@ const en: Strings = {
     inheritedFromAncestors: (n: number) => `${n} rule(s) inherited from above`,
     inheritedFromTags: (n: number) => `${n} rule(s) inherited from tags`,
     inheritedSourceTitle: 'Open the record it comes from',
-    rulesListLinkExact: 'See all rules for this record',
-    rulesListLinkScoped: (tag: string) => `See rules for ⟨${tag}⟩`,
-    rulesListLinkTitle: 'Open the decisions list scoped to this target',
+    rulesListLinkExact: 'See decisions under this tag',
+    rulesListLinkScoped: (tag: string) => `See decisions under ⟨${tag}⟩`,
+    rulesListLinkTitle: 'Open the decisions list scoped to this tag and its descendants',
     axisStructureHeading: 'Axis structure',
     axisDimensionBadge: 'state dimension',
     axisTotalTrue: 'total declared (by declaration, unverified)',
