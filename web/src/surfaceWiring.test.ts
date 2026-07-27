@@ -202,7 +202,9 @@ describe('意思決定の一覧が提案B の3面のひとつとして揃って�
     // 同じ画面でバッジが「置き換え済み」・絞り込みが「失効」だと語が2つ同居する。
     expect(decisionsViewSource).toMatch(/effectInForce/);
     expect(decisionsViewSource).toMatch(/effectReplaced/);
-    expect(decisionsViewSource).not.toMatch(/currencySuperseded/);
+    // 語そのものを見る（識別子は 2値化で消えた）。「失効」は効いていない理由を
+    // 述べないので条項3 が退けた語——1画面に2つの語を同居させない。
+    expect(decisionsViewSource).not.toMatch(/失効/);
   });
 
   it('既定では効いているものだけを出す（条項4）', () => {

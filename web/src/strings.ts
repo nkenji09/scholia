@@ -444,8 +444,6 @@ const ja = {
     period1y: '直近1年',
     // 現行性バッジ／フィルタ値。「失効」= 他 decision が supersede でこれを
     // 置き換えた。「改訂」= 他 decision が amend/exception で参照（置換はしない）。
-    currencyCurrent: '現行',
-    currencySuperseded: '失効',
     // 画面に出す効力は2値（01KYHW54B8ZXH0NEPH2J7N1X39 条項1・3）。記録の3値
     // （supersede/amend/exception）は不変で、状態列だけを2値にする。
     // 「失効」ではなく「置き換え済み」なのは、効いていない**理由**が語から
@@ -885,8 +883,6 @@ const en: Strings = {
     period30d: 'Last 30 days',
     period90d: 'Last 90 days',
     period1y: 'Last year',
-    currencyCurrent: 'Current',
-    currencySuperseded: 'Superseded',
     effectInForce: 'In force',
     effectReplaced: 'Replaced',
     readTogether: (n: number) => `${n} decision(s) to read with this`,

@@ -66,10 +66,15 @@ export function InheritedRules({ record }: { record: RecordRef }) {
   const { total, sources } = summarizeInherited(entries, (id) => isInForce(id, currencyIndex), tagName);
   if (total === 0) return null;
 
-  // 見出しは record.kind ではなく**実際の継承経路**で決める。vocab の継承元は
-  // 自身が持つタグ（effective-tag）で祖先とは限らないのに「上位から継承」と
-  // 出ていた（レビュー should-2）。祖先経由が1つも無ければ「タグから」。
-  const viaAncestor = entries.some((e) => e.provenance === 'parent');
+  // 見出しの選び方。transition は**規則を運ぶのが常にタグ**（自身がタグ階層に
+  // 属さない）なので、経路に parent が混ざっていても「タグから継承した規則」。
+  // tag / vocab は経路で決める——vocab の継承元は自身が持つタグ（effective-tag）で
+  // 祖先とは限らないのに「上位から継承」と出ていた（1回目 should-2）。
+  //
+  // 経路だけで決めると transition が「上位から」に振れる（2回目 nit-1 の退行）。
+  // 「レコード種別」と「経路」のどちらか一方では両方を正しく言えないので、
+  // transition だけ種別で決めて残りを経路で決める。
+  const viaAncestor = record.kind !== 'transition' && entries.some((e) => e.provenance === 'parent');
   const heading = viaAncestor ? t.browse.inheritedFromAncestors(total) : t.browse.inheritedFromTags(total);
 
   return (

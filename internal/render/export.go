@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -361,4 +362,19 @@ func ExportHTML(s *store.Store, dir string) error {
 		return err
 	}
 	return os.WriteFile(filepath.Join(dir, "index.html"), []byte(html), 0o644)
+}
+
+// StaticGovernsType exposes the element type of the baked per-record governs
+// field so the viewer package can pin it to the same type its live
+// GET /api/governs returns (追補 01KYJP68V2GR4QJ8HNW6HEP00T 条項3: live と静的で
+// 開示の答えが割れない）。staticData は非公開なので、型だけを外へ出す小さな窓。
+//
+// これが無いと「両方を同じ形にした」ことを守るものが何も無い——片方だけ本文つきに
+// 戻す変更が全テスト緑のまま通り、静的書き出しの開示だけが違う件数を出す。
+func StaticGovernsType() (reflect.Type, bool) {
+	f, ok := reflect.TypeOf(staticData{}).FieldByName("Governs")
+	if !ok {
+		return nil, false
+	}
+	return f.Type, true
 }

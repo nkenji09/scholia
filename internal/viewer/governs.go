@@ -55,11 +55,8 @@ func getGovernsHandler(s *store.Store) http.HandlerFunc {
 			writeError(w, http.StatusNotFound, err.Error())
 			return
 		}
-		refs := index.RefsOf(entries)
-		if refs == nil {
-			refs = []index.GovernsRef{}
-		}
-		writeJSON(w, http.StatusOK, governsResponse{Entries: refs})
+		// RefsOf は make(...) で必ず非 nil を返すので、空でも JSON は [] になる。
+		writeJSON(w, http.StatusOK, governsResponse{Entries: index.RefsOf(entries)})
 	}
 }
 
