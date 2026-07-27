@@ -11,23 +11,25 @@ import overviewSource from './components/overview/OverviewView.tsx?raw';
 // 要件の言葉で書かれていて「どの共通部品が担保しているか」は書かれていないため、部品を迂回
 // しても違反として見えなかった——そこを見えるようにするのがこのテスト。
 //
-// 振る舞いそのものではなく**配線の有無**を見る構造ガードである点に注意。位置が正しいか・
-// 開閉が実際に保たれるかまでは見ない（それは実機計測が担う）。それでも、共通配線を通らなく
-// なる形の変更はここで落ちる。
+// 振る舞いそのものではなく**配線の有無**を見る構造ガードである点に注意。守れているのは
+// 「共通配線が、守りたい対象に結び付いた形で使われていること」までで、次は守れていない:
+//
+// - 寄せた位置・復元した位置が正しいか（clamp されていないか・main と同じ位置か）
+// - 開閉や位置が実際に往復で保たれるか
+// - 修飾クリックが別タブになるか
+//
+// これらは DOM を起こす harness が要るため実機計測が担っている。ここが緑でも「動いている」
+// ことの証明にはならない——「配線が外れていない」ことの証明に留まる。
 //
 // 面を増やしたら SURFACES に足す。新しい面が共通配線を通らない判断をするなら、その判断を
 // decision に残したうえでここを更新すること（黙って外さない）。
 
-/** 共通配線と、それが担保している既決。 */
+/** 共通配線と、それが担保している既決。面をまたいで同じ形で使えるもの。 */
 const WIRING = {
-  /** 現在地・アンカーを URL に載せる（deep-linking 01KYGYYMZSS1Y0BFEJ69Q1JC40）。 */
-  routeHash: /\brouteHash\s*\(/,
   /** 面の本体スクロールを往復で保持する（view-state-continuity 01KYGYYN44MWDQMYSC5PFMVNEG）。 */
   useScrollRestore: /\buseScrollRestore\s*\(/,
   /** 面が持つ独立スクロール領域も保持する（01KYH0ESVG1D5NGDH5C4TG920J）。 */
   useElementScrollRestore: /\buseElementScrollRestore\s*\(/,
-  /** ページ内の遷移リンクを実アンカーで描く（01KXFK3Q1NY9J8Q7FX14T31N7K）。 */
-  HashLink: /<HashLink\b/,
   /** 開閉の保存値を既定より優先して解決する（collapsible-section 01KYGYYN8HRNFQEDMBS3DZRRX7）。 */
   collapseState: /\bloadCardSectionOpen\s*\(/,
 } as const;
@@ -37,7 +39,7 @@ const SURFACES: Array<{ name: string; source: string; wiring: Array<keyof typeof
   {
     name: '概要タブ（構造ツリー＋コンポーネント仕様シート）',
     source: overviewSource,
-    wiring: ['routeHash', 'useScrollRestore', 'useElementScrollRestore', 'HashLink', 'collapseState'],
+    wiring: ['useScrollRestore', 'useElementScrollRestore', 'collapseState'],
   },
 ];
 
@@ -49,6 +51,26 @@ describe('面が共通配線を通っている', () => {
       });
     }
   }
+});
+
+describe('概要タブのナビが URL とアンカーで組まれている', () => {
+  // ここは「ファイルのどこかで使われているか」では守れない。OverviewView は回帰していた
+  // 時期から、規則リンク・gap chip・制約名など他の7箇所で HashLink / routeHash を使って
+  // いたので、ファイル全体への正規表現は**回帰していたソースでも緑になる**。守りたいのは
+  // 「構造ツリーの行が」実アンカーで描かれ、「現在地が」URL として組み立てられること
+  // なので、その2点に結び付いた形だけを見る。
+
+  it('ツリー行の指し先が実アンカーで描かれている（01KXFK3Q1NY9J8Q7FX14T31N7K）', () => {
+    // 行が持つ指し先（row.href）が HashLink の href に渡っていること。ツリー行を button に
+    // 戻すと row.href の渡し先が消えるのでここで落ちる。
+    expect(overviewSource).toMatch(/<HashLink[\s\S]{0,120}href=\{row\.href\}/);
+  });
+
+  it('現在地を URL として組み立てている（01KYGYYMZSS1Y0BFEJ69Q1JC40）', () => {
+    // 概要タブの現在地を指す route を作っていること。他所の HashLink が使う
+    // routeHash({ view: 'spec' … }) / ({ view: 'browse' … }) とは別物なので取り違えない。
+    expect(overviewSource).toMatch(/routeHash\(\{\s*view:\s*'overview'/);
+  });
 });
 
 describe('app が概要タブを URL へ配線している', () => {
