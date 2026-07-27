@@ -223,8 +223,14 @@ func TestRetrofitDogfoodCounts(t *testing.T) {
 	// req.comfortable-viewer.faceted-nav amend）の why 例示 `req.foo.1-1` が
 	// dangling-id の新規真ヒットとして加わり 18/18 → 19/19（判断欄位＝append-only
 	// ゆえ是正不能・acknowledge-only）。
-	if resp.AcknowledgeOnly.FindingCount != 19 || resp.AcknowledgeOnly.RecordCount != 19 {
-		t.Fatalf("dogfood acknowledgeOnly = %d findings / %d records, want 19/19", resp.AcknowledgeOnly.FindingCount, resp.AcknowledgeOnly.RecordCount)
+	// #5（集約2面の廃止）の実装コミットで commit 95679d2b が decisionStaleScanLimit
+	// (=200) の窓から外れ、その decision-stale が1件落ちて 19/19 → 18/18。是正でも
+	// 回帰でもなく**窓の外に出ただけ**——decision-stale は「最近レコードを触ったのに
+	// decision を結ばなかった」を見る規則なので、古い commit が落ちるのは設計どおり。
+	// この期待値は commit を積むだけで動くので、ズレたらまず窓の境界を疑うこと
+	// （`git rev-list --count <commit>..HEAD` が 200 を超えていないか）。
+	if resp.AcknowledgeOnly.FindingCount != 18 || resp.AcknowledgeOnly.RecordCount != 18 {
+		t.Fatalf("dogfood acknowledgeOnly = %d findings / %d records, want 18/18", resp.AcknowledgeOnly.FindingCount, resp.AcknowledgeOnly.RecordCount)
 	}
 	if total := resp.Fixable.ByRule["dead-doc-ref"] + resp.AcknowledgeOnly.ByRule["dead-doc-ref"]; total != 8 {
 		t.Fatalf("dogfood dead-doc-ref total = %d, want 8", total)
