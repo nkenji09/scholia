@@ -111,6 +111,11 @@ export function App() {
   // minor decision) — all three now render the same BrowseView, just with
   // a different initial facet/focus.
   const openTransition = (txId: string) => navigate({ view: 'browse', txId });
+  // 概要タブの現在地（deep-linking の適用面拡張・01KYGYYMZSS…）。他の focus 系と同じく
+  // navigate を通るので、選び直すたびに履歴が1件積まれ、バック1回で直前の現在地へ戻る
+  // （粒度の作り分けはしない＝条項(3)）。旧ランディング #/home から選んだ場合も現在地を
+  // 持てる #/overview へ寄せる（#/home 自体は入口として引き続き解決する）。
+  const openOverviewAt = (cId: string, pId?: string) => navigate({ view: 'overview', componentId: cId, partId: pId });
   const openTagSpec = (tagId: string) => navigate({ view: 'spec', tagId });
   const openVocabEntry = (vocabId: string) => navigate({ view: 'vocab', vocabId });
   // Decisions read-surface (D10a): the list is a searchable view (its
@@ -153,7 +158,15 @@ export function App() {
   return (
     <>
       <Header view={view} onSelectView={setView} railActive={railActiveFor(view, !!route.actionId)} />
-      {(view === 'overview' || view === 'home') && <OverviewView onOpenTag={openTagSpec} onOpenTx={openTransition} />}
+      {(view === 'overview' || view === 'home') && (
+        <OverviewView
+          componentId={route.componentId}
+          partId={route.partId}
+          onSelectComponent={openOverviewAt}
+          onOpenTag={openTagSpec}
+          onOpenTx={openTransition}
+        />
+      )}
       {view === 'browse' && (
         <BrowseView
           scrollKey="browse"
