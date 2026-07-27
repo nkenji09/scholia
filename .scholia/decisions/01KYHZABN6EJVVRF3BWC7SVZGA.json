@@ -1,0 +1,14 @@
+{
+  "id": "01KYHZABN6EJVVRF3BWC7SVZGA",
+  "target": {
+    "type": "tag",
+    "id": "req.comfortable-viewer.decision-display"
+  },
+  "why": "## 後追い記録（retrospective）: own の出自が一度も出ないまま1週間残った理由\n\n### 何が起きていたか\n`GovernsForTag` は、見ているタグ自身に書かれた decision を `own` ではなく\n`effective-tag` として返していた。tag カードでは `own` バッジが**一度も**出ず、\n「コンポーネント alpha」を開いているのにその直下の決定が「タグ経由〈コンポーネント\nalpha〉」——自分自身を経由して自分に届いたかのような間接表現で表示されていた。\n`01KXYED61J6QBEX75H2XHVHW7Y` が保持すると明記した「自身の判断がどれか曖昧に\nしない」を、governs 欄の実装は満たしていなかった。\n\n### なぜ気づかれなかったか\nテストが旧挙動を**名前ごと**固定していた（`TestGovernsForTag_OwnTagIsEffectiveTag`\n／`TestGetGoverns_TagEffectiveTag`）。Go 側のコメントも \"The tag itself is\neffective-tag\" と書いており、実装・テスト・コメントの3つが揃って同じ誤りを\n述べていたので、コードを読んでも違反に見えなかった。既決の側は要件の言葉\n（「自身の判断がどれか曖昧にしない」）で書かれていて、それがどの provenance 値で\n担保されるかは書かれていない——この対応関係の不在は `01KYH2533234PGSN4MDQ6ZXJHA`\nが根因として記録したパターンと同じ形である。\n\n### なぜ今直したか（表示の綾では済まないから）\n`01KYHW4NBNVN9BFXYZMBX8MPF8` 条項3 の「継承した規則の開示」は non-own を数える。\nprovenance が誤っていると「継承した規則 N件」に**そのレコード自身の決定が混ざる**\n——見せ方の問題から数え方の問題に変わったので、廃止と同じコミット群で是正した。\n\n### 歯止め\n`web/src/surfaceWiring.test.ts` に、開示が own を混ぜないことを見るガードを置いた\n（`provenance !== 'own'` の消失で落ちる）。Go 側は意図を反転させたテストを\n`TestGovernsForTag_OwnTagDecisionIsOwn` として残し、なぜ own でなければならないかを\nテスト本文に書いた。\n\n### 併せて解消したもの\n概要タブが「支配する規則」の一部（祖先分）を黙って省いていた件も A是正 として\n挙がっていたが、コンポーネント本体の規則欄そのものを廃止したため、**省略という\n状態が消滅した**。開示の責務はカードの継承規則欄（条項3）へ移っている。\n\n### 判断は変えていない\n本記録は既決の解釈を変えない。`01KXYED61J6QBEX75H2XHVHW7Y` の own バッジ規定・\n`01KXDFD2RZJ118T2VVAF5F07RW` の own-only・`01KXYED62CEKBY97D7X66BMC9A` の面間整合は\nいずれも不変で、実装がそれに追いついただけである。",
+  "changed": "GovernsForTag がタグ自身への決定を own で返すよう是正（旧挙動を固定していたテストも意図ごと反転）／開示が own を混ぜないことの配線ガードを追加／概要タブの省略非開示は欄の廃止により消滅",
+  "at": "2026-07-27T14:23:02Z",
+  "commits": [
+    "ec1f9fc",
+    "307c4d3"
+  ]
+}

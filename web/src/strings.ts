@@ -249,15 +249,29 @@ const ja = {
     parentLinkTitle: '親タグのカードへ移動',
     childLinkTitle: 'このカードへ移動',
     kindHeading: '種別',
-    // governs 並置（#45 D10b-1）: 「この記録を支配する規則」欄。own の意思決定は
-    // 従来位置のまま不変で、祖先/実効タグ経由の decision を出自バッジ付きで並置。
-    // 既定折りたたみ・件数バッジのみ常時表示。
-    governsHeading: 'この記録を支配する規則',
-    // 出自バッジ: own=この記録自身の判断／effective-tag=直接持つタグ経由／
-    // parent=祖先タグ経由。tagId は via バッジに添える経由タグ名。
-    governsProvenanceOwn: 'この記録自身',
-    governsProvenanceEffectiveTag: (tag: string) => `タグ経由〈${tag}〉`,
-    governsProvenanceParent: (tag: string) => `親タグ経由〈${tag}〉`,
+    // 継承した規則の開示（01KYHW4NBNVN9BFXYZMBX8MPF8 条項3）。「この記録を
+    // 支配する規則」欄（本文を全文で再掲していた）を廃止した代わりに、件数と
+    // 継承元と導線だけを出す。件数は**効いている規則の数**。
+    inheritedFromAncestors: (n: number) => `上位から継承した規則 ${n}件`,
+    inheritedFromTags: (n: number) => `タグから継承した規則 ${n}件`,
+    inheritedSourceTitle: '継承元の記録を開く',
+    // 一覧への入口。**一覧のタグ絞り込みは「そのタグとその配下」方向**（decision の
+    // 実効タグ集合＝own タグの祖先クロージャに対する一致・01KXZK5BWEX3HH15B78E4Z3BXK）
+    // で、「この記録を支配する規則」＝自身＋**祖先**とは向きが逆。ラベルは一覧が
+    // 実際に見せる集合を名乗る——「この記録に効く規則」と読ませない
+    // （追補 01KYJV3FYMDFRWQ939NBV2BPAC 条項2）。
+    // 「配下」だけだと**そのタグ自身に付いた意思決定**を名乗り落とす（dt=T は
+    // T を実効タグに持つ decision＝T 自身への decision も返す）ので、tooltip と
+    // 同じく「自身と配下」を名乗る。
+    rulesListLinkExact: 'このタグと配下の意思決定を一覧で見る',
+    rulesListLinkScoped: (tag: string) => `〈${tag}〉と配下の意思決定を一覧で見る`,
+    rulesListLinkTitle: 'このタグとその配下に付いた意思決定を一覧で開く',
+    // 全体をどこで読めるかの開示（追補 01KYJV3FYMDFRWQ939NBV2BPAC 条項3）。
+    // 事実（viewer に面が無い）は畳まず、手段（コマンド）だけ畳む。
+    wholeRulesFact: '規則の全体を通しで読む面は viewer にありません — CLI で読む',
+    wholeRulesHow: 'この記録に効いている規則（自身＋上位）を、本文ごと1つの並びで出します。',
+    wholeRulesCopy: 'コピー',
+    wholeRulesCopied: 'コピーしました',
     // 軸カードの構造表示（#45 D10b-6）。状態次元・total（宣言由来・非検証）・値・効く action。
     axisStructureHeading: '軸の構造',
     // 「軸」= 状態次元（分岐を束ねる分類軸）。kind バッジの「軸」とは別義（D9 の
@@ -416,7 +430,7 @@ const ja = {
   // why/changed 本文はデータなのでここには含めない。
   decisions: {
     heading: '意思決定',
-    intro: 'いつ・何を・なぜ変えたかの記録。現行と失効を区別して通覧できます。',
+    intro: 'いつ・何を・なぜ変えたかの記録。既定では効いている規則だけを出し、置き換え済みは絞り込みで切り替えます。',
     loading: 'loading…',
     empty: 'まだ意思決定が記録されていません',
     noMatch: '条件に一致する意思決定がありません',
@@ -439,9 +453,18 @@ const ja = {
     period1y: '直近1年',
     // 現行性バッジ／フィルタ値。「失効」= 他 decision が supersede でこれを
     // 置き換えた。「改訂」= 他 decision が amend/exception で参照（置換はしない）。
-    currencyCurrent: '現行',
-    currencySuperseded: '失効',
-    currencyAmended: '改訂',
+    // 画面に出す効力は2値（01KYHW54B8ZXH0NEPH2J7N1X39 条項1・3）。記録の3値
+    // （supersede/amend/exception）は不変で、状態列だけを2値にする。
+    // 「失効」ではなく「置き換え済み」なのは、効いていない**理由**が語から
+    // 読めるようにするため（条項3）——「失効」は期限切れに読める。
+    effectInForce: '現行',
+    effectReplaced: '置き換え済み',
+    // 付帯情報（条項2）: 後続に部分改訂・例外が付いている。読み飛ばしてよいと
+    // 解釈できる語（補足・関連）は使わず、とるべき行動を述べる。
+    readTogether: (n: number) => `併せて読む意思決定 ${n}件`,
+    openReplacement: '置き換えた規則を見る',
+    // 置き換え済みを畳む口（条項4）。中身が「置き換えられたもの」だと分かる語。
+    replacedHeading: (n: number) => `置き換えられた規則 (${n})`,
     // 詳細ページの節見出し。
     whyHeading: 'なぜ',
     changedHeading: '変更内容',
@@ -722,10 +745,16 @@ const en: Strings = {
     parentLinkTitle: 'Go to parent tag card',
     childLinkTitle: 'Go to this card',
     kindHeading: 'Kind',
-    governsHeading: 'Rules governing this record',
-    governsProvenanceOwn: 'this record',
-    governsProvenanceEffectiveTag: (tag: string) => `via tag ⟨${tag}⟩`,
-    governsProvenanceParent: (tag: string) => `via parent ⟨${tag}⟩`,
+    inheritedFromAncestors: (n: number) => `${n} rule(s) inherited from above`,
+    inheritedFromTags: (n: number) => `${n} rule(s) inherited from tags`,
+    inheritedSourceTitle: 'Open the record it comes from',
+    rulesListLinkExact: 'See decisions on this tag and below',
+    rulesListLinkScoped: (tag: string) => `See decisions on ⟨${tag}⟩ and below`,
+    rulesListLinkTitle: 'Open the decisions list scoped to this tag and its descendants',
+    wholeRulesFact: 'No viewer surface reads them all in one sequence — read with the CLI',
+    wholeRulesHow: 'Prints every rule in force on this record (itself + above), in full, in one sequence.',
+    wholeRulesCopy: 'Copy',
+    wholeRulesCopied: 'Copied',
     axisStructureHeading: 'Axis structure',
     axisDimensionBadge: 'state dimension',
     axisTotalTrue: 'total declared (by declaration, unverified)',
@@ -867,9 +896,11 @@ const en: Strings = {
     period30d: 'Last 30 days',
     period90d: 'Last 90 days',
     period1y: 'Last year',
-    currencyCurrent: 'Current',
-    currencySuperseded: 'Superseded',
-    currencyAmended: 'Amended',
+    effectInForce: 'In force',
+    effectReplaced: 'Replaced',
+    readTogether: (n: number) => `${n} decision(s) to read with this`,
+    openReplacement: 'Open the replacement',
+    replacedHeading: (n: number) => `Replaced rules (${n})`,
     whyHeading: 'Why',
     changedHeading: 'Changed',
     targetHeading: 'Target',

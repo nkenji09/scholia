@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -74,15 +75,19 @@ type staticData struct {
 	// (index.SortedRulesFor's "no selector" case) — HOME's recent-decisions
 	// widget needs this in the static export too, not just `scholia view`.
 	Decisions []model.Decision `json:"decisions"`
-	// Governs mirrors GET /api/governs?tag=|tx=|vocab= (#45 D10b-1 per-record
-	// governs). Keyed by record ref ("tag:<id>" / "transition:<id>" /
-	// "vocab:<id>") so the SPA looks up the governing decisions for the card
-	// it's showing without a server. Values come from index.GovernsForTag/
-	// Transition/Vocab — the same functions the live handler calls — so the
-	// static export can't diverge from `scholia view`/`scholia rules` (§9,
-	// 面間整合原則 D10b-2). "bake what the SPA can request": every tag /
-	// transition / vocab id is a possible governs lookup.
-	Governs map[string][]index.GovernsEntry `json:"governs"`
+	// Governs mirrors GET /api/governs?tag=|tx=|vocab=. Keyed by record ref
+	// ("tag:<id>" / "transition:<id>" / "vocab:<id>") so the SPA looks up the
+	// governing decisions for the card it's showing without a server. Values
+	// come from index.GovernsForTag/Transition/Vocab — the same functions the
+	// live handler calls — so the static export can't diverge from
+	// `scholia view`/`scholia rules` (§9, 面間整合原則 D10b-2).
+	//
+	// **参照だけを焼く**（decision id ＋ 出自・本文なし。追補
+	// 01KYJP68V2GR4QJ8HNW6HEP00T 条項2）。開示が出すのは件数と継承元だけで、
+	// decision の実体は上の Decisions に丸ごと入っている——ここで本文まで焼くと
+	// 表示しないデータの重複になる（絞る前の実測: 埋め込みデータの約37%・1.22MB）。
+	// live の /api/governs と同じ形にしてあるので、消費側は1つのコードパスで済む。
+	Governs map[string][]index.GovernsRef `json:"governs"`
 }
 
 // facetsPayload / transitionsPayload / traceabilityPayload / lintPayload
@@ -231,27 +236,27 @@ func collectStaticData(s *store.Store) (staticData, error) {
 	// 同一の index.GovernsFor* を呼び、SPA が要求しうる各レコード ref（tag/
 	// transition/vocab の全 id）を先に計算する（transitionsByTag と同じ「bake
 	// what the SPA can request」規約）。key は "tag:<id>" 等の record ref。
-	governs := make(map[string][]index.GovernsEntry, len(snap.Tags)+len(ix.TransitionByID)+len(snap.Vocab))
+	governs := make(map[string][]index.GovernsRef, len(snap.Tags)+len(ix.TransitionByID)+len(snap.Vocab))
 	for _, t := range snap.Tags {
 		entries, err := index.GovernsForTag(&snap, t.ID)
 		if err != nil {
 			return staticData{}, err
 		}
-		governs["tag:"+t.ID] = entries
+		governs["tag:"+t.ID] = index.RefsOf(entries)
 	}
 	for _, t := range ix.AllTransitions() {
 		entries, err := index.GovernsForTransition(&snap, t.ID)
 		if err != nil {
 			return staticData{}, err
 		}
-		governs["transition:"+t.ID] = entries
+		governs["transition:"+t.ID] = index.RefsOf(entries)
 	}
 	for _, v := range snap.Vocab {
 		entries, err := index.GovernsForVocab(&snap, v.ID)
 		if err != nil {
 			return staticData{}, err
 		}
-		governs["vocab:"+v.ID] = entries
+		governs["vocab:"+v.ID] = index.RefsOf(entries)
 	}
 
 	return staticData{
@@ -357,4 +362,19 @@ func ExportHTML(s *store.Store, dir string) error {
 		return err
 	}
 	return os.WriteFile(filepath.Join(dir, "index.html"), []byte(html), 0o644)
+}
+
+// StaticGovernsType exposes the element type of the baked per-record governs
+// field so the viewer package can pin it to the same type its live
+// GET /api/governs returns (追補 01KYJP68V2GR4QJ8HNW6HEP00T 条項3: live と静的で
+// 開示の答えが割れない）。staticData は非公開なので、型だけを外へ出す小さな窓。
+//
+// これが無いと「両方を同じ形にした」ことを守るものが何も無い——片方だけ本文つきに
+// 戻す変更が全テスト緑のまま通り、静的書き出しの開示だけが違う件数を出す。
+func StaticGovernsType() (reflect.Type, bool) {
+	f, ok := reflect.TypeOf(staticData{}).FieldByName("Governs")
+	if !ok {
+		return nil, false
+	}
+	return f.Type, true
 }

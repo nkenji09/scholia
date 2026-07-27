@@ -75,3 +75,43 @@ export function currencyOf(id: string, index: CurrencyIndex): Currency {
   if (index.amendedIds.has(id)) return 'amended';
   return 'current';
 }
+
+// ---------------------------------------------------------------------------
+// 画面に出す「効力」は2値（01KYHW54B8ZXH0NEPH2J7N1X39 条項1）
+//
+// 記録側の3値（supersede / amend / exception・01KXWPQDGMDB01V86KZ91M0BPQ）は不変。
+// 変えるのは**画面の状態列だけ**で、そこに出せる値は「効いている」「置き換え済み」
+// の2つに限る。3値をそのまま状態の3値として写していたため「現行 ⇔ 改訂」という
+// 存在しない対立が生まれ、まだ効いている条項が履歴側だと誤読された——それが
+// この2値化の起点。amend / exception で参照された decision は**効いている**。
+//
+// 「後続に部分改訂・例外が付いている」は状態ではなく**付帯情報**として、
+// relatedDecisions() の件数と導線で出す（条項2）。
+
+/** 画面に出せる効力。記録の3値とは別物なので `Currency` と混ぜない。 */
+export type Effect = 'in-force' | 'replaced';
+
+/** 効いているか。畳むのは supersede で置き換えられたものだけ（保守的な導出）。 */
+export function effectOf(id: string, index: CurrencyIndex): Effect {
+  return index.supersededIds.has(id) ? 'replaced' : 'in-force';
+}
+
+export function isInForce(id: string, index: CurrencyIndex): boolean {
+  return effectOf(id, index) === 'in-force';
+}
+
+/** 後続で部分改訂・例外を付けた decision（＝併せて読むべきもの・条項2）。
+    supersede で置き換えたものはここに含めない（それは「置き換えた側」で、
+    replacedBy() が返す）。 */
+export function relatedDecisions(id: string, index: CurrencyIndex): Decision[] {
+  return (index.supersededByMap.get(id) || []).filter((d) =>
+    (d.supersedes || []).some((l) => l.id === id && linkMode(l.mode) !== 'supersede'),
+  );
+}
+
+/** この decision を全文置換した側（条項3: 置き換えられた側からそこへ辿れる）。 */
+export function replacedBy(id: string, index: CurrencyIndex): Decision | undefined {
+  return (index.supersededByMap.get(id) || []).find((d) =>
+    (d.supersedes || []).some((l) => l.id === id && linkMode(l.mode) === 'supersede'),
+  );
+}

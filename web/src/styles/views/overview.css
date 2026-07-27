@@ -814,10 +814,10 @@
   background: var(--lm-success-weak);
 }
 
-.overview-rule-badge.amended {
-  color: var(--lm-warning-ic);
-  background: var(--lm-warning-weak);
-}
+/* 「改訂」バッジ（オレンジ）は廃止した。効いているものどうしに色の序列を付けない
+   （01KYHW54B8ZXH0NEPH2J7N1X39 条項1）——緑→オレンジ→灰の並びが効力の目盛りに
+   読まれ、amend を付けられただけの生きた条項が「もう効いていない」と誤読された。
+   いま状態列に出るのは現行（緑）と置き換え済み（灰）の2つだけ。 */
 
 .overview-rule-badge.stale {
   color: var(--lm-text-dim);
@@ -890,4 +890,25 @@
    セクション見出し内での配置だけ整える。 */
 .overview-section-head .comment-button {
   margin-left: 0;
+}
+
+/* 置き換え済みの畳み（条項4）。概要タブの規則インライン展開でも、既定で見えるのは
+   効いている規則だけにする。 */
+.overview-rules-history {
+  margin-top: 2px;
+}
+
+.overview-rules-history-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 5px 11px;
+  border: 1px dashed var(--lm-border-strong);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--lm-text-dim);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
 }

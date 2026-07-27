@@ -3,6 +3,18 @@ import { describe, expect, it } from 'vitest';
 // node 型を持たない＝アプリ側が node API を触れないようにしてあるので、そこを崩さない）。
 import appSource from './app.tsx?raw';
 import overviewSource from './components/overview/OverviewView.tsx?raw';
+import tagCardSource from './components/browse/TagCard.tsx?raw';
+import specCardSource from './components/browse/SpecCard.tsx?raw';
+import vocabCardSource from './components/browse/VocabCard.tsx?raw';
+import browseViewSource from './components/browse/BrowseView.tsx?raw';
+import inheritedRulesSource from './components/browse/InheritedRules.tsx?raw';
+import rulesListLinkSource from './components/browse/RulesListLink.tsx?raw';
+import wholeRulesSource from './components/browse/WholeRules.tsx?raw';
+import { DICTS } from './strings';
+import decisionListSource from './components/decisions/DecisionList.tsx?raw';
+import inheritedSummarySource from './components/browse/inheritedSummary.ts?raw';
+import decisionsViewSource from './components/decisions/DecisionsView.tsx?raw';
+import appSourceForList from './app.tsx?raw';
 
 // 「新しい面が共通配線を通っているか」を機械化するガード（A是正 01KYH2533234PGSN4MDQ6ZXJHA）。
 //
@@ -102,5 +114,242 @@ describe('app が概要タブを URL へ配線している', () => {
     expect(handler, 'openOverviewAt の定義が見つからない').not.toBeNull();
     expect(handler![2]).toMatch(/\bnavigate\s*\(/);
     expect(handler![2]).toMatch(/view:\s*'overview'/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 集約2面の廃止と、その代替の配線（01KYHW4NBNVN9BFXYZMBX8MPF8）
+//
+// この decision は「この記録を支配する規則」欄と概要タブの「このコンポーネントの
+// 規則」欄を**廃止する**と同時に、廃止したままにしない条件を課している——継承した
+// 規則の存在の開示（条項3）と祖先リンクの完備（条項4）。廃止だけが実装されて代替が
+// 落ちると、01KXYED61J6QBEX75H2XHVHW7Y が診断した欠陥（親に決定を持ち子に無い
+// レコードの why が viewer から不可視）がそのまま復活する——実測でタグ9件・
+// transition 36本・vocab 9件のカードが規則ゼロ表示になる。
+//
+// 代替は「無くても画面は成立してしまう」種類の配線なので、外れても誰も気づかない。
+// #3 のレビュー指摘（should-3「web 側の配線に回帰テストが皆無で、結線を丸ごと
+// 外しても緑のまま」）と同じ穴をここで作らないためのガード。
+//
+// 例によってこれは**配線ガード**で、見た目や件数の正しさは実機計測が担う。
+
+const CARDS: Array<{ name: string; source: string; kind: string; id: string }> = [
+  { name: 'TagCard', source: tagCardSource, kind: 'tag', id: 'tag.id' },
+  { name: 'SpecCard', source: specCardSource, kind: 'transition', id: 'detail.id' },
+  { name: 'VocabCard', source: vocabCardSource, kind: 'vocab', id: 'entry.id' },
+];
+
+describe('継承した規則の開示がカードに配線されている（条項3）', () => {
+  for (const card of CARDS) {
+    it(`${card.name}: そのレコードを指して InheritedRules を描いている`, () => {
+      // 「ファイルのどこかで InheritedRules に触れているか」では守れない——
+      // import だけ残して描画を消せる。record にそのカードのレコードが渡って
+      // いるところまで見る。
+      const re = new RegExp(`<InheritedRules[\\s\\S]{0,120}kind:\\s*'${card.kind}'[\\s\\S]{0,40}id:\\s*${card.id.replace('.', '\\.')}`);
+      expect(card.source).toMatch(re);
+    });
+  }
+
+  it('件数の計算が純関数を通っている（値の正しさは inheritedSummary.test.ts が守る）', () => {
+    // own 除外・効いているものだけ・継承元ごとの束ね方は summarizeInherited の
+    // 振る舞いテストが守る。ここはそこを通っていることだけを見る。
+    expect(inheritedRulesSource).toMatch(/\bsummarizeInherited\s*\(/);
+    expect(inheritedRulesSource).toMatch(/\bisInForce\s*\(/);
+    expect(inheritedSummarySource).toMatch(/provenance\s*!==\s*'own'/);
+  });
+
+  it('継承元が実際に描かれている（配線だけ残して中身を消させない）', () => {
+    expect(inheritedRulesSource).toMatch(/sources\.map\(/);
+    expect(inheritedRulesSource).toMatch(/inherited-rules-sources/);
+  });
+
+  it('開示を黙らせる早期 return が入っていない', () => {
+    // 「配線もフィルタも JSX も残したまま先頭で return null する」変異は、
+    // ソース文字列を見るだけのガードでは原理的に捕まらない（DOM を起こす
+    // harness が要る）。そこで**早期 return の条件そのもの**を固定する:
+    // 出てよいのは「まだ取得していない」と「効いている規則が0件」の2つだけ。
+    // 「継承0件」で黙る形は追補 条項3 で退けた（下の describe）。
+    const guards = [...inheritedRulesSource.matchAll(/^\s*if \(([^)]*)\) return null;/gm)].map((m) => m[1].trim());
+    expect(guards).toEqual(['!entries', 'governing === 0']);
+    // 条件の付いていない裸の return null も塞ぐ。
+    expect(inheritedRulesSource).not.toMatch(/^\s*return null;\s*$/m);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 全体をどこで読めるかの開示（追補 01KYJV3FYMDFRWQ939NBV2BPAC 条項3）
+//
+// 件数と継承元の開示（条項3）だけでは「全体を通しで読む」用途に答えていない。
+// その受け皿は現状 CLI だけで、viewer には無い——**その事実と、いま使える手段を
+// カードが開示する**というのが追補の条項3。ここも「無くても画面は成立してしまう」
+// 種類の配線なので、外れても誰も気づかない形にしない。
+
+describe('全体をどこで読めるかがカードから読める（追補 条項3）', () => {
+  it('開示ブロックがそのレコードを渡して WholeRules を描いている', () => {
+    expect(inheritedRulesSource).toMatch(/<WholeRules[\s\S]{0,60}record=\{record\}/);
+  });
+
+  it('継承0件のカードでも出る（口の出し分けが継承の件数ではない）', () => {
+    // 継承の件数で早期 return すると、継承0・own ありのカード（実測 tag 21件）から
+    // 開示ごと消える。出し分けは「効いている規則が1件でもあるか」で決める。
+    expect(inheritedRulesSource).toMatch(/if \(governing === 0\) return null;/);
+    // 継承ブロック側は total で出し分ける（継承0で「継承した規則 0件」とは言わない）。
+    expect(inheritedRulesSource).toMatch(/\{total > 0 && \(/);
+  });
+
+  it('事実そのものは畳まれていない', () => {
+    // 「viewer には全体を通しで読む面が無い」は見出し行に出る。畳んだ内側に入れると、
+    // 開かなかった利用者には省略が伝わらない＝開示にならない。
+    const head = /<button[\s\S]{0,200}class="whole-rules-head"[\s\S]{0,400}<\/button>/.exec(wholeRulesSource);
+    expect(head, 'whole-rules-head の見出し行が見つからない').not.toBeNull();
+    expect(head![0]).toMatch(/t\.browse\.wholeRulesFact/);
+  });
+
+  it('手段（CLI コマンド）が共有の組み立てを通り、コピーできる形で出ている', () => {
+    // コマンド文字列そのものの正しさは rulesCommand.test.ts が値として守る。
+    // ここは「そこを通って画面に出て、コピーできる」ことだけを見る。
+    expect(wholeRulesSource).toMatch(/rulesCommand\(record\)/);
+    expect(wholeRulesSource).toMatch(/<code>\{cmd\}<\/code>/);
+    expect(wholeRulesSource).toMatch(/copyText\(cmd/);
+  });
+
+  it('開示を黙らせる早期 return が入っていない', () => {
+    expect(wholeRulesSource).not.toMatch(/return null/);
+  });
+});
+
+describe('一覧への入口が指す範囲を名乗っている（追補 条項2）', () => {
+  // 一覧のタグ絞り込みは「そのタグと配下」方向で、「この記録を支配する規則」＝
+  // 自身＋祖先とは向きが逆。支配する集合の名前をラベルに使うと、逆向きの集合を
+  // 指す入口になる——実測で9タグが「継承3件」と開示した直下から0件の面に着く。
+  for (const [lang, d] of Object.entries(DICTS)) {
+    it(`${lang}: 支配する規則の名前をラベルに使わない`, () => {
+      const labels = [d.browse.rulesListLinkExact, d.browse.rulesListLinkScoped('X')];
+      for (const label of labels) {
+        expect(label, label).not.toMatch(/効く|効いている|支配|governing|in force|applies/i);
+      }
+    });
+
+    it(`${lang}: 自身と配下の両方を名乗る（dt= は自身への decision も返す）`, () => {
+      // 「配下」だけだと、そのタグ自身に付いた意思決定を名乗り落とす。一覧が返すのは
+      // 「T を実効タグに持つ decision」＝ T 自身への decision も含む。
+      const labels = [d.browse.rulesListLinkExact, d.browse.rulesListLinkScoped('X')];
+      for (const label of labels) {
+        expect(label, label).toMatch(/と配下|and below/i);
+      }
+    });
+  }
+});
+
+describe('配下の意思決定の一覧への入口がカードにある', () => {
+  // この入口は条項5 が言う集合（この記録を支配する規則＝自身＋祖先）を**指していない**
+  // ——一覧は配下方向にしか絞れない、というのが追補 01KYJV3FYMDFRWQ939NBV2BPAC の
+  // 確定事項（条項2）。それ自体は使える眺めなので置いたままにし、範囲を名乗らせる。
+  // 条項5 が言う用途に答えるのは WholeRules（追補 条項3）。
+  it('タグのカードは継承0件でも入口を出す', () => {
+    expect(tagCardSource).toMatch(/<RulesListLink[\s\S]{0,60}tagId=\{tag\.id\}[\s\S]{0,20}exact/);
+  });
+
+  it('transition / vocab は開示ブロック側から入口を出す', () => {
+    expect(inheritedRulesSource).toMatch(/record\.kind !== 'tag' && <RulesListLink/);
+  });
+
+  it('入口が意思決定の一覧を対象で絞って指している', () => {
+    // 単票（#/decision/<id>）ではなく一覧（#/decisions?dt=…）を指すこと。
+    expect(rulesListLinkSource).toMatch(/view:\s*'decisions'/);
+    expect(rulesListLinkSource).toMatch(/decisionTag:\s*tagId/);
+  });
+});
+
+describe('意思決定の一覧が提案B の3面のひとつとして揃っている', () => {
+  it('要約が共有の切り出しを通る（条項6）', () => {
+    // 生の why を CSS の line-clamp で切ると markdown 記法のまま第1段落が流れる。
+    expect(decisionsViewSource).toMatch(/summaryOf\(d\.why\)/);
+    expect(decisionsViewSource).not.toMatch(/decision-row-why">\{d\.why\}/);
+  });
+
+  it('効力の語が2値で統一されている（条項3）', () => {
+    // 同じ画面でバッジが「置き換え済み」・絞り込みが「失効」だと語が2つ同居する。
+    expect(decisionsViewSource).toMatch(/effectInForce/);
+    expect(decisionsViewSource).toMatch(/effectReplaced/);
+    // 語そのものを見る（識別子は 2値化で消えた）。「失効」は効いていない理由を
+    // 述べないので条項3 が退けた語——1画面に2つの語を同居させない。
+    expect(decisionsViewSource).not.toMatch(/失効/);
+  });
+
+  it('既定では効いているものだけを出す（条項4）', () => {
+    // 一覧には畳む器が無いので、既定の絞り込みがその役目を果たす。
+    expect(appSourceForList).toMatch(/route\.decisionCurrency \|\| 'current'/);
+  });
+});
+
+describe('祖先リンクが直接の親で止まっていない（条項4）', () => {
+  it('BrowseView が祖先の連なり全体を渡している', () => {
+    // parentsOf は直接の親1階層しか返さない。実測で継承した効いている規則 82件の
+    // うち4件が祖父由来で、直接の親だけではカードから到達手段が無かった。
+    expect(browseViewSource).toMatch(/ancestors=\{ancestorsOf\(/);
+    expect(browseViewSource).not.toMatch(/parents=\{parentsOf\(/);
+  });
+
+  it('TagCard が受け取った祖先を全部リンクにしている', () => {
+    // 先頭だけ描く（ancestors[0]）に差し替えられたらここで落ちる。
+    expect(tagCardSource).toMatch(/ancestors\.map\(/);
+    expect(tagCardSource).toMatch(/<HashLink[\s\S]{0,200}tagId:\s*p\.id/);
+  });
+});
+
+describe('廃止した集約2面が戻っていない（条項1・2）', () => {
+  it('どのカードにも「この記録を支配する規則」欄が無い', () => {
+    for (const card of CARDS) {
+      expect(card.source, card.name).not.toMatch(/GovernsSection/);
+    }
+  });
+
+  it('概要タブにコンポーネント本体の規則欄が無い', () => {
+    // 欄そのもの（componentRules の構築とトグル）が消えていること。構成要素・
+    // 振る舞い・制約のインライン展開は残すので renderRules 自体は残る。
+    expect(overviewSource).not.toMatch(/componentRules/);
+    expect(overviewSource).not.toMatch(/componentRulesToggle/);
+  });
+
+  it('概要タブは構成要素・振る舞い・制約のインライン展開を残している（消したら行き過ぎ）', () => {
+    expect(overviewSource).toMatch(/renderRules\('part:'/);
+    expect(overviewSource).toMatch(/renderRules\('tx:'/);
+    expect(overviewSource).toMatch(/renderRules\('prop:'/);
+  });
+});
+
+describe('意思決定欄が共有の描画口を通っている（01KYHW54B8ZXH0NEPH2J7N1X39）', () => {
+  for (const card of CARDS) {
+    it(`${card.name}: DecisionList を使っている`, () => {
+      // 面ごとに書き分けると、また面ごとに違う答えが出る（面間整合）。効力2値・
+      // 付帯情報・履歴の畳みは DecisionList が1箇所で担う。
+      expect(card.source).toMatch(/<DecisionList[\s\S]{0,200}decisions=\{/);
+    });
+  }
+
+  it('状態列に出る効力が2値である（3値をそのまま写さない）', () => {
+    // effectOf は in-force / replaced の2値。currencyOf（3値）を状態列に
+    // 直接使うと「現行 ⇔ 改訂」の対立が戻る。
+    expect(decisionListSource).toMatch(/\beffectOf\s*\(/);
+    expect(decisionListSource).not.toMatch(/currencyAmended/);
+    expect(overviewSource).toMatch(/\beffectOf\s*\(/);
+    expect(overviewSource).not.toMatch(/currencyAmended/);
+  });
+
+  it('「後続に部分改訂・例外がある」を付帯情報として出している（条項2）', () => {
+    expect(decisionListSource).toMatch(/relatedDecisions\s*\(/);
+    expect(decisionListSource).toMatch(/readTogether/);
+  });
+
+  it('置き換え済みを畳む口がある（条項4）', () => {
+    expect(decisionListSource).toMatch(/replacedHeading/);
+    expect(overviewSource).toMatch(/replacedHeading/);
+  });
+
+  it('要約は共有の切り出しを通る（条項6）', () => {
+    // 各面が独自に slice すると、また面ごとに違う長さの「要約」が出る。
+    expect(decisionListSource).toMatch(/from '\.\.\/\.\.\/decisionSummary'/);
+    expect(overviewSource).toMatch(/from '\.\.\/\.\.\/decisionSummary'/);
   });
 });

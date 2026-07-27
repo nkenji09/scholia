@@ -230,7 +230,12 @@ export function App() {
           // consistency): '' = no tag filter (not the 'all' sentinel the other
           // axes use). The dt URL key is unchanged; only its value shape grew.
           tagFilter={route.decisionTag || ''}
-          currency={(route.decisionCurrency || 'all') as DecisionFilterState['currency']}
+          // 効いていないものは既定で本文に混ぜない（01KYHW54B8ZXH0NEPH2J7N1X39
+          // 条項4）。一覧には畳む器が無いので、既定の絞り込みが「効いているもの
+          // だけ」であることがその役目を果たす。'all'/'superseded' は利用者が
+          // 明示的に選んだときだけ——なので URL では **'current' を省略側**に置く
+          // （他の軸の 'all' 省略とは既定が違う点に注意）。
+          currency={(route.decisionCurrency || 'current') as DecisionFilterState['currency']}
           period={(route.decisionPeriod || 'all') as DecisionFilterState['period']}
           onFiltersChange={(f) =>
             navigate({
@@ -238,7 +243,7 @@ export function App() {
               searchQuery: f.query || undefined,
               decisionTargetKind: f.targetKind === 'all' ? undefined : f.targetKind,
               decisionTag: f.tagFilter || undefined,
-              decisionCurrency: f.currency === 'all' ? undefined : f.currency,
+              decisionCurrency: f.currency === 'current' ? undefined : f.currency,
               decisionPeriod: f.period === 'all' ? undefined : f.period,
             })
           }

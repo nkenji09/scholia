@@ -618,36 +618,323 @@
   overflow-wrap: anywhere;
 }
 
-/* governs 並置（#45 D10b-1）: 出自バッジ付きの decision 並置欄。own と via を
-   視覚区別する（§10-8・viewer-mock 画面a）。 */
-.governs-list {
+/* 継承した規則の開示（01KYHW4NBNVN9BFXYZMBX8MPF8 条項3・4）。「この記録を支配
+   する規則」欄（全文を再掲していた）を廃止した代わりで、本文は持たず件数と継承元
+   だけを出す。カードの中で埋もれると開示にならないので、意思決定欄とは別の面として
+   囲う。 */
+.inherited-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: var(--sp-3);
+  padding: 12px 14px;
+  border: 1px dashed var(--lm-primary-ring);
+  border-radius: var(--r-md);
+  background: var(--lm-primary-weak);
+}
+
+.inherited-rules-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--fs-2xs);
+  font-weight: 800;
+  color: var(--lm-primary-strong);
+}
+
+.inherited-rules-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.inherited-rules-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--lm-border);
+  border-radius: var(--r-pill, 999px);
+  background: var(--lm-s1);
+  color: var(--lm-text);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.inherited-rules-source:hover {
+  border-color: var(--lm-primary-ring);
+}
+
+/* 条項5 の入口。開示ブロックの内側／カード末尾のどちらに置いても同じ見え方に
+   なるよう、単独のリンク行として組む。 */
+.rules-list-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  margin-top: var(--sp-2);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--lm-primary-strong);
+  text-decoration: none;
+  border-bottom: 1px solid var(--lm-primary-ring);
+}
+
+.inherited-rules .rules-list-link {
+  margin-top: 2px;
+}
+
+.inherited-rules-count {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-3xs);
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: var(--r-pill, 999px);
+  background: var(--lm-primary);
+  color: #fff;
+}
+
+/* 全体をどこで読めるかの開示（追補 01KYJV3FYMDFRWQ939NBV2BPAC 条項3）。
+   継承の開示（上の破線ブロック）と違って**囲まない**——ここが言うのは「この
+   viewer には無い」という欠けの告知で、規則そのものではないから。見出し行は
+   常に見え、コマンドだけが開閉の内側にある。 */
+.whole-rules {
+  margin-top: var(--sp-2);
+}
+
+.whole-rules-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--lm-text-dim);
+  text-align: left;
+}
+
+.whole-rules-head:hover {
+  color: var(--lm-text);
+}
+
+.whole-rules-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 7px;
+  padding: 10px 12px;
+  border: 1px solid var(--lm-border);
+  border-radius: var(--r-md);
+  background: var(--lm-s2);
+}
+
+.whole-rules-note {
+  font-size: var(--fs-3xs);
+  color: var(--lm-text-dim);
+}
+
+.whole-rules-cmd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.whole-rules-cmd code {
+  flex: 1 1 auto;
+  padding: 5px 8px;
+  border-radius: var(--r-sm);
+  background: var(--lm-s1);
+  border: 1px solid var(--lm-border);
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-3xs);
+  color: var(--lm-text);
+  /* コマンドは選択してコピーできる必要がある（コピーボタンが使えない環境の
+     受け皿）。長い id も折り返して全体を見せる。 */
+  user-select: all;
+  overflow-wrap: anywhere;
+}
+
+.whole-rules-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid var(--lm-border);
+  border-radius: var(--r-sm);
+  background: var(--lm-s1);
+  color: var(--lm-text);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.whole-rules-copy:hover {
+  border-color: var(--lm-primary-ring);
+}
+
+/* 祖先の連なり（条項4）の区切り。直接の親だけでなく祖先全体を並べるので、
+   階層の向きが読めるようにする。 */
+.tag-card-parent-sep {
+  color: var(--lm-text-dim);
+  margin: 0 1px;
+}
+
+/* レコード自身の意思決定欄の1行（01KYHW54B8ZXH0NEPH2J7N1X39）。効力は2値で、
+   効いているものどうしに色の序列を付けない（条項1）——差が付くのは
+   「置き換え済み」だけ。 */
+.decision-list {
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
 }
 
-.governs-provenance-badge {
-  /* .tag-card-decision span の mono/dim を上書き（バッジは本文フォント・色付き）。 */
-  font-family: var(--lm-font-sans);
-  align-self: flex-start;
-  font-size: var(--fs-3xs);
+.decision-list .decision-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px 14px;
+  border-left: 3px solid var(--lm-primary);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--lm-primary) 5%, var(--lm-s1));
+}
+
+.decision-list .decision-row.replaced {
+  border-left-style: dashed;
+  border-left-color: var(--lm-border-strong);
+  background: var(--lm-s2);
+  opacity: 0.8;
+}
+
+.decision-list .decision-row-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.decision-row-summary {
+  flex: 1;
+  min-width: 200px;
+  font-size: var(--fs-sm);
   font-weight: 600;
-  padding: 2px 8px;
+  line-height: 1.65;
+  color: var(--lm-text);
+}
+
+.decision-row-summary.struck {
+  font-weight: 400;
+  color: var(--lm-text-muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--lm-border-strong);
+}
+
+.decision-row-effect {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  padding: 3px 9px;
   border-radius: var(--r-pill, 999px);
-  line-height: 1.5;
+  color: var(--lm-success);
+  background: var(--lm-success-weak);
 }
 
-/* own = この記録自身の判断（強めのアクセント）。 */
-.governs-provenance-own {
-  color: var(--lm-primary);
-  background: color-mix(in srgb, var(--lm-primary) 14%, transparent);
-}
-
-/* via（effective-tag / parent）= 経由の規則（控えめ・own と区別）。 */
-.governs-provenance-effective-tag,
-.governs-provenance-parent {
+.decision-row-effect.replaced {
   color: var(--lm-text-dim);
-  background: color-mix(in srgb, var(--lm-text-dim) 12%, transparent);
+  background: var(--lm-s2);
+}
+
+.decision-row-why {
+  padding: 11px 13px;
+  border-radius: var(--r-sm);
+  background: var(--lm-s2);
+  font-size: var(--fs-sm);
+  line-height: 1.85;
+  color: var(--lm-text-muted);
+}
+
+.decision-list .decision-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.decision-row-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--lm-primary-strong);
+}
+
+/* 付帯情報（条項2）: 読み飛ばしてよい注記に見えないよう、リンクとして描く。 */
+.decision-row-related,
+.overview-rule-related {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--lm-primary-strong);
+  text-decoration: none;
+  border-bottom: 1px solid var(--lm-primary-ring);
+}
+
+.decision-row-related-note {
+  font-size: var(--fs-3xs);
+}
+
+.decision-row-spacer {
+  flex: 1;
+}
+
+.decision-list .decision-row-at {
+  font-family: var(--lm-font-mono);
+  font-size: var(--fs-3xs);
+  color: var(--lm-text-dim);
+}
+
+/* 置き換え済みの畳み（条項4）。0件のときは描画自体が無い。 */
+.decision-history,
+.overview-rules-history {
+  margin-top: 4px;
+}
+
+.decision-history-toggle,
+.overview-rules-history-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border: 1px dashed var(--lm-border-strong);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--lm-text-dim);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.decision-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
 }
 
 /* H3: 関連語彙の行（category バッジ＋kind＋ラベル）。関連仕様と同じくリンク

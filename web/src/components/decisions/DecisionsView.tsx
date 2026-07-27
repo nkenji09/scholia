@@ -12,7 +12,8 @@ import { Resizer } from '../layout/Resizer';
 import { RAIL_WIDTH } from '../layout/resizableWidths';
 import { kindColor } from '../shared/Chip';
 import { Icon } from '../shared/Icon';
-import { buildCurrencyIndex, currencyOf, type Currency } from './decisionModel';
+import { buildCurrencyIndex, effectOf, relatedDecisions, type Effect } from './decisionModel';
+import { summaryOf } from '../../decisionSummary';
 
 const COLLAPSE_FACET = 'decisions';
 
@@ -52,12 +53,16 @@ interface Props {
 
 const PERIOD_DAYS: Record<Exclude<PeriodFilter, 'all'>, number> = { '30d': 30, '90d': 90, '1y': 365 };
 
-// Currency → badge class + label. 'amended' rides the same "still current but
-// caveated" bucket as current for the 現行/失効 filter, but keeps its own badge.
-function currencyBadge(c: Currency, t: ReturnType<typeof useT>): { cls: string; label: string } {
-  if (c === 'superseded') return { cls: 'decision-badge-superseded', label: t.decisions.currencySuperseded };
-  if (c === 'amended') return { cls: 'decision-badge-amended', label: t.decisions.currencyAmended };
-  return { cls: 'decision-badge-current', label: t.decisions.currencyCurrent };
+// 効力バッジは2値（01KYHW54B8ZXH0NEPH2J7N1X39 条項1）。記録の3値
+// （supersede/amend/exception）は不変で、変えるのは画面の状態列だけ。
+// かつてここは3値をそのまま出していて、amend を付けられただけの——**まだ
+// 効いている**——decision が「改訂」として現行と別の状態に見え、履歴側だと
+// 誤読された。付帯情報（後続に部分改訂・例外がある）は状態列ではなく行の
+// 補助情報として出す（条項2）。
+function effectBadge(e: Effect, t: ReturnType<typeof useT>): { cls: string; label: string } {
+  return e === 'replaced'
+    ? { cls: 'decision-badge-superseded', label: t.decisions.effectReplaced }
+    : { cls: 'decision-badge-current', label: t.decisions.effectInForce };
 }
 
 const splitTags = (v: string): string[] => (v ? v.split(',').filter(Boolean) : []);
@@ -191,9 +196,10 @@ export function DecisionsView({ searchQuery, targetKind, tagFilter, currency, pe
     if (!decisions) return [];
     return decisions.filter((d) => {
       if (kind !== 'all' && d.target.type !== kind) return false;
-      const c = currencyOf(d.id, currencyIndex);
-      if (cur === 'superseded' && c !== 'superseded') return false;
-      if (cur === 'current' && c === 'superseded') return false;
+      // 効力は2値で判定する（条項1）。'all' は利用者が明示的に選んだときだけ。
+      const e = effectOf(d.id, currencyIndex);
+      if (cur === 'superseded' && e !== 'replaced') return false;
+      if (cur === 'current' && e !== 'in-force') return false;
       if (per !== 'all') {
         const ageDays = (now - new Date(d.at).getTime()) / 86400000;
         if (!(ageDays <= PERIOD_DAYS[per])) return false;
@@ -346,8 +352,8 @@ export function DecisionsView({ searchQuery, targetKind, tagFilter, currency, pe
         <span class="decisions-filter-label dim">{t.decisions.filterCurrency}</span>
         <select value={cur} onChange={(e) => setCur((e.target as HTMLSelectElement).value as CurrencyFilter)}>
           <option value="all">{t.decisions.filterAll}</option>
-          <option value="current">{t.decisions.currencyCurrent}</option>
-          <option value="superseded">{t.decisions.currencySuperseded}</option>
+          <option value="current">{t.decisions.effectInForce}</option>
+          <option value="superseded">{t.decisions.effectReplaced}</option>
         </select>
       </label>
       <label class="decisions-filter">
@@ -393,7 +399,9 @@ export function DecisionsView({ searchQuery, targetKind, tagFilter, currency, pe
           ) : (
             <ul class="decisions-list">
               {filtered.map((d) => {
-                const badge = currencyBadge(currencyOf(d.id, currencyIndex), t);
+                const badge = effectBadge(effectOf(d.id, currencyIndex), t);
+                // 条項2: 「後続に部分改訂・例外が付いている」は状態ではなく付帯情報。
+                const related = relatedDecisions(d.id, currencyIndex);
                 return (
                   <li key={d.id}>
                     <button
@@ -411,9 +419,13 @@ export function DecisionsView({ searchQuery, targetKind, tagFilter, currency, pe
                           {targetLabel(d)}
                         </span>
                       </div>
-                      <p class="decision-row-why">{d.why}</p>
+                      {/* 条項6: 要約は共有の切り出しを通す。生の why を CSS の
+                          line-clamp で切ると markdown 記法のまま第1段落が流れ、
+                          途中で切れる——条項6 が名指しで禁じた形。 */}
+                      <p class="decision-row-why">{summaryOf(d.why)}</p>
                       <div class="decision-row-bottom">
                         <span class="decision-row-at dim">{formatDecisionAt(d.at)}</span>
+                        {related.length > 0 && <span class="decision-row-related-note dim">{t.decisions.readTogether(related.length)}</span>}
                         <span class={'decision-badge ' + badge.cls}>{badge.label}</span>
                       </div>
                     </button>

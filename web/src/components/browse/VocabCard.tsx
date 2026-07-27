@@ -13,7 +13,8 @@ import { HashLink } from '../shared/HashLink';
 import { KebabMenu } from '../shared/KebabMenu';
 import type { KebabMenuItem } from '../shared/KebabMenu';
 import { routeHash } from '../../router';
-import { GovernsSection } from './GovernsSection';
+import { DecisionList } from '../decisions/DecisionList';
+import { InheritedRules } from './InheritedRules';
 
 interface Props {
   entry: VocabEntry;
@@ -43,7 +44,7 @@ const CATEGORY_ICON: Record<VocabEntry['category'], IconName> = {
 // tag-specific.
 export function VocabCard({ entry, uses, decisions, establishedBy, cardRef, onFilterTag, onFilterOwner, onSelectTx }: Props) {
   const t = useT();
-  const { tagById, transitionLabel, vocabLabel, ownerKind, formatDecisionAt } = useLookups();
+  const { tagById, transitionLabel, vocabLabel, ownerKind } = useLookups();
   const { changedVocabIds } = usePendingDiff();
   const { openComposer, comments } = useComments();
   const tags = entry.tags || [];
@@ -292,23 +293,11 @@ export function VocabCard({ entry, uses, decisions, establishedBy, cardRef, onFi
         </div>
       )}
 
-      {decisions.length > 0 && (
-        <CollapsibleSection recordId={entry.id} section="decisions" count={decisions.length} icon="scroll-text" label={t.vocab.decisionsHeading} defaultOpen={true}>
-          {decisions.map((d) => (
-            <div key={d.id} class="tag-card-decision">
-              <p>{d.why}</p>
-              <span class="dim">
-                {formatDecisionAt(d.at)}
-                {d.ref && ` · ${d.ref}`}
-              </span>
-            </div>
-          ))}
-        </CollapsibleSection>
-      )}
+      <DecisionList recordId={entry.id} decisions={decisions} label={t.vocab.decisionsHeading} />
 
       {/* governs 並置（#45 D10b-1）: own の vocab-target decision（上）は不変で、
           own＋vocab.tags/祖先経由の decision を出自バッジ付きで並置する既定折りたたみ欄。 */}
-      <GovernsSection record={{ kind: 'vocab', id: entry.id }} />
+      <InheritedRules record={{ kind: 'vocab', id: entry.id }} />
     </article>
   );
 }

@@ -3,9 +3,10 @@ import type { ComponentChildren } from 'preact';
 import { useContext, useEffect, useState } from 'preact/hooks';
 import { api } from './api';
 import { useT } from './i18n';
-import type { Config, Tag, Transition, VocabEntry } from './types';
+import type { Config, Decision, Tag, Transition, VocabEntry } from './types';
 import { kindDeclObject } from './types';
-import { formatDecisionAt as formatDecisionAtWithZone } from './components/decisions/decisionModel';
+import { buildCurrencyIndex, formatDecisionAt as formatDecisionAtWithZone } from './components/decisions/decisionModel';
+import type { CurrencyIndex } from './components/decisions/decisionModel';
 
 const EMPTY_TAG_KIND_LABELS: Record<string, string> = {};
 
@@ -49,6 +50,12 @@ const ROLE_FALLBACK_KIND: Record<SheetRole, string> = {
 // re-deriving the id → label mapping itself.
 interface Lookups {
   ready: boolean;
+  /** 全 decision から一度だけ組む現行性索引（01KYHW54B8ZXH0NEPH2J7N1X39）。
+      効力の判定は「他の decision が supersede でこれを置き換えたか」＝**全体を
+      見ないと決まらない**ので、カードごとに引き直さず app 起動時に1つ作って
+      共有する。カードごとに部分集合から判定すると、その集合の外にいる
+      置き換え側を見落として「置き換え済みのものを効いていると表示する」。 */
+  currencyIndex: CurrencyIndex;
   vocabById: Map<string, VocabEntry>;
   tagById: Map<string, Tag>;
   transitionById: Map<string, Transition>;
@@ -114,16 +121,18 @@ export function LookupsProvider({ children }: { children: ComponentChildren }) {
   const [transitionById, setTransitionById] = useState<Map<string, Transition>>(new Map());
   const [tagKindLabels, setTagKindLabels] = useState<Record<string, string>>(EMPTY_TAG_KIND_LABELS);
   const [config, setConfig] = useState<Config | null>(null);
+  const [decisions, setDecisions] = useState<Decision[]>([]);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    Promise.all([api.getVocab(), api.getTags(), api.getTransitions({}), api.getConfig()])
-      .then(([vocab, tags, tx, config]) => {
+    Promise.all([api.getVocab(), api.getTags(), api.getTransitions({}), api.getConfig(), api.getRules({})])
+      .then(([vocab, tags, tx, config, rules]) => {
         setVocabById(new Map(vocab.map((v) => [v.id, v])));
         setTagById(new Map(tags.map((t) => [t.id, t])));
         setTransitionById(new Map((tx.transitions || []).map((t) => [t.id, t])));
         setTagKindLabels(config.tagKindLabels || EMPTY_TAG_KIND_LABELS);
         setConfig(config);
+        setDecisions(rules.decisions || []);
         setReady(true);
       })
       .catch(() => {
@@ -184,8 +193,11 @@ export function LookupsProvider({ children }: { children: ComponentChildren }) {
   // silently ignore it.
   const formatDecisionAt = (at: string) => formatDecisionAtWithZone(at, config?.effectiveTimezone);
 
+  const currencyIndex = buildCurrencyIndex(decisions);
+
   const value: Lookups = {
     ready,
+    currencyIndex,
     vocabById,
     tagById,
     transitionById,

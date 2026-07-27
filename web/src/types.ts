@@ -56,10 +56,13 @@ export interface DecisionTarget {
     （ParentIDs 展開）への decision。 */
 export type GovernsProvenance = 'own' | 'effective-tag' | 'parent';
 
-/** per-record governs の 1 エントリ（#45 D10b-1・Go 側 index.GovernsEntry と
-    同期）。decision と出自バッジ・経由タグ id。 */
-export interface GovernsEntry {
-  decision: Decision;
+/** per-record governs の 1 エントリ（Go 側 index.GovernsRef と同期）。
+    **参照だけで本文を持たない**——継承規則の開示が出すのは件数と継承元だけで、
+    decision の実体は別途 lookups が全件持っている（追補
+    01KYJP68V2GR4QJ8HNW6HEP00T 条項2）。効力の判定もここではなく、その全件から
+    組んだ索引が1箇所で行う（同 条項3: live と静的で開示の答えが割れない）。 */
+export interface GovernsRef {
+  decisionId: string;
   provenance: GovernsProvenance;
   /** 経由タグ id（effective-tag/parent のとき・own では空）。 */
   viaTag?: string;
@@ -575,5 +578,5 @@ export interface ScholiaStaticData {
   // per-record governs（#45 D10b-1）: record ref（"tag:<id>" / "transition:<id>"
   // / "vocab:<id>"）→ その記録を支配する decision（出自バッジ付き）。live
   // GET /api/governs と同じ形を全レコード id について焼き込む。
-  governs: Record<string, GovernsEntry[]>;
+  governs: Record<string, GovernsRef[]>;
 }
