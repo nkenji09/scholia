@@ -38,7 +38,7 @@ func getFacetsHandler(s *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		snap, ix, err := loadIndexed(s)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeStoreError(w, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, buildFacetsResponse(snap, ix))
@@ -49,7 +49,7 @@ func getTagsHandler(s *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		snap, _, err := loadIndexed(s)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeStoreError(w, err)
 			return
 		}
 		kind := r.URL.Query().Get("kind")
@@ -72,7 +72,7 @@ func getVocabHandler(s *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		snap, ix, err := loadIndexed(s)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeStoreError(w, err)
 			return
 		}
 		// subject（コンポ別モード・vocab-view-p2）: subject タグに属す遷移が

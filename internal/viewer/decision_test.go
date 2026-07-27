@@ -3,6 +3,8 @@ package viewer
 import (
 	"net/http"
 	"reflect"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/nkenji09/scholia/internal/model"
@@ -126,5 +128,206 @@ func TestPostDecision_UnknownFieldRejected(t *testing.T) {
 	rec := doRequest(t, h, http.MethodPost, "/api/decision", body)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// --- 現行性リンク（adopt が supersedes まで束ねる・01KYHE08WNA8H1Q1DM2H45Y4TK） ---
+
+// 回帰の芯（viewer 面）: POST /api/decision が supersedes を受理して保存する。
+// body 型に持たせないと DisallowUnknownFields が 400 を返し、ドロワーの Adopt は
+// 構造的に結線できない。
+func TestPostDecision_AcceptsSupersedes(t *testing.T) {
+	h, s := newTestHandler(t)
+	body := []byte(`{"on":"tag:subject.auth","why":"改訂: cookie ではなく header で運ぶ","commits":[],"supersedes":[{"id":"d1","mode":"supersede"}]}`)
+	rec := doRequest(t, h, http.MethodPost, "/api/decision", body)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201: %s", rec.Code, rec.Body.String())
+	}
+	d := decodeJSON[model.Decision](t, rec)
+	if len(d.Supersedes) != 1 || d.Supersedes[0].ID != "d1" || d.Supersedes[0].Mode != model.ModeSupersede {
+		t.Fatalf("Supersedes = %+v, want [{d1 supersede}]", d.Supersedes)
+	}
+	persisted, err := s.LoadDecision(d.ID)
+	if err != nil {
+		t.Fatalf("LoadDecision: %v", err)
+	}
+	if len(persisted.Supersedes) != 1 || persisted.Supersedes[0].ID != "d1" {
+		t.Fatalf("保存された supersedes = %+v, want [d1]", persisted.Supersedes)
+	}
+}
+
+// mode 省略は既定 amend として保存される（保存値は書かれたまま＝空）。
+func TestPostDecision_SupersedesDefaultMode(t *testing.T) {
+	h, _ := newTestHandler(t)
+	body := []byte(`{"on":"tag:subject.auth","why":"部分改訂","commits":[],"supersedes":[{"id":"d1"}]}`)
+	rec := doRequest(t, h, http.MethodPost, "/api/decision", body)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201: %s", rec.Code, rec.Body.String())
+	}
+	d := decodeJSON[model.Decision](t, rec)
+	if len(d.Supersedes) != 1 || d.Supersedes[0].SupersedeMode() != model.ModeAmend {
+		t.Fatalf("既定は amend であるべき: %+v", d.Supersedes)
+	}
+}
+
+// 未知フィールドは従来どおり弾く（supersedes を足しても DisallowUnknownFields は緩めない）。
+func TestPostDecision_StillRejectsUnknownFields(t *testing.T) {
+	h, _ := newTestHandler(t)
+	body := []byte(`{"on":"tag:subject.auth","why":"x","commits":[],"superseeds":[{"id":"d1"}]}`)
+	rec := doRequest(t, h, http.MethodPost, "/api/decision", body)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400（typo フィールドは弾く）: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// 検証は CLI と同じ: 実在しない旧 decision・自己参照・重複・不正 mode は 400。
+func TestPostDecision_SupersedesValidation(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+	}{
+		{"実在しない旧 decision", `{"on":"tag:subject.auth","why":"x","commits":[],"supersedes":[{"id":"nope"}]}`},
+		{"重複指定", `{"on":"tag:subject.auth","why":"x","commits":[],"supersedes":[{"id":"d1","mode":"amend"},{"id":"d1","mode":"supersede"}]}`},
+		{"不正な mode", `{"on":"tag:subject.auth","why":"x","commits":[],"supersedes":[{"id":"d1","mode":"replace"}]}`},
+		{"空の id", `{"on":"tag:subject.auth","why":"x","commits":[],"supersedes":[{"id":""}]}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h, _ := newTestHandler(t)
+			rec := doRequest(t, h, http.MethodPost, "/api/decision", []byte(tc.body))
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
+
+// 未宣言はブロックせず、応答に supersede-unlinked advisory を添える（非ブロック）。
+func TestPostDecision_UnlinkedAdvisory(t *testing.T) {
+	h, _ := newTestHandler(t)
+	// subject.auth には既存 decision "d1" がある。
+	rec := doRequest(t, h, http.MethodPost, "/api/decision", []byte(`{"on":"tag:subject.auth","why":"宣言なしで採用","commits":[]}`))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("未宣言でもブロックしないべき: status = %d: %s", rec.Code, rec.Body.String())
+	}
+	got := decodeJSON[struct {
+		Advisories []struct {
+			Rule string `json:"rule"`
+		} `json:"advisories"`
+	}](t, rec)
+	var found bool
+	for _, a := range got.Advisories {
+		if a.Rule == "supersede-unlinked" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("supersede-unlinked advisory が出るべき: %s", rec.Body.String())
+	}
+
+	// 既存 decision の無い対象では出ない（純粋な新規追加は正当）。
+	rec = doRequest(t, h, http.MethodPost, "/api/decision", []byte(`{"on":"transition:T-login","why":"新規","commits":[]}`))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201: %s", rec.Code, rec.Body.String())
+	}
+	got = decodeJSON[struct {
+		Advisories []struct {
+			Rule string `json:"rule"`
+		} `json:"advisories"`
+	}](t, rec)
+	if len(got.Advisories) != 0 {
+		t.Fatalf("既存 decision が無いのに advisory が出た: %s", rec.Body.String())
+	}
+}
+
+// --- 失敗メッセージに生 ULID を出さない（01KYCC2TF3NW3JRSSRK9ZHN078） ---
+
+// ulidPattern は Crockford Base32 の 26 文字 ULID。
+var ulidPattern = regexp.MustCompile(`\b[0-9A-HJKMNP-TV-Z]{26}\b`)
+
+// viewer は生レコード id を表示しない（id は deep-link の href としてのみ）。
+// POST /api/decision の失敗応答は人がドロワーでそのまま読む文字列になるので、
+// ここに ULID が乗ると決定の字義に反する。CLI 向けの文言（どの id を直せば
+// よいかを含む）を body へ素通しさせないことを、この API 面で固定する。
+func TestPostDecision_SupersedeErrorsCarryNoULID(t *testing.T) {
+	// 実在する旧 decision を作っておく（重複・mode 改変の材料）。
+	seed := func(t *testing.T) (http.Handler, string) {
+		t.Helper()
+		h, s := newTestHandler(t)
+		old := "01KYHZZZZZZZZZZZZZZZZZZZZZ"
+		if err := s.SaveDecision(model.Decision{
+			ID: old, Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.auth"},
+			Why: "旧", At: "2026-01-01T00:00:00Z",
+		}); err != nil {
+			t.Fatalf("seed decision: %v", err)
+		}
+		return h, old
+	}
+
+	cases := []struct {
+		name     string
+		body     func(old string) string
+		wantCode string
+	}{
+		{
+			name: "実在しない旧 decision",
+			body: func(string) string {
+				return `{"on":"tag:subject.auth","why":"x","commits":[],"supersedes":[{"id":"01KYHYYYYYYYYYYYYYYYYYYYYY"}]}`
+			},
+			wantCode: "supersedes-missing-target",
+		},
+		{
+			name: "3値でない mode",
+			body: func(o string) string {
+				return `{"on":"tag:subject.auth","why":"x","commits":[],"supersedes":[{"id":"` + o + `","mode":"bogus"}]}`
+			},
+			wantCode: "supersedes-invalid-mode",
+		},
+		{
+			name: "同一 id の重複",
+			body: func(o string) string {
+				return `{"on":"tag:subject.auth","why":"x","commits":[],"supersedes":[{"id":"` + o + `","mode":"amend"},{"id":"` + o + `","mode":"supersede"}]}`
+			},
+			wantCode: "supersedes-duplicate",
+		},
+		{
+			name: "空 id",
+			body: func(string) string {
+				return `{"on":"tag:subject.auth","why":"x","commits":[],"supersedes":[{"id":""}]}`
+			},
+			wantCode: "supersedes-empty-id",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h, old := seed(t)
+			rec := doRequest(t, h, http.MethodPost, "/api/decision", []byte(tc.body(old)))
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
+			}
+			got := decodeJSON[struct {
+				Error string `json:"error"`
+				Code  string `json:"code"`
+			}](t, rec)
+			if got.Code != tc.wantCode {
+				t.Fatalf("code = %q, want %q（フロントが翻訳済み文言を選ぶ鍵）", got.Code, tc.wantCode)
+			}
+			if leaks := ulidPattern.FindAllString(got.Error, -1); len(leaks) > 0 {
+				t.Fatalf("失敗メッセージに生 ULID が漏れている: %v\nmessage: %s", leaks, got.Error)
+			}
+		})
+	}
+}
+
+// CLI 向けの文言（model.SupersedeError.Error()）は逆に id を含み続ける——
+// どの review ファイルのどの id を直せばよいかを出す必要があるため。viewer と
+// CLI で見せ方を分ける前提そのものを固定する。
+func TestSupersedeError_CLIMessageKeepsID(t *testing.T) {
+	err := &model.SupersedeError{Kind: model.SupersedeErrMissingTarget, ID: "01KYHZZZZZZZZZZZZZZZZZZZZZ"}
+	if !strings.Contains(err.Error(), "01KYHZZZZZZZZZZZZZZZZZZZZZ") {
+		t.Fatalf("CLI 向け文言は id を含むべき: %q", err.Error())
+	}
+	if ulidPattern.MatchString(supersedeViewerMessage(err)) {
+		t.Fatalf("viewer 向け文言は id を含まないべき: %q", supersedeViewerMessage(err))
 	}
 }

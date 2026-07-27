@@ -24,7 +24,18 @@ import type {
 import { loadLang } from './i18n';
 import { DICTS } from './strings';
 
-class ApiError extends Error {}
+class ApiError extends Error {
+  // サーバが返す機械可読な失敗種別（errorBody.code）。文言をそのまま出すと
+  // 生 id が漏れる面があるので、呼び出し側はこれを見て自前の（翻訳済み・
+  // id を含まない）文言を選べる（01KYCC2TF3NW3JRSSRK9ZHN078）。undefined の
+  // ときは message をそのまま出してよい。
+  code?: string;
+
+  constructor(message: string, code?: string) {
+    super(message);
+    this.code = code;
+  }
+}
 
 declare global {
   interface Window {
@@ -48,13 +59,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, init);
   if (!res.ok) {
     let message = res.statusText;
+    let code: string | undefined;
     try {
       const body = await res.json();
       if (body && typeof body.error === 'string') message = body.error;
+      if (body && typeof body.code === 'string') code = body.code;
     } catch {
       // response body wasn't JSON; fall back to statusText
     }
-    throw new ApiError(message);
+    throw new ApiError(message, code);
   }
   return res.json() as Promise<T>;
 }

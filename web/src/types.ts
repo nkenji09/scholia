@@ -88,6 +88,9 @@ export interface DecisionPostBody {
   changed?: string;
   ref?: string;
   commits: string[];
+  /** 提案が宣言した現行性リンク。Adopt はこれを一緒に送って結線まで束ねる
+      （送らないと「adopt の後に手で scholia decision link」が残る）。 */
+  supersedes?: SupersedeLink[];
 }
 
 // POST /api/transition body（change-cockpit-design-v3.md §1 (Wp)/§8.8 P3・
@@ -435,6 +438,30 @@ export interface Review {
   body: string;
   source: string;
   createdAt: string;
+  /** 採用されたら昇格先 decision が置き換える／改訂する旧 decision の宣言。
+      adopt がそのまま decision.supersedes へ持ち上げる。 */
+  supersedes?: SupersedeLink[];
+  /** supersedes の解決結果（GET /api/reviews が derive・保存しない）。
+      ドロワーが Adopt の前に置き換え対象を人に見せるために使う。 */
+  supersedesDetail?: SupersedeTargetDetail[];
+  /** 昇格先レコードに既にある decision の件数（derive）。宣言が無いまま
+      Adopt しようとしていることを押す前に気づかせるための材料。 */
+  priorDecisionCount?: number;
+}
+
+/** 結線先1件の読める素性（internal/viewer の supersedeTargetDetail と 1:1）。
+    id は deep-link の href 専用で、表示は targetName/targetId・at・whySummary
+    で行う（viewer は生 ULID を読ませない・01KYCC2TF3NW3JRSSRK9ZHN078）。 */
+export interface SupersedeTargetDetail {
+  id: string;
+  mode: string;
+  targetType?: string;
+  targetId?: string;
+  targetName?: string;
+  at?: string;
+  whySummary?: string;
+  /** 宣言された旧 decision が store に無い（review を書いた後に消えた）。 */
+  missing?: boolean;
 }
 
 // flow.Report types (internal/flow/analyze.go) mirror 1:1 — T-viewer-action-

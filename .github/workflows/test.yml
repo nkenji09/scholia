@@ -58,9 +58,13 @@ jobs:
         working-directory: web
         run: npm ci
 
-      - name: tsc --noEmit
+      # web/tsconfig.json はソリューション構成（"files": []）なので `tsc --noEmit`
+      # 単体では対象ファイル数 0 で実質 no-op になる（プロジェクト参照を辿らない）。
+      # `-b` でプロジェクト参照（tsconfig.app.json/tsconfig.node.json）を辿らせて
+      # 実際に型検査させる。leaf 側で既に noEmit: true のため成果物は生成しない。
+      - name: tsc -b --noEmit
         working-directory: web
-        run: npx tsc --noEmit
+        run: npx tsc -b --noEmit
 
       - name: test
         working-directory: web

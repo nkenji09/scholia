@@ -921,6 +921,101 @@
   color: var(--lm-error);
 }
 
+/* 結線の確認（adopt が現行性リンクまで束ねる要件・01KYHE08WNA8H1Q1DM2H45Y4TK）—
+   Adopt を押すと同時に張られる supersedes を、押す前に見せる欄。採用フォームの
+   内側に置く（採用の一部であって別操作ではない、を形で示す）。 */
+.comment-supersede {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--lm-info-strong);
+  background: var(--lm-info-weak);
+  border-radius: var(--r-sm);
+}
+
+.comment-supersede-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--lm-info-strong);
+}
+
+.comment-supersede-title {
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.comment-supersede-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.comment-supersede-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  font-size: var(--fs-3xs);
+  line-height: 1.5;
+}
+
+.comment-supersede-link {
+  font-weight: 700;
+  color: var(--lm-text-strong);
+  text-decoration: none;
+  border-bottom: 1px solid var(--lm-border-strong);
+}
+
+.comment-supersede-link:hover {
+  color: var(--lm-primary-strong);
+}
+
+.comment-supersede-mode {
+  border: 1px solid var(--lm-border-strong);
+  border-radius: var(--r-full);
+  padding: 0 7px;
+  color: var(--lm-text-muted);
+  white-space: nowrap;
+}
+
+/* 全文置換だけが旧を失効させる（derive は supersede のみ畳む）ので、
+   3値のうちここだけ色で区別する。 */
+.comment-supersede-mode-supersede {
+  border-color: var(--lm-warning);
+  color: var(--lm-warning-ic);
+}
+
+.comment-supersede-why {
+  flex: 1 1 100%;
+}
+
+.comment-supersede-item-missing .comment-supersede-link {
+  text-decoration: line-through;
+}
+
+.comment-supersede-missing {
+  color: var(--lm-error);
+  font-weight: 700;
+}
+
+/* 宣言が無く、対象レコードには既に決定がある場合の注意（ブロックはしない）。 */
+.comment-supersede-none {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 7px;
+  border-color: var(--lm-warning);
+  background: var(--lm-warning-weak);
+  color: var(--lm-warning-ic);
+  font-size: var(--fs-3xs);
+  line-height: 1.5;
+}
+
 /* 採用済み（decisionId が付いた提案コメント）— why の正本が decision へ
    移った表示（§8.5「採用後...本文 read-only」）。 */
 .comment-adopted-badge {

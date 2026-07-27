@@ -37,7 +37,7 @@ func getConfigHandler(s *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cfg, err := s.LoadConfig()
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeStoreError(w, err)
 			return
 		}
 		// Branch is live/derived, not persisted (model.Config's doc
@@ -47,7 +47,7 @@ func getConfigHandler(s *store.Store) http.HandlerFunc {
 
 		local, err := s.LoadLocalConfigOverride()
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeStoreError(w, err)
 			return
 		}
 
@@ -81,7 +81,7 @@ func putLocalConfigHandler(s *store.Store) http.HandlerFunc {
 			}
 		}
 		if err := s.SaveLocalConfigOverride(patch); err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeStoreError(w, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, patch)
@@ -138,7 +138,7 @@ func putConfigHandler(s *store.Store) http.HandlerFunc {
 
 		cfg, err := s.LoadConfig()
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeStoreError(w, err)
 			return
 		}
 
@@ -147,7 +147,7 @@ func putConfigHandler(s *store.Store) http.HandlerFunc {
 		if removed := diffStrings(kindDeclIDs(cfg.TagKinds), kindDeclIDs(patch.TagKinds)); len(removed) > 0 {
 			snap, err := s.LoadAll()
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, err.Error())
+				writeStoreError(w, err)
 				return
 			}
 			if inUse := tagsUsingKinds(snap.Tags, removed); len(inUse) > 0 {
@@ -168,7 +168,7 @@ func putConfigHandler(s *store.Store) http.HandlerFunc {
 		cfg.Timezone = patch.Timezone
 
 		if err := s.SaveConfig(cfg); err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeStoreError(w, err)
 			return
 		}
 		cfg.Branch = diff.CurrentBranch(filepath.Dir(s.Dir))

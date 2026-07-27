@@ -231,6 +231,37 @@ func staleTenseFinding(targetType, id, desc string, excludes []*regexp.Regexp) (
 		"%s %s: description に時点依存語（%s）が残っています（record が古びると嘘になる書き方）", targetType, id, q), true
 }
 
+// TargetUnlinkedSupersede は「昇格先の対象に既存 decision があるのに現行性リンク
+// （supersedes）の宣言が無い」ときの advisory を返す（adopt が結線まで束ねる要件・
+// 01KYHE08WNA8H1Q1DM2H45Y4TK）。
+//
+// ブロックはしない——旧 decision を指さない純粋な新規要件の追加は正当なので、
+// 拒否すると正しい追加まで止めてしまう。逆に黙って通すと「改訂したはずの旧
+// decision が現行のまま」が静かに生まれる。よって TargetDescStaleTense と同じ
+// 「adopt 応答に添える非ブロックの advisory」に揃える。
+//
+// lint の規則表には載せない（`scholia lint` 全走査で出す規則ではなく、decision を
+// 作る面が同一ターンに気づくためのゲート）。「why が置換を述べているのに
+// supersedes が空」を store 全体から検出する規則は別問題として存在しない。
+func TargetUnlinkedSupersede(snap store.Snapshot, target model.DecisionTarget, links []model.SupersedeLink) []Finding {
+	if len(links) > 0 {
+		return nil
+	}
+	var prior int
+	for _, d := range snap.Decisions {
+		if d.Target.Type == target.Type && d.Target.ID == target.ID {
+			prior++
+		}
+	}
+	if prior == 0 {
+		return nil
+	}
+	return []Finding{advisory("supersede-unlinked", target.Type, target.ID, "supersedes", "",
+		"改訂なら `scholia review add --supersedes <oldUlid>[:<mode>]` で宣言してから adopt する（採用時なら `review adopt --supersedes`）。純粋な新規要件で旧を指さないならこの advisory は無視してよい",
+		"%s %s: 既存 decision が %d 件あるのに現行性リンク（supersedes）の宣言がありません（旧を改訂したなら結線しないと rules --current が旧を現行のまま出します）",
+		target.Type, target.ID, prior)}
+}
+
 // TargetDescStaleTense は decision の target（tag/vocab）の desc に対する
 // stale-tense 検査（desc 現在形ゲート三点配線・#45 D7）。decide 保存前プレビュー・
 // review adopt 応答・add-commit 同一ターンが同じコアで対象 desc の鮮度を見る。
