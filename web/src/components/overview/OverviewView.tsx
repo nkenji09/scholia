@@ -333,11 +333,24 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
 
   const toggleNode = (id: string) => setTreeOpen((p) => ({ ...p, [id]: !p[id] }));
 
+  // 構成要素の行が押されたことを数える。URL の変化とは別に「寄せてくれ」という要求を
+  // 立てるための口で、下のアンカー effect の依存に入る。
+  //
+  // なぜ要るか: すでに同じ現在地にいるとき、平打ちしても URL は変わらない（navigate は
+  // 同一 hash なら何もしないのが正しい——BrowseView の URL 同期はその参照安定性に依って
+  // いる）。URL が変わらなければ再描画も起きないので、URL の変化だけを見ている限り
+  // 「押しても何も起きない」になる。平打ちが no-op になる欠陥は
+  // 01KXG8QRCXMG70PBW32R9ETCA7 が「クリックしたら必ず対象へ辿り着く」へ是正した既決で、
+  // main も同じ形（クリックのたびに寄せ先を立て直す）で満たしていた。URL 経由の到達
+  // （直打ち・reload・バック）は従来どおり partId の変化で走る。
+  const [anchorRequest, setAnchorRequest] = useState(0);
+
   // 現在地の移動は必ず URL 経由（＝そのつど履歴に1件残る・条項(3)）。狭い画面で
   // ドロワーから選んだときに閉じる従来の挙動はここで維持する（view が変わらないので
   // app 側の view 監視では閉じない）。
   const goTo = (id: string, part?: string) => {
     if (isNarrow) closeDrawer();
+    if (part) setAnchorRequest((n) => n + 1);
     onSelectComponent(id, part);
   };
 
@@ -372,15 +385,14 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [partId]);
 
-  // 現在地が動いたら「寄せ済み」を戻す。同じ構成要素へ二度目に来たとき（本体へ戻って
-  // からもう一度アンカーする等）も寄せ直せるようにするため——ここを戻し忘れると URL と
-  // 履歴だけ動いて画面が動かず、利用者にはリンクが死んで見える。
-  const anchoredPart = useRef<string | null>(null);
-  useEffect(() => {
-    anchoredPart.current = null;
-  }, [partId, sel]);
-
   // アンカーされた構成要素の位置まで寄せる。
+  //
+  // 走る条件は3つ: URL のアンカーが変わったとき（直打ち・reload・バック・別の構成要素へ）、
+  // 現在地のコンポーネントが決まったとき（読み込み完了で sel が付くのを含む）、そして
+  // 行が押されたとき（anchorRequest）。3つ目が要るのは、同じ現在地にいる状態での
+  // 再クリックでは URL が変わらず再描画も起きないため——URL の変化だけを見ていると
+  // 「押しても何も起きない」になり、それは 01KXG8QRCXMG70PBW32R9ETCA7 が是正した欠陥
+  // そのものに戻る。
   //
   // 対象セクションは直前の effect の forceOpen で一拍遅れて展開されるため、最初の寄せの
   // 時点では document がまだ低く、ブラウザ側で位置が clamp される。これは「読み込み中の
@@ -389,19 +401,18 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
   // （scrollRestore.ts の reinforce）と同じく、伸びたあとに一度だけ寄せ直す。新経路のために
   // 別機構を作らない。
   useEffect(() => {
-    if (!partId || anchoredPart.current === partId) return;
+    if (!partId) return;
     const root = mainRef.current;
     if (!root) return;
     const find = () => root.querySelector<HTMLElement>(`[data-part="${cssEscape(partId)}"]`);
     const el = find();
     if (!el) return;
-    anchoredPart.current = partId;
     el.scrollIntoView({ block: 'start', behavior: 'smooth' });
     // rAF ではなく setTimeout なのも本体側と同じ理由（タブが背面でも動かすため）。
     const reinforce = setTimeout(() => find()?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 120);
     return () => clearTimeout(reinforce);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [partId, sel]);
+  }, [partId, sel, anchorRequest]);
 
   // ---- 構造ツリー行（treeVals 相当） ----
   const treeRows: TreeRow[] = [];
