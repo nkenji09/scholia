@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'preact/hooks';
+import type { RefObject } from 'preact';
 
 // Per-view scroll continuity (req.comfortable-viewer.view-state-continuity):
 // each browse view (tags/specs/vocab) remembers where it was scrolled to so
@@ -134,4 +135,79 @@ export function useScrollRestore(view: string, ready: boolean, skipRestore = fal
     return () => clearTimeout(reinforce);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, ready, skipRestore]);
+}
+
+/**
+ * 面が本体とは別に持つ「独立してスクロールする領域」の位置を、本体と同じ規律で
+ * 保持・復元する（view-state-continuity の適用範囲拡張・01KYH0ESVG1D5NGDH5C4TG920J）。
+ * 現在これに当たるのは概要タブの構造ツリーだが、キーを渡すだけで他の領域にも使える。
+ *
+ * useScrollRestore との違いはスクロールルートだけ（window ではなく要素）で、規律は
+ * 同一に保つ:
+ * - 保存先も寿命も同じ（sessionStorage・同一タブ・reload を越えて残る）。キー空間だけ
+ *   `<view>:<region>` の形で分け、本体のキーと衝突させない。
+ * - **復元が済むまで保存しない**（`restored`）。読み込み中は領域の中身がまだ短く、
+ *   前の状態から引き継いだ scrollTop が 0 へ clamp されて scroll イベントが飛ぶ。
+ *   これを保存すると復元より先に保存値を壊す——本体側で差し戻し2回を要した罠と同型
+ *   なので、対象が増えてもここは緩めない（01KXFEJ8HZWGTE6D7FHA5W9PS0）。
+ * - 復元は「マウント時に捕まえた値」から行い、その時点の sessionStorage を読み直さない。
+ *
+ * `ready` は「要素が DOM にあり、中身が並び終わった」ことを呼び出し側が伝えるフラグ。
+ * 要素は条件付きで描かれること（狭い画面でドロワーが閉じている等）があるので、その
+ * 場合は ready を false にして呼ぶ——本フックは要素が無い間は何もしない。
+ */
+export function useElementScrollRestore(key: string, ref: RefObject<HTMLElement | null>, ready: boolean, skipRestore = false): void {
+  // 本体側と同じく、最初の描画時点の保存値を捕まえておく（読み込み中の clamp が
+  // debounce 保存で焼き込まれても、復元はこの値を使う）。
+  const targetRef = useRef<number | null>(null);
+  const captured = useRef(false);
+  if (!captured.current) {
+    targetRef.current = readSaved(key);
+    captured.current = true;
+  }
+
+  const latest = useRef<number>(targetRef.current ?? 0);
+  const restored = useRef(false);
+
+  // 要素は ready が立ってから初めて存在するので、監視と復元を1つの effect にまとめる
+  // （本体側が2つに分かれているのは、window が最初から存在して ready 前の scroll も
+  // 届いてしまうため。要素側にはその前段が無い）。
+  useEffect(() => {
+    if (!ready) return;
+    const el = ref.current;
+    if (!el) return;
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const onScroll = () => {
+      if (!restored.current) return;
+      latest.current = el.scrollTop;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => writeSaved(key, latest.current), 100);
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+
+    let reinforce: ReturnType<typeof setTimeout> | undefined;
+    if (skipRestore) {
+      // 呼び出し側が領域内の別の位置へ寄せる場合は争わない。以降の利用者スクロールだけ
+      // 覚える（本体側 skipRestore と同じ扱い）。
+      latest.current = el.scrollTop;
+      restored.current = true;
+    } else if (!restored.current) {
+      const target = targetRef.current ?? 0;
+      latest.current = target;
+      restored.current = true;
+      el.scrollTop = target;
+      // 中身が一拍遅れて伸びる場合に備えて一度だけ復元し直す（本体側と同じ理由・
+      // rAF ではなく setTimeout なのはタブが背面でも動かすため）。
+      if (target !== 0) reinforce = setTimeout(() => (el.scrollTop = target), 120);
+    }
+
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      if (timer) clearTimeout(timer);
+      if (reinforce) clearTimeout(reinforce);
+      if (restored.current) writeSaved(key, latest.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, ready, skipRestore]);
 }
