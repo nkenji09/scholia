@@ -226,15 +226,28 @@ type GovernsEntry struct {
 
 // GovernsForTag returns the decisions governing a tag record — the tag's own
 // decisions plus those on its ancestors — each tagged with provenance (#45
-// D10b-1). The tag itself is "effective-tag" (a rule on this exact tag);
-// strict ancestors reached via ParentIDs are "parent". Chronological.
+// D10b-1). A decision whose target IS this tag is "own"; strict ancestors
+// reached via ParentIDs are "parent". Chronological.
+//
+// The tag's own decisions were previously reported as "effective-tag", which
+// made a rule written directly ON this tag read as if it arrived through a tag
+// — "own" never appeared on a tag card at all. That broke the invariant
+// 01KXYED61J6QBEX75H2XHVHW7Y kept explicitly ("自身の判断がどれか曖昧にしない")
+// and it now also decides what the inherited-rules disclosure counts
+// (01KYHW4NBNVN9BFXYZMBX8MPF8 条項3 discloses *inherited* rules, i.e. the
+// non-own ones), so the distinction has to be right at the source.
 func GovernsForTag(snap *store.Snapshot, tagID string) ([]GovernsEntry, error) {
 	if !tagExistsByID(snap.Tags, tagID) {
 		return nil, fmt.Errorf("tag %q が実在しません", tagID)
 	}
-	// Direct = the tag itself; parents = strict ancestors.
+	ownDecisions := filterDecisions(snap.Decisions, func(d model.Decision) bool {
+		return d.Target.Type == model.DecisionTargetTag && d.Target.ID == tagID
+	})
+	// The tag itself stays in directTags so its ancestors are walked from it;
+	// governsFromTagSets dedupes by decision id keeping the strongest
+	// provenance, so the own entries above win over the effective-tag ones.
 	directTags := map[string]bool{tagID: true}
-	return governsFromTagSets(snap, nil, directTags), nil
+	return governsFromTagSets(snap, ownFromDecisions(ownDecisions), directTags), nil
 }
 
 // GovernsForTransition returns the decisions governing a transition — its own

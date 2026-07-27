@@ -216,14 +216,24 @@ func TestGovernsForTag_ProvenanceOwnAndParent(t *testing.T) {
 	}
 }
 
-func TestGovernsForTag_OwnTagIsEffectiveTag(t *testing.T) {
+// A decision written directly ON the tag being viewed is "own", not
+// "effective-tag" (A是正・01KYHW4NBNVN9BFXYZMBX8MPF8 で結線した既決の不変条項
+// 「自身の判断がどれか曖昧にしない」). Before the fix this returned
+// effective-tag, so "own" never appeared on a tag card and a rule written on
+// the tag you are looking at read as if it arrived through some tag. The
+// inherited-rules disclosure counts the non-own entries, so getting this wrong
+// silently inflates "継承した規則 N件" with the record's own decisions.
+func TestGovernsForTag_OwnTagDecisionIsOwn(t *testing.T) {
 	snap := testSnapshotWithDecisions()
 	got, err := GovernsForTag(snap, "req.auth")
 	if err != nil {
 		t.Fatalf("GovernsForTag: %v", err)
 	}
-	if len(got) != 1 || got[0].Decision.ID != "d-tag-ancestor" || got[0].Provenance != GovernsEffectiveTag {
-		t.Fatalf("entries = %+v, want [d-tag-ancestor effective-tag]", got)
+	if len(got) != 1 || got[0].Decision.ID != "d-tag-ancestor" || got[0].Provenance != GovernsOwn {
+		t.Fatalf("entries = %+v, want [d-tag-ancestor own]", got)
+	}
+	if got[0].ViaTag != "" {
+		t.Fatalf("own entry ViaTag = %q, want empty（own は経路を持たない）", got[0].ViaTag)
 	}
 }
 

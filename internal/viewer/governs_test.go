@@ -27,15 +27,18 @@ func TestGetGoverns_TransitionViaParent(t *testing.T) {
 	}
 }
 
-func TestGetGoverns_TagEffectiveTag(t *testing.T) {
+// 見ているタグ自身に書かれた決定は own（A是正）。継承規則の開示はこの own を
+// 除いた件数を数えるので、ここが effective-tag に戻ると「継承した規則 N件」に
+// そのレコード自身の決定が混ざる。
+func TestGetGoverns_TagOwnDecisionIsOwn(t *testing.T) {
 	h, _ := newTestHandler(t)
 	rec := doRequest(t, h, http.MethodGet, "/api/governs?tag=subject.auth", nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
 	}
 	resp := decodeJSON[governsResponse](t, rec)
-	if len(resp.Entries) != 1 || resp.Entries[0].Provenance != index.GovernsEffectiveTag {
-		t.Fatalf("entries = %+v, want [d1 effective-tag]", resp.Entries)
+	if len(resp.Entries) != 1 || resp.Entries[0].Provenance != index.GovernsOwn {
+		t.Fatalf("entries = %+v, want [d1 own]", resp.Entries)
 	}
 }
 
