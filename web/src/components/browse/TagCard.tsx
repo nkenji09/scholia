@@ -12,7 +12,8 @@ import { CollapsibleSection } from '../shared/CollapsibleSection';
 import { HashLink } from '../shared/HashLink';
 import { KebabMenu } from '../shared/KebabMenu';
 import { routeHash } from '../../router';
-import { GovernsSection } from './GovernsSection';
+import { DecisionList } from '../decisions/DecisionList';
+import { InheritedRules } from './InheritedRules';
 
 // VocabCard と同じ category→アイコン対応（きっかけ/前提/結果 = action/
 // condition/effect の固定3軸）。関連語彙行（H3）で流用する。
@@ -26,7 +27,9 @@ interface Props {
   tag: Tag;
   report: SpecReport | undefined;
   isGap: boolean | undefined; // undefined = this tag's kind isn't traceability-tracked
-  parents: Tag[];
+  /** 祖先の連なり（遠い側 → 直接の親）。直接の親だけでは、祖父に書かれた規則へ
+      カードから辿れない（01KYHW4NBNVN9BFXYZMBX8MPF8 条項4）。 */
+  ancestors: Tag[];
   children: Tag[];
   cardRef: (el: HTMLElement | null) => void;
   onFilterSelf: () => void;
@@ -47,9 +50,9 @@ function dedupeDecisions(decisions: Decision[]): Decision[] {
   return out;
 }
 
-export function TagCard({ tag, report, isGap, parents, children, cardRef, onFilterSelf, onSelectParent, onSelectChild, onSelectSpec, onSelectVocab }: Props) {
+export function TagCard({ tag, report, isGap, ancestors, children, cardRef, onFilterSelf, onSelectParent, onSelectChild, onSelectSpec, onSelectVocab }: Props) {
   const t = useT();
-  const { tagKindLabel, tagKindDescription, vocabLabel, formatDecisionAt } = useLookups();
+  const { tagKindLabel, tagKindDescription, vocabLabel } = useLookups();
   const { changedTagIds } = usePendingDiff();
   const { openComposer, comments } = useComments();
   const entries = report?.entries || [];
@@ -86,13 +89,20 @@ export function TagCard({ tag, report, isGap, parents, children, cardRef, onFilt
       <div class="tag-card-head">
         <div class="tag-card-badges">
           <Chip color={kindColor(tag.kind)} title={tagKindDescription(tag.kind)}>{tag.kind ? tagKindLabel(tag.kind) : '?'}</Chip>
-          {parents.length > 0 && (
+          {ancestors.length > 0 && (
+            /* 祖先の連なり全体（条項4）。遠い祖先から順に並べ、区切りで階層が
+               読めるようにする——タグ id のドットは階層ではないので、id を見ても
+               祖先は分からない。ここが直接の親だけだと、祖父に書かれた規則へ
+               カードから到達する手段が画面に無くなる。 */
             <span class="tag-card-parents dim">
               <Icon name="corner-down-right" size={13} />
-              {parents.map((p) => (
-                <HashLink key={p.id} href={routeHash({ view: 'spec', tagId: p.id })} class="tag-card-parent-link" onNavigate={() => onSelectParent(p.id)} title={t.browse.parentLinkTitle}>
-                  {p.name || p.id}
-                </HashLink>
+              {ancestors.map((p, i) => (
+                <>
+                  {i > 0 && <span class="tag-card-parent-sep">›</span>}
+                  <HashLink key={p.id} href={routeHash({ view: 'spec', tagId: p.id })} class="tag-card-parent-link" onNavigate={() => onSelectParent(p.id)} title={t.browse.parentLinkTitle}>
+                    {p.name || p.id}
+                  </HashLink>
+                </>
               ))}
             </span>
           )}
@@ -244,35 +254,20 @@ export function TagCard({ tag, report, isGap, parents, children, cardRef, onFilt
         </CollapsibleSection>
       )}
 
-      {tagDecisions.length > 0 && (
-        <CollapsibleSection
-          recordId={tag.id}
-          section="decisions"
-          count={tagDecisions.length}
-          icon="gavel"
-          label={t.browse.relatedDecisions}
-          // decision はタグの核となる履歴なので件数しきい値で隠さず既定展開。
-          // 特に「【不採用】」判断のように「一番残したい履歴」を折りたたまない
-          // （tag-decision-visibility）。localStorage 済みのユーザー操作は従来通り最優先。
-          defaultOpen={true}
-          extra={
-            <CommentButton recordType="tag" recordId={tag.id} recordTitle={tag.name || tag.id} anchor="decisions" anchorLabel={t.browse.relatedDecisions} />
-          }
-        >
-          {tagDecisions.map((d) => (
-            <div key={d.id} class="tag-card-decision">
-              <p>{d.why}</p>
-              <span class="dim">
-                {formatDecisionAt(d.at)} {d.ref && `· ${d.ref}`}
-              </span>
-            </div>
-          ))}
-        </CollapsibleSection>
-      )}
+      {/* 意思決定欄（01KYHW54B8ZXH0NEPH2J7N1X39）: 効力2値・付帯情報・履歴を畳む
+          までを DecisionList が1箇所で担う。ここに本文で並ぶのはこのタグ自身を
+          対象とする decision だけ（own-only 01KXDFD2RZJ118T2VVAF5F07RW）。 */}
+      <DecisionList
+        recordId={tag.id}
+        decisions={tagDecisions}
+        label={t.browse.relatedDecisions}
+        extra={<CommentButton recordType="tag" recordId={tag.id} recordTitle={tag.name || tag.id} anchor="decisions" anchorLabel={t.browse.relatedDecisions} />}
+      />
 
-      {/* governs 並置（#45 D10b-1）: own の意思決定（上の tagDecisions）は不変で、
-          own＋祖先/実効タグ経由の decision を出自バッジ付きで並置する既定折りたたみ欄。 */}
-      <GovernsSection record={{ kind: 'tag', id: tag.id }} />
+      {/* 継承した規則の開示（01KYHW4NBNVN9BFXYZMBX8MPF8 条項3）: 「この記録を
+          支配する規則」欄（全文を再掲していた）を廃止した代わり。本文は並べず、
+          件数と継承元と導線だけを出す。 */}
+      <InheritedRules record={{ kind: 'tag', id: tag.id }} />
 
       {/* H2: 下位のタグを件数付きで開閉可能に（5件以上で既定折りたたみ＝
           CollapsibleSection の既定しきい値そのまま）。specs/decisions と同じ

@@ -14,7 +14,7 @@ import { TagCard } from './TagCard';
 import { SpecCard } from './SpecCard';
 import { TombstoneCard } from './TombstoneCard';
 import { NewTransitionForm } from './NewTransitionForm';
-import { parentsOf, childrenOf, tagMatchesFilters, specMatchesFilters, encodeFilters, decodeFilters, textMatches, tagTextMatches, vocabOwnMatches } from './filters';
+import { ancestorsOf, childrenOf, tagMatchesFilters, specMatchesFilters, encodeFilters, decodeFilters, textMatches, tagTextMatches, vocabOwnMatches } from './filters';
 import type { FilterCondition } from './filters';
 import { buildFolderIndex, loadCollapsed, saveCollapsed } from './indexTree';
 import { kindColor, OWNER_COLOR } from '../shared/Chip';
@@ -494,7 +494,7 @@ export function BrowseView({
               tag={t}
               report={specReports[id]}
               isGap={entry?.gap}
-              parents={parentsOf(facetsData.roots, id, tagById)}
+              ancestors={ancestorsOf(id, tagById)}
               children={childrenOf(facetsData.roots, id, tagById)}
               cardRef={(el) => {
                 if (el) cardRefs.current.set(id, el);

@@ -9,7 +9,8 @@ import { Icon } from '../shared/Icon';
 import { KebabMenu, type KebabMenuItem } from '../shared/KebabMenu';
 import { routeHash } from '../../router';
 import { CollapsibleSection } from '../shared/CollapsibleSection';
-import { GovernsSection } from './GovernsSection';
+import { DecisionList } from '../decisions/DecisionList';
+import { InheritedRules } from './InheritedRules';
 
 interface Props {
   detail: TransitionDetail;
@@ -50,7 +51,7 @@ function SpecAffordanceMenu({ onFilter, detailHref, flowHref }: { onFilter: () =
 
 export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab, onFilterTag }: Props) {
   const t = useT();
-  const { tagById, formatDecisionAt } = useLookups();
+  const { tagById } = useLookups();
   const { changedTransitionIds, addedTransitionIds } = usePendingDiff();
   const { openComposer, comments } = useComments();
   // #27 P2′-rework (change-cockpit-design-v3.md §8.3): a pending change with
@@ -217,29 +218,20 @@ export function SpecCard({ detail, isOpen, cardRef, onToggleOpen, onFilterVocab,
       )}
 
       {hasDetail && (
-        <CollapsibleSection
+        <DecisionList
           recordId={detail.id}
+          decisions={detail.rules!}
           section="rules"
-          count={detail.rules!.length}
-          icon="gavel"
           label={t.browse.rulesHeading}
           focusOpen={isOpen}
           onToggle={onToggleOpen}
-        >
-          {detail.rules!.map((d) => (
-            <div key={d.id} class="tag-card-decision">
-              <p>{d.why}</p>
-              <span class="dim">
-                {formatDecisionAt(d.at)} {d.ref && `· ${d.ref}`}
-              </span>
-            </div>
-          ))}
-        </CollapsibleSection>
+        />
       )}
 
-      {/* governs 並置（#45 D10b-1）: own の意思決定（上の rules）は不変で、own＋
-          実効タグ/祖先経由の decision を出自バッジ付きで並置する既定折りたたみ欄。 */}
-      <GovernsSection record={{ kind: 'transition', id: detail.id }} />
+      {/* 継承した規則の開示（01KYHW4NBNVN9BFXYZMBX8MPF8 条項3・4）。transition は
+          自身への decision を持たないものが多く（実測 58本中 37本）、規則の所在が
+          ここでしか読めない。規則を運ぶタグを件数付きで常時見せる。 */}
+      <InheritedRules record={{ kind: 'transition', id: detail.id }} />
     </article>
   );
 }

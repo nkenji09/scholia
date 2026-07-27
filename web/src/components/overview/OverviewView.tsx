@@ -13,7 +13,8 @@ import { routeHash } from '../../router';
 import { useScrollRestore, useElementScrollRestore } from '../../scrollRestore';
 import { loadRegionShape, saveRegionShape } from '../../regionShape';
 import { loadCardSectionOpen, saveCardSectionOpen } from '../../collapseState';
-import { buildCurrencyIndex, currencyOf } from '../decisions/decisionModel';
+import { summaryOf } from '../../decisionSummary';
+import { buildCurrencyIndex, effectOf, relatedDecisions, replacedBy } from '../decisions/decisionModel';
 import type { Config, Decision, Tag, TraceabilityResponse } from '../../types';
 
 // 概要ビュー（viewer-overview-browser）: 左=構造ツリー、右=コンポーネント仕様
@@ -88,6 +89,7 @@ function useSectionOpen() {
 const SEC_PART = 'overview-part';
 const SEC_RULES = 'overview-rules';
 const SEC_WHY = 'overview-why';
+const SEC_HISTORY = 'overview-rules-history';
 
 // スクロール保持のキー。本体と独立スクロール領域で別空間を使い、互いを壊さない
 // （01KYGYYN44… / 01KYH0ESVG…）。#/home も同じ画面なので同じキーを共有する。
@@ -130,16 +132,10 @@ function cssEscape(s: string): string {
   return w.CSS && w.CSS.escape ? w.CSS.escape(s) : s.replace(/["\\]/g, '\\$&');
 }
 
-// decision に summary フィールドは無い（実 decision は why のみ）。design の
-// 1行 summary は why の1行目（最初の改行/句点まで）で代替し、全文は展開で見せる。
-function summaryOf(text: string): string {
-  const s = (text || '').trim();
-  if (!s) return '';
-  const nl = s.search(/\n/);
-  const line = nl >= 0 ? s.slice(0, nl) : s;
-  const p = line.search(/[。．.](\s|$)/);
-  return (p >= 0 ? line.slice(0, p + 1) : line).trim();
-}
+// decision に summary フィールドは無い（実 decision は why のみ）。要約の切り出しは
+// decisionSummary.summaryOf に一本化してある——ここに自前の実装を戻さないこと。
+// 面ごとに書くと面ごとに違う長さの「要約」が出るし、実際この面が持っていた自前版は
+// 日本語の句点で切れず第1段落をまるごと返していた（01KYHW54B8ZXH0NEPH2J7N1X39 条項6）。
 
 // component の description（markdown）を lead（1行目）と body（責務本文）に割る。
 // 1行しか無ければ lead は出さず、全文を責務として markdown 描画する。
@@ -549,13 +545,12 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
     // ちょうど 1 コンテキストに入り、コンテキスト間で重複しない。カバーする target は
     // component-tag／transition／part／constraint(property)／充足・未充足の要件で、
     // 旧 flat リストが集めていた集合と同一（＝取りこぼしなし）。
-    const notSuperseded = (d: Decision) => currencyOf(d.id, index.currencyIndex) !== 'superseded';
-    // current/amended を先、superseded を後ろに並べる（inline 展開内の並び順）。
-    const orderRules = (arr: RuleEntry[]): RuleEntry[] =>
-      [...arr].sort((a, b) => (notSuperseded(a.d) ? 0 : 1) - (notSuperseded(b.d) ? 0 : 1));
+    // 効いている／置き換え済みの振り分けは renderRules 側が行う（条項4: 置き換え
+    // 済みは既定で畳む）。並び順で効力を表さないので、ここでの並べ替えはしない。
+    const inForce = (d: Decision) => effectOf(d.id, index.currencyIndex) === 'in-force';
     const rulesFor = (targetId: string, via = ''): RuleEntry[] =>
-      orderRules((index.decByTarget.get(targetId) || []).map((d) => ({ d, via })));
-    const countCurrent = (arr: RuleEntry[]) => arr.reduce((n, e) => n + (notSuperseded(e.d) ? 1 : 0), 0);
+      (index.decByTarget.get(targetId) || []).map((d) => ({ d, via }));
+    const countCurrent = (arr: RuleEntry[]) => arr.reduce((n, e) => n + (inForce(e.d) ? 1 : 0), 0);
 
     // part ごとの振る舞い（transition の WHEN/GIVEN/THEN・vocab ラベル解決）と、
     // 各 transition／part を target とする decision（規則）。
@@ -594,28 +589,13 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
       rules: rulesFor(p.id), // ⑤: この制約カードに紐づく規則
     }));
 
-    // 取りこぼし防止（⑤）: このコンポーネントを充足する transition（cmpTxIds）のうち、
-    // どの part 配下の振る舞いカードにも現れないもの（part タグを持たず component 直下）
-    // は、behaviors に居場所がない。その decision は component 本体の規則へ回収する
-    // （旧 flat リストが cmpTxIds 全体を viaSpec で集めていた到達性を保つ）。
-    const renderedTxIds = new Set<string>();
-    for (const p of partBlocks) for (const b of p.behaviors) renderedTxIds.add(b.id);
-    const orphanTxIds = [...cmpTxIds].filter((id) => !renderedTxIds.has(id));
 
-    // コンポーネント本体に紐づく規則（⑤）: component タグ自身が target ＋ その
-    // コンポーネントが充足／未充足する要件タグ target ＋ part 外の直属 transition
-    // （via ラベル付き）。
-    const componentRules = orderRules([
-      ...(index.decByTarget.get(c.id) || []).map((d) => ({ d, via: t.overview.viaComponent })),
-      ...[...satisfiedReqs, ...gapReqs].flatMap((r) =>
-        (index.decByTarget.get(r) || []).map((d) => ({ d, via: t.overview.viaTag(tagName(r)) })),
-      ),
-      ...orphanTxIds.flatMap((id) => (index.decByTarget.get(id) || []).map((d) => ({ d, via: t.overview.viaSpec }))),
-    ]);
-
-    // ヘッダのサマリ用「現行ルール N」= 全コンテキストの現行（非失効）decision の総数。
-    // 各 decision は 1 コンテキストにのみ入るので二重計上しない（旧 flat の現行数と一致）。
-    let ruleCount = countCurrent(componentRules);
+    // ヘッダのサマリ用「現行ルール N」= シート内で実際に読める、効いている
+    // decision の総数（01KYHW54B8ZXH0NEPH2J7N1X39 条項5: 見出しの件数と、開いて
+    // 見える行数が一致すること）。コンポーネント本体の欄を廃止した以上、そこに
+    // 集めていた分はシートから読めないので数にも含めない——含めると「N と言って
+    // いるのに N 件見つからない」になる。
+    let ruleCount = 0;
     for (const p of partBlocks) {
       ruleCount += countCurrent(p.rules);
       for (const b of p.behaviors) ruleCount += countCurrent(b.rules);
@@ -631,7 +611,6 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
       body,
       partBlocks,
       propBlocks,
-      componentRules,
       covSat,
       covTotal,
       covPct,
@@ -690,17 +669,22 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
     }
     return null; // vocab を target とする decision はこの画面の文脈には現れない
   };
+  // 効力の表示は2値（01KYHW54B8ZXH0NEPH2J7N1X39 条項1）。記録の3値をそのまま
+  // 状態の3値として写すと「現行 ⇔ 改訂」という存在しない対立に読まれる——
+  // amend / exception を付けられた decision は**効いている**。判定と語は
+  // decisionModel / strings と共有し、ここで別の答えを作らない（面間整合）。
   const renderRuleRow = ({ d, via }: RuleEntry) => {
-    const cur = currencyOf(d.id, index.currencyIndex);
-    const stale = cur === 'superseded';
+    const replaced = effectOf(d.id, index.currencyIndex) === 'replaced';
+    const related = replaced ? [] : relatedDecisions(d.id, index.currencyIndex);
+    const replacer = replaced ? replacedBy(d.id, index.currencyIndex) : undefined;
     const open = sections.isOpen(d.id, SEC_WHY, false);
     return (
-      <div key={d.id} class={'overview-rule' + (stale ? ' stale' : '')}>
+      <div key={d.id} class={'overview-rule' + (replaced ? ' stale' : '')}>
         <div class="overview-rule-top">
-          <span class={'overview-rule-summary' + (stale ? ' struck' : '')}>{summaryOf(d.why)}</span>
-          <span class={'overview-rule-badge' + (cur === 'amended' ? ' amended' : '') + (stale ? ' stale' : '')}>
-            <Icon name={stale ? 'circle-slash' : 'circle-check'} size={11} />
-            {stale ? t.decisions.currencySuperseded : cur === 'amended' ? t.decisions.currencyAmended : t.decisions.currencyCurrent}
+          <span class={'overview-rule-summary' + (replaced ? ' struck' : '')}>{summaryOf(d.why)}</span>
+          <span class={'overview-rule-badge' + (replaced ? ' stale' : '')}>
+            <Icon name={replaced ? 'circle-slash' : 'circle-check'} size={11} />
+            {replaced ? t.decisions.effectReplaced : t.decisions.effectInForce}
           </span>
         </div>
         {open && <p class="overview-rule-why">{d.why}</p>}
@@ -710,6 +694,30 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
             {open ? t.overview.backToSummary : t.overview.readFull}
           </button>
           {via && <span class="overview-rule-via">{via}</span>}
+          {/* 条項2: 「後続に部分改訂・例外が付いている」は状態ではなく付帯情報。
+              条項7: 関係は並び順ではなく明示的な導線で辿る。 */}
+          {related.length > 0 && (
+            <HashLink
+              href={routeHash({ view: 'decision', decisionId: related[0].id })}
+              onNavigate={() => {
+                window.location.hash = routeHash({ view: 'decision', decisionId: related[0].id });
+              }}
+              class="overview-rule-related"
+            >
+              {t.decisions.readTogether(related.length)}
+            </HashLink>
+          )}
+          {replacer && (
+            <HashLink
+              href={routeHash({ view: 'decision', decisionId: replacer.id })}
+              onNavigate={() => {
+                window.location.hash = routeHash({ view: 'decision', decisionId: replacer.id });
+              }}
+              class="overview-rule-related"
+            >
+              {t.decisions.openReplacement}
+            </HashLink>
+          )}
           {ruleTargetLink(d)}
           <span class="overview-rule-spacer" />
           <span class="overview-rule-at">
@@ -719,19 +727,42 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
       </div>
     );
   };
-  // ⑤: 「規則 (N)」展開トグル（初期折りたたみ）。N は当該レコードを target とする
-  // decision 総数（現行＋失効）。中身は現行を先・失効を後ろに並べる（orderRules 済み）。
-  const renderRules = (key: string, entries: RuleEntry[], label: string) => {
+  // 「規則 (N)」展開トグル。N は**効いている**規則の数（条項5: 見出しの数と
+  // 開いて見える行数が一致する）。置き換え済みは既定で畳み、0件なら口を出さない
+  // （条項4）。
+  const renderRules = (key: string, entries: RuleEntry[], label: (n: number) => string) => {
     if (!entries.length) return null;
+    const inForce = entries.filter((e) => effectOf(e.d.id, index.currencyIndex) === 'in-force');
+    const replaced = entries.filter((e) => effectOf(e.d.id, index.currencyIndex) === 'replaced');
     const open = sections.isOpen(key, SEC_RULES, false);
+    const histOpen = sections.isOpen(key, SEC_HISTORY, false);
     return (
       <div class="overview-rules-inline">
         <button type="button" class="overview-rules-toggle" onClick={() => sections.toggle(key, SEC_RULES, false)} aria-expanded={open}>
           <Icon name={open ? 'chevron-down' : 'chevron-right'} size={13} />
           <Icon name="gavel" size={13} />
-          {label}
+          {label(inForce.length)}
         </button>
-        {open && <div class="overview-rules-list">{entries.map(renderRuleRow)}</div>}
+        {open && (
+          <div class="overview-rules-list">
+            {inForce.map(renderRuleRow)}
+            {replaced.length > 0 && (
+              <div class="overview-rules-history">
+                <button
+                  type="button"
+                  class="overview-rules-history-toggle"
+                  onClick={() => sections.toggle(key, SEC_HISTORY, false)}
+                  aria-expanded={histOpen}
+                >
+                  <Icon name={histOpen ? 'chevron-down' : 'chevron-right'} size={13} />
+                  <Icon name="scroll-text" size={13} />
+                  {t.decisions.replacedHeading(replaced.length)}
+                </button>
+                {histOpen && <div class="overview-rules-list">{replaced.map(renderRuleRow)}</div>}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   };
@@ -872,8 +903,15 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
               )}
             </section>
 
-            {/* 責務 ＋ ⑤ このコンポーネントの規則（component タグ自身＋充足要件 target） */}
-            {(sheet.body || sheet.lead || sheet.componentRules.length > 0) && (
+            {/* 責務。かつてここに「このコンポーネントの規則」欄があったが廃止した
+                （01KYHW4NBNVN9BFXYZMBX8MPF8 条項1）。あの欄はコンポーネントタグ
+                自身への決定・要件タグへの決定・どの構成要素にも属さない振る舞いへの
+                決定を1つに寄せた混成集合で、文脈が1つに定まらなかった——
+                01KYCC2TGFSH3JCCTXSKD7JDR4 が排したはずの平坦リストの縮小再現。
+                コンポーネント本体に紐づく決定はカードの意思決定欄で読む
+                （右上「ブラウザで開く」）。構成要素・振る舞い・制約の文脈インライン
+                展開は残す（そこはカードが文脈そのものなので宛先が自明）。 */}
+            {(sheet.body || sheet.lead) && (
               <section class="overview-section">
                 <div class="overview-section-head">
                   <Icon name="crosshair" size={16} class="overview-section-icon" />
@@ -881,7 +919,6 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
                   <CommentButton recordType="tag" recordId={sheet.c.id} recordTitle={sheet.c.name || sheet.c.id} anchor="responsibility" anchorLabel={t.overview.responsibilityHeading} />
                 </div>
                 {sheet.body ? <Markdown text={sheet.body} class="overview-responsibility" /> : sheet.lead ? <p class="overview-responsibility">{sheet.lead}</p> : null}
-                {renderRules('component:' + sheet.c.id, sheet.componentRules, t.overview.componentRulesToggle(sheet.componentRules.length))}
               </section>
             )}
 
@@ -910,7 +947,7 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
                     {partOpen && (
                     <div class="overview-part-body">
                     {/* ⑤: この part を target とする規則 */}
-                    {renderRules('part:' + p.id, p.rules, t.overview.rulesToggle(p.rules.length))}
+                    {renderRules('part:' + p.id, p.rules, t.overview.rulesToggle)}
                     {p.behaviors.map((b) => (
                       <div key={b.id} class="overview-behavior">
                         <div class="overview-when">
@@ -966,7 +1003,7 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
                           </div>
                         )}
                         {/* ⑤: この振る舞い（transition）を target とする規則 */}
-                        {renderRules('tx:' + b.id, b.rules, t.overview.rulesToggle(b.rules.length))}
+                        {renderRules('tx:' + b.id, b.rules, t.overview.rulesToggle)}
                       </div>
                     ))}
                     </div>
@@ -996,7 +1033,7 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
                       </HashLink>
                       {p.description && <span class="overview-prop-why">{p.description}</span>}
                       {/* ⑤: この制約を target とする規則 */}
-                      {renderRules('prop:' + p.id, p.rules, t.overview.rulesToggle(p.rules.length))}
+                      {renderRules('prop:' + p.id, p.rules, t.overview.rulesToggle)}
                     </div>
                   ))}
                 </div>

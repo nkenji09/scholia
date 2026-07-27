@@ -148,6 +148,37 @@ export function parentsOf(roots: FacetTreeNode[], tagId: string, tagById: Map<st
   return parents;
 }
 
+/** 祖先の連なり（遠い祖先 → 直接の親 の順・自分自身は含まない）。
+ *
+ * 01KYHW4NBNVN9BFXYZMBX8MPF8 条項4「直接の親だけでなく、祖先の連なり全体が
+ * 辿れること」。`parentsOf` は直接の親1階層しか返さないため、祖父に書かれた
+ * 規則へはカードから辿れなかった——実測で継承した効いている規則 82件のうち
+ * 4件が祖父由来（`req.design-principles` → `req.atoms-derive.no-spec-file` /
+ * `req.git-native.one-record-one-file`）で、カードのどこにもリンクが無かった。
+ *
+ * タグ id のドットは階層ではない（`req.no-partition-burden` の親が
+ * `req.design-principles`）ので、必ず parentIds を辿る。DAG なので同じ祖先に
+ * 複数経路で着くことがある——訪問済みで枝刈りし、深い側を先に並べる。 */
+export function ancestorsOf(tagId: string, tagById: Map<string, Tag>): Tag[] {
+  const depth = new Map<string, number>();
+  const seen = new Set<string>([tagId]);
+  const walk = (id: string, d: number) => {
+    for (const pid of tagById.get(id)?.parentIds || []) {
+      if (!tagById.has(pid)) continue;
+      // 同じ祖先に複数経路で着いたら遠いほうの深さを採る（先頭に置くため）。
+      depth.set(pid, Math.max(depth.get(pid) ?? 0, d));
+      if (seen.has(pid)) continue; // 循環・再訪の枝刈り
+      seen.add(pid);
+      walk(pid, d + 1);
+    }
+  };
+  walk(tagId, 1);
+  return [...depth.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([id]) => tagById.get(id)!)
+    .filter(Boolean);
+}
+
 /** A tag's direct children, read directly off the unified facet forest. */
 export function childrenOf(roots: FacetTreeNode[], tagId: string, tagById: Map<string, Tag>): Tag[] {
   const findNode = (nodes: FacetTreeNode[]): FacetTreeNode | null => {

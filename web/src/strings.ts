@@ -252,10 +252,11 @@ const ja = {
     // 継承した規則の開示（01KYHW4NBNVN9BFXYZMBX8MPF8 条項3）。「この記録を
     // 支配する規則」欄（本文を全文で再掲していた）を廃止した代わりに、件数と
     // 継承元と導線だけを出す。件数は**効いている規則の数**。
-    governsHeading: 'この記録を支配する規則',
-    governsProvenanceOwn: 'この記録自身',
-    governsProvenanceEffectiveTag: (tag: string) => `タグ経由〈${tag}〉`,
-    governsProvenanceParent: (tag: string) => `親タグ経由〈${tag}〉`,
+    inheritedFromAncestors: (n: number) => `上位から継承した規則 ${n}件`,
+    inheritedFromTags: (n: number) => `タグから継承した規則 ${n}件`,
+    inheritedSourceTitle: '継承元の記録を開く',
+    /** 祖先の連なり（条項4）。直接の親だけでなく祖先全体を辿れるようにする。 */
+    ancestorTrailTitle: '祖先の記録を開く',
     // 軸カードの構造表示（#45 D10b-6）。状態次元・total（宣言由来・非検証）・値・効く action。
     axisStructureHeading: '軸の構造',
     // 「軸」= 状態次元（分岐を束ねる分類軸）。kind バッジの「軸」とは別義（D9 の
@@ -732,10 +733,10 @@ const en: Strings = {
     parentLinkTitle: 'Go to parent tag card',
     childLinkTitle: 'Go to this card',
     kindHeading: 'Kind',
-    governsHeading: 'Rules governing this record',
-    governsProvenanceOwn: 'this record',
-    governsProvenanceEffectiveTag: (tag: string) => `via tag ⟨${tag}⟩`,
-    governsProvenanceParent: (tag: string) => `via parent ⟨${tag}⟩`,
+    inheritedFromAncestors: (n: number) => `${n} rule(s) inherited from above`,
+    inheritedFromTags: (n: number) => `${n} rule(s) inherited from tags`,
+    inheritedSourceTitle: 'Open the record it comes from',
+    ancestorTrailTitle: 'Open the ancestor record',
     axisStructureHeading: 'Axis structure',
     axisDimensionBadge: 'state dimension',
     axisTotalTrue: 'total declared (by declaration, unverified)',
