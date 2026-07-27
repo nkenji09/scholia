@@ -29,7 +29,7 @@ func getFlowHandler(s *store.Store) http.HandlerFunc {
 		actionID := r.PathValue("action")
 		snap, ix, err := loadIndexed(s)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeStoreError(w, err)
 			return
 		}
 		report := flow.Analyze(&snap, ix, actionID)
@@ -42,7 +42,7 @@ func getSpecHandler(s *store.Store) http.HandlerFunc {
 		tagID := r.PathValue("tagId")
 		snap, ix, err := loadIndexed(s)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeStoreError(w, err)
 			return
 		}
 		report, err := render.Spec(&snap, ix, tagID)
@@ -86,7 +86,7 @@ func getLintHandler(s *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		snap, _, err := loadIndexed(s)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeStoreError(w, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, buildLintResponse(snap))

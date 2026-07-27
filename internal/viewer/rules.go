@@ -42,7 +42,7 @@ func getRulesHandler(s *store.Store) http.HandlerFunc {
 
 		snap, _, err := loadIndexed(s)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeStoreError(w, err)
 			return
 		}
 

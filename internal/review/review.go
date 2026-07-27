@@ -10,6 +10,7 @@ package review
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -74,6 +75,25 @@ func (e *NotFoundError) Error() string {
 	return fmt.Sprintf("review %q が実在しません", e.ID)
 }
 
+// FileError は1件の提案コメントファイルが読めない／JSON として壊れていること。
+// store.RecordFileError と同じ意図——ファイル名は `<ULID>.json` なので、CLI には
+// 「どのファイルを直すか」として出し、viewer には種別と壊れ方だけを渡す。
+// Parse=true は JSON 構文エラー（原因文字列にパスを含まない）。
+type FileError struct {
+	Name  string // "<id>.json"
+	Parse bool
+	Err   error
+}
+
+func (e *FileError) Error() string { return fmt.Sprintf("%s: %v", e.Name, e.Err) }
+func (e *FileError) Unwrap() error { return e.Err }
+
+func newFileError(name string, err error) *FileError {
+	var syntaxErr *json.SyntaxError
+	var typeErr *json.UnmarshalTypeError
+	return &FileError{Name: name, Parse: errors.As(err, &syntaxErr) || errors.As(err, &typeErr), Err: err}
+}
+
 // Add atomically writes r to scholiaDir/reviews/<r.ID>.json (tmp-file-then-rename,
 // mirroring store.writeJSONAtomic).
 func Add(scholiaDir string, r Review) error {
@@ -123,7 +143,7 @@ func Get(scholiaDir, id string) (Review, error) {
 	}
 	var r Review
 	if err := json.Unmarshal(data, &r); err != nil {
-		return Review{}, fmt.Errorf("%s: %w", id, err)
+		return Review{}, newFileError(id+".json", err)
 	}
 	return r, nil
 }
@@ -170,11 +190,11 @@ func List(scholiaDir string) ([]Review, error) {
 	for _, name := range names {
 		data, err := os.ReadFile(filepath.Join(dir, name))
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", name, err)
+			return nil, newFileError(name, err)
 		}
 		var r Review
 		if err := json.Unmarshal(data, &r); err != nil {
-			return nil, fmt.Errorf("%s: %w", name, err)
+			return nil, newFileError(name, err)
 		}
 		out = append(out, r)
 	}

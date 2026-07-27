@@ -97,7 +97,7 @@ func postDecisionHandler(s *store.Store) http.HandlerFunc {
 
 		id, err := model.NewULID()
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeStoreError(w, err)
 			return
 		}
 
@@ -121,7 +121,7 @@ func postDecisionHandler(s *store.Store) http.HandlerFunc {
 			Supersedes: links,
 		}
 		if err := s.SaveDecision(d); err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeStoreError(w, err)
 			return
 		}
 

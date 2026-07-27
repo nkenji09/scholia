@@ -3,6 +3,7 @@ package store
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -316,6 +317,39 @@ type identifiable interface {
 	GetID() string
 }
 
+// RecordFileError は1件のレコードファイルが読めない／JSON として壊れていること。
+//
+// 文字列ではなく型で返すのは、面ごとに見せ方が違うため。decision のファイル名は
+// `<ULID>.json` なので、この文言をそのまま viewer の応答に載せると生 ULID が漏れる
+// （01KYCC2TF3NW3JRSSRK9ZHN078: viewer は生レコード id を表示しない）。かといって
+// ファイル名を落とすだけでは「どのファイルを直せばよいか」が分からなくなる——
+// 壊れたレコードに到達できることは、id を隠すことと同じくらい大事。
+//
+// そこで情報を型に持たせ、面ごとに出し分ける:
+//   - CLI は Error()（従来どおりファイル名＋原因）をそのまま出す。壊れたファイルを
+//     直すのは端末での作業なので、ここが到達手段の本体になる。
+//   - viewer は Category（どのレコード種別か）と Parse（壊れ方）だけを読ませ、
+//     ファイル名は「端末で scholia lint を実行すれば分かる」と案内する。
+//
+// Parse=true は JSON 構文エラー（原因文字列にパスを含まない）、false は読み取り
+// エラー（原因文字列に絶対パスを含みうる）。viewer が原因を添えてよいかの判断に使う。
+type RecordFileError struct {
+	Category string // "vocab" / "tag" / "transition" / "decision"
+	Name     string // "<id>.json"
+	Parse    bool
+	Err      error
+}
+
+func (e *RecordFileError) Error() string { return fmt.Sprintf("%s: %v", e.Name, e.Err) }
+func (e *RecordFileError) Unwrap() error { return e.Err }
+
+func newRecordFileError(category, name string, err error) *RecordFileError {
+	var syntaxErr *json.SyntaxError
+	var typeErr *json.UnmarshalTypeError
+	parse := errors.As(err, &syntaxErr) || errors.As(err, &typeErr)
+	return &RecordFileError{Category: category, Name: name, Parse: parse, Err: err}
+}
+
 func listRecords[T identifiable](dir, category string) ([]T, []IDMismatch, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -339,7 +373,7 @@ func listRecords[T identifiable](dir, category string) ([]T, []IDMismatch, error
 	for _, name := range names {
 		var rec T
 		if err := readJSON(filepath.Join(dir, name), &rec); err != nil {
-			return nil, nil, fmt.Errorf("%s: %w", name, err)
+			return nil, nil, newRecordFileError(category, name, err)
 		}
 		fileID := strings.TrimSuffix(name, ".json")
 		if rec.GetID() != fileID {

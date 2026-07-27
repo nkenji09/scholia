@@ -28,14 +28,14 @@ func getReviewsHandler(s *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		reviews, err := review.List(s.Dir)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeStoreError(w, err)
 			return
 		}
 		out := make([]reviewResponse, 0, len(reviews))
 		if len(reviews) > 0 {
 			snap, err := s.LoadAll()
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, err.Error())
+				writeStoreError(w, err)
 				return
 			}
 			for _, rv := range reviews {

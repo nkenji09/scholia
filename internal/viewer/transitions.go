@@ -45,7 +45,7 @@ func listTransitionsHandler(s *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		snap, ix, err := loadIndexed(s)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeStoreError(w, err)
 			return
 		}
 
@@ -74,12 +74,12 @@ func getTransitionHandler(s *store.Store) http.HandlerFunc {
 		id := r.PathValue("id")
 		snap, ix, err := loadIndexed(s)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeStoreError(w, err)
 			return
 		}
 		detail, ok, err := index.BuildTransitionDetail(&snap, ix, id)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeStoreError(w, err)
 			return
 		}
 		if !ok {
@@ -119,7 +119,7 @@ func deleteTransitionHandler(s *store.Store) http.HandlerFunc {
 				writeError(w, http.StatusConflict, refErr.Error())
 				return
 			}
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeStoreError(w, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, deleteTransitionResponse{ID: id})

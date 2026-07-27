@@ -95,7 +95,7 @@ func postTransitionHandler(s *store.Store) http.HandlerFunc {
 
 		snap, err := s.LoadAll()
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeStoreError(w, err)
 			return
 		}
 		vocabByID := make(map[string]model.VocabEntry, len(snap.Vocab))
@@ -145,12 +145,12 @@ func postTransitionHandler(s *store.Store) http.HandlerFunc {
 			return
 		}
 		if err := s.SaveTransition(t); err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeStoreError(w, err)
 			return
 		}
 		saved, err := s.LoadTransition(body.ID)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeStoreError(w, err)
 			return
 		}
 		status := http.StatusOK
