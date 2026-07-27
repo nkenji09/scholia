@@ -146,25 +146,11 @@ func validateSupersedeBody(s *store.Store, newID string, links []model.Supersede
 	if len(links) == 0 {
 		return nil, nil
 	}
-	// mode の3値検証と自己参照/重複は CLI の parse 段に相当する部分。viewer は
-	// 構造化 JSON を受け取るので文字列解析は要らないが、同じ不変条件を課す。
-	seen := make(map[string]bool, len(links))
-	out := make([]model.SupersedeLink, 0, len(links))
-	for _, l := range links {
-		if l.ID == "" {
-			return nil, fmt.Errorf("supersedes: id が空です")
-		}
-		if !model.ValidSupersedeMode(l.Mode) {
-			return nil, fmt.Errorf("supersedes: mode %q は supersede|amend|exception のいずれかである必要があります", l.Mode)
-		}
-		if l.ID == newID {
-			return nil, fmt.Errorf("supersedes: decision は自分自身（%s）を supersede できません", newID)
-		}
-		if seen[l.ID] {
-			return nil, fmt.Errorf("supersedes: 旧 decision %q が重複指定されています", l.ID)
-		}
-		seen[l.ID] = true
-		out = append(out, l)
+	// mode 3値・自己参照禁止・重複禁止は CLI の parse 段と同じ1関数を通す
+	// （viewer は構造化 JSON を受け取るので文字列解析だけが要らない）。
+	out, err := model.NormalizeSupersedeLinks(links, newID)
+	if err != nil {
+		return nil, err
 	}
 	snap, err := s.LoadAll()
 	if err != nil {

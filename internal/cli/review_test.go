@@ -583,3 +583,81 @@ func TestCLI_ReviewAdopt_NoAdvisoryWithoutPriorDecision(t *testing.T) {
 		}
 	}
 }
+
+// writeReviewSupersedes は .scholia/reviews/<id>.json の supersedes を直接書き
+// 換える（手編集・マージ衝突の解決・別ツールが書いた形が入った状態を作る）。
+// review add は書込時に検証するので、この経路でしか壊れた宣言は作れない。
+func writeReviewSupersedes(t *testing.T, dir, reviewID, rawJSON string) {
+	t.Helper()
+	p := filepath.Join(dir, ".scholia", "reviews", reviewID+".json")
+	data, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatalf("read review: %v", err)
+	}
+	var obj map[string]any
+	if err := json.Unmarshal(data, &obj); err != nil {
+		t.Fatalf("unmarshal review: %v", err)
+	}
+	var links any
+	if err := json.Unmarshal([]byte(rawJSON), &links); err != nil {
+		t.Fatalf("unmarshal links: %v", err)
+	}
+	obj["supersedes"] = links
+	out, err := json.MarshalIndent(obj, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if err := os.WriteFile(p, out, 0o644); err != nil {
+		t.Fatalf("write review: %v", err)
+	}
+}
+
+// adopt は review が持ってきた宣言も --supersedes と同じ不変条件に通す。
+// ここが緩むと、未知 mode（"supersedes" のような綴り誤り）がそのまま保存され、
+// rules --current が旧 decision を現行のまま出す——この要件が消そうとしている
+// 失敗そのものが、advisory も lint も伴わず静かに再現する。しかも link は
+// append-only で unlink が無いので取り消せない。
+func TestCLI_ReviewAdopt_RejectsMalformedDeclaration(t *testing.T) {
+	cases := []struct {
+		name    string
+		links   func(oldID string) string
+		wantErr string
+	}{
+		{"3値でない mode", func(o string) string { return `[{"id":"` + o + `","mode":"bogus"}]` }, "supersede|amend|exception"},
+		{"綴り誤り supersedes", func(o string) string { return `[{"id":"` + o + `","mode":"supersedes"}]` }, "supersede|amend|exception"},
+		{"同一 id の重複", func(o string) string {
+			return `[{"id":"` + o + `","mode":"amend"},{"id":"` + o + `","mode":"supersede"}]`
+		}, "重複指定"},
+		{"空 id", func(o string) string { return `[{"id":"","mode":"amend"}]` }, "id が空です"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			oldID := supersedeFixture(t, dir)
+			reviewID := addReviewWithSupersedes(t, dir)
+			writeReviewSupersedes(t, dir, reviewID, tc.links(oldID))
+
+			out, err := run(t, dir, "review", "adopt", reviewID)
+			if err == nil {
+				t.Fatalf("壊れた宣言の adopt は拒否されるべき:\n%s", out)
+			}
+			if !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("err = %q, want contains %q", err, tc.wantErr)
+			}
+			// 検証で落ちたら昇格していないので review も消さない（why を失わない）。
+			if _, statErr := os.Stat(filepath.Join(dir, ".scholia", "reviews", reviewID+".json")); statErr != nil {
+				t.Fatalf("昇格に失敗したら review は残すべき: %v", statErr)
+			}
+			// decision も作られていない（supersedeFixture の 1 件だけ）。
+			entries, _ := os.ReadDir(filepath.Join(dir, ".scholia", "decisions"))
+			if len(entries) != 1 {
+				t.Fatalf("decision を作ってはいけない: %d 件", len(entries))
+			}
+		})
+	}
+}
+
+// 自己参照は宣言経路では構造的に起こりえない（昇格先 decision の id は adopt の
+// 瞬間に新規採番されるので、事前に書かれた宣言と一致しえない）。それでも adopt は
+// 同じ selfID 付きの検査を通しており、その不変条件は model 側の単体テスト
+// （TestNormalizeSupersedeLinks/自己参照は拒否）と `decision link` の既存テストが守る。

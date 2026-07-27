@@ -11,6 +11,45 @@ import "fmt"
 // 各面はここを呼ぶ。CLI 構文 "<ulid>[:<mode>]" の解析だけは CLI 側に残す
 // （viewer は構造化 JSON を受け取るので解析が要らない）。
 
+// NormalizeSupersedeLinks は link 集合そのものが満たすべき不変条件——mode が3値
+// （空＝既定 amend を含む）・id が空でない・自己参照でない・同一 id の重複が無い
+// ——を検査し、検査済みのコピーを返す。空集合は nil を返す。
+//
+// selfID が空のときは自己参照検査を飛ばす（提案時の宣言のように、指す側の
+// decision id がまだ存在しない場面がある）。
+//
+// この検査を1関数にまとめるのは、link が store に入る経路が3つあり（CLI の
+// "<ulid>[:<mode>]" 解析・viewer の構造化 JSON・review が持ってきた宣言）、
+// 経路ごとに書き分けるとどれか1つだけが緩む——実際、adopt が持ち上げる宣言は
+// mode 3値と重複の検査を素通りしていた。未知の mode は SupersedeMode() が
+// そのまま返し、rules --current は mode == "supersede" だけを畳むので、
+// "supersedes" のような綴り誤りが入ると旧 decision が現行のまま残る。しかも
+// link は append-only で unlink が無く、取り消せない。
+func NormalizeSupersedeLinks(links []SupersedeLink, selfID string) ([]SupersedeLink, error) {
+	if len(links) == 0 {
+		return nil, nil
+	}
+	seen := make(map[string]bool, len(links))
+	out := make([]SupersedeLink, 0, len(links))
+	for _, l := range links {
+		if l.ID == "" {
+			return nil, fmt.Errorf("supersedes: id が空です")
+		}
+		if !ValidSupersedeMode(l.Mode) {
+			return nil, fmt.Errorf("supersedes: mode %q は supersede|amend|exception のいずれかである必要があります（%s）", l.Mode, l.ID)
+		}
+		if selfID != "" && l.ID == selfID {
+			return nil, fmt.Errorf("supersedes: decision は自分自身（%s）を supersede できません", selfID)
+		}
+		if seen[l.ID] {
+			return nil, fmt.Errorf("supersedes: 旧 decision %q が重複指定されています", l.ID)
+		}
+		seen[l.ID] = true
+		out = append(out, l)
+	}
+	return out, nil
+}
+
 // ValidateSupersedeTargets は各 link の旧 decision が実在するかを検査する
 // （実在照合・#45 D7）。
 func ValidateSupersedeTargets(all []Decision, links []SupersedeLink) error {

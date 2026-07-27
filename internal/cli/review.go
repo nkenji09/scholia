@@ -329,17 +329,26 @@ func newReviewDecideCmd(kind reviewDecideKind) *cobra.Command {
 // viewer では通る」宙吊りリンクが生まれるため（viewer の POST /api/decision も同じ
 // 関数を呼ぶ）。
 func adoptSupersedeLinks(s *store.Store, r review.Review, decID string, flagSpecs []string) ([]model.SupersedeLink, error) {
+	// 宣言も --supersedes と同じ不変条件を通す。review は repo にコミットされる
+	// JSON なので、手編集・マージ衝突の解決・別ツールが書いた形が入りうる——
+	// 宣言側を素通りさせると、未知 mode（`"supersedes"` のような綴り誤り）が
+	// そのまま保存され、rules --current が旧 decision を現行のまま出す。まさに
+	// この要件が消そうとしている失敗が、advisory も lint も伴わず静かに再現する。
+	declared, err := model.NormalizeSupersedeLinks(r.Supersedes, decID)
+	if err != nil {
+		return nil, fmt.Errorf("review %s の結線宣言が不正です: %w", r.ID, err)
+	}
 	flagLinks, err := parseSupersedeLinks(flagSpecs, decID)
 	if err != nil {
 		return nil, err
 	}
 	// 宣言に無い分だけを足す（同一 {id,mode} は冪等 skip・同一 id で mode 違いは
 	// error＝提案時の宣言を採用時に黙って書き換えない）。
-	added, err := model.AppendSupersedeLinks(r.Supersedes, flagLinks)
+	added, err := model.AppendSupersedeLinks(declared, flagLinks)
 	if err != nil {
 		return nil, err
 	}
-	links := append(append([]model.SupersedeLink(nil), r.Supersedes...), added...)
+	links := append(append([]model.SupersedeLink(nil), declared...), added...)
 	if len(links) == 0 {
 		return nil, nil
 	}
