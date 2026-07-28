@@ -686,6 +686,32 @@ describe('廃止した集約2面が戻っていない（条項1・2）', () => {
   });
 });
 
+describe('概要の各文脈から、同じ条件の一覧へ踏める（01KYKS4Y56FAHRVCWKMQJK4RT6）', () => {
+  // ⚠️ このプロジェクトでは概要タブが空（役割 kind を持つタグが0件）なので、この経路は
+  // **画面では確かめられない**。だからこそ配線だけは機械で押さえる——実機確認が効かない
+  // 面にガードが無いのは、この repo が繰り返している穴の中でも一番危ない形になる。
+  it('3つの文脈すべてが、その文脈の対象を渡している', () => {
+    // part / 制約はタグ、振る舞いは遷移。取り違えると別のレコードの規則を出す。
+    expect(overviewSource).toMatch(/renderRules\('part:' \+ p\.id[\s\S]{0,60}`tag:\$\{p\.id\}`/);
+    expect(overviewSource).toMatch(/renderRules\('tx:' \+ b\.id[\s\S]{0,60}`transition:\$\{b\.id\}`/);
+    expect(overviewSource).toMatch(/renderRules\('prop:' \+ p\.id[\s\S]{0,60}`tag:\$\{p\.id\}`/);
+  });
+
+  it('リンクが実アンカーで、意思決定の一覧を指している', () => {
+    expect(overviewSource).toMatch(/<HashLink[\s\S]{0,120}href=\{listHref\}/);
+    expect(overviewSource).toMatch(/rulesListHref = \(scopeRef: string\) => routeHash\(\{ view: 'decisions', decisionOn: scopeRef, decisionScope: 'own' \}\)/);
+  });
+
+  it('向きが own（インライン展開と同じ集合を指す）', () => {
+    // governing にすると「展開して見える件数」と「踏んだ先の件数」が食い違う
+    // ——インライン展開が出しているのは rulesFor（decByTarget＝その対象ちょうど）。
+    const href = /const rulesListHref = [\s\S]{0,200}?;\n/.exec(overviewSource);
+    expect(href, 'rulesListHref の定義が見つからない').not.toBeNull();
+    expect(href![0]).toMatch(/decisionScope: 'own'/);
+    expect(href![0]).not.toMatch(/governing|subtree/);
+  });
+});
+
 describe('意思決定欄が共有の描画口を通っている（01KYHW54B8ZXH0NEPH2J7N1X39）', () => {
   for (const card of CARDS) {
     it(`${card.name}: DecisionList を使っている`, () => {

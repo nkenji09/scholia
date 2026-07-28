@@ -77,6 +77,11 @@ const ja = {
     // decision を関連レコードの文脈にインライン展開するトグル（⑤）。N は当該レコード
     // を target とする decision 総数（現行＋失効）。
     rulesToggle: (n: number) => `規則 (${n})`,
+    // その文脈の規則を、同じ条件で一覧としても開く（01KYKS4Y56FAHRVCWKMQJK4RT6）。
+    // 向きは own——インライン展開が出しているのと同じ集合を指す（展開して見える
+    // 件数と踏んだ先の件数を食い違わせない）。
+    openRulesList: "一覧で開く",
+    openRulesListTitle: "この文脈に付いた意思決定を一覧で開く",
     componentRulesToggle: (n: number) => `このコンポーネントの規則 (${n})`,
     // decision の出自ラベル（決定がこのコンポーネントに効く経路）。component 本体の
     // 規則展開でのみ使う（tx/part/制約の展開は target 直下なので via を出さない）。
@@ -653,6 +658,8 @@ const en: Strings = {
     readFull: 'Read full text',
     backToSummary: 'Back to summary',
     rulesToggle: (n) => `Rules (${n})`,
+    openRulesList: "Open as list",
+    openRulesListTitle: "Open the decisions on this context as a list",
     componentRulesToggle: (n) => `Rules for this component (${n})`,
     viaComponent: 'directly on this component',
     viaSpec: 'directly on this spec',

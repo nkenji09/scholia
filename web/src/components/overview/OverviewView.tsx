@@ -730,12 +730,26 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
   // 「規則 (N)」展開トグル。N は**効いている**規則の数（条項5: 見出しの数と
   // 開いて見える行数が一致する）。置き換え済みは既定で畳み、0件なら口を出さない
   // （条項4）。
-  const renderRules = (key: string, entries: RuleEntry[], label: (n: number) => string) => {
+  // 各文脈の規則を「同じ条件で一覧としても開ける」ようにする
+  // （01KYKS4Y56FAHRVCWKMQJK4RT6・概要から自然に絞り込まれた一覧へ踏む経路）。
+  //
+  // scopeRef はこの文脈が指す対象（part / 制約はタグ、振る舞いは遷移）。向きは
+  // **own** ——インライン展開が出しているのが rulesFor（decByTarget＝その対象
+  // ちょうど）なので、リンク先が同じ集合になるように揃える。ここを governing に
+  // すると「展開して見える件数」と「踏んだ先の件数」が食い違う（条項5 と同じ趣旨）。
+  //
+  // ⚠️ このプロジェクトでは概要タブが空（役割 kind を持つタグが0件）なので、
+  // **この経路は本 repo の画面では確かめられない**。設定に宣言が入るまで実機確認は
+  // できないことを result.md に開示してある。
+  const rulesListHref = (scopeRef: string) => routeHash({ view: 'decisions', decisionOn: scopeRef, decisionScope: 'own' });
+
+  const renderRules = (key: string, entries: RuleEntry[], label: (n: number) => string, scopeRef: string) => {
     if (!entries.length) return null;
     const inForce = entries.filter((e) => effectOf(e.d.id, index.currencyIndex) === 'in-force');
     const replaced = entries.filter((e) => effectOf(e.d.id, index.currencyIndex) === 'replaced');
     const open = sections.isOpen(key, SEC_RULES, false);
     const histOpen = sections.isOpen(key, SEC_HISTORY, false);
+    const listHref = rulesListHref(scopeRef);
     return (
       <div class="overview-rules-inline">
         <button type="button" class="overview-rules-toggle" onClick={() => sections.toggle(key, SEC_RULES, false)} aria-expanded={open}>
@@ -743,6 +757,17 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
           <Icon name="gavel" size={13} />
           {label(inForce.length)}
         </button>
+        <HashLink
+          href={listHref}
+          onNavigate={() => {
+            window.location.hash = listHref;
+          }}
+          class="overview-rules-list-link"
+          title={t.overview.openRulesListTitle}
+        >
+          <Icon name="scroll-text" size={12} />
+          {t.overview.openRulesList}
+        </HashLink>
         {open && (
           <div class="overview-rules-list">
             {inForce.map(renderRuleRow)}
@@ -947,7 +972,7 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
                     {partOpen && (
                     <div class="overview-part-body">
                     {/* ⑤: この part を target とする規則 */}
-                    {renderRules('part:' + p.id, p.rules, t.overview.rulesToggle)}
+                    {renderRules('part:' + p.id, p.rules, t.overview.rulesToggle, `tag:${p.id}`)}
                     {p.behaviors.map((b) => (
                       <div key={b.id} class="overview-behavior">
                         <div class="overview-when">
@@ -1003,7 +1028,7 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
                           </div>
                         )}
                         {/* ⑤: この振る舞い（transition）を target とする規則 */}
-                        {renderRules('tx:' + b.id, b.rules, t.overview.rulesToggle)}
+                        {renderRules('tx:' + b.id, b.rules, t.overview.rulesToggle, `transition:${b.id}`)}
                       </div>
                     ))}
                     </div>
@@ -1033,7 +1058,7 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
                       </HashLink>
                       {p.description && <span class="overview-prop-why">{p.description}</span>}
                       {/* ⑤: この制約を target とする規則 */}
-                      {renderRules('prop:' + p.id, p.rules, t.overview.rulesToggle)}
+                      {renderRules('prop:' + p.id, p.rules, t.overview.rulesToggle, `tag:${p.id}`)}
                     </div>
                   ))}
                 </div>

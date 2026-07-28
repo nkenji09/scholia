@@ -917,3 +917,22 @@
   font-weight: 700;
   cursor: pointer;
 }
+
+/* その文脈の規則を「同じ条件で一覧としても開く」入口
+   （01KYKS4Y56FAHRVCWKMQJK4RT6）。展開トグルの隣に並ぶ補助的な導線なので、
+   トグルより控えめに置く（主たる読み口はその場の展開）。 */
+.overview-rules-list-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: var(--sp-3);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  color: var(--lm-text-dim);
+  text-decoration: none;
+}
+
+.overview-rules-list-link:hover {
+  color: var(--lm-primary-strong);
+  text-decoration: underline;
+}
