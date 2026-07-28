@@ -493,7 +493,9 @@ describe('意思決定の一覧が提案B の3面のひとつとして揃って�
     // 一覧には畳む器が無いので、既定の絞り込みがその役目を果たす。既定値そのものは
     // decisionFilter（純関数）が持ち、decisionFilter.test.ts が値として守る
     // ——ここは app がその変換を通っていることだけを見る。
-    expect(appSourceForList).toMatch(/conditions=\{conditionsFromRoute\(route\)\}/);
+    // ⚠️ これはソース照合であって、同じ意味を別の綴りで書かれれば通る（CLAUDE.md 2）。
+    // 「既定が効いた結果が実際に行になる」ことは renderWiring.test.tsx が値で守る。
+    expect(appSourceForList).toMatch(/conditionsFromRoute\(route\)/);
   });
 });
 
@@ -591,7 +593,19 @@ describe('URL の条件が画面へ届き、書き戻される（⑤）', () => 
   });
 
   it('URL から起こした条件を渡している（握り潰す口を1つに絞ってある）', () => {
-    expect(element).toMatch(/conditions=\{conditionsFromRoute\(route\)\}/);
+    // 渡す口は1つの prop のまま。値の出所が URL であることを見る。
+    // ⚠️ **毎レンダー組み直す形（`conditions={conditionsFromRoute(route)}` を JSX に
+    // 直書き）は、飛んでいる応答が返った拍子に利用者の操作を消す**——実測で見つけた
+    // 欠陥なので、束ねるなら「route が変わったときだけ組み直す」形であることまで見る。
+    // 値としての保証（URL の条件が行になる・操作が消えない）は renderWiring.test.tsx。
+    const m = /conditions=\{([A-Za-z0-9_]+|conditionsFromRoute\(route\))\}/.exec(element);
+    expect(m, 'conditions に渡している式が読めない').not.toBeNull();
+    const passed = m![1];
+    if (passed !== 'conditionsFromRoute(route)') {
+      expect(appSource, `${passed} が「route が変わったときだけ組み直す条件」ではない`).toMatch(
+        new RegExp(`const ${passed} = useMemo\\(\\(\\) => conditionsFromRoute\\(route\\), \\[route\\]\\)`),
+      );
+    }
   });
 
   it('条件の変更を URL へ書き戻すハンドラを渡している', () => {

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useMemo, useRef } from 'preact/hooks';
 import { Header } from './components/layout/Header';
 import { OverviewView } from './components/overview/OverviewView';
 import { BrowseView } from './components/browse/BrowseView';
@@ -131,6 +131,21 @@ export function App() {
   // 専用の画面へは行かない。他の条件は持ち込まない——名指しの1件に別の絞り込みを
   // 掛けると、置き換え済みの相手を指す導線が既定の効力フィルタで消える。
   const openDecision = (decisionId: string) => navigate({ view: 'decisions', decisionOn: formatScopeTarget({ type: 'decision', id: decisionId }) });
+  // 意思決定の一覧へ渡す条件は、**URL が変わったときにだけ新しくする**。
+  //
+  // ⚠️ ここを毎レンダー組み直すと、利用者の操作が黙って消える。一覧は「外から来た
+  // 条件を取り込む」効果を conditions の変化で起動しており、毎レンダー新しい object
+  // を渡すと、**App が再描画されるたびにその効果が予約される**——App より上の
+  // provider（コメント・レビュー・pending diff）の応答が1つでも飛んでいる最中に
+  // 利用者が widget を触ると、遅れて走った取り込みが URL 側の古い値で上書きし、
+  // 操作は一覧にも URL にも残らない。`route` は hashchange のときだけ作り直される
+  // （router.ts の navigate は同一 hash なら何もしない）ので、これで「取り込みの
+  // 引き金＝URL が変わったこと」に一致する。
+  //
+  // 実測で見つかった欠陥である: 応答を1つ握ったまま widget を操作すると再現し、
+  // 直前まで darwin/arm64・linux/arm64 では緑・linux/amd64（遅い）でだけ赤い、
+  // という形で出ていた。速さの問題ではなく順序の問題だった。
+  const decisionConditions = useMemo(() => conditionsFromRoute(route), [route]);
   // A plain nav-tab hop restores that view's remembered search (see
   // searchMemory above) so the URL round-trips its filters; focus jumps
   // (openTagSpec/openTransition/openVocabEntry) deliberately DON'T, since those
@@ -232,7 +247,7 @@ export function App() {
           // 差し戻し1回目で「この prop だけ握り潰す」変異（`on={''}` 等）が
           // テスト緑のまま素通りしたため——口を減らし、対応の正しさは
           // decisionFilter.test.ts が値として守る（CLAUDE.md「配線ガードの書き方」1）。
-          conditions={conditionsFromRoute(route)}
+          conditions={decisionConditions}
           onConditionsChange={(c) => navigate({ view: 'decisions', ...routeParamsFromConditions(c) })}
           onOpenDecision={openDecision}
         />
