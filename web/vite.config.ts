@@ -1,9 +1,19 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import preact from '@preact/preset-vite'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [preact()],
+  test: {
+    // Vitest blanks every `*.css` import by default (even with `?raw`) unless
+    // explicitly opted in — see CSSEnablerPlugin in vitest's own source. Tests
+    // that read real stylesheet text (e.g. decisionSummarySurfaces.test.ts,
+    // which checks for CSS class-name collisions across view stylesheets)
+    // need the raw source, not a blanked-out module.
+    css: {
+      include: [/\?raw(?:&|$)/],
+    },
+  },
   resolve: {
     alias: {
       react: 'preact/compat',
