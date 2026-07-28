@@ -167,10 +167,14 @@ describe('継承した規則の開示がカードに配線されている（条�
     // 「配線もフィルタも JSX も残したまま先頭で return null する」変異は、
     // ソース文字列を見るだけのガードでは原理的に捕まらない（DOM を起こす
     // harness が要る）。そこで**早期 return の条件そのもの**を固定する:
-    // 出てよいのは「まだ取得していない」と「効いている規則が0件」の2つだけ。
-    // 「継承0件」で黙る形は追補 条項3 で退けた（下の describe）。
-    const guards = [...inheritedRulesSource.matchAll(/^\s*if \(([^)]*)\) return null;/gm)].map((m) => m[1].trim());
-    expect(guards).toEqual(['!entries', 'governing === 0']);
+    // 出てよいのは「まだ取得していない」と「効いている規則が1件も無い」の2つだけ。
+    // 後者は値として検査できる純関数 shouldDiscloseWhole に委ねてある
+    // （01KYK4YTB8087JT5GNV5QB26T2）。「継承0件」で黙る形は追補 条項3 で退けた
+    // （下の describe）。
+    // 条件そのものに括弧を含む（shouldDiscloseWhole(...)）ので、非貪欲ではなく
+    // 「行末の `) return null;` の直前まで」を貪欲に取る。
+    const guards = [...inheritedRulesSource.matchAll(/^\s*if \((.*)\) return null;/gm)].map((m) => m[1].trim());
+    expect(guards).toEqual(['!entries', '!shouldDiscloseWhole(entries, (id) => isInForce(id, currencyIndex))']);
     // 条件の付いていない裸の return null も塞ぐ。
     expect(inheritedRulesSource).not.toMatch(/^\s*return null;\s*$/m);
   });
@@ -183,18 +187,57 @@ describe('継承した規則の開示がカードに配線されている（条�
 // その受け皿は現状 CLI だけで、viewer には無い——**その事実と、いま使える手段を
 // カードが開示する**というのが追補の条項3。ここも「無くても画面は成立してしまう」
 // 種類の配線なので、外れても誰も気づかない形にしない。
+//
+// 出し分けの判断（継承0・own ありのカードでも出す）は値として検査できる純関数
+// shouldDiscloseWhole へ切り出してある（01KYK4YTB8087JT5GNV5QB26T2）。値の正しさは
+// inheritedSummary.test.ts が守るので、ここでは (1) その純関数を実際に通っている
+// こと、(2) <WholeRules> の描画が「継承ブロックの件数ゲート」の**外側**にあること
+// ——の2つだけを見る。(2) は「`{total > 0 && (` という文字列がある」「`<WholeRules>`
+// という文字列がある」を別々に確認するだけでは守れない。呼び出しをゲートの内側へ
+// 移す変異（3度目に実際に出た欠陥）は両方の文字列をそのまま残すので、それでは
+// 緑のまま通る。ゲートを開き括弧の対応で切り出し、その範囲の**内と外**を見る。
+//
+// このガードの射程（捕まえられない変異の型）: shouldDiscloseWhole 自身が呼ばれて
+// さえいれば、その中身の正しさはここでは見ない（値の正しさは inheritedSummary.test.ts
+// の役目）。また DOM を実際に起こしたときの見え方（本当に描画されるか）はここでは
+// 見ない——ソースの静的な構造だけを見る配線ガードである。
+
+/** `{cond && (` で始まる JSX ゲートを、開き括弧の対応が取れる終端まで切り出す。 */
+function extractGate(source: string, marker: string): string {
+  const start = source.indexOf(marker);
+  if (start < 0) throw new Error(`gate marker not found: ${marker}`);
+  const openParenIndex = start + marker.length - 1; // marker は '(' で終わる
+  let depth = 0;
+  let i = openParenIndex;
+  for (; i < source.length; i++) {
+    if (source[i] === '(') depth++;
+    else if (source[i] === ')') {
+      depth--;
+      if (depth === 0) break;
+    }
+  }
+  if (depth !== 0) throw new Error(`unbalanced parens for gate: ${marker}`);
+  return source.slice(start, i + 1);
+}
 
 describe('全体をどこで読めるかがカードから読める（追補 条項3）', () => {
   it('開示ブロックがそのレコードを渡して WholeRules を描いている', () => {
     expect(inheritedRulesSource).toMatch(/<WholeRules[\s\S]{0,60}record=\{record\}/);
   });
 
-  it('継承0件のカードでも出る（口の出し分けが継承の件数ではない）', () => {
-    // 継承の件数で早期 return すると、継承0・own ありのカード（実測 tag 21件）から
-    // 開示ごと消える。出し分けは「効いている規則が1件でもあるか」で決める。
-    expect(inheritedRulesSource).toMatch(/if \(governing === 0\) return null;/);
+  it('出し分けの判断が値として検査できる純関数を通っている（値の正しさは inheritedSummary.test.ts の shouldDiscloseWhole が守る）', () => {
+    expect(inheritedRulesSource).toMatch(/if \(!shouldDiscloseWhole\(/);
+  });
+
+  it('WholeRules が継承ブロックの件数ゲートの外側にある（構造そのものを見る）', () => {
     // 継承ブロック側は total で出し分ける（継承0で「継承した規則 0件」とは言わない）。
-    expect(inheritedRulesSource).toMatch(/\{total > 0 && \(/);
+    const gate = extractGate(inheritedRulesSource, '{total > 0 && (');
+    // 呼び出しをゲートの内側へ移す変異はここで落ちる: <WholeRules> がこの範囲に
+    // 入ってしまうと、継承0・own ありのカードから開示ごと消える。
+    expect(gate).not.toMatch(/<WholeRules/);
+    // ゲートの外（後続）に、記録を渡した WholeRules が実在すること。
+    const afterGate = inheritedRulesSource.slice(inheritedRulesSource.indexOf(gate) + gate.length);
+    expect(afterGate).toMatch(/<WholeRules[\s\S]{0,60}record=\{record\}/);
   });
 
   it('事実そのものは畳まれていない', () => {
