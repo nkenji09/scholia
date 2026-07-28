@@ -687,7 +687,7 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
             {replaced ? t.decisions.effectReplaced : t.decisions.effectInForce}
           </span>
         </div>
-        {open && <p class="overview-rule-why">{d.why}</p>}
+        {open && <Markdown text={d.why} class="overview-rule-why" />}
         <div class="overview-rule-meta">
           <button type="button" class="overview-rule-toggle" onClick={() => sections.toggle(d.id, SEC_WHY, false)}>
             <Icon name={open ? 'chevron-up' : 'chevron-down'} size={13} />
