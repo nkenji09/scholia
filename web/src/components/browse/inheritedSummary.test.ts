@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { summarizeInherited } from './inheritedSummary';
+import { shouldDiscloseWhole, summarizeInherited } from './inheritedSummary';
 import type { GovernsRef } from '../../types';
 
 // 継承した規則の開示に出す件数（01KYHW4NBNVN9BFXYZMBX8MPF8 条項3）。
@@ -63,5 +63,32 @@ describe('summarizeInherited', () => {
     // viaTag 欠落分を total に足すと、チップの合計より多い件数を開示してしまう。
     const got = summarizeInherited([entry('a', 'parent'), entry('b', 'parent', 'p1')], allInForce, name);
     expect(got.total).toBe(1);
+  });
+});
+
+// WholeRules（全体をどこで読めるか）を出すかどうかの判定（追補 条項3・
+// 01KYK4YTB8087JT5GNV5QB26T2）。継承の total ではなく、own を含めて
+// 「効いている規則が1件でもあるか」で決める——ここを total で決めると、
+// 継承0・own ありのカード（実測 tag 21件）から開示ごと消える。
+describe('shouldDiscloseWhole', () => {
+  it('own しか無くても、効いていれば出す（total は 0 でもここは true）', () => {
+    const got = shouldDiscloseWhole([entry('a', 'own')], allInForce);
+    expect(summarizeInherited([entry('a', 'own')], allInForce, name).total).toBe(0);
+    expect(got).toBe(true);
+  });
+
+  it('継承があれば出す', () => {
+    expect(shouldDiscloseWhole([entry('a', 'parent', 'p1')], allInForce)).toBe(true);
+  });
+
+  it('効いているものが1件も無ければ出さない（own のみ・置き換え済み）', () => {
+    expect(shouldDiscloseWhole([], allInForce)).toBe(false);
+    expect(shouldDiscloseWhole([entry('dead', 'own')], () => false)).toBe(false);
+  });
+
+  it('置き換え済みしか無いなら出さない（own が生きていれば出す）', () => {
+    const inForce = (id: string) => id === 'live';
+    expect(shouldDiscloseWhole([entry('dead', 'parent', 'p1')], inForce)).toBe(false);
+    expect(shouldDiscloseWhole([entry('dead', 'parent', 'p1'), entry('live', 'own')], inForce)).toBe(true);
   });
 });
