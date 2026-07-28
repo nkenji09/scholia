@@ -291,6 +291,16 @@ describe('全体をどこで読めるかがカードから読める（追補 条
     expect(linkAt, '実リンクが見つからない').toBeGreaterThan(-1);
     expect(headAt, '畳みの見出しが見つからない').toBeGreaterThan(-1);
     expect(linkAt, '実リンクが畳みの内側／後ろに移っている').toBeLessThan(headAt);
+    // 行をまたぐゲートで包む変異は、上の2つ（前後関係・同一行の `&&`）では取れない
+    // ——概要側には足したこの列挙が、カード側に無かった。ソース中の `{… && (` を
+    // 全部回して、どれの内側にも入っていないことを見る（1つのゲートだけを見る形に
+    // しない・`CLAUDE.md`「配線ガードの書き方」3）。
+    const gates = [...wholeRulesSource.matchAll(/\{[^{}\n]*&&\s*\(/g)];
+    expect(gates.length, '条件ゲートが1つも見つからない（列挙の正規表現が壊れている）').toBeGreaterThan(0);
+    for (const m of gates) {
+      const gate = extractGate(wholeRulesSource, m.index!);
+      expect(gate, `ゲート ${m[0].trim()} の内側に実リンクがある`).not.toMatch(/class="whole-rules-link"/);
+    }
     for (const line of wholeRulesSource.split('\n')) {
       if (line.includes('whole-rules-link')) {
         expect(line, `実リンクの行が条件付きになっている: ${line.trim()}`).not.toMatch(/&&/);
@@ -483,7 +493,9 @@ describe('意思決定の一覧が提案B の3面のひとつとして揃って�
     // 一覧には畳む器が無いので、既定の絞り込みがその役目を果たす。既定値そのものは
     // decisionFilter（純関数）が持ち、decisionFilter.test.ts が値として守る
     // ——ここは app がその変換を通っていることだけを見る。
-    expect(appSourceForList).toMatch(/conditions=\{conditionsFromRoute\(route\)\}/);
+    // ⚠️ これはソース照合であって、同じ意味を別の綴りで書かれれば通る（CLAUDE.md 2）。
+    // 「既定が効いた結果が実際に行になる」ことは renderWiring.test.tsx が値で守る。
+    expect(appSourceForList).toMatch(/conditionsFromRoute\(route\)/);
   });
 });
 
@@ -581,7 +593,19 @@ describe('URL の条件が画面へ届き、書き戻される（⑤）', () => 
   });
 
   it('URL から起こした条件を渡している（握り潰す口を1つに絞ってある）', () => {
-    expect(element).toMatch(/conditions=\{conditionsFromRoute\(route\)\}/);
+    // 渡す口は1つの prop のまま。値の出所が URL であることを見る。
+    // ⚠️ **毎レンダー組み直す形（`conditions={conditionsFromRoute(route)}` を JSX に
+    // 直書き）は、飛んでいる応答が返った拍子に利用者の操作を消す**——実測で見つけた
+    // 欠陥なので、束ねるなら「route が変わったときだけ組み直す」形であることまで見る。
+    // 値としての保証（URL の条件が行になる・操作が消えない）は renderWiring.test.tsx。
+    const m = /conditions=\{([A-Za-z0-9_]+|conditionsFromRoute\(route\))\}/.exec(element);
+    expect(m, 'conditions に渡している式が読めない').not.toBeNull();
+    const passed = m![1];
+    if (passed !== 'conditionsFromRoute(route)') {
+      expect(appSource, `${passed} が「route が変わったときだけ組み直す条件」ではない`).toMatch(
+        new RegExp(`const ${passed} = useMemo\\(\\(\\) => conditionsFromRoute\\(route\\), \\[route\\]\\)`),
+      );
+    }
   });
 
   it('条件の変更を URL へ書き戻すハンドラを渡している', () => {

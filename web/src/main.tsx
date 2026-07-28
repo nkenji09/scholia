@@ -1,12 +1,6 @@
 import { render } from 'preact'
 import './index.css'
-import { App } from './app.tsx'
-import { LookupsProvider } from './lookups'
-import { PendingDiffProvider } from './pendingDiff'
-import { ReviewsProvider } from './reviews'
-import { CommentsProvider } from './components/comments/useComments'
-import { DrawerProvider } from './drawer'
-import { LangProvider } from './i18n'
+import { AppRoot } from './root'
 
 // We own scroll restoration across view round-trips and reloads (per-view
 // sessionStorage, see scrollRestore.ts). Turn off the browser's built-in
@@ -14,19 +8,7 @@ import { LangProvider } from './i18n'
 // the top after we've positioned it (view-state-continuity).
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 
-render(
-  <LangProvider>
-    <LookupsProvider>
-      <PendingDiffProvider>
-        <ReviewsProvider>
-          <CommentsProvider>
-            <DrawerProvider>
-              <App />
-            </DrawerProvider>
-          </CommentsProvider>
-        </ReviewsProvider>
-      </PendingDiffProvider>
-    </LookupsProvider>
-  </LangProvider>,
-  document.getElementById('app')!,
-)
+// provider の入れ子は root.tsx（AppRoot）が1箇所で持つ。ここが持っていると
+// 描画を起こすテストから読み込めない（このモジュールは import しただけで
+// render する副作用モジュールなので）——理由は root.tsx の冒頭に書いてある。
+render(<AppRoot />, document.getElementById('app')!)
