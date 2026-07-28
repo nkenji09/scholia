@@ -10,11 +10,11 @@ import { Icon } from '../shared/Icon';
 // 一覧のタグ絞り込みは decision の**実効タグ集合**（own タグの祖先クロージャ・
 // 01KXZK5BWEX3HH15B78E4Z3BXK）に対する一致なので、`dt=T` が返すのは
 // 「T 自身と、その**配下**に付いた意思決定」で、支配する方向とは**逆**である。
-// 実測（本 repo・2026-07-28 再実測。突き合わせのスクリプトは
-// .concierge/measure-direction2.mjs、支配側は CLI `scholia rules --tag <T> --current`）:
+// 実測（本 repo・2026-07-28 再実測。支配側は `scholia rules --tag <T> --current`、
+// 一覧側は decision の実効タグ集合への包含を数えたもの）:
 //
 //   req.atoms-derive.no-spec-file : dt= のヒット  0 件 / 支配する規則 3 件
-//   req.comfortable-viewer        : dt= のヒット 65 件 / 支配する規則 5 件
+//   req.comfortable-viewer        : dt= のヒット 66 件 / 支配する規則 6 件
 //   全体                          : 支配する規則があるのにヒット0 のタグ 8/75・件数不一致 54/75
 //
 // 01KYHW4NBNVN9BFXYZMBX8MPF8 条項5 はこの一覧を「全体を1つの並びで読む」用途の

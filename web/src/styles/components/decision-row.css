@@ -1,0 +1,50 @@
+/* 意思決定の行の共有アフォーダンス。
+   ⚠️ **面をまたいで使うものだけをここに置く。** レコードカードの意思決定欄
+   （views/browse.css）・意思決定の一覧の行（views/decisions.css）・概要シートの
+   規則行（views/overview.css）の3面が同じ形を使うので、片方の面の stylesheet に
+   置くと「カード側を触ったら一覧の行が黙って変わる」状態になる——この repo が
+   実際に回帰を起こした形である（差し戻し1回目のレビュー指摘）。
+   面に固有の意匠は、それぞれの views/*.css に残す。 */
+
+/* 全文の展開トグル（要約が主表示・全文は展開の内側・01KYHW54B8ZXH0NEPH2J7N1X39 条項6）。 */
+.decision-row-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--lm-primary-strong);
+}
+
+/* 付帯情報（条項2）: 読み飛ばしてよい注記に見えないよう、リンクとして描く。
+   概要シートの規則行も同じ役割の導線なので、同じ形を共有する。 */
+.decision-row-related,
+.overview-rule-related {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--lm-primary-strong);
+  text-decoration: none;
+  border-bottom: 1px solid var(--lm-primary-ring);
+}
+
+/* 一覧の行では共有部品から遷移コールバックを貰う形なので <button> で描くが、
+   見た目はリンクのまま（ボタンの既定装飾だけ外す）。 */
+button.decision-row-related {
+  padding: 0;
+  border-top: none;
+  border-right: none;
+  border-left: none;
+  background: none;
+  cursor: pointer;
+}
+
+.decision-row-spacer {
+  flex: 1;
+}

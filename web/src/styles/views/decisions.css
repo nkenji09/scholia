@@ -2,8 +2,7 @@
    home-recent-* と同系のカード/リスト意匠を踏襲し、決定固有の現行性バッジ・
    チップ・詳細節だけを新規に足す。 */
 
-.decisions-view,
-.decision-detail-view {
+.decisions-view {
   padding: var(--sp-6) var(--sp-4) var(--sp-8);
   overflow-y: auto;
   max-width: 940px;
@@ -14,8 +13,7 @@
   gap: var(--sp-5);
 }
 
-.decisions-hero h1,
-.decision-detail-header h1 {
+.decisions-hero h1 {
   margin: 0 0 var(--sp-2);
   display: inline-flex;
   align-items: center;
@@ -173,8 +171,7 @@
   gap: var(--sp-2);
 }
 
-.decision-row-target,
-.decision-detail-target {
+.decision-row-target {
   font-weight: 600;
   color: var(--lm-text-strong);
   display: inline-flex;
@@ -183,8 +180,7 @@
   min-width: 0;
 }
 
-.decision-row-target-kind,
-.decision-detail-target-kind {
+.decision-row-target-kind {
   font-size: var(--fs-3xs);
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -240,59 +236,7 @@
   border-color: var(--lm-warning-weak);
 }
 
-/* ── detail page ─────────────────────────────────────────────────────── */
-.decision-back {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border: none;
-  background: transparent;
-  color: var(--lm-primary-strong);
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  padding: 0;
-}
-
-/* Back-arrow points left (the shared arrow-right icon is flipped). */
-.decision-back svg {
-  transform: scaleX(-1);
-}
-
-.decision-detail-header {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-  padding-bottom: var(--sp-4);
-  border-bottom: 1px solid var(--lm-border);
-}
-
-.decision-detail-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-3);
-  flex-wrap: wrap;
-}
-
-.decision-detail-target {
-  font-size: var(--fs-lg);
-}
-
-.decision-detail-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-4);
-  font-size: var(--fs-3xs);
-  font-family: var(--lm-font-mono);
-}
-
-.decision-detail-meta span {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
+/* ── 展開した行の中の節（旧単票から引き継いだ意匠） ───────────────── */
 .decision-detail-section {
   display: flex;
   flex-direction: column;
@@ -418,30 +362,9 @@
   gap: var(--sp-3);
 }
 
-/* 「併せて読む意思決定 N件」は注記ではなく辿れる導線（条項2・条項7）。共有部品から
-   遷移コールバックを貰う形なので <button> で描くが、見た目はリンクのまま
-   （.decision-row-related の意匠を borrow するので、ボタンの既定装飾だけ外す）。 */
-button.decision-row-related {
-  padding: 0;
-  border-top: none;
-  border-right: none;
-  border-left: none;
-  background: none;
-  cursor: pointer;
-}
-
-/* 支配する規則の全体への入口（WholeRules）。お詫びだった時代は畳みの見出しだけ
-   だったので、実リンクの分の意匠を足す。 */
-.whole-rules-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-  font-size: var(--fs-2xs);
-  font-weight: 700;
-  color: var(--lm-primary-strong);
-  text-decoration: none;
-}
-
-.whole-rules-link:hover {
-  text-decoration: underline;
+/* 名指しの1件のあいだ、他の絞り込みが掛かっていないことを述べる注記。 */
+.decisions-named-note {
+  margin: 0;
+  font-size: var(--fs-3xs);
+  line-height: 1.8;
 }
