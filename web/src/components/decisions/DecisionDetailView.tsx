@@ -5,6 +5,7 @@ import { useLookups } from '../../lookups';
 import type { Decision, SupersedeLink } from '../../types';
 import { Icon } from '../shared/Icon';
 import { Markdown } from '../Markdown';
+import { DecisionIdReveal } from './DecisionIdReveal';
 import { buildCurrencyIndex, currencyOf, linkMode, type Currency } from './decisionModel';
 
 interface Props {
@@ -94,11 +95,9 @@ export function DecisionDetailView({ decisionId, onBack, onOpenDecision }: Props
           <span class={'decision-badge ' + currencyCls(cur)}>{currencyLabel(cur)}</span>
         </div>
         <div class="decision-detail-meta dim">
-          <span>
-            <Icon name="gavel" size={13} /> {decision.id}
-          </span>
           <span>{formatDecisionAt(decision.at)}</span>
         </div>
+        <DecisionIdReveal id={decision.id} />
       </header>
 
       <section class="decision-detail-section">

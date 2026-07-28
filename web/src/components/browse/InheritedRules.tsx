@@ -8,7 +8,7 @@ import type { GovernsRef } from '../../types';
 import { HashLink } from '../shared/HashLink';
 import { Icon } from '../shared/Icon';
 import { isInForce } from '../decisions/decisionModel';
-import { summarizeInherited } from './inheritedSummary';
+import { shouldDiscloseWhole, summarizeInherited } from './inheritedSummary';
 import { RulesListLink } from './RulesListLink';
 import { WholeRules } from './WholeRules';
 import type { RecordRef } from './rulesCommand';
@@ -71,9 +71,9 @@ export function InheritedRules({ record }: { record: RecordRef }) {
   // 口を出すかどうかは「この記録に効いている規則が1件でもあるか」で決める
   // （own を含む）。継承の件数で決めると、継承0・own ありのカードから「全体は
   // どこで読めるか」の開示ごと消える——追補 条項3 が要求するのはそのカードでも
-  // 開示することなので、判定はここで分ける。
-  const governing = entries.filter((e) => isInForce(e.decisionId, currencyIndex)).length;
-  if (governing === 0) return null;
+  // 開示することなので、判定は値として検査できる純関数へ切り出してある
+  // （shouldDiscloseWhole・01KYK4YTB8087JT5GNV5QB26T2）。
+  if (!shouldDiscloseWhole(entries, (id) => isInForce(id, currencyIndex))) return null;
 
   // 継承の件数は純関数へ（inheritedSummary.ts）。own を除き、効いているものだけを
   // 継承元ごとに束ねる。0件なら継承の開示ブロックは出さない（条項3）。
