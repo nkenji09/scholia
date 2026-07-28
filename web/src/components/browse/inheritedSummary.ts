@@ -56,3 +56,22 @@ export function summarizeInherited(
 export function shouldDiscloseWhole(entries: GovernsRef[], isInForce: (id: string) => boolean): boolean {
   return entries.some((e) => isInForce(e.decisionId));
 }
+
+// 「この記録を支配する規則」の件数（01KYKS4Y56FAHRVCWKMQJK4RT6）。
+//
+// お詫びが実リンクに変わったので、そのリンクは行き先で読める件数を名乗る。
+// summarizeInherited の total とは**別の数**である点に注意——あちらは継承分だけ
+// （own を除く）で、こちらは own を含む全体。リンク先の絞り込み（対象＝この記録・
+// 向き＝自身＋祖先）が返すのは own も含む集合なので、名乗る数もそちらに合わせる。
+//
+// 効いているものだけ数える（条項5 と同じ数え方）。リンク先の既定の絞り込みも
+// 「効いているものだけ」なので、これで名乗る数と着いた先の件数が一致する。
+//
+// **decisionId で重複を落とす。** 1つの decision が own と parent の両方の経路で
+// 届くことがあり、entries はそのぶん重複する。行き先が並べるのは decision なので、
+// 経路の数を件数として名乗ると多く言うことになる。
+export function countWholeInForce(entries: GovernsRef[], isInForce: (id: string) => boolean): number {
+  const seen = new Set<string>();
+  for (const e of entries) if (isInForce(e.decisionId)) seen.add(e.decisionId);
+  return seen.size;
+}

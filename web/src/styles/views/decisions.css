@@ -379,3 +379,69 @@
   background: var(--lm-info-weak);
   color: var(--lm-info-strong);
 }
+
+/* ── 一覧の行が単票の中身を全部持つ（01KYKS4Y56FAHRVCWKMQJK4RT6） ──────────
+   単票は廃止され、行がその代わりになった。行は <button> ではなく <div>——中に
+   トグル・チップ・リンクが入るので、行全体をボタンにすると入れ子になる。
+   意匠は従来の行（.decision-row）をそのまま使い、展開したときの内側だけを足す。 */
+.decision-row-expandable {
+  gap: var(--sp-3);
+}
+
+/* 置き換え済みの行。効いているものとの違いを1つだけ（左の帯）で示し、色の段階で
+   序列を作らない（01KYHW54B8ZXH0NEPH2J7N1X39 条項1）。 */
+.decisions-list .decision-row.replaced {
+  border-left: 3px solid var(--lm-border-strong);
+  background: var(--lm-s2);
+}
+
+/* 展開したときの内側。単票の節（なぜ／変更内容／参照／commit／容認／置き換え関係）を
+   そのまま縦に積む。単票の .decision-detail-section の意匠を流用する。 */
+.decision-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-3) 0 var(--sp-1);
+  border-top: 1px solid var(--lm-border);
+}
+
+.decision-row-body .decision-detail-why,
+.decision-row-body .decision-detail-changed {
+  font-size: var(--fs-sm);
+  line-height: 1.85;
+}
+
+.decisions-list .decision-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+/* 「併せて読む意思決定 N件」は注記ではなく辿れる導線（条項2・条項7）。共有部品から
+   遷移コールバックを貰う形なので <button> で描くが、見た目はリンクのまま
+   （.decision-row-related の意匠を borrow するので、ボタンの既定装飾だけ外す）。 */
+button.decision-row-related {
+  padding: 0;
+  border-top: none;
+  border-right: none;
+  border-left: none;
+  background: none;
+  cursor: pointer;
+}
+
+/* 支配する規則の全体への入口（WholeRules）。お詫びだった時代は畳みの見出しだけ
+   だったので、実リンクの分の意匠を足す。 */
+.whole-rules-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--lm-primary-strong);
+  text-decoration: none;
+}
+
+.whole-rules-link:hover {
+  text-decoration: underline;
+}

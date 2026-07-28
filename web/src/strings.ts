@@ -33,13 +33,14 @@ const ja = {
   // （2026-07-11 tweaks2 のユーザー視覚FBで語彙を概要の直後へ移動、
   // Header.tsx の NAV 配列参照）。
   nav: {
-    // IA-rework (viewer-overview-browser): ナビは「概要」と「ブラウザ」の2つに
-    // 畳む。旧タブ（home/tags/specs/vocab/flow）のラベルは他コードが参照しうる
-    // ため残すが、Header はもう overview/browse/config しか描画しない。
+    // ナビは「概要 / タグ / 意思決定」の3つ（01KYKS4Y56FAHRVCWKMQJK4RT6）。
+    // 「ブラウザ」のラベルは他コードが参照しうるため残すが、Header はもう
+    // overview/tags/decisions/config しか描画しない。
     overview: '概要',
     browse: 'ブラウザ',
     home: '概要',
     tags: 'タグ',
+    decisions: '意思決定',
     specs: '仕様',
     vocab: '語彙',
     flow: 'フロー',
@@ -268,7 +269,12 @@ const ja = {
     rulesListLinkTitle: 'このタグとその配下に付いた意思決定を一覧で開く',
     // 全体をどこで読めるかの開示（追補 01KYJV3FYMDFRWQ939NBV2BPAC 条項3）。
     // 事実（viewer に面が無い）は畳まず、手段（コマンド）だけ畳む。
-    wholeRulesFact: '規則の全体を通しで読む面は viewer にありません — CLI で読む',
+    // 支配する規則の全体への実リンク（01KYKS4Y56FAHRVCWKMQJK4RT6）。かつては
+    // 「viewer にありません」というお詫びだった（wholeRulesFact）——面ができたので
+    // 踏めるリンクになった。件数は効いている数（開示した数と行き先の件数が一致する）。
+    wholeRulesLink: (n: number) => `この記録を支配する規則 ${n}件をまとめて読む`,
+    wholeRulesLinkTitle: 'この記録に効いている規則（自身＋上位）を一覧で開く',
+    wholeRulesCliHead: '端末で読む',
     wholeRulesHow: 'この記録に効いている規則（自身＋上位）を、本文ごと1つの並びで出します。',
     wholeRulesCopy: 'コピー',
     wholeRulesCopied: 'コピーしました',
@@ -497,6 +503,16 @@ const ja = {
     idRevealNote: '本文の全文を端末で読むときに使います。',
     idRevealCopy: 'コピー',
     idRevealCopied: 'コピーしました',
+    // 絞り込み条件の「どの対象か」「どの向きか」の名乗り
+    // （01KYKS4Y56FAHRVCWKMQJK4RT6）。チップは × で外せる＝条件を緩められる。
+    // ラベルは**その条件が実際に返す集合**を名乗る（追補 01KYJV3FYMDFRWQ939NBV2BPAC
+    // 条項2: 指していない集合の名前をラベルに使わない）。
+    scopeChipGoverning: (name: string) => `〈${name}〉を支配する規則`,
+    scopeChipOwn: (name: string) => `〈${name}〉ちょうどの意思決定`,
+    scopeChipSubtree: (name: string) => `〈${name}〉と配下の意思決定`,
+    scopeChipOne: (name: string) => `この意思決定のみ（${name}）`,
+    // 名指しされた1件がまだ索引に無いときの名乗り（生 id は出さない）。
+    scopeOneDecision: '指定された1件',
   },
   // lookups.tsx の describeMatch()（検索結果の一致理由テキスト）。
   lookups: {
@@ -608,6 +624,7 @@ const en: Strings = {
     browse: 'Browse',
     home: 'Home',
     tags: 'Tags',
+    decisions: 'Decisions',
     specs: 'Specs',
     vocab: 'Vocab',
     flow: 'Flow',
@@ -761,7 +778,9 @@ const en: Strings = {
     rulesListLinkExact: 'See decisions on this tag and below',
     rulesListLinkScoped: (tag: string) => `See decisions on ⟨${tag}⟩ and below`,
     rulesListLinkTitle: 'Open the decisions list scoped to this tag and its descendants',
-    wholeRulesFact: 'No viewer surface reads them all in one sequence — read with the CLI',
+    wholeRulesLink: (n: number) => `Read all ${n} rule(s) governing this record`,
+    wholeRulesLinkTitle: 'Open the list of every rule in force on this record (itself + above)',
+    wholeRulesCliHead: 'Read in a terminal',
     wholeRulesHow: 'Prints every rule in force on this record (itself + above), in full, in one sequence.',
     wholeRulesCopy: 'Copy',
     wholeRulesCopied: 'Copied',
@@ -933,6 +952,11 @@ const en: Strings = {
     idRevealNote: 'Use this to read the full text in a terminal.',
     idRevealCopy: 'Copy',
     idRevealCopied: 'Copied',
+    scopeChipGoverning: (name) => `Rules governing ⟨${name}⟩`,
+    scopeChipOwn: (name) => `Decisions on ⟨${name}⟩ exactly`,
+    scopeChipSubtree: (name) => `Decisions on ⟨${name}⟩ and below`,
+    scopeChipOne: (name) => `This decision only (${name})`,
+    scopeOneDecision: 'the named one',
   },
   lookups: {
     searchById: 'transition id',

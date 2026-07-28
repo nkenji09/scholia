@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shouldDiscloseWhole, summarizeInherited } from './inheritedSummary';
+import { countWholeInForce, shouldDiscloseWhole, summarizeInherited } from './inheritedSummary';
 import type { GovernsRef } from '../../types';
 
 // 継承した規則の開示に出す件数（01KYHW4NBNVN9BFXYZMBX8MPF8 条項3）。
@@ -90,5 +90,43 @@ describe('shouldDiscloseWhole', () => {
     const inForce = (id: string) => id === 'live';
     expect(shouldDiscloseWhole([entry('dead', 'parent', 'p1')], inForce)).toBe(false);
     expect(shouldDiscloseWhole([entry('dead', 'parent', 'p1'), entry('live', 'own')], inForce)).toBe(true);
+  });
+});
+
+// 「この記録を支配する規則」の件数（01KYKS4Y56FAHRVCWKMQJK4RT6）。
+//
+// お詫びが実リンクになったので、リンクは**行き先で読める件数**を名乗る。ここが
+// 嘘をつくと「3件を読む」と書いてあるのに開いたら5件、という食い違いが出る
+// ——お詫び時代に実測で 8/75 のタグが「継承3件」の直下から0件の面に着いていたのと
+// 同じ型の裏切りである。summarizeInherited の total とは**別の数**（own を含む）。
+describe('countWholeInForce', () => {
+  it('own を含めて数える（行き先の絞り込みが own も返すため）', () => {
+    // 継承の total は own を除くので 1。こちらは own を含めて 2。
+    const entries = [entry('a', 'own'), entry('b', 'parent', 'p1')];
+    expect(summarizeInherited(entries, allInForce, name).total).toBe(1);
+    expect(countWholeInForce(entries, allInForce)).toBe(2);
+  });
+
+  it('置き換え済みは数えない（行き先の既定の絞り込みと同じ数え方）', () => {
+    const inForce = (id: string) => id !== 'dead';
+    expect(countWholeInForce([entry('dead', 'own'), entry('live', 'parent', 'p1')], inForce)).toBe(1);
+  });
+
+  it('同じ decision が複数の経路で届いても1件として数える', () => {
+    // own と parent の両方で届く decision がある。経路の数を件数として名乗ると
+    // 多く言うことになる（行き先が並べるのは decision であって経路ではない）。
+    const entries = [entry('a', 'own'), entry('a', 'parent', 'p1'), entry('b', 'effective-tag', 'p2')];
+    expect(countWholeInForce(entries, allInForce)).toBe(2);
+  });
+
+  it('経由が分からないものも数える（継承の数え方とはここが違う）', () => {
+    // 継承元チップは名乗れないので summarizeInherited は落とすが、行き先の一覧は
+    // 経由に関係なくその decision を並べる。落とすとリンクが少なく言う。
+    expect(countWholeInForce([entry('a', 'parent')], allInForce)).toBe(1);
+  });
+
+  it('効いているものが無ければ 0（口を出さないのは shouldDiscloseWhole が決める）', () => {
+    expect(countWholeInForce([], allInForce)).toBe(0);
+    expect(countWholeInForce([entry('dead', 'own')], () => false)).toBe(0);
   });
 });

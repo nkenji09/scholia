@@ -8,7 +8,7 @@ import type { GovernsRef } from '../../types';
 import { HashLink } from '../shared/HashLink';
 import { Icon } from '../shared/Icon';
 import { isInForce } from '../decisions/decisionModel';
-import { shouldDiscloseWhole, summarizeInherited } from './inheritedSummary';
+import { countWholeInForce, shouldDiscloseWhole, summarizeInherited } from './inheritedSummary';
 import { RulesListLink } from './RulesListLink';
 import { WholeRules } from './WholeRules';
 import type { RecordRef } from './rulesCommand';
@@ -78,6 +78,9 @@ export function InheritedRules({ record }: { record: RecordRef }) {
   // 継承の件数は純関数へ（inheritedSummary.ts）。own を除き、効いているものだけを
   // 継承元ごとに束ねる。0件なら継承の開示ブロックは出さない（条項3）。
   const { total, sources } = summarizeInherited(entries, (id) => isInForce(id, currencyIndex), tagName);
+  // 支配する規則の全体の件数（own を含む・継承の total とは別の数）。実リンクが
+  // 行き先で読める件数を名乗るために使う（01KYKS4Y56FAHRVCWKMQJK4RT6）。
+  const wholeCount = countWholeInForce(entries, (id) => isInForce(id, currencyIndex));
 
   // 見出しの選び方。transition は**規則を運ぶのが常にタグ**（自身がタグ階層に
   // 属さない）なので、経路に parent が混ざっていても「タグから継承した規則」。
@@ -126,8 +129,9 @@ export function InheritedRules({ record }: { record: RecordRef }) {
           {record.kind !== 'tag' && <RulesListLink tagId={sources[0].tagId} exact={false} />}
         </div>
       )}
-      {/* 全体をどこで読めるかの開示（追補 条項3）。継承0でも出す。 */}
-      <WholeRules record={record} />
+      {/* 支配する規則の全体への入口（01KYKS4Y56FAHRVCWKMQJK4RT6）。継承0でも出す。
+          追補 条項3 の「どこで読めるかの開示」が、面ができたので実リンクになった。 */}
+      <WholeRules record={record} inForceCount={wholeCount} />
     </Fragment>
   );
 }

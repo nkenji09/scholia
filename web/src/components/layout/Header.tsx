@@ -29,29 +29,43 @@ export function Header({ view, onSelectView, railActive }: Props) {
   const { productName, headerSubtitle } = useLookups();
   const headerRef = useRef<HTMLElement>(null);
 
-  // IA-rework (viewer-overview-browser): the nav collapses to just two tabs —
-  // 概要 (the structure tree + component spec sheet) and ブラウザ (the unified
-  // search/facet/detail surface). Every screen the old nav exposed as its own
-  // tab (タグ/語彙/仕様/フロー/意思決定) is NOT deleted — it stays reachable as an
-  // internal lens or detail route of these two (概要's sheet embeds coverage/
-  // current-rules; ブラウザ's detail embeds vocab/decisions/flow links). Config
-  // stays a standalone gear icon (design treats settings as a chrome control,
-  // not a nav tab — see the header switches cluster below).
+  // ナビは「概要 / タグ / 意思決定」の3つ（01KYKS4Y56FAHRVCWKMQJK4RT6）。
+  //
+  // 直前は「概要 / ブラウザ」の2つで、「ブラウザ」1つが**7つの画面**
+  // （遷移の一覧・タグの一覧・タグの詳細・語彙・フロー・意思決定の一覧・意思決定の
+  // 単票）で点灯していた。どれを見ていてもタブの見た目が同じなので、いま何を見て
+  // いるのかがナビから読めない。利用者の言葉:「同じ decisions 画面が、たまにタグ
+  // 一覧や詳細になったりしていて、体験としておかしい」。
+  //
+  // これは 01KYCC2TDC6PGKPVV6DY90BHR4（2タブ再設計）の**部分的な巻き戻し**である。
+  // 利用者はそれを自覚したうえで（「回帰に見えるかもしれないけれど」）指示した。
+  // ただし同 decision の理由——「どのデータ型を見るか」を先に選ばせる構造をやめる
+  // ——は捨てていない: 3つは**読む目的**の分割（俯瞰する／分類から降りる／規則を
+  // 読む）であって、レコード型の一覧ではない。だから語彙・フロー・遷移は
+  // 引き続きタブを名乗らず、タグ・遷移のカードから降りる。
+  //
+  // 失うもの（decision で開示済み）: 遷移（仕様）を横断で一覧する入口が、タブと
+  // しては無くなる。タグのカードの「関連仕様」から辿る形は残る。
+  //
+  // Config stays a standalone gear icon (design treats settings as a chrome
+  // control, not a nav tab — see the header switches cluster below).
   //
   // Built inside the component (not module scope) so it re-renders with the
   // active language — strings pulled from `t`, not a module-level `strings`.
   const NAV: Array<[ViewName, string, IconName]> = [
     ['overview', t.nav.overview, 'layout-dashboard'],
-    ['browse', t.nav.browse, 'search'],
+    ['tags', t.nav.tags, 'tags'],
+    ['decisions', t.nav.decisions, 'gavel'],
   ];
-  // Which nav tab lights up for a given route. 概要 owns overview + the legacy
-  // #/home landing; ブラウザ owns every browse-family lens/detail route so a
-  // deep link (#/spec/<id>, #/decision/<ulid>, #/flow/<action>, …) still shows
-  // a highlighted tab instead of none.
-  const BROWSE_FAMILY: ViewName[] = ['browse', 'tags', 'spec', 'vocab', 'flow', 'decisions', 'decision'];
+  // どのタブが点灯するか。概要は overview ＋ 旧ランディング #/home。タグは
+  // タグ・遷移・語彙・フローの各レンズ（deep link で来ても点灯しないタブが無い
+  // 状態にしない）。意思決定は一覧と、転送で残した旧単票の URL。
+  const TAGS_FAMILY: ViewName[] = ['tags', 'spec', 'browse', 'vocab', 'flow'];
+  const DECISIONS_FAMILY: ViewName[] = ['decisions', 'decision'];
   const isActive = (key: ViewName): boolean => {
     if (key === 'overview') return view === 'overview' || view === 'home';
-    if (key === 'browse') return BROWSE_FAMILY.includes(view);
+    if (key === 'tags') return TAGS_FAMILY.includes(view);
+    if (key === 'decisions') return DECISIONS_FAMILY.includes(view);
     return view === key;
   };
 

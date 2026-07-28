@@ -3,7 +3,7 @@ import { api } from '../../api';
 import { useT } from '../../i18n';
 import { useLookups } from '../../lookups';
 import { useDrawer } from '../../drawer';
-import type { Decision, FacetsResponse, Tag, Transition, VocabEntry } from '../../types';
+import type { Decision, FacetsResponse, GovernsRef, Tag, Transition, VocabEntry } from '../../types';
 import { BrowseRail } from '../browse/BrowseRail';
 import type { ConditionChip, IndexItem, SuggestionItem } from '../browse/BrowseRail';
 import { ancestorClosure, tagTextMatches, textMatches, transitionVocabTagIds, vocabOwnMatches } from '../browse/filters';
@@ -12,8 +12,9 @@ import { Resizer } from '../layout/Resizer';
 import { RAIL_WIDTH } from '../layout/resizableWidths';
 import { kindColor } from '../shared/Chip';
 import { Icon } from '../shared/Icon';
-import { buildCurrencyIndex, effectOf, relatedDecisions, type Effect } from './decisionModel';
-import { summaryOf } from '../../decisionSummary';
+import { buildCurrencyIndex, effectOf } from './decisionModel';
+import { DecisionRowFull } from './DecisionRowFull';
+import { governsParams, needsGoverns, parseScopeDirection, parseScopeTarget, scopeMatcher } from './decisionScope';
 
 const COLLAPSE_FACET = 'decisions';
 
@@ -36,6 +37,10 @@ export interface DecisionFilterState {
   tagFilter: string;
   currency: CurrencyFilter;
   period: PeriodFilter;
+  /** 「どの対象か」（`tag:<id>` 等・01KYKS4Y56FAHRVCWKMQJK4RT6）。'' = 条件なし。 */
+  on: string;
+  /** 「どの向きか」（own / governing / subtree）。'' = 既定（subtree）。 */
+  scope: string;
 }
 
 interface Props {
@@ -47,6 +52,10 @@ interface Props {
   tagFilter: string;
   currency: CurrencyFilter;
   period: PeriodFilter;
+  /** 対象と向き（01KYKS4Y56FAHRVCWKMQJK4RT6）。他の5条件と AND で合成される。
+      `decision:<ulid>` の形が旧単票の permalink を引き継ぐ。 */
+  on: string;
+  scope: string;
   onFiltersChange: (f: DecisionFilterState) => void;
   onOpenDecision: (id: string) => void;
 }
@@ -58,18 +67,15 @@ const PERIOD_DAYS: Record<Exclude<PeriodFilter, 'all'>, number> = { '30d': 30, '
 // かつてここは3値をそのまま出していて、amend を付けられただけの——**まだ
 // 効いている**——decision が「改訂」として現行と別の状態に見え、履歴側だと
 // 誤読された。付帯情報（後続に部分改訂・例外がある）は状態列ではなく行の
-// 補助情報として出す（条項2）。
-function effectBadge(e: Effect, t: ReturnType<typeof useT>): { cls: string; label: string } {
-  return e === 'replaced'
-    ? { cls: 'decision-badge-superseded', label: t.decisions.effectReplaced }
-    : { cls: 'decision-badge-current', label: t.decisions.effectInForce };
-}
+// 補助情報として出す（条項2）。バッジそのものは行（DecisionRowFull）が描く。
 
 const splitTags = (v: string): string[] => (v ? v.split(',').filter(Boolean) : []);
 
-export function DecisionsView({ searchQuery, targetKind, tagFilter, currency, period, onFiltersChange, onOpenDecision }: Props) {
+export function DecisionsView({ searchQuery, targetKind, tagFilter, currency, period, on, scope, onFiltersChange, onOpenDecision }: Props) {
   const t = useT();
-  const { tagName, vocabLabel, transitionLabel, formatDecisionAt } = useLookups();
+  // 記録日時・効力バッジ・要約の描画は行（DecisionRowFull）が持つ。ここが要るのは
+  // 絞り込みの照合と、対象・条件の名乗りに使うラベルだけ。
+  const { tagName, vocabLabel, transitionLabel } = useLookups();
   const { closeDrawer } = useDrawer();
   const [decisions, setDecisions] = useState<Decision[] | null>(null);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -88,6 +94,10 @@ export function DecisionsView({ searchQuery, targetKind, tagFilter, currency, pe
   const [cur, setCur] = useState<CurrencyFilter>(() => currency);
   const [per, setPer] = useState<PeriodFilter>(() => period);
   const [selectedTags, setSelectedTags] = useState<string[]>(() => splitTags(tagFilter));
+  // 対象と向き。他の条件と同じく URL が正で、ここはその写し（リンクから来るので
+  // 画面の widget では増えないが、チップの × で外せる＝条件を緩められる）。
+  const [onRef, setOnRef] = useState<string>(() => on || '');
+  const [scopeDir, setScopeDir] = useState<string>(() => scope || '');
 
   // Adopt state pushed in from *outside* our own typing/clicking (Back/Forward
   // → hashchange → new props). Runs on mount too, but the seeds already match
@@ -98,22 +108,69 @@ export function DecisionsView({ searchQuery, targetKind, tagFilter, currency, pe
     setCur(currency);
     setPer(period);
     setSelectedTags(splitTags(tagFilter));
-  }, [searchQuery, targetKind, currency, period, tagFilter]);
+    setOnRef(on || '');
+    setScopeDir(scope || '');
+  }, [searchQuery, targetKind, currency, period, tagFilter, on, scope]);
 
   // Push local state back to the URL, but only when it genuinely diverges from
   // what the URL already encodes (echo/seed guard — the return leg of our own
   // push and the mount seed both no-op naturally, no dangling flag).
   useEffect(() => {
     const localTags = selectedTags.join(',');
-    if (query === (searchQuery || '') && kind === targetKind && cur === currency && per === period && localTags === (tagFilter || '')) {
+    if (
+      query === (searchQuery || '') &&
+      kind === targetKind &&
+      cur === currency &&
+      per === period &&
+      localTags === (tagFilter || '') &&
+      onRef === (on || '') &&
+      scopeDir === (scope || '')
+    ) {
       return;
     }
-    const id = setTimeout(() => onFiltersChange({ query, targetKind: kind, tagFilter: localTags, currency: cur, period: per }), 300);
+    const id = setTimeout(
+      () => onFiltersChange({ query, targetKind: kind, tagFilter: localTags, currency: cur, period: per, on: onRef, scope: scopeDir }),
+      300,
+    );
     return () => clearTimeout(id);
     // Deps are LOCAL state only (URL props read in-body) so an external nav
     // doesn't schedule a spurious push of stale local state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, kind, cur, per, selectedTags]);
+  }, [query, kind, cur, per, selectedTags, onRef, scopeDir]);
+
+  // 「どの対象か」「どの向きか」の解釈は decisionScope が1箇所で持つ。
+  const scopeTarget = useMemo(() => parseScopeTarget(onRef || undefined), [onRef]);
+  const scopeDirection = useMemo(() => parseScopeDirection(scopeDir || undefined), [scopeDir]);
+
+  // `governing` の判定は **CLI と同じ Go コア**（GET /api/governs＝
+  // index.GovernsFor*）に委ねる。viewer 側に同じ選択規則をもう一実装置くと、
+  // 「この記録を支配する規則は何か」に面ごとに違う答えが返る余地が復活する
+  // （01KXYED61J6QBEX75H2XHVHW7Y の診断・追補 01KYJV3FYMDFRWQ939NBV2BPAC が
+  // 名指しで警告した形）。静的書き出しでも同じ答えが返る（api.getGoverns）。
+  const [governs, setGoverns] = useState<GovernsRef[] | null>(null);
+  const governsWanted = needsGoverns(scopeTarget, scopeDirection);
+  useEffect(() => {
+    const params = governsParams(scopeTarget, scopeDirection);
+    if (!params) {
+      setGoverns(null);
+      return;
+    }
+    let cancelled = false;
+    setGoverns(null);
+    api
+      .getGoverns(params)
+      .then((res) => {
+        if (!cancelled) setGoverns(res.entries);
+      })
+      .catch(() => {
+        // 取れなかったときは空集合として扱う——全件へ広げると「支配する規則」を
+        // 名乗る一覧が無関係なものを並べる（名乗りと中身が食い違う）。
+        if (!cancelled) setGoverns([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [scopeTarget?.type, scopeTarget?.id, scopeDirection]);
 
   const addTag = (id: string) => {
     setSelectedTags((prev) => (prev.includes(id) ? prev : [...prev, id]));
@@ -192,8 +249,24 @@ export function DecisionsView({ searchQuery, targetKind, tagFilter, currency, pe
   // narrows the shown suggestions (by tag name, inside BrowseRail) but must not
   // shrink the candidate pool, or typing a tag name that no record's why/target
   // happens to contain would surface no suggestion (same rule as BrowseView).
+  //
+  // 対象と向きもここに入れる（タグ AND やフリーワードと同じく、絞り込まれた
+  // 集合が候補の母数でもある）。値の解釈は decisionScope が持つ。
+  const matchesScope = useMemo(
+    () => scopeMatcher({ target: scopeTarget, direction: scopeDirection, effTagsById, governs: governs ?? undefined }),
+    [scopeTarget, scopeDirection, effTagsById, governs],
+  );
+  //
+  // ⚠️ 対象が **1件の意思決定を名指ししている**ときは、他の条件を掛けない。
+  // これは permalink（旧 #/decision/<id>）を引き継ぐ形で、「その1件を見せる」以外の
+  // 意味を持たない URL である。既定の効力フィルタは「効いているものだけ」なので、
+  // 掛けたままにすると**置き換え済みの意思決定を指す共有リンクが 0 件に着く**
+  // ——実データで 158件中 1件が置き換え済み、かつ改訂チェーンを辿る導線
+  // （置き換え/改訂チップ）は置き換え済みの相手を指すので、ここは日常的に踏まれる。
+  const namesOneDecision = scopeTarget?.type === 'decision';
   const filterBase = useMemo(() => {
     if (!decisions) return [];
+    if (namesOneDecision) return decisions.filter(matchesScope);
     return decisions.filter((d) => {
       if (kind !== 'all' && d.target.type !== kind) return false;
       // 効力は2値で判定する（条項1）。'all' は利用者が明示的に選んだときだけ。
@@ -204,9 +277,10 @@ export function DecisionsView({ searchQuery, targetKind, tagFilter, currency, pe
         const ageDays = (now - new Date(d.at).getTime()) / 86400000;
         if (!(ageDays <= PERIOD_DAYS[per])) return false;
       }
+      if (!matchesScope(d)) return false;
       return true;
     });
-  }, [decisions, currencyIndex, kind, cur, per, now]);
+  }, [decisions, currencyIndex, kind, cur, per, now, matchesScope, namesOneDecision]);
 
   // req.comfortable-viewer.faceted-nav amend: 1=decision's own why/changed/
   // ref/acknowledges + target's own identity (tag→id/name/description・
@@ -246,6 +320,9 @@ export function DecisionsView({ searchQuery, targetKind, tagFilter, currency, pe
 
   const filtered = useMemo(
     () => {
+      // 1件を名指しした URL には、フリーワードもタグ AND も掛けない（上の
+      // filterBase と同じ理由——その URL は「その1件を見せる」以外の意味を持たない）。
+      if (namesOneDecision) return filterBase;
       const base = filterBase
         .filter((d) => !q || decisionTier(d) !== null)
         .filter(matchesTags)
@@ -254,11 +331,16 @@ export function DecisionsView({ searchQuery, targetKind, tagFilter, currency, pe
       return q ? base.sort((a, b) => (decisionTier(a) ?? 4) - (decisionTier(b) ?? 4)) : base;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filterBase, q, effTagsById, selectedTags],
+    [filterBase, q, effTagsById, selectedTags, namesOneDecision],
   );
+
+  const byId = useMemo(() => new Map((decisions || []).map((d) => [d.id, d])), [decisions]);
 
   if (error) return <main class="decisions-view error">{error}</main>;
   if (!decisions || !facetsData) return <main class="decisions-view dim">{t.decisions.loading}</main>;
+  // `governing` は Go コアへの問い合わせ待ちがある。取得前に「該当なし」と出すと
+  // 一瞬「支配する規則は0件」と読める——待っていることを言う。
+  if (governsWanted && governs === null) return <main class="decisions-view dim">{t.decisions.loading}</main>;
 
   const scrollToCard = (id: string) => {
     cardRefs.current.get(id)?.scrollIntoView({ block: 'start' });
@@ -286,12 +368,39 @@ export function DecisionsView({ searchQuery, targetKind, tagFilter, currency, pe
     return txById.get(d.target.id)?.tags || [];
   };
 
-  // AND condition chips (the selected tags) — same removable-chip shape the
-  // other browse rails use.
-  const conditions: ConditionChip[] = selectedTags.map((id) => {
-    const tg = tagById.get(id);
-    return { label: tg?.name || id, color: kindColor(tg?.kind), onRemove: () => removeTag(id) };
-  });
+  // 対象と向きが立っているときの名乗り。生 id はラベルに使わず名前で示す
+  // （01KYCC2TF3NW3JRSSRK9ZHN078）——索引に無いものだけ、名乗るものが他に無いので
+  // id へ落ちる。
+  const scopeTargetName = (): string => {
+    if (!scopeTarget) return '';
+    if (scopeTarget.type === 'tag') return tagName(scopeTarget.id);
+    if (scopeTarget.type === 'vocab') return vocabLabel(scopeTarget.id);
+    if (scopeTarget.type === 'transition') return transitionLabel(scopeTarget.id).primary;
+    const d = byId.get(scopeTarget.id);
+    return d ? `${targetPrefix(d.target.type)} ${targetLabel(d)}` : t.decisions.scopeOneDecision;
+  };
+  const scopeChipLabel = (): string => {
+    const name = scopeTargetName();
+    if (scopeTarget?.type === 'decision') return t.decisions.scopeChipOne(name);
+    if (scopeDirection === 'governing') return t.decisions.scopeChipGoverning(name);
+    if (scopeDirection === 'own') return t.decisions.scopeChipOwn(name);
+    return t.decisions.scopeChipSubtree(name);
+  };
+  const clearScope = () => {
+    setOnRef('');
+    setScopeDir('');
+  };
+
+  // AND condition chips — 対象/向きのチップを先頭に置き、タグ AND のチップが続く。
+  // どれも × で外せる＝**戻るを押さずに条件を緩められる**。これが「1件に絞った
+  // 一覧」が単票より良い理由そのものなので、外せない形にしない。
+  const conditions: ConditionChip[] = [
+    ...(scopeTarget ? [{ label: scopeChipLabel(), color: kindColor(scopeTarget.type === 'tag' ? tagById.get(scopeTarget.id)?.kind : undefined), onRemove: clearScope }] : []),
+    ...selectedTags.map((id) => {
+      const tg = tagById.get(id);
+      return { label: tg?.name || id, color: kindColor(tg?.kind), onRemove: () => removeTag(id) };
+    }),
+  ];
 
   // Combobox candidates: every tag that is an effective tag of some decision
   // still passing the other filters, minus the already-selected ones, minus
@@ -377,7 +486,10 @@ export function DecisionsView({ searchQuery, targetKind, tagFilter, currency, pe
         kindOptions={[]}
         onKindFacetChange={() => {}}
         conditions={conditions}
-        onClearConditions={() => setSelectedTags([])}
+        onClearConditions={() => {
+          setSelectedTags([]);
+          clearScope();
+        }}
         indexItems={indexItems}
         suggestions={suggestions}
         extraControls={extraControls}
@@ -398,40 +510,21 @@ export function DecisionsView({ searchQuery, targetKind, tagFilter, currency, pe
             <p class="dim decisions-empty">{t.decisions.noMatch}</p>
           ) : (
             <ul class="decisions-list">
-              {filtered.map((d) => {
-                const badge = effectBadge(effectOf(d.id, currencyIndex), t);
-                // 条項2: 「後続に部分改訂・例外が付いている」は状態ではなく付帯情報。
-                const related = relatedDecisions(d.id, currencyIndex);
-                return (
-                  <li key={d.id}>
-                    <button
-                      type="button"
-                      class="decision-row"
-                      ref={(el) => {
-                        if (el) cardRefs.current.set(d.id, el);
-                        else cardRefs.current.delete(d.id);
-                      }}
-                      onClick={() => onOpenDecision(d.id)}
-                    >
-                      <div class="decision-row-top">
-                        <span class="decision-row-target">
-                          <span class="decision-row-target-kind dim">{targetPrefix(d.target.type)}</span>
-                          {targetLabel(d)}
-                        </span>
-                      </div>
-                      {/* 条項6: 要約は共有の切り出しを通す。生の why を CSS の
-                          line-clamp で切ると markdown 記法のまま第1段落が流れ、
-                          途中で切れる——条項6 が名指しで禁じた形。 */}
-                      <p class="decision-row-why">{summaryOf(d.why)}</p>
-                      <div class="decision-row-bottom">
-                        <span class="decision-row-at dim">{formatDecisionAt(d.at)}</span>
-                        {related.length > 0 && <span class="decision-row-related-note dim">{t.decisions.readTogether(related.length)}</span>}
-                        <span class={'decision-badge ' + badge.cls}>{badge.label}</span>
-                      </div>
-                    </button>
-                  </li>
-                );
-              })}
+              {/* 結果が1件なら開いた状態で着地する（01KYKS4Y56FAHRVCWKMQJK4RT6）。
+                  これは**初期既定**であって上書きではない——利用者が明示的に閉じた
+                  保存値のほうが勝つ（01KYGYYN8HRNFQEDMBS3DZRRX7）。行の中身は
+                  DecisionRowFull が1箇所で持つ（面ごとに書き分けない）。 */}
+              {filtered.map((d) => (
+                <li
+                  key={d.id}
+                  ref={(el) => {
+                    if (el) cardRefs.current.set(d.id, el as HTMLElement);
+                    else cardRefs.current.delete(d.id);
+                  }}
+                >
+                  <DecisionRowFull d={d} defaultOpen={filtered.length === 1} onOpenDecision={onOpenDecision} byId={byId} />
+                </li>
+              ))}
             </ul>
           )}
         </div>

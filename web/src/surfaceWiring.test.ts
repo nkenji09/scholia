@@ -14,8 +14,11 @@ import { DICTS } from './strings';
 import decisionListSource from './components/decisions/DecisionList.tsx?raw';
 import inheritedSummarySource from './components/browse/inheritedSummary.ts?raw';
 import decisionsViewSource from './components/decisions/DecisionsView.tsx?raw';
-import decisionDetailSource from './components/decisions/DecisionDetailView.tsx?raw';
+import decisionRowFullSource from './components/decisions/DecisionRowFull.tsx?raw';
+import decisionScopeSource from './components/decisions/decisionScope.ts?raw';
+import decisionRedirectSource from './components/decisions/DecisionPermalinkRedirect.tsx?raw';
 import decisionIdRevealSource from './components/decisions/DecisionIdReveal.tsx?raw';
+import headerSource from './components/layout/Header.tsx?raw';
 import appSourceForList from './app.tsx?raw';
 
 // 「新しい面が共通配線を通っているか」を機械化するガード（A是正 01KYH2533234PGSN4MDQ6ZXJHA）。
@@ -282,12 +285,46 @@ describe('全体をどこで読めるかがカードから読める（追補 条
     expect(inheritedRulesSource).toMatch(/<WholeRules[\s\S]{0,60}record=\{record\}/);
   });
 
-  it('事実そのものは畳まれていない', () => {
-    // 「viewer には全体を通しで読む面が無い」は見出し行に出る。畳んだ内側に入れると、
-    // 開かなかった利用者には省略が伝わらない＝開示にならない。
+  it('入口そのものは畳まれていない（01KYKS4Y56FAHRVCWKMQJK4RT6）', () => {
+    // お詫びだった時代は「viewer には面が無い」という**事実**を見出し行に出していた。
+    // 面ができたので出るのは実リンクだが、畳んではいけない理由は同じ——畳んだ内側に
+    // 入れると、開かなかった利用者には到達手段が伝わらない。
+    // 実リンク（whole-rules-link）が、畳みの見出し（whole-rules-head）より前に、
+    // どの条件ゲートの内側でもない位置にあることを見る。
+    const linkAt = wholeRulesSource.indexOf('class="whole-rules-link"');
+    const headAt = wholeRulesSource.indexOf('class="whole-rules-head"');
+    expect(linkAt, '実リンクが見つからない').toBeGreaterThan(-1);
+    expect(headAt, '畳みの見出しが見つからない').toBeGreaterThan(-1);
+    expect(linkAt, '実リンクが畳みの内側／後ろに移っている').toBeLessThan(headAt);
+    for (const line of wholeRulesSource.split('\n')) {
+      if (line.includes('whole-rules-link')) {
+        expect(line, `実リンクの行が条件付きになっている: ${line.trim()}`).not.toMatch(/&&/);
+      }
+    }
+  });
+
+  it('入口が「支配する向き」で絞った一覧を指している（追補 条項2・4）', () => {
+    // ⚠ 向きが抜けると、実測で 8/75 のタグが「継承した規則 N件」と開示した直下から
+    // **0件の面に着く**——追補 01KYJV3FYMDFRWQ939NBV2BPAC が確定した誤りに戻る。
+    // 単票（廃止済み）でも、向きの無い一覧でもなく、対象＋governing を指すこと。
+    expect(wholeRulesSource).toMatch(/routeHash\(\{[\s\S]{0,120}view:\s*'decisions'/);
+    expect(wholeRulesSource).toMatch(/decisionOn:\s*scopeRef\(record\)/);
+    expect(wholeRulesSource).toMatch(/decisionScope:\s*'governing'/);
+    // 対象の綴りが記録の種別からそのまま組まれている（tag/transition/vocab を
+    // 取り違えると別のレコードの規則を出す）。
+    expect(wholeRulesSource).toMatch(/\$\{record\.kind\}:\$\{record\.id\}/);
+    // 件数は純関数を通って渡る（開示した数と行き先の件数を一致させる。値の正しさは
+    // inheritedSummary.test.ts の countWholeInForce が守る）。
+    expect(inheritedRulesSource).toMatch(/\bcountWholeInForce\s*\(/);
+    expect(inheritedRulesSource).toMatch(/<WholeRules[\s\S]{0,120}inForceCount=\{/);
+  });
+
+  it('端末で読む手段が残っている（リンクができたからといって消さない）', () => {
+    // 全文を1つの並びで一気に読む／貼り付ける経路は、リンクでは代替されない
+    // （01KXYED62CEKBY97D7X66BMC9A の「省略はその旨を開示する」）。
     const head = /<button[\s\S]{0,200}class="whole-rules-head"[\s\S]{0,400}<\/button>/.exec(wholeRulesSource);
     expect(head, 'whole-rules-head の見出し行が見つからない').not.toBeNull();
-    expect(head![0]).toMatch(/t\.browse\.wholeRulesFact/);
+    expect(head![0]).toMatch(/t\.browse\.wholeRulesCliHead/);
   });
 
   it('手段（CLI コマンド）が共有の組み立てを通り、コピーできる形で出ている', () => {
@@ -304,7 +341,12 @@ describe('全体をどこで読めるかがカードから読める（追補 条
 });
 
 // ---------------------------------------------------------------------------
-// 意思決定の単票が生成 id をどう扱うか（01KYK4YNCYGZHHXB4H90Q996T2 条項3〜5）
+// 意思決定の**一覧の行**が生成 id をどう扱うか（01KYK4YNCYGZHHXB4H90Q996T2 条項3〜5）
+//
+// 単票は廃止され（01KYKS4Y56FAHRVCWKMQJK4RT6）、その中身は一覧の行が吸収した。
+// id の開示もそのまま行の中へ移った——条項5（消すときに到達手段を落とさない）は
+// 器が変わっても同じだけ効く。以下は単票に対して書かれていたガードを、器を
+// 差し替えて引き継いだもの（**外したのではなく移した**）。
 //
 // 条項3 は「不透明な id を機能を持たないメタ情報として既定の見え方に置かない」、
 // 条項5 は「消すときに到達手段を落とさない」を求める。単票にはこれ以外に id へ
@@ -328,22 +370,29 @@ describe('全体をどこで読めるかがカードから読める（追補 条
 // 受け持つ）。`decision.id` を別の変数へ束ねてから描く形（`const id = decision.id`）は
 // 出現の数え方をすり抜けるので捕まらない。**整形に敏感**な点も同じ。
 
-describe('意思決定の単票が生成 id を既定に置かず、到達手段を残している（01KYK4YNCYGZHHXB4H90Q996T2 条項3〜5）', () => {
-  it('求めたときに出す開示（DecisionIdReveal）が単票に描かれている（条項5＝到達手段）', () => {
+describe('意思決定の行が生成 id を既定に置かず、到達手段を残している（01KYK4YNCYGZHHXB4H90Q996T2 条項3〜5）', () => {
+  it('求めたときに出す開示（DecisionIdReveal）が行に描かれている（条項5＝到達手段）', () => {
     // 開示ごと消す変異はここで落ちる。消すと id を得る唯一の経路が黙って失われる。
-    expect(decisionDetailSource).toMatch(/<DecisionIdReveal[\s\S]{0,60}id=\{decision\.id\}/);
+    expect(decisionRowFullSource).toMatch(/<DecisionIdReveal[\s\S]{0,60}id=\{d\.id\}/);
   });
 
   it('生 id が既定の見え方のどこにも描かれていない（条項3＝器を問わない）', () => {
-    // 出現は「開示へ渡す prop」の1回だけ。メタへ戻す変異も、見出し行など別の器へ
-    // 逃がす変異も、2回目の出現になるのでここで落ちる。
-    const hits = [...decisionDetailSource.matchAll(/\{decision\.id\}/g)];
-    expect(
-      hits.length,
-      `{decision.id} の出現が ${hits.length} 回ある（開示へ渡す prop の1回だけであるべき）`,
-    ).toBe(1);
+    // 出現は「開示へ渡す prop」の1回だけ。展開の内側へ戻す変異も、見出し行など
+    // 別の器へ逃がす変異も、2回目の出現になるのでここで落ちる。
+    const hits = [...decisionRowFullSource.matchAll(/\{d\.id\}/g)];
+    expect(hits.length, `{d.id} の出現が ${hits.length} 回ある（開示へ渡す prop の1回だけであるべき）`).toBe(1);
     // その1回が開示へ渡す prop であること（＝どこか別の場所へ移しただけ、を防ぐ）。
-    expect(decisionDetailSource).toMatch(/<DecisionIdReveal[\s\S]{0,60}id=\{decision\.id\}/);
+    expect(decisionRowFullSource).toMatch(/<DecisionIdReveal[\s\S]{0,60}id=\{d\.id\}/);
+  });
+
+  it('一覧のほうにも生 id が漏れていない（行へ移したついでに器が増えていない）', () => {
+    // 一覧は key と ref に d.id を使うが、**描画**しては条項3 に反する。
+    // key/ref 以外の位置に現れたらここで落ちる。
+    const bare = [...decisionsViewSource.matchAll(/\{d\.id\}/g)];
+    for (const m of bare) {
+      const before = decisionsViewSource.slice(Math.max(0, m.index! - 40), m.index!);
+      expect(before, `{d.id} が描画位置に出ている: …${before.trim()}`).toMatch(/(key|ref)=$/);
+    }
   });
 });
 
@@ -416,22 +465,188 @@ describe('配下の意思決定の一覧への入口がカードにある', () =
 describe('意思決定の一覧が提案B の3面のひとつとして揃っている', () => {
   it('要約が共有の切り出しを通る（条項6）', () => {
     // 生の why を CSS の line-clamp で切ると markdown 記法のまま第1段落が流れる。
-    expect(decisionsViewSource).toMatch(/summaryOf\(d\.why\)/);
-    expect(decisionsViewSource).not.toMatch(/decision-row-why">\{d\.why\}/);
+    // 要約の描画は行（DecisionRowFull）へ移った。
+    expect(decisionRowFullSource).toMatch(/summaryOf\(d\.why\)/);
+    expect(decisionRowFullSource).not.toMatch(/decision-row-why">\{d\.why\}/);
   });
 
   it('効力の語が2値で統一されている（条項3）', () => {
     // 同じ画面でバッジが「置き換え済み」・絞り込みが「失効」だと語が2つ同居する。
+    expect(decisionRowFullSource).toMatch(/effectInForce/);
+    expect(decisionRowFullSource).toMatch(/effectReplaced/);
     expect(decisionsViewSource).toMatch(/effectInForce/);
     expect(decisionsViewSource).toMatch(/effectReplaced/);
     // 語そのものを見る（識別子は 2値化で消えた）。「失効」は効いていない理由を
     // 述べないので条項3 が退けた語——1画面に2つの語を同居させない。
     expect(decisionsViewSource).not.toMatch(/失効/);
+    expect(decisionRowFullSource).not.toMatch(/失効/);
   });
 
   it('既定では効いているものだけを出す（条項4）', () => {
     // 一覧には畳む器が無いので、既定の絞り込みがその役目を果たす。
     expect(appSourceForList).toMatch(/route\.decisionCurrency \|\| 'current'/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 絞り込まれた一覧を1つの仕組みにした（01KYKS4Y56FAHRVCWKMQJK4RT6）
+//
+// この decision は3つを同時に成立させて初めて成り立つ:
+//   ① 一覧の行が単票の中身を全部持つ（実測 158件中 146件が、旧一覧では読めない
+//      要素を1つ以上持っていた——1つ抜けると実害が出る）
+//   ② 結果が1件なら開いた状態で着地する（畳まれた要約1行に着いたら今より悪い）
+//   ③ 旧 URL が転送で生きる（共有済みリンクを黙って殺さない）
+// どれも「無くても画面は成立してしまう」種類の配線なので、外れても誰も気づかない。
+// ⚠️ この repo は「新しく作った面にガードを置き忘れる」を繰り返している
+// （01KYH2533234PGSN4MDQ6ZXJHA・#3 の should-3）。同じ穴をここで作らない。
+//
+// 射程: これも**配線ガード**（静的なソース照合）で、DOM を起こしたときの見え方・
+// 実際に開いて着地するか・転送が本当に走るかは実機確認が担う。整形に敏感。
+
+describe('一覧の行が単票の中身を全部吸収している（①）', () => {
+  // 旧一覧の行に無かった8つ。1つずつ見る——まとめて1本にすると、どれが欠けたのかが
+  // 赤の理由から読めない。
+  const ABSORBED: Array<[string, RegExp]> = [
+    ['本文の全文（書式つき）', /<Markdown\s+text=\{d\.why\}/],
+    ['変更内容', /<Markdown\s+text=\{d\.changed\}/],
+    ['参照', /decision-detail-ref/],
+    ['実装コミット', /commits\.map\(/],
+    ['容認', /acknowledges\.map\(/],
+    ['何を置き換え・改訂したか', /supersedes\.map\(/],
+    ['誰に置き換え・改訂されたか', /supersededBy\.map\(/],
+    ['記録を指す文字列の開示', /<DecisionIdReveal/],
+  ];
+  for (const [name, re] of ABSORBED) {
+    it(`行が「${name}」を持つ`, () => {
+      expect(decisionRowFullSource).toMatch(re);
+    });
+  }
+
+  it('全文は展開の内側にあり、畳んだときは要約だけ（条項6）', () => {
+    // 展開しても要約のまま／畳んでも全文が出る、のどちらへ倒れてもここで落ちる。
+    expect(decisionRowFullSource).toMatch(/\{!open && <p class="decision-row-why">/);
+    expect(decisionRowFullSource).toMatch(/\{open && \(/);
+  });
+
+  it('「併せて読む」が注記ではなく辿れる導線になっている（条項2・7）', () => {
+    // 旧一覧はここがクリックできない <span class="decision-row-related-note"> だった。
+    expect(decisionRowFullSource).toMatch(/readTogether/);
+    expect(decisionRowFullSource).toMatch(/class="decision-row-related"[\s\S]{0,80}onOpenDecision/);
+    expect(decisionRowFullSource).not.toMatch(/decision-row-related-note/);
+  });
+
+  it('置き換え関係の導線が同じ仕組みの上を移動する（別画面へ行かない）', () => {
+    // チップの行き先が onOpenDecision＝「その1件に絞り込んだ一覧」であること。
+    const chips = [...decisionRowFullSource.matchAll(/class="decision-link-chip"[\s\S]{0,120}/g)];
+    expect(chips.length, '置き換え関係のチップが見つからない').toBeGreaterThan(0);
+    for (const m of chips) expect(m[0]).toMatch(/onOpenDecision\(/);
+  });
+
+  it('1件を開く経路が一覧の絞り込み条件として組まれている（単票へ戻していない）', () => {
+    const handler = /const\s+openDecision\s*=\s*\(([^)]*)\)\s*=>\s*([^;]+);/.exec(appSourceForList);
+    expect(handler, 'openDecision の定義が見つからない').not.toBeNull();
+    expect(handler![2]).toMatch(/view:\s*'decisions'/);
+    expect(handler![2]).toMatch(/decisionOn:\s*`decision:\$\{decisionId\}`/);
+    // 廃止した単票へ戻す変異はここで落ちる。
+    expect(handler![2]).not.toMatch(/view:\s*'decision'\b/);
+  });
+});
+
+describe('1件に絞られたら開いた状態で着地する（②）', () => {
+  it('一覧が「結果が1件」を既定の開閉として行に渡している', () => {
+    expect(decisionsViewSource).toMatch(/defaultOpen=\{filtered\.length === 1\}/);
+  });
+
+  it('それは初期既定であって、利用者が閉じた保存値を上書きしない（01KYGYYN8HRNFQEDMBS3DZRRX7）', () => {
+    // `?? defaultOpen` の順序が逆（defaultOpen を優先）だと、閉じた状態の永続復元が
+    // 壊れる——共通配線（collapseState）を通していること自体も併せて見る。
+    expect(decisionRowFullSource).toMatch(/loadCardSectionOpen\([\s\S]{0,40}\)\s*\?\?\s*defaultOpen/);
+    expect(decisionRowFullSource).toMatch(/saveCardSectionOpen\(/);
+  });
+
+  it('名指しされた1件が、他の条件で消えない', () => {
+    // 既定の効力フィルタは「効いているものだけ」なので、掛けたままにすると
+    // **置き換え済みの意思決定を指す共有リンクが 0 件に着く**。改訂チェーンを辿る
+    // 導線は置き換え済みの相手を指すので、ここは日常的に踏まれる経路である。
+    expect(decisionsViewSource).toMatch(/const namesOneDecision = scopeTarget\?\.type === 'decision'/);
+    expect(decisionsViewSource).toMatch(/if \(namesOneDecision\) return decisions\.filter\(matchesScope\)/);
+    expect(decisionsViewSource).toMatch(/if \(namesOneDecision\) return filterBase/);
+  });
+});
+
+describe('旧単票の URL が転送で生きる（③）', () => {
+  it('app が転送を描いている（画面ごと消していない）', () => {
+    expect(appSourceForList).toMatch(/view === 'decision' && <DecisionPermalinkRedirect[\s\S]{0,60}decisionId=\{route\.decisionId\}/);
+  });
+
+  it('転送先が「その1件に絞り込んだ一覧」である', () => {
+    expect(decisionRedirectSource).toMatch(/view:\s*'decisions'/);
+    expect(decisionRedirectSource).toMatch(/decisionOn:\s*`decision:\$\{decisionId\}`/);
+  });
+
+  it('履歴を積まない形で転送する（バックが効かなくなるのを防ぐ）', () => {
+    // `location.hash = …` に差し替えると旧 URL と新 URL の2エントリが並び、
+    // バックした利用者が旧 URL へ戻され、そこから即座に前へ送り返される。
+    expect(decisionRedirectSource).toMatch(/window\.location\.replace\(/);
+    expect(decisionRedirectSource).not.toMatch(/window\.location\.hash\s*=/);
+  });
+});
+
+describe('支配する向きの判定を viewer で作り直していない', () => {
+  // ⚠️ 同じ選択規則を2箇所に書くと、CLI と画面で「この記録を支配する規則は何か」に
+  // 違う答えが返る余地が復活する（01KXYED61J6QBEX75H2XHVHW7Y の診断）。追補
+  // 01KYJV3FYMDFRWQ939NBV2BPAC の「採らなかった選択肢」が名指しで警告した形でもある。
+  it('governing のとき、判定は問い合わせの結果だけを見る', () => {
+    // 実効タグ（effTagsById）や祖先クロージャで導出する変異はここで落ちる。
+    const branch = /if \(direction === 'governing'\) \{[\s\S]{0,400}?\n  \}/.exec(decisionScopeSource);
+    expect(branch, 'governing の分岐が見つからない').not.toBeNull();
+    expect(branch![0]).toMatch(/governs\.map\(\(g\) => g\.decisionId\)/);
+    expect(branch![0]).not.toMatch(/effTagsById|ancestorClosure/);
+  });
+
+  it('取得前は1件も通さない（「支配する規則が全部」と一瞬でも嘘をつかない）', () => {
+    expect(decisionScopeSource).toMatch(/if \(!governs\) return \(\) => false;/);
+  });
+
+  it('一覧が共有の問い合わせ（api.getGoverns）を通っている', () => {
+    // 静的書き出しでも同じ答えが返る経路（api.ts が焼き込み済み map を引く）。
+    expect(decisionsViewSource).toMatch(/api\s*\n?\s*\.getGoverns\(/);
+    expect(decisionsViewSource).toMatch(/governsParams\(/);
+    expect(decisionsViewSource).toMatch(/needsGoverns\(/);
+  });
+
+  it('viewer 側に祖先展開の再実装が入っていない', () => {
+    // decisionScope は照合だけを担う。祖先を自分で辿り始めたらここで落ちる。
+    expect(decisionScopeSource).not.toMatch(/parentIds|ancestorClosure/);
+  });
+});
+
+describe('ナビが「概要 / タグ / 意思決定」の3つで、今どこかが読める', () => {
+  it('意思決定が自分のタブを持っている', () => {
+    // 直前は「ブラウザ」1つが7画面で点灯していた（利用者の訴えそのもの）。
+    expect(headerSource).toMatch(/\['decisions',\s*t\.nav\.decisions/);
+    expect(headerSource).toMatch(/\['tags',\s*t\.nav\.tags/);
+    expect(headerSource).toMatch(/\['overview',\s*t\.nav\.overview/);
+  });
+
+  it('意思決定の一覧で「タグ」タブが点灯しない（同じタブが両方を名乗らない）', () => {
+    const tagsFamily = /const TAGS_FAMILY: ViewName\[\] = \[([^\]]*)\]/.exec(headerSource);
+    expect(tagsFamily, 'TAGS_FAMILY が見つからない').not.toBeNull();
+    expect(tagsFamily![1]).not.toMatch(/'decisions'|'decision'/);
+  });
+
+  it('転送で残した旧単票の URL でも、点灯するタブが無い状態にならない', () => {
+    const decisionsFamily = /const DECISIONS_FAMILY: ViewName\[\] = \[([^\]]*)\]/.exec(headerSource);
+    expect(decisionsFamily, 'DECISIONS_FAMILY が見つからない').not.toBeNull();
+    expect(decisionsFamily![1]).toMatch(/'decisions'/);
+    expect(decisionsFamily![1]).toMatch(/'decision'/);
+  });
+
+  it('語彙・フロー・遷移はタブを名乗らず、タグ側のレンズとして残る（消していない）', () => {
+    const tagsFamily = /const TAGS_FAMILY: ViewName\[\] = \[([^\]]*)\]/.exec(headerSource);
+    for (const v of ["'spec'", "'browse'", "'vocab'", "'flow'"]) {
+      expect(tagsFamily![1], v).toMatch(v);
+    }
   });
 });
 
