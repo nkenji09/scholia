@@ -56,7 +56,7 @@ function DecisionRow({ d, replaced }: { d: Decision; replaced: boolean }) {
       </div>
       {/* ⑥: 全文は展開の内側。 */}
       {open && (
-        <div class="decision-row-why">
+        <div class="decision-row-full">
           <Markdown text={d.why} />
         </div>
       )}
