@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 
 // Hash-based routing so Back/Forward work in both `scholia view` (served over
 // HTTP) and a `scholia export --html` file opened via file:// or a plain static
@@ -275,9 +275,30 @@ function currentRoute(): Route {
 
 export function useHashRoute(): [Route, (route: Route) => void] {
   const [route, setRoute] = useState<Route>(currentRoute);
+  // いま取り込み済みの hash（正規化した綴り）。**listener 側も内容で短絡する**ための
+  // 目印で、下の navigate が持っていた短絡と対になる。
+  //
+  // ⚠️ **この非対称が実害を出した。** navigate は「同じ hash なら何もしない」と
+  // 比較していたのに、listener は届いた event を無条件に state へ流していた。
+  // hashchange は**中身が同じでも届きうる**——URL を代入してから listener が張られる
+  // までの分や、1つの処理の中で2回代入したときの2発目は、listener が読む時点では
+  // 既に現在の hash と同じである。その1発ごとに setRoute が**内容の同じ新しい
+  // Route オブジェクト**を作り、下流（意思決定の一覧の「外から来た条件の取り込み」）が
+  // 「URL が変わった」と受け取って、**利用者がその瞬間に操作していた値を URL 側の
+  // 古い値で上書き**していた。実測では 60回に2回この順序が噛み合って再現した。
+  //
+  // 取り込むものが無い event では state を差し替えない。genuine な遷移（綴りが
+  // 変わる）は従来どおり全部通る。
+  const appliedHash = useRef<string>(routeHash(route));
 
   useEffect(() => {
-    const onHashChange = () => setRoute(currentRoute());
+    const onHashChange = () => {
+      const next = currentRoute();
+      const hash = routeHash(next);
+      if (hash === appliedHash.current) return;
+      appliedHash.current = hash;
+      setRoute(next);
+    };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);

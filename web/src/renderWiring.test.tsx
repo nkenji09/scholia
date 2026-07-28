@@ -91,7 +91,7 @@ import type { FakeServer, Mounted } from './testing/renderHarness';
 let server: FakeServer | null = null;
 let mounted: Mounted | null = null;
 
-afterEach(() => {
+afterEach(async () => {
   const unhandled = server?.unhandled ?? [];
   mounted?.unmount();
   mounted = null;
@@ -99,6 +99,11 @@ afterEach(() => {
   server = null;
   vi.useRealTimers();
   resetBrowserState();
+  // ⚠️ **URL の後始末が次のテストへ漏れないようにする。** hash の代入で生まれる
+  // hashchange は次の macrotask で届くので、ここで流しておかないと**次のテストが
+  // 起こした画面**に届く。届いた先で何が起きるかは製品側の作りの問題（それは
+  // 上の検査が値で守る）だが、テストが互いの URL 操作を受け取る形自体を残さない。
+  await new Promise((r) => setTimeout(r, 0));
   // ⚠️ **起こした面すべてで見る。** 1つの URL の中だけで見ていた頃は、別の面でだけ
   // 新しい口を叩き始める形が素通りした。空でなければ、製品が叩いた口に harness が
   // 答えていない＝この harness はその面の経路を1式ぶん迂回している。
@@ -115,15 +120,21 @@ async function open(hash: string): Promise<HTMLElement> {
 }
 
 /** 期待の行並びに落ち着くのを待ってから、値として突き合わせる。待ちで失敗させず
-    最後に expect するのは、食い違ったときに「何が出ていたか」を出すため。 */
+    最後に expect するのは、食い違ったときに「何が出ていたか」を出すため。
+    ⚠️ 「まだ来ていない」と「来ない」を赤の文面で見分けられるよう、**何 ms 待って
+    何が出ていたか**を添える（追跡がここで止まらないように）。 */
 async function expectRows(host: HTMLElement, want: string[]): Promise<void> {
+  const started = performance.now();
   await waitFor(() => rowMarkers(host).join(',') === want.join(','), `行が ${want.join(',')} になる`, 1500).catch(() => {});
-  expect(rowMarkers(host)).toEqual(want);
+  const waited = Math.round(performance.now() - started);
+  expect(rowMarkers(host), `${waited}ms 待った時点の行`).toEqual(want);
 }
 
 async function expectHash(match: RegExp): Promise<void> {
+  const started = performance.now();
   await waitFor(() => match.test(window.location.hash), `URL が ${match} を含む`, 1500).catch(() => {});
-  expect(window.location.hash).toMatch(match);
+  const waited = Math.round(performance.now() - started);
+  expect(window.location.hash, `${waited}ms 待った時点の URL`).toMatch(match);
 }
 
 describe('URL に書かれた条件が、一覧の行になって出る（01KYKS4Y56FAHRVCWKMQJK4RT6）', () => {
@@ -237,6 +248,29 @@ describe('URL に書かれた条件が、一覧の行になって出る（01KYKS
     server.release(); // 握っていた応答がここで返る＝App が再描画される
     await new Promise((r) => setTimeout(r, 50));
     expect(rowMarkers(host), '飛んでいた応答が返った拍子に操作が消えた').toEqual(['D5']);
+    await expectHash(/dc=superseded/);
+  });
+
+  it('URL が変わっていない hashchange が届いても、その間の操作が消えない', async () => {
+    // ⚠️ **これも harness が実際に見つけた欠陥の再発防止である。**
+    // `hashchange` は**中身が同じでも届きうる**——URL を代入してから listener が
+    // 張られるまでの分や、1つの処理の中で2回代入したときの2発目は、listener が読む
+    // 時点では既に現在の hash と同じになっている。それを無条件に取り込むと、内容の
+    // 同じ**新しい Route** が作られ、下流の「外から来た条件の取り込み」が「URL が
+    // 変わった」と受け取って、**その瞬間に利用者が操作していた値を古い値で上書き**する。
+    //
+    // 実測では、この順序が偶然噛み合って 60回に2回だけ赤くなる形で出ていた。
+    // **たまたま噛み合うのを待つ検査にはしない**——届く event を明示的に届けて、
+    // 順序として固定する。
+    const host = await open('#/decisions?on=tag:req.cli');
+    await expectRows(host, ['D6']);
+    selectValue(railSelects(host)[1], 'superseded');
+    await expectRows(host, ['D5']);
+    const hashBefore = window.location.hash;
+    window.dispatchEvent(new Event('hashchange'));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(window.location.hash, 'この検査は URL を変えない（変えたら別の検査になる）').toBe(hashBefore);
+    expect(rowMarkers(host), '取り込むものが無い hashchange で操作が消えた').toEqual(['D5']);
     await expectHash(/dc=superseded/);
   });
 });
