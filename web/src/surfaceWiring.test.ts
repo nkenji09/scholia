@@ -14,6 +14,7 @@ import { DICTS } from './strings';
 import decisionListSource from './components/decisions/DecisionList.tsx?raw';
 import inheritedSummarySource from './components/browse/inheritedSummary.ts?raw';
 import decisionsViewSource from './components/decisions/DecisionsView.tsx?raw';
+import decisionDetailSource from './components/decisions/DecisionDetailView.tsx?raw';
 import appSourceForList from './app.tsx?raw';
 
 // 「新しい面が共通配線を通っているか」を機械化するガード（A是正 01KYH2533234PGSN4MDQ6ZXJHA）。
@@ -191,22 +192,39 @@ describe('継承した規則の開示がカードに配線されている（条�
 // 出し分けの判断（継承0・own ありのカードでも出す）は値として検査できる純関数
 // shouldDiscloseWhole へ切り出してある（01KYK4YTB8087JT5GNV5QB26T2）。値の正しさは
 // inheritedSummary.test.ts が守るので、ここでは (1) その純関数を実際に通っている
-// こと、(2) <WholeRules> の描画が「継承ブロックの件数ゲート」の**外側**にあること
+// こと、(2) <WholeRules> の描画が**どの条件ゲートの内側にも入っていない**こと
 // ——の2つだけを見る。(2) は「`{total > 0 && (` という文字列がある」「`<WholeRules>`
 // という文字列がある」を別々に確認するだけでは守れない。呼び出しをゲートの内側へ
-// 移す変異（3度目に実際に出た欠陥）は両方の文字列をそのまま残すので、それでは
-// 緑のまま通る。ゲートを開き括弧の対応で切り出し、その範囲の**内と外**を見る。
+// 移す変異は両方の文字列をそのまま残すので、それでは緑のまま通る。ゲートを開き
+// 括弧の対応で切り出し、その範囲の**内と外**を見る。
 //
-// このガードの射程（捕まえられない変異の型）: shouldDiscloseWhole 自身が呼ばれて
-// さえいれば、その中身の正しさはここでは見ない（値の正しさは inheritedSummary.test.ts
-// の役目）。また DOM を実際に起こしたときの見え方（本当に描画されるか）はここでは
-// 見ない——ソースの静的な構造だけを見る配線ガードである。
+// 特定の1ゲート（`{total > 0 && (`）だけを見る形にしないこと。レビューで、別条件で
+// 包む変異（`{sources.length > 0 && <WholeRules …/>}`）と、同型ゲートを増設して内側へ
+// 移す変異の2つが緑のまま通った。`sources` は own を除いて作るので、前者は own のみ・
+// 継承0 のカード（実測 tag 21件）の開示を丸ごと消す——このガードが守ると称する
+// まさにその性質を壊す。よってソース中の `{… && (` を**全部**列挙して回し、同一行で
+// 条件付きにする形（`{x && <WholeRules …/>}`）も併せて塞ぐ。
+//
+// このガードの射程（捕まえられない変異の型）:
+//   - shouldDiscloseWhole 自身の中身の正しさは見ない（値の正しさは
+//     inheritedSummary.test.ts の役目）。
+//   - DOM を実際に起こしたときの見え方（本当に描画されるか）は見ない。ソースの
+//     静的な構造だけを見る配線ガードである。
+//   - `&&` を使わない形で包む変異（三項演算子・early return で JSX を差し替える・
+//     ヘルパー関数の中へ隠す等）は、ゲートとして列挙できないので捕まらない。
+//   - **整形に敏感である。** ゲートの列挙も下の早期 return の検査も、条件式が1行に
+//     閉じていることを前提にしたソース文字列の照合なので、振る舞いを変えない整形
+//     （prettier 風の複数行化・変数名の変更・コールバックの括り出し）で落ちうる。
+//     落ち方は安全側（緑にならない）だが、意味のない赤が出たときは、ガードを緩める
+//     前にこの射程の記述を疑うこと。
 
-/** `{cond && (` で始まる JSX ゲートを、開き括弧の対応が取れる終端まで切り出す。 */
-function extractGate(source: string, marker: string): string {
-  const start = source.indexOf(marker);
-  if (start < 0) throw new Error(`gate marker not found: ${marker}`);
-  const openParenIndex = start + marker.length - 1; // marker は '(' で終わる
+/** `{cond && (` で始まる JSX ゲートを、開き括弧の対応が取れる終端まで切り出す。
+    複数のゲートを回せるよう、marker 文字列ではなく**開始位置**を受け取る形にして
+    ある——`indexOf(marker)` で探す形だと同じ marker の2つめ以降を取れず、同型
+    ゲートを増設する変異がそこから素通りする。 */
+function extractGate(source: string, start: number): string {
+  const openParenIndex = source.indexOf('(', start);
+  if (openParenIndex < 0) throw new Error(`gate has no '(' after index ${start}`);
   let depth = 0;
   let i = openParenIndex;
   for (; i < source.length; i++) {
@@ -216,7 +234,7 @@ function extractGate(source: string, marker: string): string {
       if (depth === 0) break;
     }
   }
-  if (depth !== 0) throw new Error(`unbalanced parens for gate: ${marker}`);
+  if (depth !== 0) throw new Error(`unbalanced parens for gate at index ${start}`);
   return source.slice(start, i + 1);
 }
 
@@ -229,15 +247,27 @@ describe('全体をどこで読めるかがカードから読める（追補 条
     expect(inheritedRulesSource).toMatch(/if \(!shouldDiscloseWhole\(/);
   });
 
-  it('WholeRules が継承ブロックの件数ゲートの外側にある（構造そのものを見る）', () => {
-    // 継承ブロック側は total で出し分ける（継承0で「継承した規則 0件」とは言わない）。
-    const gate = extractGate(inheritedRulesSource, '{total > 0 && (');
-    // 呼び出しをゲートの内側へ移す変異はここで落ちる: <WholeRules> がこの範囲に
-    // 入ってしまうと、継承0・own ありのカードから開示ごと消える。
-    expect(gate).not.toMatch(/<WholeRules/);
-    // ゲートの外（後続）に、記録を渡した WholeRules が実在すること。
-    const afterGate = inheritedRulesSource.slice(inheritedRulesSource.indexOf(gate) + gate.length);
-    expect(afterGate).toMatch(/<WholeRules[\s\S]{0,60}record=\{record\}/);
+  it('WholeRules がどの条件ゲートの内側にも入っていない（構造そのものを見る）', () => {
+    // 継承ブロック側は total で出し分ける（継承0で「継承した規則 0件」とは言わない）が、
+    // その1ゲートだけを見ると「別条件で包む」「同型ゲートを増設して内側へ移す」変異が
+    // 素通りする。ソース中の `{… && (` を全部回して、どれの内側にも入っていないことを見る。
+    const gates = [...inheritedRulesSource.matchAll(/\{[^{}\n]*&&\s*\(/g)];
+    expect(gates.length, '条件ゲートが1つも見つからない（列挙の正規表現が壊れている）').toBeGreaterThan(0);
+    for (const m of gates) {
+      const gate = extractGate(inheritedRulesSource, m.index!);
+      expect(gate, `ゲート ${m[0].trim()} の内側に WholeRules がある`).not.toMatch(/<WholeRules/);
+    }
+    // 同一行で条件付きにする形（`{x && <WholeRules …/>}`）は上の括弧対応では
+    // 取れないので、行単位でも塞ぐ。
+    for (const line of inheritedRulesSource.split('\n')) {
+      if (line.includes('<WholeRules')) {
+        expect(line, `WholeRules の行が条件付きになっている: ${line.trim()}`).not.toMatch(/&&/);
+      }
+    }
+    // どのゲートの内側にも無いだけでは「そもそも描かれていない」形も通るので、
+    // 記録を渡した呼び出しが実在することを併せて見る（上の it と重なるが、この
+    // 検査が「無いから内側にも無い」で緑になるのを防ぐ）。
+    expect(inheritedRulesSource).toMatch(/<WholeRules[\s\S]{0,60}record=\{record\}/);
   });
 
   it('事実そのものは畳まれていない', () => {
@@ -258,6 +288,40 @@ describe('全体をどこで読めるかがカードから読める（追補 条
 
   it('開示を黙らせる早期 return が入っていない', () => {
     expect(wholeRulesSource).not.toMatch(/return null/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 意思決定の単票が生成 id をどう扱うか（01KYK4YNCYGZHHXB4H90Q996T2 条項3〜5）
+//
+// 条項3 は「不透明な id を機能を持たないメタ情報として既定の見え方に置かない」、
+// 条項5 は「消すときに到達手段を落とさない」を求める。単票にはこれ以外に id へ
+// 到達する経路が無いので、**両方が同時に成り立っていないと決定を満たさない**——
+// 開示を消せば条項5 が破れ、見出し下へ id を戻せば条項3 が破れる。
+//
+// この面はこの差し戻しまでガードを1件も持っておらず、開示を丸ごと消す変異も
+// 見出し下へ生 id を戻す変異も緑のまま通っていた。ここがまさに、この repo が
+// 4度繰り返している「外れても誰も気づかない配線」である。
+//
+// 射程（捕まえられない型）: 上の WholeRules ガードと同じく静的なソース照合なので、
+// DOM を起こしたときの見え方は見ない。文言・コマンドの正しさも見ない（開示の中身は
+// DecisionIdReveal 側の責務）。**整形に敏感**な点も同じ。
+
+describe('意思決定の単票が生成 id を既定に置かず、到達手段を残している（01KYK4YNCYGZHHXB4H90Q996T2 条項3〜5）', () => {
+  it('求めたときに出す開示（DecisionIdReveal）が単票に描かれている（条項5＝到達手段）', () => {
+    // 開示ごと消す変異はここで落ちる。消すと id を得る唯一の経路が黙って失われる。
+    expect(decisionDetailSource).toMatch(/<DecisionIdReveal[\s\S]{0,60}id=\{decision\.id\}/);
+  });
+
+  it('見出し下のメタに生 id が戻っていない（条項3＝既定の見え方に置かない）', () => {
+    // `.decision-detail-meta` の器を括弧の対応ではなく閉じタグで切り出す（JSX の
+    // div なので `</div>` まで）。この中に decision.id を描く形が復活したら落ちる。
+    const start = decisionDetailSource.indexOf('class="decision-detail-meta');
+    expect(start, 'decision-detail-meta が見つからない').toBeGreaterThan(-1);
+    const end = decisionDetailSource.indexOf('</div>', start);
+    expect(end, 'decision-detail-meta の閉じタグが見つからない').toBeGreaterThan(-1);
+    const meta = decisionDetailSource.slice(start, end);
+    expect(meta, `meta に生 id が描かれている: ${meta.trim()}`).not.toMatch(/\{decision\.id\}/);
   });
 });
 
