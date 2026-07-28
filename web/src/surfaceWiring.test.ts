@@ -291,6 +291,16 @@ describe('全体をどこで読めるかがカードから読める（追補 条
     expect(linkAt, '実リンクが見つからない').toBeGreaterThan(-1);
     expect(headAt, '畳みの見出しが見つからない').toBeGreaterThan(-1);
     expect(linkAt, '実リンクが畳みの内側／後ろに移っている').toBeLessThan(headAt);
+    // 行をまたぐゲートで包む変異は、上の2つ（前後関係・同一行の `&&`）では取れない
+    // ——概要側には足したこの列挙が、カード側に無かった。ソース中の `{… && (` を
+    // 全部回して、どれの内側にも入っていないことを見る（1つのゲートだけを見る形に
+    // しない・`CLAUDE.md`「配線ガードの書き方」3）。
+    const gates = [...wholeRulesSource.matchAll(/\{[^{}\n]*&&\s*\(/g)];
+    expect(gates.length, '条件ゲートが1つも見つからない（列挙の正規表現が壊れている）').toBeGreaterThan(0);
+    for (const m of gates) {
+      const gate = extractGate(wholeRulesSource, m.index!);
+      expect(gate, `ゲート ${m[0].trim()} の内側に実リンクがある`).not.toMatch(/class="whole-rules-link"/);
+    }
     for (const line of wholeRulesSource.split('\n')) {
       if (line.includes('whole-rules-link')) {
         expect(line, `実リンクの行が条件付きになっている: ${line.trim()}`).not.toMatch(/&&/);
