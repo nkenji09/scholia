@@ -79,6 +79,16 @@ export interface Route {
   decisionTag?: string;
   decisionCurrency?: string;
   decisionPeriod?: string;
+  /** 意思決定の一覧の「どの対象か」「どの向きか」（01KYKS4Y56FAHRVCWKMQJK4RT6）。
+      `on` は `tag:<id>` / `transition:<id>` / `vocab:<id>` / `decision:<ulid>` の
+      いずれか1件、`scope` は own / governing / subtree。上の5条件（dk/dt/dc/dp と
+      共有の q）とは AND で合成される別の条件で、置き換えではない。
+      `decision:<ulid>` の形が単票の代わり——1件に絞り込んだ一覧が permalink に
+      なる。既定（subtree）は省いて URL を汚さない（dk/dp と同じ扱い）。
+      キー名そのものは実装詳細（decision には書かない・01KXYED63EKN9DXTZ3XT498Q3M
+      と同じ規律）。 */
+  decisionOn?: string;
+  decisionScope?: string;
   /** #/flow 一覧の絞り込み状態（viewer-search-consistency・flow-browse／
       deep-linking amend）。フリーワードは共有 searchQuery（q）、kind facet は
       共有 searchKindFacet（k）に相乗りし、タグ AND だけ専用キー ft に comma
@@ -178,6 +188,13 @@ export function parseRoute(hash: string): Route {
     if (dt) route.decisionTag = dt;
     if (dc) route.decisionCurrency = dc;
     if (dp) route.decisionPeriod = dp;
+    // 対象と向き（01KYKS4Y56FAHRVCWKMQJK4RT6）。値の解釈（`tag:` 等の綴り・
+    // 既定の向き）は decisionScope.ts が1箇所で持つので、router は不透明な
+    // 文字列として運ぶだけ（searchFilters を filters.ts に委ねているのと同じ形）。
+    const on = params.get('on');
+    const scope = params.get('scope');
+    if (on) route.decisionOn = on;
+    if (scope) route.decisionScope = scope;
     // #/flow filter tags (viewer-search-consistency) — comma-joined tag id
     // list; plain truthy-check like q/k (absent = no tag filter).
     const ft = params.get('ft');
@@ -234,9 +251,20 @@ export function routeHash(route: Route): string {
   if (route.decisionTag) params.set('dt', route.decisionTag);
   if (route.decisionCurrency) params.set('dc', route.decisionCurrency);
   if (route.decisionPeriod) params.set('dp', route.decisionPeriod);
+  // 対象と向き。既定の向き（subtree）は App が undefined に正規化して渡すので、
+  // ここは「値があれば出す」だけ（dk/dp と同じ扱い）。
+  if (route.decisionOn) params.set('on', route.decisionOn);
+  if (route.decisionScope) params.set('scope', route.decisionScope);
   // #/flow filter tags (viewer-search-consistency) — omit when empty.
   if (route.flowTags) params.set('ft', route.flowTags);
-  const qs = params.toString();
+  // `:` はクエリ部分でエスケープが要らない文字（RFC 3986 の pchar）なのに、
+  // URLSearchParams は %3A に畳んでしまう。絞り込み条件は「対象:id」の形を持つので
+  // （`on=tag:req.x` / `f=tag:req.x`）、そのままだと URL が `on=tag%3Areq.x` になる
+  // ——利用者が読んで組み立てる前提の条件なので、読める形に戻す。
+  //
+  // 値の中に含まれる本物の `:` は encodeURIComponent 済みで `%253A` になっており
+  // （`%`+`2`+`5`+`3`+`A`）、この置換の対象文字列 `%3A` を含まないので巻き込まない。
+  const qs = params.toString().replace(/%3A/g, ':');
   if (qs) hash += `?${qs}`;
   return hash;
 }

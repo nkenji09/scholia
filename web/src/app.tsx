@@ -8,8 +8,9 @@ import { FlowView } from './components/FlowView';
 import { FlowIndexView } from './components/FlowIndexView';
 import type { FlowFilterState } from './components/FlowIndexView';
 import { DecisionsView } from './components/decisions/DecisionsView';
-import type { DecisionFilterState } from './components/decisions/DecisionsView';
-import { DecisionDetailView } from './components/decisions/DecisionDetailView';
+import { DecisionPermalinkRedirect } from './components/decisions/DecisionPermalinkRedirect';
+import { conditionsFromRoute, routeParamsFromConditions } from './components/decisions/decisionFilter';
+import { formatScopeTarget } from './components/decisions/decisionScope';
 import { CommentPanel } from './components/comments/CommentPanel';
 import { useComments } from './components/comments/useComments';
 import type { CommentRecord } from './components/comments/useComments';
@@ -68,6 +69,8 @@ export function App() {
         | 'decisionTag'
         | 'decisionCurrency'
         | 'decisionPeriod'
+        | 'decisionOn'
+        | 'decisionScope'
         | 'flowTags'
       >
     >
@@ -89,6 +92,10 @@ export function App() {
         decisionTag: route.decisionTag,
         decisionCurrency: route.decisionCurrency,
         decisionPeriod: route.decisionPeriod,
+        // 対象と向き（01KYKS4Y56FAHRVCWKMQJK4RT6）も他の条件と同じ扱いで覚える
+        // ——タブを往復して戻ったときに、絞り込みだけが黙って外れないように。
+        decisionOn: route.decisionOn,
+        decisionScope: route.decisionScope,
         // #/flow list filters (viewer-search-consistency) — same tab-hop memory.
         flowTags: route.flowTags,
       });
@@ -118,12 +125,12 @@ export function App() {
   const openOverviewAt = (cId: string, pId?: string) => navigate({ view: 'overview', componentId: cId, partId: pId });
   const openTagSpec = (tagId: string) => navigate({ view: 'spec', tagId });
   const openVocabEntry = (vocabId: string) => navigate({ view: 'vocab', vocabId });
-  // Decisions read-surface (D10a): the list is a searchable view (its
-  // remembered free-text search round-trips through searchMemory, same as
-  // tags/vocab); the detail is a pure focus route keyed by the decision ulid
-  // (a shareable permalink), same shape as openTagSpec/openTransition.
-  const openDecisions = () => navigate({ view: 'decisions', ...searchMemory.current.get('decisions') });
-  const openDecision = (decisionId: string) => navigate({ view: 'decision', decisionId });
+  // 意思決定の面は一覧1つだけになった（単票は廃止・旧 URL は転送）。ナビタブから
+  // 開く経路は setView('decisions') が担い、覚えていた絞り込みもそこで復元される。
+  // 1件を開く＝**その1件に絞り込んだ一覧**を開く（01KYKS4Y56FAHRVCWKMQJK4RT6）。
+  // 専用の画面へは行かない。他の条件は持ち込まない——名指しの1件に別の絞り込みを
+  // 掛けると、置き換え済みの相手を指す導線が既定の効力フィルタで消える。
+  const openDecision = (decisionId: string) => navigate({ view: 'decisions', decisionOn: formatScopeTarget({ type: 'decision', id: decisionId }) });
   // A plain nav-tab hop restores that view's remembered search (see
   // searchMemory above) so the URL round-trips its filters; focus jumps
   // (openTagSpec/openTransition/openVocabEntry) deliberately DON'T, since those
@@ -220,37 +227,20 @@ export function App() {
         ))}
       {view === 'decisions' && (
         <DecisionsView
-          searchQuery={route.searchQuery || ''}
-          // DecisionsView filter state lives in the URL (#45 D10b-4) so
-          // reload/Back restore the same 絞り込み. The view resolves defaults
-          // ('all'/'') from undefined; onFiltersChange merges every field into
-          // the hash at once (a single navigate keeps them composed).
-          targetKind={(route.decisionTargetKind || 'all') as DecisionFilterState['targetKind']}
-          // Tag filter widened to a comma-joined id list (viewer-search-
-          // consistency): '' = no tag filter (not the 'all' sentinel the other
-          // axes use). The dt URL key is unchanged; only its value shape grew.
-          tagFilter={route.decisionTag || ''}
-          // 効いていないものは既定で本文に混ぜない（01KYHW54B8ZXH0NEPH2J7N1X39
-          // 条項4）。一覧には畳む器が無いので、既定の絞り込みが「効いているもの
-          // だけ」であることがその役目を果たす。'all'/'superseded' は利用者が
-          // 明示的に選んだときだけ——なので URL では **'current' を省略側**に置く
-          // （他の軸の 'all' 省略とは既定が違う点に注意）。
-          currency={(route.decisionCurrency || 'current') as DecisionFilterState['currency']}
-          period={(route.decisionPeriod || 'all') as DecisionFilterState['period']}
-          onFiltersChange={(f) =>
-            navigate({
-              view: 'decisions',
-              searchQuery: f.query || undefined,
-              decisionTargetKind: f.targetKind === 'all' ? undefined : f.targetKind,
-              decisionTag: f.tagFilter || undefined,
-              decisionCurrency: f.currency === 'current' ? undefined : f.currency,
-              decisionPeriod: f.period === 'all' ? undefined : f.period,
-            })
-          }
+          // 条件は URL が正。読みと書き戻しの**両方**を decisionFilter の純関数に
+          // 通す（01KYKS4Y56FAHRVCWKMQJK4RT6）。prop を1つずつ並べる形をやめたのは、
+          // 差し戻し1回目で「この prop だけ握り潰す」変異（`on={''}` 等）が
+          // テスト緑のまま素通りしたため——口を減らし、対応の正しさは
+          // decisionFilter.test.ts が値として守る（CLAUDE.md「配線ガードの書き方」1）。
+          conditions={conditionsFromRoute(route)}
+          onConditionsChange={(c) => navigate({ view: 'decisions', ...routeParamsFromConditions(c) })}
           onOpenDecision={openDecision}
         />
       )}
-      {view === 'decision' && <DecisionDetailView decisionId={route.decisionId} onBack={openDecisions} onOpenDecision={openDecision} />}
+      {/* 旧単票の URL は転送で生かす（01KYKS4Y56FAHRVCWKMQJK4RT6）。過去の記録や
+          他人に渡したリンクを黙って殺さないための保険で、着く先は同じ中身
+          （1件に絞り込んだ一覧＝開いた状態で着地する）。 */}
+      {view === 'decision' && <DecisionPermalinkRedirect decisionId={route.decisionId} />}
       {view === 'config' && <ConfigView />}
       <CommentPanel onGoto={gotoComment} />
     </>

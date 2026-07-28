@@ -2,8 +2,7 @@
    home-recent-* と同系のカード/リスト意匠を踏襲し、決定固有の現行性バッジ・
    チップ・詳細節だけを新規に足す。 */
 
-.decisions-view,
-.decision-detail-view {
+.decisions-view {
   padding: var(--sp-6) var(--sp-4) var(--sp-8);
   overflow-y: auto;
   max-width: 940px;
@@ -14,8 +13,7 @@
   gap: var(--sp-5);
 }
 
-.decisions-hero h1,
-.decision-detail-header h1 {
+.decisions-hero h1 {
   margin: 0 0 var(--sp-2);
   display: inline-flex;
   align-items: center;
@@ -173,8 +171,7 @@
   gap: var(--sp-2);
 }
 
-.decision-row-target,
-.decision-detail-target {
+.decision-row-target {
   font-weight: 600;
   color: var(--lm-text-strong);
   display: inline-flex;
@@ -183,8 +180,7 @@
   min-width: 0;
 }
 
-.decision-row-target-kind,
-.decision-detail-target-kind {
+.decision-row-target-kind {
   font-size: var(--fs-3xs);
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -240,59 +236,7 @@
   border-color: var(--lm-warning-weak);
 }
 
-/* ── detail page ─────────────────────────────────────────────────────── */
-.decision-back {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border: none;
-  background: transparent;
-  color: var(--lm-primary-strong);
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  padding: 0;
-}
-
-/* Back-arrow points left (the shared arrow-right icon is flipped). */
-.decision-back svg {
-  transform: scaleX(-1);
-}
-
-.decision-detail-header {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-  padding-bottom: var(--sp-4);
-  border-bottom: 1px solid var(--lm-border);
-}
-
-.decision-detail-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-3);
-  flex-wrap: wrap;
-}
-
-.decision-detail-target {
-  font-size: var(--fs-lg);
-}
-
-.decision-detail-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-4);
-  font-size: var(--fs-3xs);
-  font-family: var(--lm-font-mono);
-}
-
-.decision-detail-meta span {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
+/* ── 展開した行の中の節（旧単票から引き継いだ意匠） ───────────────── */
 .decision-detail-section {
   display: flex;
   flex-direction: column;
@@ -378,4 +322,49 @@
   border-radius: var(--r-full);
   background: var(--lm-info-weak);
   color: var(--lm-info-strong);
+}
+
+/* ── 一覧の行が単票の中身を全部持つ（01KYKS4Y56FAHRVCWKMQJK4RT6） ──────────
+   単票は廃止され、行がその代わりになった。行は <button> ではなく <div>——中に
+   トグル・チップ・リンクが入るので、行全体をボタンにすると入れ子になる。
+   意匠は従来の行（.decision-row）をそのまま使い、展開したときの内側だけを足す。 */
+.decision-row-expandable {
+  gap: var(--sp-3);
+}
+
+/* 置き換え済みの行。効いているものとの違いを1つだけ（左の帯）で示し、色の段階で
+   序列を作らない（01KYHW54B8ZXH0NEPH2J7N1X39 条項1）。 */
+.decisions-list .decision-row.replaced {
+  border-left: 3px solid var(--lm-border-strong);
+  background: var(--lm-s2);
+}
+
+/* 展開したときの内側。単票の節（なぜ／変更内容／参照／commit／容認／置き換え関係）を
+   そのまま縦に積む。単票の .decision-detail-section の意匠を流用する。 */
+.decision-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-3) 0 var(--sp-1);
+  border-top: 1px solid var(--lm-border);
+}
+
+.decision-row-body .decision-detail-why,
+.decision-row-body .decision-detail-changed {
+  font-size: var(--fs-sm);
+  line-height: 1.85;
+}
+
+.decisions-list .decision-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+/* 名指しの1件のあいだ、他の絞り込みが掛かっていないことを述べる注記。 */
+.decisions-named-note {
+  margin: 0;
+  font-size: var(--fs-3xs);
+  line-height: 1.8;
 }

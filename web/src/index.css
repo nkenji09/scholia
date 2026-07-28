@@ -13,6 +13,7 @@
 @import './styles/components/list-item.css';
 @import './styles/components/chip.css';
 @import './styles/components/card.css';
+@import './styles/components/decision-row.css';
 @import './styles/components/resizer.css';
 
 @import './styles/views/home.css';

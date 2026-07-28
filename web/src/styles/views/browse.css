@@ -774,6 +774,23 @@
   cursor: pointer;
 }
 
+/* 支配する規則の全体への入口（WholeRules・01KYKS4Y56FAHRVCWKMQJK4RT6）。
+   お詫びだった時代は畳みの見出しだけだったので、実リンクの分の意匠を足す。
+   他の .whole-rules-* と同じこのファイルに置く（カードの面の部品なので）。 */
+.whole-rules-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--lm-primary-strong);
+  text-decoration: none;
+}
+
+.whole-rules-link:hover {
+  text-decoration: underline;
+}
+
 .whole-rules-copy:hover {
   border-color: var(--lm-primary-ring);
 }
@@ -869,38 +886,11 @@
   gap: 10px;
 }
 
-.decision-row-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 0;
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-size: var(--fs-2xs);
-  font-weight: 700;
-  color: var(--lm-primary-strong);
-}
-
-/* 付帯情報（条項2）: 読み飛ばしてよい注記に見えないよう、リンクとして描く。 */
-.decision-row-related,
-.overview-rule-related {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: var(--fs-2xs);
-  font-weight: 700;
-  color: var(--lm-primary-strong);
-  text-decoration: none;
-  border-bottom: 1px solid var(--lm-primary-ring);
-}
+/* トグル・関連導線・スペーサは3面で共有するので components/decision-row.css にある
+   （面の stylesheet に置くと、片方を触った瞬間に他の面が黙って変わる）。 */
 
 .decision-row-related-note {
   font-size: var(--fs-3xs);
-}
-
-.decision-row-spacer {
-  flex: 1;
 }
 
 .decision-list .decision-row-at {
