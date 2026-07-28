@@ -4,6 +4,7 @@ import { copyText } from '../../clipboard';
 import { routeHash } from '../../router';
 import { HashLink } from '../shared/HashLink';
 import { Icon } from '../shared/Icon';
+import { formatScopeTarget } from '../decisions/decisionScope';
 import { rulesCommand } from './rulesCommand';
 import type { RecordRef } from './rulesCommand';
 
@@ -22,8 +23,8 @@ import type { RecordRef } from './rulesCommand';
 //
 // 判定は viewer 側で作り直していない。リンクが渡すのは「対象＝この記録」「向き＝
 // 自身＋祖先」という絞り込み条件だけで、その集合を決めるのは GET /api/governs
-// （CLI `scholia rules` と同じ Go コア）である——**同じ選択規則を2箇所に書かない**
-// （01KXYED61J6QBEX75H2XHVHW7Y の診断・追補の「採らなかった選択肢」の警告）。
+// （Go 側 `internal/index` の GovernsFor*）である——**viewer 側に選択規則をもう一本
+// 書かない**（01KXYED61J6QBEX75H2XHVHW7Y の診断・追補の「採らなかった選択肢」の警告）。
 //
 // 端末で読む手段は**残す**。リンクができたからといって消すと、全文を1つの並びで
 // 一気に読む／貼り付ける経路が失われる（01KYK4YNCYGZHHXB4H90Q996T2 条項5・
@@ -34,10 +35,11 @@ import type { RecordRef } from './rulesCommand';
 // 呼び出し側（InheritedRules）が governs から数えて渡す。開示した件数とリンク先で
 // 読める件数が食い違わないように、数え方を2箇所に持たない。
 
-/** 記録の種別 → 絞り込み条件の対象の種別。`transition` は綴りまで CLI の
-    `--on transition:<id>` に揃えてある（同じ語彙を2通りに綴らない）。 */
+/** 記録の種別 → 絞り込み条件の対象。綴りの正規化（`transition:` に寄せる）は
+    decisionScope が1箇所で持つ——ここで手組みすると、読み側と書き側で綴りが
+    割れる余地が残る。 */
 function scopeRef(record: RecordRef): string {
-  return `${record.kind}:${record.id}`;
+  return formatScopeTarget({ type: record.kind, id: record.id });
 }
 
 export function WholeRules({ record, inForceCount }: { record: RecordRef; inForceCount: number }) {

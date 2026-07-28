@@ -15,6 +15,7 @@ import { loadRegionShape, saveRegionShape } from '../../regionShape';
 import { loadCardSectionOpen, saveCardSectionOpen } from '../../collapseState';
 import { summaryOf } from '../../decisionSummary';
 import { buildCurrencyIndex, effectOf, relatedDecisions, replacedBy } from '../decisions/decisionModel';
+import { formatScopeTarget } from '../decisions/decisionScope';
 import type { Config, Decision, Tag, TraceabilityResponse } from '../../types';
 
 // 概要ビュー（viewer-overview-browser）: 左=構造ツリー、右=コンポーネント仕様
@@ -972,7 +973,7 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
                     {partOpen && (
                     <div class="overview-part-body">
                     {/* ⑤: この part を target とする規則 */}
-                    {renderRules('part:' + p.id, p.rules, t.overview.rulesToggle, `tag:${p.id}`)}
+                    {renderRules('part:' + p.id, p.rules, t.overview.rulesToggle, formatScopeTarget({ type: 'tag', id: p.id }))}
                     {p.behaviors.map((b) => (
                       <div key={b.id} class="overview-behavior">
                         <div class="overview-when">
@@ -1028,7 +1029,7 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
                           </div>
                         )}
                         {/* ⑤: この振る舞い（transition）を target とする規則 */}
-                        {renderRules('tx:' + b.id, b.rules, t.overview.rulesToggle, `transition:${b.id}`)}
+                        {renderRules('tx:' + b.id, b.rules, t.overview.rulesToggle, formatScopeTarget({ type: 'transition', id: b.id }))}
                       </div>
                     ))}
                     </div>
@@ -1058,7 +1059,7 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
                       </HashLink>
                       {p.description && <span class="overview-prop-why">{p.description}</span>}
                       {/* ⑤: この制約を target とする規則 */}
-                      {renderRules('prop:' + p.id, p.rules, t.overview.rulesToggle, `tag:${p.id}`)}
+                      {renderRules('prop:' + p.id, p.rules, t.overview.rulesToggle, formatScopeTarget({ type: 'tag', id: p.id }))}
                     </div>
                   ))}
                 </div>

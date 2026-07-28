@@ -209,29 +209,24 @@ describe('継承した規則の開示がカードに配線されている（条�
 // まさにその性質を壊す。よってソース中の `{… && (` を**全部**列挙して回し、同一行で
 // 条件付きにする形（`{x && <WholeRules …/>}`）も併せて塞ぐ。
 //
-// このガードの射程（捕まえられない変異の型）:
-//   - shouldDiscloseWhole 自身の中身の正しさは見ない（値の正しさは
-//     inheritedSummary.test.ts の役目）。
-//   - DOM を実際に起こしたときの見え方（本当に描画されるか）は見ない。ソースの
-//     静的な構造だけを見る配線ガードである。
-//   - `&&` を使わない形で包む変異（三項演算子・early return で JSX を差し替える・
-//     ヘルパー関数の中へ隠す等）は、ゲートとして列挙できないので捕まらない。
-//   - **整形に敏感で、しかも転ぶ方向は一定ではない。** ゲートの列挙も下の早期
-//     return の検査も、条件式が1行に閉じていることを前提にしたソース文字列の照合
-//     である。振る舞いを変えない整形（複数行化・変数名の変更・コールバックの
-//     括り出し）に対して:
-//       ・早期 return の検査は**落ちる**方向に転ぶ（安全側。意味のない赤が出たら、
-//         ガードを緩める前にこの射程の記述を疑うこと）。
-//       ・ゲートの列挙は**列挙から漏れて素通りする**方向に転ぶ（危険側）。とくに
-//         ゲートの条件式が複数行に跨る形——`{cond &&` で改行して括弧を使わない／
-//         `{` の直後で改行してから条件を書く——は、列挙の正規表現が1行に閉じた
-//         `{… && (` しか拾わないため**捕まらない**。レビューで実測した2種
-//         （`{total > 0 &&` ⏎ `<WholeRules …/>}` と、`{` 直後で改行してから
-//         `total > 0 && (`）はどちらも緑のまま通り、own のみ・継承0 のカードの
-//         開示を消す。
-//     正規表現を任意の整形に耐えさせる方向は採っていない（この repo に
-//     フォーマッタは入っておらず整形は書き手の手癖で決まるので、耐性を上げるより
-//     「どう書くと漏れるか」を明記するほうが実効がある）。
+// このガードの射程（CLAUDE.md「配線ガードの書き方」2・6）:
+//
+// **ソース文字列の照合は、同じ意味を別の綴りで書かれれば捕まらない。** これは検査の
+// 書き方を工夫しても原理的に消えない性質なので、捕まらない綴りを1つずつ数え上げる
+// ことはしない（数え上げは必ず取りこぼす。実際、差し戻しのたびに新しい綴りが出た）。
+// ここで名乗るのは1つ:
+//
+//   **このファイルが守れているのは「その形で書かれていないこと」までで、
+//     「その振る舞いをしないこと」ではない。**
+//
+// だから、値として検査できる判断は**ここに置かない**。純関数へ出して、入力と出力の
+// 対で検査する（decisionFilter.test.ts / decisionScope.test.ts / navActive.test.ts /
+// inheritedSummary.test.ts）。ここに残すのは、値へ落とせない構造だけである:
+//   ・その要素が描かれているか（消す変異）
+//   ・どの条件ゲートの内側にも入っていないか（畳んで隠す変異）
+//   ・共通の純関数を迂回していないか（面の中で判断を組み直す変異）
+//
+// 実機で起こしたときの見え方は、どのみちここでは分からない（実機確認が担う）。
 
 /** `{cond && (` で始まる JSX ゲートを、開き括弧の対応が取れる終端まで切り出す。
     複数のゲートを回せるよう、marker 文字列ではなく**開始位置**を受け取る形にして
@@ -310,13 +305,15 @@ describe('全体をどこで読めるかがカードから読める（追補 条
     expect(wholeRulesSource).toMatch(/routeHash\(\{[\s\S]{0,120}view:\s*'decisions'/);
     expect(wholeRulesSource).toMatch(/decisionOn:\s*scopeRef\(record\)/);
     expect(wholeRulesSource).toMatch(/decisionScope:\s*'governing'/);
-    // 対象の綴りが記録の種別からそのまま組まれている（tag/transition/vocab を
-    // 取り違えると別のレコードの規則を出す）。
-    expect(wholeRulesSource).toMatch(/\$\{record\.kind\}:\$\{record\.id\}/);
+    // 対象の綴りは共有の組み立て（formatScopeTarget）を通る。手組みすると読み側と
+    // 書き側で綴りが割れる（値の正しさは decisionScope.test.ts が守る）。
+    expect(wholeRulesSource).toMatch(/formatScopeTarget\(\{\s*type:\s*record\.kind,\s*id:\s*record\.id\s*\}\)/);
     // 件数は純関数を通って渡る（開示した数と行き先の件数を一致させる。値の正しさは
     // inheritedSummary.test.ts の countWholeInForce が守る）。
     expect(inheritedRulesSource).toMatch(/\bcountWholeInForce\s*\(/);
-    expect(inheritedRulesSource).toMatch(/<WholeRules[\s\S]{0,120}inForceCount=\{/);
+    // 純関数は通したまま**値だけずらす**変異（`{wholeCount + 1}`）も落とすため、
+    // 渡す式そのものを固定する。名乗る件数と行き先の件数は一致していなければならない。
+    expect(inheritedRulesSource).toMatch(/<WholeRules[\s\S]{0,120}inForceCount=\{wholeCount\}/);
   });
 
   it('端末で読む手段が残っている（リンクができたからといって消さない）', () => {
@@ -483,8 +480,10 @@ describe('意思決定の一覧が提案B の3面のひとつとして揃って�
   });
 
   it('既定では効いているものだけを出す（条項4）', () => {
-    // 一覧には畳む器が無いので、既定の絞り込みがその役目を果たす。
-    expect(appSourceForList).toMatch(/route\.decisionCurrency \|\| 'current'/);
+    // 一覧には畳む器が無いので、既定の絞り込みがその役目を果たす。既定値そのものは
+    // decisionFilter（純関数）が持ち、decisionFilter.test.ts が値として守る
+    // ——ここは app がその変換を通っていることだけを見る。
+    expect(appSourceForList).toMatch(/conditions=\{conditionsFromRoute\(route\)\}/);
   });
 });
 
@@ -509,7 +508,9 @@ describe('一覧の行が単票の中身を全部吸収している（①）', (
   const ABSORBED: Array<[string, RegExp]> = [
     ['本文の全文（書式つき）', /<Markdown\s+text=\{d\.why\}/],
     ['変更内容', /<Markdown\s+text=\{d\.changed\}/],
-    ['参照', /decision-detail-ref/],
+    // URL のときのリンクと、そうでないときの本文の**両方**。片方だけ残す変異も落とす。
+    ['参照（リンク）', /class="decision-detail-ref-link"[\s\S]{0,80}\{d\.ref\}/],
+    ['参照（本文）', /<p class="decision-detail-ref">\{d\.ref\}<\/p>/],
     ['実装コミット', /commits\.map\(/],
     ['容認', /acknowledges\.map\(/],
     ['何を置き換え・改訂したか', /supersedes\.map\(/],
@@ -525,7 +526,14 @@ describe('一覧の行が単票の中身を全部吸収している（①）', (
   it('全文は展開の内側にあり、畳んだときは要約だけ（条項6）', () => {
     // 展開しても要約のまま／畳んでも全文が出る、のどちらへ倒れてもここで落ちる。
     expect(decisionRowFullSource).toMatch(/\{!open && <p class="decision-row-why">/);
-    expect(decisionRowFullSource).toMatch(/\{open && \(/);
+    const gateAt = decisionRowFullSource.indexOf('{open && (');
+    expect(gateAt, '展開のゲートが見つからない').toBeGreaterThan(-1);
+    const gate = extractGate(decisionRowFullSource, gateAt);
+    // 全文の描画は**1箇所だけ**で、それがゲートの内側にあること。ゲートを残したまま
+    // 外側へ複製する変異（畳んでも全文が出る）はここで落ちる。
+    const bodies = [...decisionRowFullSource.matchAll(/<Markdown text=\{d\.why\}/g)];
+    expect(bodies.length, `全文の描画が ${bodies.length} 箇所ある（1箇所であるべき）`).toBe(1);
+    expect(gate, '全文がゲートの内側にない').toMatch(/<Markdown text=\{d\.why\}/);
   });
 
   it('「併せて読む」が注記ではなく辿れる導線になっている（条項2・7）', () => {
@@ -546,9 +554,68 @@ describe('一覧の行が単票の中身を全部吸収している（①）', (
     const handler = /const\s+openDecision\s*=\s*\(([^)]*)\)\s*=>\s*([^;]+);/.exec(appSourceForList);
     expect(handler, 'openDecision の定義が見つからない').not.toBeNull();
     expect(handler![2]).toMatch(/view:\s*'decisions'/);
-    expect(handler![2]).toMatch(/decisionOn:\s*`decision:\$\{decisionId\}`/);
+    expect(handler![2]).toMatch(/formatScopeTarget\(\{\s*type:\s*'decision',\s*id:\s*decisionId\s*\}\)/);
     // 廃止した単票へ戻す変異はここで落ちる。
     expect(handler![2]).not.toMatch(/view:\s*'decision'\b/);
+  });
+});
+
+describe('URL の条件が画面へ届き、書き戻される（⑤）', () => {
+  // ⚠️ **差し戻し1回目で落ちたのはここである。** 新設した条件を画面へ渡す配線に
+  // ガードが1本も無く、prop を握り潰す変異（`on={''}` / `scope={''}`）も、書き戻し
+  // から落とす変異も、テスト緑のまま素通りした——permalink もカードのリンクも
+  // 概要の経路も、全部が素の一覧に着く状態になるのに。
+  //
+  // 同じファイルが `describe('app が概要タブを URL へ配線している')` を、**まさに
+  // この型の回帰**のために既に持っていた。手本が同じファイルの中にあった。
+  //
+  // 直し方は2段構えにしてある:
+  //   1. 条件の対応（URL ⇄ 条件）を純関数へ出し、**値として** decisionFilter.test.ts
+  //      が守る（CLAUDE.md 1）。1つでも読み落とす／書き落とす変異はそこで落ちる。
+  //   2. prop を1つずつ並べる形をやめ、口を1つにした。ここではその1つを見る。
+  const opened = appSource.indexOf('<DecisionsView');
+  const element = appSource.slice(opened, appSource.indexOf('/>', opened));
+
+  it('意思決定の一覧を描画している', () => {
+    expect(opened).toBeGreaterThan(-1);
+  });
+
+  it('URL から起こした条件を渡している（握り潰す口を1つに絞ってある）', () => {
+    expect(element).toMatch(/conditions=\{conditionsFromRoute\(route\)\}/);
+  });
+
+  it('条件の変更を URL へ書き戻すハンドラを渡している', () => {
+    expect(element).toMatch(/\bonConditionsChange=/);
+  });
+
+  it('そのハンドラが navigate を通り、変換の純関数を通る（＝履歴に残り、条件が落ちない）', () => {
+    const m = /onConditionsChange=\{\(c\) => ([^}]+)\}/.exec(element);
+    expect(m, 'onConditionsChange の中身が読めない').not.toBeNull();
+    expect(m![1]).toMatch(/\bnavigate\(/);
+    expect(m![1]).toMatch(/view:\s*'decisions'/);
+    expect(m![1]).toMatch(/routeParamsFromConditions\(c\)/);
+  });
+
+  it('一覧が受け取った条件をそのまま照合に渡している（⑥ 適用の一行を消させない）', () => {
+    // 「照合の呼び出しは残して適用の一行だけ削る」変異は、値のテスト
+    // （decisionFilter.test.ts『向きが実際に適用される』）で落ちる。ここは一覧が
+    // 自前で組み直さず、その純関数を通っていることだけを見る。
+    expect(decisionsViewSource).toMatch(/selectDecisions\(decisions \|\| \[\], local, selectCtx\)/);
+    expect(decisionsViewSource).toMatch(/selectBase\(decisions \|\| \[\], local, selectCtx\)/);
+    // 一覧の中に照合を書き直す変異（純関数を迂回する）はここで落ちる。
+    expect(decisionsViewSource).not.toMatch(/scopeMatcher\(/);
+  });
+
+  it('問い合わせた結果を捨てていない（⑥ 支配する規則が常に0件になる形）', () => {
+    // `setGoverns([])` に差し替えると、支配する規則の一覧が常に空になる
+    // ——**この decision が直そうとした欠陥そのもの**が、成功応答の裏で復活する。
+    // 取得の成否は実際にネットワークを起こさないと値で検査できないので、ここは
+    // 構造で押さえる（射程は下の注記のとおり）。
+    const then = /\.then\(\(res\) => \{([\s\S]{0,200}?)\}\)/.exec(decisionsViewSource);
+    expect(then, '取得成功時の分岐が見つからない').not.toBeNull();
+    expect(then![1]).toMatch(/setGoverns\(res\.entries\)/);
+    // 失敗時だけが空集合（全件へ広げない）。
+    expect(decisionsViewSource).toMatch(/\.catch\([\s\S]{0,200}setGoverns\(\[\]\)/);
   });
 });
 
@@ -564,13 +631,15 @@ describe('1件に絞られたら開いた状態で着地する（②）', () => 
     expect(decisionRowFullSource).toMatch(/saveCardSectionOpen\(/);
   });
 
-  it('名指しされた1件が、他の条件で消えない', () => {
+  it('名指しされた1件が、他の条件で消えない（判断は純関数・値で守る）', () => {
     // 既定の効力フィルタは「効いているものだけ」なので、掛けたままにすると
     // **置き換え済みの意思決定を指す共有リンクが 0 件に着く**。改訂チェーンを辿る
     // 導線は置き換え済みの相手を指すので、ここは日常的に踏まれる経路である。
-    expect(decisionsViewSource).toMatch(/const namesOneDecision = scopeTarget\?\.type === 'decision'/);
-    expect(decisionsViewSource).toMatch(/if \(namesOneDecision\) return decisions\.filter\(matchesScope\)/);
-    expect(decisionsViewSource).toMatch(/if \(namesOneDecision\) return filterBase/);
+    // 判断そのものは decisionFilter.namesOneDecision / selectDecisions が持ち、
+    // decisionFilter.test.ts が**値として**守る。ここは一覧がそこを通っていること
+    // と、0件のときに「その記録が無い」と名指しすることだけを見る。
+    expect(decisionsViewSource).toMatch(/namesOneDecision\(local\)/);
+    expect(decisionsViewSource).toMatch(/isNamedOne \? t\.decisions\.notFound : t\.decisions\.noMatch/);
   });
 });
 
@@ -581,7 +650,7 @@ describe('旧単票の URL が転送で生きる（③）', () => {
 
   it('転送先が「その1件に絞り込んだ一覧」である', () => {
     expect(decisionRedirectSource).toMatch(/view:\s*'decisions'/);
-    expect(decisionRedirectSource).toMatch(/decisionOn:\s*`decision:\$\{decisionId\}`/);
+    expect(decisionRedirectSource).toMatch(/formatScopeTarget\(\{\s*type:\s*'decision',\s*id:\s*decisionId\s*\}\)/);
   });
 
   it('履歴を積まない形で転送する（バックが効かなくなるのを防ぐ）', () => {
@@ -621,32 +690,20 @@ describe('支配する向きの判定を viewer で作り直していない', ()
   });
 });
 
-describe('ナビが「概要 / タグ / 意思決定」の3つで、今どこかが読める', () => {
-  it('意思決定が自分のタブを持っている', () => {
-    // 直前は「ブラウザ」1つが7画面で点灯していた（利用者の訴えそのもの）。
+describe('ナビが「概要 / タグ / 意思決定」の3つ', () => {
+  // どの面でどのタブが点くかは navActive（純関数）が持ち、navActive.test.ts が
+  // **全ルートを列挙して値で**守る。差し戻し1回目では、家族の定数はそのままに
+  // 判定の分岐だけを潰す変異が緑で通った——定数だけを見る形をここに残さない。
+  it('3つのタブを描いている', () => {
     expect(headerSource).toMatch(/\['decisions',\s*t\.nav\.decisions/);
     expect(headerSource).toMatch(/\['tags',\s*t\.nav\.tags/);
     expect(headerSource).toMatch(/\['overview',\s*t\.nav\.overview/);
   });
 
-  it('意思決定の一覧で「タグ」タブが点灯しない（同じタブが両方を名乗らない）', () => {
-    const tagsFamily = /const TAGS_FAMILY: ViewName\[\] = \[([^\]]*)\]/.exec(headerSource);
-    expect(tagsFamily, 'TAGS_FAMILY が見つからない').not.toBeNull();
-    expect(tagsFamily![1]).not.toMatch(/'decisions'|'decision'/);
-  });
-
-  it('転送で残した旧単票の URL でも、点灯するタブが無い状態にならない', () => {
-    const decisionsFamily = /const DECISIONS_FAMILY: ViewName\[\] = \[([^\]]*)\]/.exec(headerSource);
-    expect(decisionsFamily, 'DECISIONS_FAMILY が見つからない').not.toBeNull();
-    expect(decisionsFamily![1]).toMatch(/'decisions'/);
-    expect(decisionsFamily![1]).toMatch(/'decision'/);
-  });
-
-  it('語彙・フロー・遷移はタブを名乗らず、タグ側のレンズとして残る（消していない）', () => {
-    const tagsFamily = /const TAGS_FAMILY: ViewName\[\] = \[([^\]]*)\]/.exec(headerSource);
-    for (const v of ["'spec'", "'browse'", "'vocab'", "'flow'"]) {
-      expect(tagsFamily![1], v).toMatch(v);
-    }
+  it('点灯の判定を共有の純関数に委ねている（面の中で分岐を書き直さない）', () => {
+    expect(headerSource).toMatch(/isNavActive\(key,\s*view\)/);
+    // 家族の一覧を Header の中へ戻す変異はここで落ちる（判定が2箇所に散る）。
+    expect(headerSource).not.toMatch(/TAGS_FAMILY|DECISIONS_FAMILY/);
   });
 });
 
@@ -692,14 +749,31 @@ describe('概要の各文脈から、同じ条件の一覧へ踏める（01KYKS4
   // 面にガードが無いのは、この repo が繰り返している穴の中でも一番危ない形になる。
   it('3つの文脈すべてが、その文脈の対象を渡している', () => {
     // part / 制約はタグ、振る舞いは遷移。取り違えると別のレコードの規則を出す。
-    expect(overviewSource).toMatch(/renderRules\('part:' \+ p\.id[\s\S]{0,60}`tag:\$\{p\.id\}`/);
-    expect(overviewSource).toMatch(/renderRules\('tx:' \+ b\.id[\s\S]{0,60}`transition:\$\{b\.id\}`/);
-    expect(overviewSource).toMatch(/renderRules\('prop:' \+ p\.id[\s\S]{0,60}`tag:\$\{p\.id\}`/);
+    expect(overviewSource).toMatch(/renderRules\('part:' \+ p\.id[\s\S]{0,90}type:\s*'tag',\s*id:\s*p\.id/);
+    expect(overviewSource).toMatch(/renderRules\('tx:' \+ b\.id[\s\S]{0,90}type:\s*'transition',\s*id:\s*b\.id/);
+    expect(overviewSource).toMatch(/renderRules\('prop:' \+ p\.id[\s\S]{0,90}type:\s*'tag',\s*id:\s*p\.id/);
   });
 
   it('リンクが実アンカーで、意思決定の一覧を指している', () => {
     expect(overviewSource).toMatch(/<HashLink[\s\S]{0,120}href=\{listHref\}/);
     expect(overviewSource).toMatch(/rulesListHref = \(scopeRef: string\) => routeHash\(\{ view: 'decisions', decisionOn: scopeRef, decisionScope: 'own' \}\)/);
+  });
+
+  it('入口がどの条件ゲートの内側にも入っていない（WholeRules と同じ歯止め）', () => {
+    // 畳みの内側へ移す変異は、開かなかった利用者に到達手段が伝わらなくする。
+    // 1つのゲートだけを見る形にしない——ソース中の `{… && (` を全部回す。
+    const gates = [...overviewSource.matchAll(/\{[^{}\n]*&&\s*\(/g)];
+    expect(gates.length, '条件ゲートが1つも見つからない（列挙の正規表現が壊れている）').toBeGreaterThan(0);
+    for (const m of gates) {
+      const gate = extractGate(overviewSource, m.index!);
+      expect(gate, `ゲート ${m[0].trim()} の内側に「一覧で開く」がある`).not.toMatch(/class="overview-rules-list-link"/);
+    }
+    for (const line of overviewSource.split('\n')) {
+      if (line.includes('overview-rules-list-link')) {
+        expect(line, `入口の行が条件付きになっている: ${line.trim()}`).not.toMatch(/&&/);
+      }
+    }
+    expect(overviewSource).toMatch(/class="overview-rules-list-link"/);
   });
 
   it('向きが own（インライン展開と同じ集合を指す）', () => {

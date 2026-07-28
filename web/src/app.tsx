@@ -8,9 +8,9 @@ import { FlowView } from './components/FlowView';
 import { FlowIndexView } from './components/FlowIndexView';
 import type { FlowFilterState } from './components/FlowIndexView';
 import { DecisionsView } from './components/decisions/DecisionsView';
-import type { DecisionFilterState } from './components/decisions/DecisionsView';
 import { DecisionPermalinkRedirect } from './components/decisions/DecisionPermalinkRedirect';
-import { DEFAULT_SCOPE } from './components/decisions/decisionScope';
+import { conditionsFromRoute, routeParamsFromConditions } from './components/decisions/decisionFilter';
+import { formatScopeTarget } from './components/decisions/decisionScope';
 import { CommentPanel } from './components/comments/CommentPanel';
 import { useComments } from './components/comments/useComments';
 import type { CommentRecord } from './components/comments/useComments';
@@ -130,7 +130,7 @@ export function App() {
   // 1件を開く＝**その1件に絞り込んだ一覧**を開く（01KYKS4Y56FAHRVCWKMQJK4RT6）。
   // 専用の画面へは行かない。他の条件は持ち込まない——名指しの1件に別の絞り込みを
   // 掛けると、置き換え済みの相手を指す導線が既定の効力フィルタで消える。
-  const openDecision = (decisionId: string) => navigate({ view: 'decisions', decisionOn: `decision:${decisionId}` });
+  const openDecision = (decisionId: string) => navigate({ view: 'decisions', decisionOn: formatScopeTarget({ type: 'decision', id: decisionId }) });
   // A plain nav-tab hop restores that view's remembered search (see
   // searchMemory above) so the URL round-trips its filters; focus jumps
   // (openTagSpec/openTransition/openVocabEntry) deliberately DON'T, since those
@@ -227,39 +227,13 @@ export function App() {
         ))}
       {view === 'decisions' && (
         <DecisionsView
-          searchQuery={route.searchQuery || ''}
-          // DecisionsView filter state lives in the URL (#45 D10b-4) so
-          // reload/Back restore the same 絞り込み. The view resolves defaults
-          // ('all'/'') from undefined; onFiltersChange merges every field into
-          // the hash at once (a single navigate keeps them composed).
-          targetKind={(route.decisionTargetKind || 'all') as DecisionFilterState['targetKind']}
-          // Tag filter widened to a comma-joined id list (viewer-search-
-          // consistency): '' = no tag filter (not the 'all' sentinel the other
-          // axes use). The dt URL key is unchanged; only its value shape grew.
-          tagFilter={route.decisionTag || ''}
-          // 効いていないものは既定で本文に混ぜない（01KYHW54B8ZXH0NEPH2J7N1X39
-          // 条項4）。一覧には畳む器が無いので、既定の絞り込みが「効いているもの
-          // だけ」であることがその役目を果たす。'all'/'superseded' は利用者が
-          // 明示的に選んだときだけ——なので URL では **'current' を省略側**に置く
-          // （他の軸の 'all' 省略とは既定が違う点に注意）。
-          currency={(route.decisionCurrency || 'current') as DecisionFilterState['currency']}
-          period={(route.decisionPeriod || 'all') as DecisionFilterState['period']}
-          // 対象と向き（01KYKS4Y56FAHRVCWKMQJK4RT6）。既定の向き（subtree）は
-          // URL に書かない——他の軸の既定省略と同じ扱い。
-          on={route.decisionOn || ''}
-          scope={route.decisionScope || ''}
-          onFiltersChange={(f) =>
-            navigate({
-              view: 'decisions',
-              searchQuery: f.query || undefined,
-              decisionTargetKind: f.targetKind === 'all' ? undefined : f.targetKind,
-              decisionTag: f.tagFilter || undefined,
-              decisionCurrency: f.currency === 'current' ? undefined : f.currency,
-              decisionPeriod: f.period === 'all' ? undefined : f.period,
-              decisionOn: f.on || undefined,
-              decisionScope: f.scope && f.scope !== DEFAULT_SCOPE ? f.scope : undefined,
-            })
-          }
+          // 条件は URL が正。読みと書き戻しの**両方**を decisionFilter の純関数に
+          // 通す（01KYKS4Y56FAHRVCWKMQJK4RT6）。prop を1つずつ並べる形をやめたのは、
+          // 差し戻し1回目で「この prop だけ握り潰す」変異（`on={''}` 等）が
+          // テスト緑のまま素通りしたため——口を減らし、対応の正しさは
+          // decisionFilter.test.ts が値として守る（CLAUDE.md「配線ガードの書き方」1）。
+          conditions={conditionsFromRoute(route)}
+          onConditionsChange={(c) => navigate({ view: 'decisions', ...routeParamsFromConditions(c) })}
           onOpenDecision={openDecision}
         />
       )}

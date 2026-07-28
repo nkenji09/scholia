@@ -445,7 +445,6 @@ const ja = {
     loading: 'loading…',
     empty: 'まだ意思決定が記録されていません',
     noMatch: '条件に一致する意思決定がありません',
-    backToList: '一覧へ戻る',
     // フリーワード検索（why/changed/target/acknowledges を対象）。
     searchPlaceholder: 'why・変更内容で検索',
     // フィルタ群。
@@ -518,6 +517,9 @@ const ja = {
     scopeChipOne: (name: string) => `この意思決定のみ（${name}）`,
     // 名指しされた1件がまだ索引に無いときの名乗り（生 id は出さない）。
     scopeOneDecision: '指定された1件',
+    // 名指しの1件のあいだ、他の絞り込みが掛かっていないことを述べる（掛かって
+    // いない条件の widget を出したままにすると画面が嘘をつく）。
+    namedOneNote: 'この URL は意思決定を1件だけ名指ししています。ほかの絞り込みは掛かりません——左の条件を外すと一覧に戻ります。',
   },
   // lookups.tsx の describeMatch()（検索結果の一致理由テキスト）。
   lookups: {
@@ -918,7 +920,6 @@ const en: Strings = {
     loading: 'loading…',
     empty: 'No decisions recorded yet',
     noMatch: 'No decisions match the current conditions',
-    backToList: 'Back to list',
     searchPlaceholder: 'Search why / changed',
     filterTargetKind: 'Target kind',
     filterTag: 'Tag',
@@ -964,6 +965,7 @@ const en: Strings = {
     scopeChipSubtree: (name) => `Decisions on ⟨${name}⟩ and below`,
     scopeChipOne: (name) => `This decision only (${name})`,
     scopeOneDecision: 'the named one',
+    namedOneNote: 'This URL names a single decision. No other filter applies — remove the condition on the left to return to the list.',
   },
   lookups: {
     searchById: 'transition id',

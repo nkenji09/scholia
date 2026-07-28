@@ -1,6 +1,7 @@
 import { useEffect } from 'preact/hooks';
 import { useT } from '../../i18n';
 import { routeHash } from '../../router';
+import { formatScopeTarget } from './decisionScope';
 
 // 旧単票 `#/decision/<ulid>` の転送（01KYKS4Y56FAHRVCWKMQJK4RT6）。
 //
@@ -16,7 +17,9 @@ import { routeHash } from '../../router';
 // 戻され、そこから即座に前へ送り返される（バックが効かなくなる）。
 export function DecisionPermalinkRedirect({ decisionId }: { decisionId?: string }) {
   const t = useT();
-  const target = decisionId ? routeHash({ view: 'decisions', decisionOn: `decision:${decisionId}` }) : routeHash({ view: 'decisions' });
+  const target = decisionId
+    ? routeHash({ view: 'decisions', decisionOn: formatScopeTarget({ type: 'decision', id: decisionId }) })
+    : routeHash({ view: 'decisions' });
 
   useEffect(() => {
     // replace() は hashchange を発火するので、App の useHashRoute がそのまま

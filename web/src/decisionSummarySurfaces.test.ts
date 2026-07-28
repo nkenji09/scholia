@@ -9,6 +9,7 @@ import layoutCssSource from './styles/layout.css?raw';
 import listItemCssSource from './styles/components/list-item.css?raw';
 import chipCssSource from './styles/components/chip.css?raw';
 import cardCssSource from './styles/components/card.css?raw';
+import decisionRowCssSource from './styles/components/decision-row.css?raw';
 import resizerCssSource from './styles/components/resizer.css?raw';
 import homeCssSource from './styles/views/home.css?raw';
 import overviewCssSource from './styles/views/overview.css?raw';
@@ -73,6 +74,7 @@ const CSS_FILES: Array<{ path: string; source: string }> = [
   { path: './styles/components/list-item.css', source: listItemCssSource },
   { path: './styles/components/chip.css', source: chipCssSource },
   { path: './styles/components/card.css', source: cardCssSource },
+  { path: './styles/components/decision-row.css', source: decisionRowCssSource },
   { path: './styles/components/resizer.css', source: resizerCssSource },
   { path: './styles/views/home.css', source: homeCssSource },
   { path: './styles/views/overview.css', source: overviewCssSource },

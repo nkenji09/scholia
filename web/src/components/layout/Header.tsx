@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { useT, useLang } from '../../i18n';
 import type { ViewName } from '../../router';
+import { isNavActive } from './navActive';
+import type { NavKey } from './navActive';
 import { useViewerSettings } from '../../settings';
 import { useDrawer } from '../../drawer';
 import { Icon } from '../shared/Icon';
@@ -52,22 +54,13 @@ export function Header({ view, onSelectView, railActive }: Props) {
   //
   // Built inside the component (not module scope) so it re-renders with the
   // active language — strings pulled from `t`, not a module-level `strings`.
-  const NAV: Array<[ViewName, string, IconName]> = [
+  const NAV: Array<[NavKey, string, IconName]> = [
     ['overview', t.nav.overview, 'layout-dashboard'],
     ['tags', t.nav.tags, 'tags'],
     ['decisions', t.nav.decisions, 'gavel'],
   ];
-  // どのタブが点灯するか。概要は overview ＋ 旧ランディング #/home。タグは
-  // タグ・遷移・語彙・フローの各レンズ（deep link で来ても点灯しないタブが無い
-  // 状態にしない）。意思決定は一覧と、転送で残した旧単票の URL。
-  const TAGS_FAMILY: ViewName[] = ['tags', 'spec', 'browse', 'vocab', 'flow'];
-  const DECISIONS_FAMILY: ViewName[] = ['decisions', 'decision'];
-  const isActive = (key: ViewName): boolean => {
-    if (key === 'overview') return view === 'overview' || view === 'home';
-    if (key === 'tags') return TAGS_FAMILY.includes(view);
-    if (key === 'decisions') return DECISIONS_FAMILY.includes(view);
-    return view === key;
-  };
+  // どのタブが点灯するかは navActive.ts（純関数）が持つ。ここで分岐を書き直さない
+  // ——定数だけを見るガードは「判定の分岐を潰す」変異を通す（CLAUDE.md 1）。
 
   // Rail responsiveness (drawer's fixed `top`, sticky rail's `top`/height,
   // backdrop's `inset`) all need the header's actual rendered height —
@@ -101,7 +94,7 @@ export function Header({ view, onSelectView, railActive }: Props) {
 
       <nav class="topbar-nav">
         {NAV.map(([key, label, icon]) => (
-          <button key={key} type="button" class={'topbar-nav-btn' + (isActive(key) ? ' active' : '')} onClick={() => onSelectView(key)}>
+          <button key={key} type="button" class={'topbar-nav-btn' + (isNavActive(key, view) ? ' active' : '')} onClick={() => onSelectView(key)}>
             <Icon name={icon} size={16} />
             <span>{label}</span>
           </button>

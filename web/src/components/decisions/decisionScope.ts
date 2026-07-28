@@ -18,8 +18,11 @@ import type { Decision, GovernsRef } from '../../types';
 // 書き直すと、CLI と画面で「この記録を支配する規則は何か」に違う答えが返る余地が
 // 復活する——01KXYED61J6QBEX75H2XHVHW7Y が診断した欠陥そのもので、追補
 // 01KYJV3FYMDFRWQ939NBV2BPAC の「採らなかった選択肢」が名指しで警告した形でもある。
-// 判定は GET /api/governs（CLI `scholia rules` と同じ Go コア index.GovernsFor*）に
-// 委ね、ここはその結果（decision id の集合）を受け取って照合するだけにしてある。
+// 判定は GET /api/governs（Go 側 `internal/index` の GovernsFor*）に委ね、ここは
+// その結果（decision id の集合）を受け取って照合するだけにしてある。
+// ⚠️ 「CLI とまったく同じ関数」ではない——`scholia rules` が呼ぶのは同じパッケージの
+// `SelectRulesDecisionsFor` で、実装は2本ある（本ブランチはどちらも触っていない）。
+// ここで守っているのは「**viewer 側に3本目を書かない**」ことである。
 // 静的書き出しでも同じ答えが返る（api.ts の getGoverns が焼き込み済み map を引く）。
 
 /** 対象の種別。`transition` は CLI の `--on transition:<id>` と同じ綴りに揃えてある
