@@ -15,6 +15,7 @@ import decisionListSource from './components/decisions/DecisionList.tsx?raw';
 import inheritedSummarySource from './components/browse/inheritedSummary.ts?raw';
 import decisionsViewSource from './components/decisions/DecisionsView.tsx?raw';
 import decisionDetailSource from './components/decisions/DecisionDetailView.tsx?raw';
+import decisionIdRevealSource from './components/decisions/DecisionIdReveal.tsx?raw';
 import appSourceForList from './app.tsx?raw';
 
 // 「新しい面が共通配線を通っているか」を機械化するガード（A是正 01KYH2533234PGSN4MDQ6ZXJHA）。
@@ -212,11 +213,22 @@ describe('継承した規則の開示がカードに配線されている（条�
 //     静的な構造だけを見る配線ガードである。
 //   - `&&` を使わない形で包む変異（三項演算子・early return で JSX を差し替える・
 //     ヘルパー関数の中へ隠す等）は、ゲートとして列挙できないので捕まらない。
-//   - **整形に敏感である。** ゲートの列挙も下の早期 return の検査も、条件式が1行に
-//     閉じていることを前提にしたソース文字列の照合なので、振る舞いを変えない整形
-//     （prettier 風の複数行化・変数名の変更・コールバックの括り出し）で落ちうる。
-//     落ち方は安全側（緑にならない）だが、意味のない赤が出たときは、ガードを緩める
-//     前にこの射程の記述を疑うこと。
+//   - **整形に敏感で、しかも転ぶ方向は一定ではない。** ゲートの列挙も下の早期
+//     return の検査も、条件式が1行に閉じていることを前提にしたソース文字列の照合
+//     である。振る舞いを変えない整形（複数行化・変数名の変更・コールバックの
+//     括り出し）に対して:
+//       ・早期 return の検査は**落ちる**方向に転ぶ（安全側。意味のない赤が出たら、
+//         ガードを緩める前にこの射程の記述を疑うこと）。
+//       ・ゲートの列挙は**列挙から漏れて素通りする**方向に転ぶ（危険側）。とくに
+//         ゲートの条件式が複数行に跨る形——`{cond &&` で改行して括弧を使わない／
+//         `{` の直後で改行してから条件を書く——は、列挙の正規表現が1行に閉じた
+//         `{… && (` しか拾わないため**捕まらない**。レビューで実測した2種
+//         （`{total > 0 &&` ⏎ `<WholeRules …/>}` と、`{` 直後で改行してから
+//         `total > 0 && (`）はどちらも緑のまま通り、own のみ・継承0 のカードの
+//         開示を消す。
+//     正規表現を任意の整形に耐えさせる方向は採っていない（この repo に
+//     フォーマッタは入っておらず整形は書き手の手癖で決まるので、耐性を上げるより
+//     「どう書くと漏れるか」を明記するほうが実効がある）。
 
 /** `{cond && (` で始まる JSX ゲートを、開き括弧の対応が取れる終端まで切り出す。
     複数のゲートを回せるよう、marker 文字列ではなく**開始位置**を受け取る形にして
@@ -303,9 +315,18 @@ describe('全体をどこで読めるかがカードから読める（追補 条
 // 見出し下へ生 id を戻す変異も緑のまま通っていた。ここがまさに、この repo が
 // 4度繰り返している「外れても誰も気づかない配線」である。
 //
+// 条項3 は器を選ばない。当初このガードは `.decision-detail-meta` の内側だけを
+// 切り出して見ていたが、それだと**器の外へ逃がす変異**——見出し行
+// （`.decision-detail-title-row`）へ `<span class="dim">{decision.id}</span>` を
+// 置く形——が緑のまま通り、既定の見え方に生 id が出た。器で切り出すのをやめ、
+// `{decision.id}` の出現が**ファイル全体で1回だけ**（＝開示へ渡す prop のみ）で
+// あることを見る。どの器へ移しても2回目の出現になるので落ちる。
+//
 // 射程（捕まえられない型）: 上の WholeRules ガードと同じく静的なソース照合なので、
-// DOM を起こしたときの見え方は見ない。文言・コマンドの正しさも見ない（開示の中身は
-// DecisionIdReveal 側の責務）。**整形に敏感**な点も同じ。
+// DOM を起こしたときの見え方は見ない。文言・コマンドの正しさも見ない（開示の中身の
+// うち「既定で閉じている」「黙らない」の2点は下の DecisionIdReveal の describe が
+// 受け持つ）。`decision.id` を別の変数へ束ねてから描く形（`const id = decision.id`）は
+// 出現の数え方をすり抜けるので捕まらない。**整形に敏感**な点も同じ。
 
 describe('意思決定の単票が生成 id を既定に置かず、到達手段を残している（01KYK4YNCYGZHHXB4H90Q996T2 条項3〜5）', () => {
   it('求めたときに出す開示（DecisionIdReveal）が単票に描かれている（条項5＝到達手段）', () => {
@@ -313,15 +334,39 @@ describe('意思決定の単票が生成 id を既定に置かず、到達手段
     expect(decisionDetailSource).toMatch(/<DecisionIdReveal[\s\S]{0,60}id=\{decision\.id\}/);
   });
 
-  it('見出し下のメタに生 id が戻っていない（条項3＝既定の見え方に置かない）', () => {
-    // `.decision-detail-meta` の器を括弧の対応ではなく閉じタグで切り出す（JSX の
-    // div なので `</div>` まで）。この中に decision.id を描く形が復活したら落ちる。
-    const start = decisionDetailSource.indexOf('class="decision-detail-meta');
-    expect(start, 'decision-detail-meta が見つからない').toBeGreaterThan(-1);
-    const end = decisionDetailSource.indexOf('</div>', start);
-    expect(end, 'decision-detail-meta の閉じタグが見つからない').toBeGreaterThan(-1);
-    const meta = decisionDetailSource.slice(start, end);
-    expect(meta, `meta に生 id が描かれている: ${meta.trim()}`).not.toMatch(/\{decision\.id\}/);
+  it('生 id が既定の見え方のどこにも描かれていない（条項3＝器を問わない）', () => {
+    // 出現は「開示へ渡す prop」の1回だけ。メタへ戻す変異も、見出し行など別の器へ
+    // 逃がす変異も、2回目の出現になるのでここで落ちる。
+    const hits = [...decisionDetailSource.matchAll(/\{decision\.id\}/g)];
+    expect(
+      hits.length,
+      `{decision.id} の出現が ${hits.length} 回ある（開示へ渡す prop の1回だけであるべき）`,
+    ).toBe(1);
+    // その1回が開示へ渡す prop であること（＝どこか別の場所へ移しただけ、を防ぐ）。
+    expect(decisionDetailSource).toMatch(/<DecisionIdReveal[\s\S]{0,60}id=\{decision\.id\}/);
+  });
+});
+
+// 開示そのものが条項3・4・5 を満たしているか（DecisionIdReveal）。
+//
+// 上の単票側ガードは「開示が描かれている」までしか見ない。開示の中で既定を開いて
+// しまえば条項3・4（既定の見え方には置かず、求めたときにだけ出す）が破れ、中で
+// 黙らせれば条項5（到達手段を落とさない）が破れる——どちらも単票側からは見えない。
+// 対になる WholeRules には同じ形の歯止めがあるのに単票側に無いのは非対称なので、
+// 同じ2点をここで見る。
+//
+// 射程: 開閉の初期値と黙り込みだけを見る。文言・コマンドの正しさ・DOM を起こした
+// ときの実際の見え方は見ない。**整形に敏感**。
+describe('単票の開示が既定で閉じており、黙らない（01KYK4YNCYGZHHXB4H90Q996T2 条項3〜5）', () => {
+  it('既定は閉じている（条項3・4＝求めたときにだけ出す）', () => {
+    // useState(true) へ変える変異はここで落ちる。開いた状態が既定になると、
+    // 生 id が既定の見え方に出る＝条項3 に反する。
+    expect(decisionIdRevealSource).toMatch(/useState\(false\)/);
+    expect(decisionIdRevealSource).not.toMatch(/useState\(true\)/);
+  });
+
+  it('開示を黙らせる早期 return が入っていない（条項5＝到達手段）', () => {
+    expect(decisionIdRevealSource).not.toMatch(/return null/);
   });
 });
 
