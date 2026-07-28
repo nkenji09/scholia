@@ -487,6 +487,12 @@ const ja = {
     // HOME の「直近の意思決定」カードから一覧へ飛ぶリンク。
     viewAll: 'すべて見る',
     notFound: 'この意思決定は見つかりませんでした',
+    // 生 id の開示（既定では出さず、求めたときだけ実行できる形＋コピーで出す。
+    // 01KYK4YNCYGZHHXB4H90Q996T2 条項4・5）。
+    idRevealHead: 'この意思決定を CLI で読む・参照する',
+    idRevealNote: '全文を端末で読む／別の意思決定から置き換え先として指すときに使います。',
+    idRevealCopy: 'コピー',
+    idRevealCopied: 'コピーしました',
   },
   // lookups.tsx の describeMatch()（検索結果の一致理由テキスト）。
   lookups: {
@@ -919,6 +925,10 @@ const en: Strings = {
     countLabel: (n) => `${n}`,
     viewAll: 'View all',
     notFound: 'That decision could not be found',
+    idRevealHead: 'Read or reference this decision via the CLI',
+    idRevealNote: 'Use this to read the full text in a terminal, or to point to this decision as a replacement target from another one.',
+    idRevealCopy: 'Copy',
+    idRevealCopied: 'Copied',
   },
   lookups: {
     searchById: 'transition id',
