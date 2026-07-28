@@ -134,6 +134,8 @@ export interface FakeServer {
   unhandled: string[];
   /** 実際に来た要求（順序つき）。 */
   requests: string[];
+  /** `hold` で止めてある応答を、テストが選んだ時点で返す。 */
+  release: () => void;
   restore: () => void;
 }
 
@@ -187,13 +189,36 @@ function body(path: string, params: URLSearchParams): unknown | undefined {
   return undefined;
 }
 
-export function installFakeServer(): FakeServer {
+/**
+ * `hold` に挙げた path の応答を、`release()` が呼ばれるまで**返さずに握る**。
+ *
+ * 実サーバは即答しない。「まだ飛んでいる要求がある最中に利用者が widget を触り、
+ * その後に応答が返る」——実運用では当たり前に起きるこの順序を、**待ち時間ではなく
+ * 順序として**再現するための口である（時間で待つ形にすると、速い機械では窓が
+ * 閉じてしまい、遅い機械でだけ落ちる検査になる＝この単位で実際に起きたこと）。
+ */
+export interface ServerOptions {
+  hold?: string[];
+}
+
+export function installFakeServer(opts: ServerOptions = {}): FakeServer {
   const original = globalThis.fetch;
-  const server: FakeServer = { unhandled: [], requests: [], restore: () => { globalThis.fetch = original; } };
+  const held: Array<() => void> = [];
+  const server: FakeServer = {
+    unhandled: [],
+    requests: [],
+    release: () => {
+      while (held.length) held.shift()!();
+    },
+    restore: () => {
+      globalThis.fetch = original;
+    },
+  };
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const raw = typeof input === 'string' ? input : input instanceof URL ? input.toString() : (input as Request).url;
     const url = new URL(raw, 'http://harness.local');
     server.requests.push(url.pathname + url.search);
+    if (opts.hold?.includes(url.pathname)) await new Promise<void>((r) => held.push(r));
     const payload = body(url.pathname, url.searchParams);
     if (payload === undefined) {
       server.unhandled.push(url.pathname + url.search);
@@ -247,10 +272,13 @@ export function resetBrowserState(): void {
 // ---------------------------------------------------------------------------
 
 export async function waitFor(check: () => boolean, what: string, timeoutMs = 3000): Promise<void> {
-  const started = Date.now();
+  // ⚠️ 時計は `performance.now()` を使う。`Date` は期間の絞り込みを検査するときに
+  // 固定する（vi.setSystemTime）ので、`Date.now()` で測ると**待ち時間が永遠に
+  // 経過しない**ことになる。
+  const started = performance.now();
   for (;;) {
     if (check()) return;
-    if (Date.now() - started > timeoutMs) throw new Error(`timed out waiting for: ${what}`);
+    if (performance.now() - started > timeoutMs) throw new Error(`timed out waiting for: ${what}`);
     await new Promise((r) => setTimeout(r, 10));
   }
 }

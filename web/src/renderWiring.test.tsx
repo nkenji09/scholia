@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { render } from 'preact';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   DEC,
   activeNavLabels,
@@ -42,12 +42,17 @@ import type { FakeServer, Mounted } from './testing/renderHarness';
 // 順序・見出しの件数・点灯タブ・出ている widget**を値として読む」。したがって、
 // 綴りに関係なく次の型で落ちる:
 //
-//   ・絞った集合ではないものを並べる（見出しの件数と行が食い違う）
-//   ・純関数へ渡す材料を痩せさせる（`governs` / 実効タグ集合を空にする）
-//   ・外から来た条件（Back/Forward・行のチップ）を取り込まない
-//   ・画面の操作を URL へ書き戻さない
+//   ・絞った集合ではないものを並べる（見出しの件数と行が食い違う。**0件の境界も踏む**）
+//   ・条件の軸を1つだけ落とす／握り潰す。**5軸すべて**（フリーワード `q`・対象の種別
+//     `dk`・タグ `dt`・効力 `dc`・期間 `dp`）と対象・向き（`on`/`scope`）を、
+//     それぞれ URL から起こして行で確かめている
+//   ・純関数へ渡す材料を痩せさせる（`governs`・実効タグ集合・効力の判定・期間の「いま」）
+//   ・外から来た条件（Back/Forward・行のチップ）を取り込まない。**軸を1つだけ
+//     取り込まない形も含む**（タグの軸も外から動かしている）
+//   ・画面の操作を URL へ書き戻さない／**飛んでいる応答が返った拍子に操作が消える**
 //   ・判定は呼ぶが結果を捨てる（ナビの点灯・1件で開く既定）
 //   ・名乗りと中身を食い違わせる（掛かっていない widget・効かない候補を出す）
+//   ・起こしている面のどれかで、harness が答えを持たない口を叩き始める
 //
 // ## このガードが落とさないもの（名指しする）
 //
@@ -57,28 +62,47 @@ import type { FakeServer, Mounted } from './testing/renderHarness';
 //      「Go が返した答えが行まで届くか」であって「Go の答えが正しいか」ではない。
 //   2. **見え方。** happy-dom はレイアウトを計算しない。CSS の当たり方・重なり・
 //      色・折り返しは1つも見ていない（実機確認が担う）。
-//   3. **この file が起こしていない面。** 起こすのは意思決定の一覧と、ナビの点灯を
-//      見るための概要・タグの**ヘッダだけ**である。面を足したら、その面にも同じ形を
-//      置き忘れる（`CLAUDE.md` 5 が名指しした型）。
+//   3. **この file が起こしていない面。** 起こすのは意思決定の一覧・概要（構成要素の
+//      規則欄）と、ナビの点灯を見るための タグ・語彙の**ヘッダだけ**である。
+//      `#/flow` `#/browse` `#/spec` `#/config` は1本も通っていない。面を足したら、
+//      その面にも同じ形を置き忘れる（`CLAUDE.md` 5 が名指しした型）。
 //   4. **静的書き出し（`window.__SCHOLIA_STATIC__`）の経路。** api.ts は live と
 //      static の2本を持つが、ここが通すのは live（HTTP）側の1本だけ。static 側だけ
 //      壊す変異はここでは落ちない。
-//   5. **規模・実データ特有の形。** corpus は意思決定7件・タグ6件で、実データ
-//      （276レコード）の規模や特殊な文字で初めて出る欠陥は範囲外。
+//   5. **規模・実データ特有の形。** corpus は意思決定7件・タグ6件。**`config` の形も
+//      実データとは別物である**——実データの kind は `requirement/concern/subject/axis`
+//      で `component`/`part` は1件も無く、`roots` の中身も `facetKinds` の数も違う。
+//      概要の面を起こすために、この corpus は役割 kind を持つ骨格を1組だけ足してある。
+//      実データの形でだけ出る欠陥は範囲外。
+//   6. **入口が provider の「正しい複製」を持つ形。** `main.tsx` が `AppRoot` を通らず
+//      同じ入れ子を書き写した場合、振る舞いは同じなのでここは緑のまま通り、
+//      `root.tsx` は黙って死に枝になる。**ソース照合（「`AppRoot` と書いてあるか」）で
+//      縛ることはしない**——それは `CLAUDE.md` 2 が「ガードと呼ばない」と定めた形で、
+//      別の綴りで書けば通るものを1つ増やすだけだから。**振る舞いが壊れる形**
+//      （provider の脱落）は下の「製品の入口」の検査が実際に落とす。
+//   7. **ソース照合が肩代わりしている型。** 「カードの入口を行またぎのゲートで包む」等、
+//      **描かれる場所の構造**を見る検査は `surfaceWiring.test.ts` にあり、この file は
+//      落とさない。描画ガードを入れてもソース照合が要らなくなったわけではない。
 //
-// ⚠️ **「全部捕まえる」とは名乗らない。** 上の5つは、この形のままでは原理的に
+// ⚠️ **「全部捕まえる」とは名乗らない。** 上の7つは、この形のままでは原理的に
 // 捕まえられない（1・4・5 は corpus と経路の選び方、2 は DOM 実装の性質、3 は
-// 起こしていない面）。埋めるなら別の手段が要る。
+// 起こしていない面、6・7 は意図的に置かなかった歯止め）。埋めるなら別の手段が要る。
 
 let server: FakeServer | null = null;
 let mounted: Mounted | null = null;
 
 afterEach(() => {
+  const unhandled = server?.unhandled ?? [];
   mounted?.unmount();
   mounted = null;
   server?.restore();
   server = null;
+  vi.useRealTimers();
   resetBrowserState();
+  // ⚠️ **起こした面すべてで見る。** 1つの URL の中だけで見ていた頃は、別の面でだけ
+  // 新しい口を叩き始める形が素通りした。空でなければ、製品が叩いた口に harness が
+  // 答えていない＝この harness はその面の経路を1式ぶん迂回している。
+  expect(unhandled, '製品が投げた要求に harness が答えていない').toEqual([]);
 });
 
 /** URL を入力にして製品を起こし、一覧が描かれるまで待つ。 */
@@ -119,6 +143,34 @@ describe('URL に書かれた条件が、一覧の行になって出る（01KYKS
     expect(headingCount(host)).toBe(1);
   });
 
+  it('1件も当たらないときは 0 件と名乗る（境界）', async () => {
+    // ⚠️ **境界を踏まない検査は、境界でだけ嘘をつく変異を通す。** 件数に下駄を履かせる
+    // （0件のとき「1件」と名乗る）変異は、行が1件の検査だけでは落ちない。
+    const host = await open('#/decisions?q=' + encodeURIComponent('ぬりかべ'));
+    await expectRows(host, []);
+    expect(headingCount(host)).toBe(0);
+    expect(headingCount(host)).toBe(rowMarkers(host).length);
+  });
+
+  it('対象の種別で絞り込める（dk）', async () => {
+    const host = await open('#/decisions?dk=vocab');
+    // 語彙を対象にした意思決定は D4 だけ。
+    await expectRows(host, ['D4']);
+    expect(headingCount(host)).toBe(1);
+  });
+
+  it('期間で絞り込める（dp）', async () => {
+    // 期間は「いま」を材料に取る。実時計のままだと**日が変われば結果が変わる**検査に
+    // なるので、Date だけを固定する（setTimeout は本物のまま＝書き戻しの debounce は
+    // 実時間で動く）。
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-07-20T00:00:00Z'));
+    const host = await open('#/decisions?dp=30d');
+    // 30日以内は D7（2026-07-05・15日前）だけ。D6（45日前）以前は入らない。
+    await expectRows(host, ['D7']);
+    expect(headingCount(host)).toBe(1);
+  });
+
   it('向き＝支配する規則で 0件にならない（8/75 が 0件に着いていた欠陥そのもの）', async () => {
     const host = await open('#/decisions?on=tag:req.viewer.filter&scope=governing');
     // /api/governs が返した2件（自身への D2・祖先経由の D1）が、そのまま行になる。
@@ -142,6 +194,21 @@ describe('URL に書かれた条件が、一覧の行になって出る（01KYKS
     await expectRows(host, ['D4', 'D3', 'D2', 'D1']);
   });
 
+  it('外から変わったのがタグの軸でも追随する（軸を1つだけ落とす形を通さない）', async () => {
+    // ⚠️ **取り込みを「1つの軸だけ」落とす変異は、その軸を外から動かさない限り
+    // 落ちない。** 対象と効力だけを動かしていた頃は、タグ AND の軸だけ取り込まない
+    // 書き換え（利用者から見れば「Back でタグの絞り込みだけ戻らない」うえ、
+    // 300ms 後の書き戻しで URL 側が古いタグに上書きされる）が素通りした。
+    const host = await open('#/decisions');
+    await expectRows(host, ['D7', 'D6', 'D4', 'D3', 'D2', 'D1']);
+    window.location.hash = '#/decisions?dt=req.viewer.filter';
+    await expectRows(host, ['D4', 'D3', 'D2']);
+    // 取り込んだ条件が、そのまま書き戻しの材料になっていること（古い値で URL を
+    // 上書きし返さない）。
+    await new Promise((r) => setTimeout(r, 400));
+    expect(window.location.hash).toBe('#/decisions?dt=req.viewer.filter');
+  });
+
   it('画面の widget を操作すると URL に載る（reload/バックで消えない）', async () => {
     const host = await open('#/decisions?on=tag:req.cli');
     await expectRows(host, ['D6']); // 既定の効力＝現行のみ
@@ -150,6 +217,26 @@ describe('URL に書かれた条件が、一覧の行になって出る（01KYKS
     selectValue(currency, 'superseded');
     // 一覧には即座に効き、URL へは debounce して載る。
     await expectRows(host, ['D5']);
+    await expectHash(/dc=superseded/);
+  });
+
+  it('飛んでいる要求が返ってきても、その間の操作が消えない', async () => {
+    // ⚠️ **これは harness が実際に見つけた欠陥の再発防止である。**
+    // 実サーバは即答しない。応答が1つ飛んでいる最中に利用者が widget を触ると、
+    // 遅れて返ってきた応答が App を再描画し、その拍子に「外から来た条件の取り込み」が
+    // 走って**利用者の操作を URL 側の古い値で上書き**していた（一覧にも URL にも
+    // 残らない）。速さの問題ではなく順序の問題なので、待ち時間ではなく**順序**で
+    // 再現する——応答を握ったまま操作し、そのあとで返す。
+    server = installFakeServer({ hold: ['/api/reviews'] });
+    mounted = mountApp('#/decisions?on=tag:req.cli');
+    const host = mounted.host;
+    await waitFor(() => !!host.querySelector('.browse-card-list'), '一覧が描かれる');
+    await expectRows(host, ['D6']);
+    selectValue(railSelects(host)[1], 'superseded');
+    await expectRows(host, ['D5']);
+    server.release(); // 握っていた応答がここで返る＝App が再描画される
+    await new Promise((r) => setTimeout(r, 50));
+    expect(rowMarkers(host), '飛んでいた応答が返った拍子に操作が消えた').toEqual(['D5']);
     await expectHash(/dc=superseded/);
   });
 });
@@ -162,6 +249,9 @@ describe('面ごとに正しいタブが点灯する（01KYKS4Y56FAHRVCWKMQJK4RT
     ['#/decisions', '意思決定'],
     ['#/tags', 'タグ'],
     ['#/overview', '概要'],
+    // タブを名乗らないレンズ（語彙）も、deep link で来たら点灯先がある。
+    // ⚠️ **起こしていない面では、その面でだけ点灯先を取り違える変異が通る。**
+    ['#/vocab', 'タグ'],
   ];
   for (const [hash, label] of cases) {
     it(`${hash} では「${label}」だけが点く`, async () => {
