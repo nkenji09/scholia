@@ -489,8 +489,12 @@ const ja = {
     notFound: 'この意思決定は見つかりませんでした',
     // 生 id の開示（既定では出さず、求めたときだけ実行できる形＋コピーで出す。
     // 01KYK4YNCYGZHHXB4H90Q996T2 条項4・5）。
-    idRevealHead: 'この意思決定を CLI で読む・参照する',
-    idRevealNote: '全文を端末で読む／別の意思決定から置き換え先として指すときに使います。',
+    idRevealHead: 'この意思決定を CLI で読む',
+    // 名乗る用途は、コピーで得られる文字列がそのまま果たせるものに限る。コピー
+    // ボタンが渡すのは `scholia decision show <id>` というコマンド全体で、
+    // `--supersedes` にそのまま渡せる裸の id ではない（コード欄は user-select: all
+    // なので ULID だけを摘むのはむしろやりにくい）。約束していない用途を名乗らない。
+    idRevealNote: '本文の全文を端末で読むときに使います。',
     idRevealCopy: 'コピー',
     idRevealCopied: 'コピーしました',
   },
@@ -925,8 +929,8 @@ const en: Strings = {
     countLabel: (n) => `${n}`,
     viewAll: 'View all',
     notFound: 'That decision could not be found',
-    idRevealHead: 'Read or reference this decision via the CLI',
-    idRevealNote: 'Use this to read the full text in a terminal, or to point to this decision as a replacement target from another one.',
+    idRevealHead: 'Read this decision via the CLI',
+    idRevealNote: 'Use this to read the full text in a terminal.',
     idRevealCopy: 'Copy',
     idRevealCopied: 'Copied',
   },
