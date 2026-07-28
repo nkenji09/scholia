@@ -824,6 +824,12 @@
   background: var(--lm-s2);
 }
 
+/* この器の中身は <Markdown> が出すブロック要素の HTML（OverviewView の規則展開）。
+   white-space: pre-wrap を掛けてはいけない——markdown-it が要素間に出す `\n` が
+   そのまま空行として描画され、同じ本文が 2.26 倍（394px / 本来 174px）に膨らむ。
+   生テキストを出していた頃の名残りだった。カード面（.decision-row-full）は
+   white-space を指定しておらず、そちらに揃える（面間整合 01KXYED62CEKBY97D7X66BMC9A）。
+   word-break は markdown.css が code にしか掛けないので、長い URL 等のために残す。 */
 .overview-rule-why {
   margin: 0;
   padding: 11px 13px;
@@ -832,7 +838,6 @@
   font-size: var(--fs-sm);
   line-height: 1.85;
   color: var(--lm-text-muted);
-  white-space: pre-wrap;
   word-break: break-word;
 }
 
