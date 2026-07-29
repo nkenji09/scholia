@@ -65,6 +65,8 @@ import type { FakeServer, HarnessConfig, Mounted } from './testing/renderHarness
 //   ・**コンポーネントに直接付いた遷移を、シートが描かない／二重に描く**
 //   ・**遷移の実効タグの合成に vocab を渡し忘れる**（純関数は正しいが材料が痩せる型）
 //   ・**見出しの「現行ルール N」と、シートの中で開いて読める規則の数が食い違う**
+//     ——ただし **`sheetRuleCount` の4系統のうち2系統だけ**（直下の振る舞い／構成要素
+//     の自身の規則）。残り2系統は下記 8 を参照
 //   ・**空状態が「タグがまだ無い」と「役割を宣言せよ」を取り違える**
 //   ・**新しい欄を初期全開で置く**（段階的開示・01KYCC2TK3BEDA43TA61TPT4R5／
 //     01KXDFD2SRHJJ0E551V240JMKT 条項3）。畳んだ状態で走査できる数が出ることも見る
@@ -114,9 +116,18 @@ import type { FakeServer, HarnessConfig, Mounted } from './testing/renderHarness
 //   7. **ソース照合が肩代わりしている型。** 「カードの入口を行またぎのゲートで包む」等、
 //      **描かれる場所の構造**を見る検査は `surfaceWiring.test.ts` にあり、この file は
 //      落とさない。描画ガードを入れてもソース照合が要らなくなったわけではない。
+//   8. **「現行ルール N」の突き合わせのうち、残り2系統。** `sheetRuleCount` は4系統
+//      （構成要素の自身の規則／その配下の振る舞いの規則／直下の振る舞いの規則／制約の規則）
+//      を足すが、**描画で突き合わせているのは前者2つだけ**である。
+//      ⚠️ **`構成要素配下の振る舞い` と `制約` のスロットに痩せた材料を渡しても、
+//      この file は落とさない**——corpus の part.list は振る舞いを持たず、制約タグは
+//      1件も無いので、そのスロットを落としても見出しの数が動かない（実測: どちらの
+//      変異も `sheetModel.test.ts`（純関数）だけが red で、描画側は緑のままだった）。
+//      埋めるなら corpus に「規則を持つ振る舞いを配下に持つ構成要素」と「規則を持つ
+//      制約タグ」を足す必要がある。**今は足していない。**
 //
-// ⚠️ **「全部捕まえる」とは名乗らない。** 上の7つは、この形のままでは原理的に
-// 捕まえられない（1・4・5 は corpus と経路の選び方、2 は DOM 実装の性質、3 は
+// ⚠️ **「全部捕まえる」とは名乗らない。** 上の8つは、この形のままでは原理的に
+// 捕まえられない（1・4・5・8 は corpus と経路の選び方、2 は DOM 実装の性質、3 は
 // 起こしていない面、6・7 は意図的に置かなかった歯止め）。埋めるなら別の手段が要る。
 
 let server: FakeServer | null = null;
@@ -524,7 +535,19 @@ describe('遷移がコンポーネントに直接付いていても、シート�
     expect(own.textContent, '子コンポーネントの振る舞いが親のシートに出ている').not.toContain('下位を呼ぶ');
   });
 
-  it('見出しの「現行ルール N」と、シートの中で開いて読める規則の数が一致する', async () => {
+  /** 見出しの「現行ルール N」と、シートの中で実際に開いて読める規則の数を突き合わせる
+   *  （01KYHW54B8ZXH0NEPH2J7N1X39 条項5）。⚠️ **数える対象が0件だと検査が空振りする**ので、
+   *  0 でないことを先に確かめる。 */
+  function expectRuleCountMatchesReadable(host: HTMLElement): void {
+    const headline = /現行ルール\s*(\d+)/.exec(host.querySelector('.overview-cov-meta')?.textContent || '');
+    expect(headline, '見出しに「現行ルール N」が出ていない').not.toBeNull();
+    const toggles = Array.from(host.querySelectorAll('.overview-sheet .overview-rules-toggle'));
+    const readable = toggles.reduce((n, el) => n + Number(/\((\d+)\)/.exec(el.textContent || '')?.[1] ?? 0), 0);
+    expect(readable, '数える対象が0件では検査にならない').toBeGreaterThan(0);
+    expect(Number(headline![1]), '見出しの件数と、シートの中で読める規則の数が食い違っている').toBe(readable);
+  }
+
+  it('見出しの「現行ルール N」と、シートの中で開いて読める規則の数が一致する（直下の振る舞い）', async () => {
     // 01KYHW54B8ZXH0NEPH2J7N1X39 条項5。⚠️ **これは decision の条項なのに、直下の
     // 振る舞いカードの分については機械の歯止めが1つも無かった**——算入を落としても
     // 全部緑だった。数える対象（T-run-cli / T-cli-vocab への決定）を corpus に置き、
@@ -533,12 +556,22 @@ describe('遷移がコンポーネントに直接付いていても、シート�
     await selectComponent(host, '端末');
     // 畳んだままでは規則のトグルが描かれない（＝数える対象がゼロになって検査が空振りする）。
     await openOwnBehaviors(host);
-    const headline = /現行ルール\s*(\d+)/.exec(host.querySelector('.overview-cov-meta')?.textContent || '');
-    expect(headline, '見出しに「現行ルール N」が出ていない').not.toBeNull();
-    const toggles = Array.from(host.querySelectorAll('.overview-sheet .overview-rules-toggle'));
-    const readable = toggles.reduce((n, el) => n + Number(/\((\d+)\)/.exec(el.textContent || '')?.[1] ?? 0), 0);
-    expect(readable, '数える対象が0件では検査にならない').toBeGreaterThan(0);
-    expect(Number(headline![1]), '見出しの件数と、シートの中で読める規則の数が食い違っている').toBe(readable);
+    expectRuleCountMatchesReadable(host);
+  });
+
+  it('見出しの「現行ルール N」と、開いて読める規則の数が一致する（構成要素を持つシート）', async () => {
+    // ⚠️ **上の1本だけでは足りなかった。** 突き合わせが「構成要素0・制約0 のシート」
+    // でしか走らないので、**構成要素のスロットに痩せた材料を渡しても落ちなかった**
+    // ——`sheetRuleCount` は4系統（構成要素／その配下の振る舞い／直下の振る舞い／制約）
+    // を足すのに、検査が踏むのは直下の1系統だけで、射程の名乗りが実際より広かった。
+    // comp.viewer は構成要素 part.list を持ち、そこに規則（D7）が付いている。
+    const host = await openOverview();
+    await selectComponent(host, 'ビューア画面');
+    // 構成要素の欄も初期は畳まれている（畳んだままだと規則のトグルが描かれない）。
+    await waitFor(() => !!host.querySelector('.overview-part-head'), '構成要素の欄が描かれる');
+    (host.querySelector('.overview-part-head') as HTMLElement).click();
+    await waitFor(() => !!host.querySelector('.overview-rules-toggle'), '構成要素の規則の欄が描かれる');
+    expectRuleCountMatchesReadable(host);
   });
 
   it('直下の欄は初期表示で畳まれていて、押すと開く（段階的開示）', async () => {
