@@ -61,6 +61,14 @@
       "behaviors": [
         "axis"
       ]
+    },
+    {
+      "id": "part",
+      "label": "構成要素",
+      "description": "コンポーネントの構成要素。仕様シートの中で、振る舞いを束ねる単位。",
+      "behaviors": [
+        "part"
+      ]
     }
   ],
   "facetKinds": [
@@ -85,7 +93,8 @@
     "axis": "軸",
     "concern": "関心",
     "requirement": "要件",
-    "subject": "コンポーネント"
+    "subject": "コンポーネント",
+    "part": "構成要素"
   },
   "display": {},
   "timezone": "Asia/Tokyo",

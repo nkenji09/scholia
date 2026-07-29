@@ -1,7 +1,7 @@
 {
   "id": "subject.viewer.config",
   "name": "設定ページ",
-  "kind": "subject",
+  "kind": "part",
   "parentIds": [
     "subject.viewer"
   ]

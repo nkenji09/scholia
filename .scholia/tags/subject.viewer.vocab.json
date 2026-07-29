@@ -1,7 +1,7 @@
 {
   "id": "subject.viewer.vocab",
   "name": "語彙ページ",
-  "kind": "subject",
+  "kind": "part",
   "parentIds": [
     "subject.viewer"
   ]
