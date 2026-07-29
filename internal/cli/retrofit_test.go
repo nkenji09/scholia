@@ -229,8 +229,14 @@ func TestRetrofitDogfoodCounts(t *testing.T) {
 	// decision を結ばなかった」を見る規則なので、古い commit が落ちるのは設計どおり。
 	// この期待値は commit を積むだけで動くので、ズレたらまず窓の境界を疑うこと
 	// （`git rev-list --count <commit>..HEAD` が 200 を超えていないか）。
-	if resp.AcknowledgeOnly.FindingCount != 18 || resp.AcknowledgeOnly.RecordCount != 18 {
-		t.Fatalf("dogfood acknowledgeOnly = %d findings / %d records, want 18/18", resp.AcknowledgeOnly.FindingCount, resp.AcknowledgeOnly.RecordCount)
+	// 取り下げの端末側の扱い（rules/spec の既定・--all・JSON の effect）を入れた
+	// 3 commit で、commit fc81ff6 が窓の外へ出て 18/18 → 17/17。実測:
+	// `git rev-list --count fc81ff6..HEAD` = 200（窓は直近 200 なので境界の外）、
+	// 同 HEAD~3 = 197（内側だった）。前回と同じく**窓の外に出ただけ**で、
+	// 是正でも回帰でもない——変更前の `lint --ci` は decision-stale を 4 件
+	// （e1d44d18 / 9df25e5b / 0b3a04bb / fc81ff6f）挙げており、変更後は先頭 3 件。
+	if resp.AcknowledgeOnly.FindingCount != 17 || resp.AcknowledgeOnly.RecordCount != 17 {
+		t.Fatalf("dogfood acknowledgeOnly = %d findings / %d records, want 17/17", resp.AcknowledgeOnly.FindingCount, resp.AcknowledgeOnly.RecordCount)
 	}
 	if total := resp.Fixable.ByRule["dead-doc-ref"] + resp.AcknowledgeOnly.ByRule["dead-doc-ref"]; total != 8 {
 		t.Fatalf("dogfood dead-doc-ref total = %d, want 8", total)
