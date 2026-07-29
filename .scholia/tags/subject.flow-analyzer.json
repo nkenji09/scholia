@@ -2,5 +2,8 @@
   "id": "subject.flow-analyzer",
   "name": "フロー解析器",
   "kind": "subject",
+  "parentIds": [
+    "grp.derive"
+  ],
   "description": "action-flow の共有解析実装（internal/flow）。CLI（scholia flow/gaps）と viewer の両サーフェスが消費する。既存 subject.viewer.flow〔フローページ〕とは別物。"
 }

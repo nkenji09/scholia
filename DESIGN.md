@@ -319,7 +319,16 @@ lint は二層で、**error＝記録の自己矛盾**（保存拒否・CI fail �
   | `constraint` | viewer の概要タブ | その kind のタグが、シートの**「〜しない」制約**欄に並ぶ |
   | `group` | viewer の概要タブ | その kind のタグが、構造ツリーの**フォルダ**（既定で開く節）になる |
 
-  `component`/`part`/`constraint`/`group` は viewer だけが読む（Go 側は `KindHasBehavior(kind, "axis")` しか問わない）。したがって**宣言しても Go の挙動は変わらず、lint も検証しない**。未宣言のときは慣用 id（`component`/`part`/`property`/`group`）へフォールバックするので、それらの id を直に使っている既存プロジェクトは宣言なしで従来どおり動く。
+  `component`/`part`/`constraint`/`group` は viewer だけが読む（Go 側は `KindHasBehavior(kind, "axis")` しか問わない）。したがって**`behaviors` にこれらを書いても Go の挙動は変わらず、lint も検証しない**。未宣言のときは慣用 id（`component`/`part`/`property`/`group`）へフォールバックするので、それらの id を直に使っている既存プロジェクトは宣言なしで従来どおり動く。
+
+  ⚠️ **ここで「変わらない」と言っているのは `behaviors` の解釈だけである。混同しやすい2つを分けて読むこと**（実際に混同され、decision の本文が「Go 側の挙動も lint の判定も変わらない」と誤って書かれた）:
+
+  | すること | 効く先 | 挙動は変わるか |
+  | --- | --- | --- |
+  | **`behaviors` に役割を書く** | viewer の概要タブだけ | **変わらない**（Go は `axis` しか問わない） |
+  | **その kind を `tagKinds` に宣言する** | **Go の保存ゲート**（`tag create`/`tag edit` が未宣言 kind を拒否）＋ **lint の `kind-valid`（error）** | ⚠️ **変わる**——「その kind のタグを作れるようにする」 |
+
+  つまり**役割を担わせるには、`behaviors` を書く前に「その kind が `tagKinds` に宣言されていること」が要る**。宣言していない kind のタグは `tag create` で拒否され、既に在れば `lint` が error にする。**役割の追加は viewer だけの話だが、kind の追加は保存経路の話である。**
 
   **概要タブを出すための最小の宣言**（`scholia init` の既定 `tagKinds` は `requirement`/`concern`/`subject` で、**役割 kind を1つも含まない**＝新規プロジェクトの概要タブは既定で空である）:
 

@@ -1,0 +1,6 @@
+{
+  "id": "grp.record",
+  "name": "記録を作り、保つ",
+  "kind": "group",
+  "description": "記録そのものを作り、書き、壊させない側。"
+}

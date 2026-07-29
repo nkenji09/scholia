@@ -6,6 +6,7 @@ import {
   ALIAS_TAGS,
   DEC,
   DEFAULT_CONFIG,
+  NO_ROOTS_CONFIG,
   TAGS,
   activeNavLabels,
   headingCount,
@@ -450,9 +451,13 @@ async function openOwnBehaviors(host: HTMLElement): Promise<{ before: number; af
 /** 構造ツリーの行を名前で押す（別のコンポーネントのシートへ移る）。 */
 async function selectComponent(host: HTMLElement, name: string): Promise<void> {
   await waitFor(() => !!host.querySelector('.overview-tree'), '構造ツリーが描かれる');
-  const row = Array.from(host.querySelectorAll<HTMLElement>('.overview-tree a, .overview-tree button')).find((el) => (el.textContent || '').includes(name));
-  expect(row, `構造ツリーに「${name}」の行が無い`).toBeTruthy();
-  row!.click();
+  // ⚠️ **行が出るまで待つ。** コンポーネントは束ねる段の下にあり、束ねる段が既定で開くのは
+  // 最初の描画の**後**に走る効果なので、ツリーの器が出た瞬間にはまだ子が並んでいない。
+  // ここを即時の assert にしていたときは「行が無い」で落ちた（corpus を実データと
+  // 同じ形＝起点が束ねる段だけ、にした時点で顕在化した）。
+  const find = () => Array.from(host.querySelectorAll<HTMLElement>('.overview-tree a, .overview-tree button')).find((el) => (el.textContent || '').includes(name));
+  await waitFor(() => !!find(), `構造ツリーに「${name}」の行が無い`);
+  find()!.click();
   await waitFor(() => (host.querySelector('.overview-sheet')?.textContent || '').includes(name), `${name} のシートが出る`);
 }
 
@@ -683,6 +688,192 @@ describe('製品の入口が、この harness と同じ合成ルートを起こ�
       render(null, app);
       app.remove();
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 構造ツリーに並ぶもの・並んだ行を押した結果
+// ---------------------------------------------------------------------------
+//
+// ## この節が落とすもの（射程・`CLAUDE.md` 6）
+//
+//   ・**役割を持たないタグが構造ツリーに並ぶ。** 行に付いた種類を値として読むので、
+//     どの経路（起点／子）から混ざっても落ちる。**綴りには依らない。**
+//   ・**並ぶ行の集合が変わる。** 件数ではなく**集合そのもの**を固定してあるので、
+//     **起点と子のどちらか一方にだけ痩せた役割集合を渡す**形（純関数は1つのままでも
+//     呼び出し側が非対称にできる）も落ちる。corpus の起点は**束ねる段だけ**にしてある
+//     ——コンポーネントを起点に置くと、束ねる段の資格を外す変異が「まだ行がある」で通る。
+//   ・**起点を決める2分岐の、どちらの側も踏む。** 起点は「設定が指定した集合」と
+//     「親を持たないタグ（フォールバック）」で決まる。⚠️ **既定 corpus は宣言している側しか
+//     踏まない**ので、フォールバック側は `NO_ROOTS_CONFIG`（`roots: []`＝**実データと同じ側**）で
+//     別に起こしている。片側だけだと、**フォールバックの起点候補を痩せさせる変異**が
+//     素通りする——実測で 288/288 が緑のまま、実データではツリーが0行になった。
+//   ・**押しても何も起きない行ができる。** 2つの形の**両方**を見る:
+//     (a) 開閉の三角も無く、リンクでもない行（`!isAnchor && !hasToggle`）
+//     (b) **三角はあるが、押しても中身が1つも変わらない行**（三角を1つずつ押して確かめる）
+//     (a) だけを見ていたときは (b) の変異が素通りした。
+//   ・**純関数（`treeModel`）を呼ばない／呼んで答えを捨てる／痩せた材料を渡す。**
+//     ここは描画を起こすので、判定が正しくても配線が外れていれば落ちる。
+//     **転送についても同じ**（下の「共有済み URL の転送」節）。
+//
+// ## この節が落とさないもの（名指しする）
+//
+//   1. **行き先が正しいか。** アンカーが付いていることは見るが、その URL が
+//      **意図した相手を指しているか**は見ていない（`treeModel.test.ts` が値で見る）。
+//   2. **見え方。** 並び順・段の付き方・余白は1つも見ていない（happy-dom はレイアウトを
+//      計算しない）。「階層に見えるか」はここでは答えられない。
+//   3. **構成要素の入れ子。** corpus に構成要素の下の構成要素は無い。
+//      入れ子を入れる変異はここでは落ちない（別単位で扱うと決めた範囲）。
+//   4. ⚠️ **パンくず（シート上部の祖先の並び）。** あれは `parentIds[0]` をそのまま
+//      遡っており、**役割の資格判定を1つも通していない**——「構造上どこに居るか」という
+//      同じ問いを、集約した述語とは別の規則で答えている**5箇所目**である。
+//      実データでは正しい答えが出るので欠陥は見えておらず、描画も `<span>` で
+//      リンクではないため行き先の無い URL にはならないが、**ここは守っていない。**
+describe('構造ツリーは役割を持つタグだけを並べ、並んだ行はすべて押した意味を持つ', () => {
+  /** 行に付いた種類（`kind-<id>` クラス）と、押した結果を決める形を値として読む。 */
+  function treeRows(host: HTMLElement) {
+    return Array.from(host.querySelectorAll<HTMLElement>('.overview-tree-row')).map((row) => {
+      const label = row.querySelector<HTMLElement>('.overview-tree-label')!;
+      return {
+        name: (row.querySelector('.overview-tree-name')?.textContent || '').trim(),
+        kind: (Array.from(label.classList).find((c) => c.startsWith('kind-')) || '').replace(/^kind-/, ''),
+        isAnchor: label.tagName === 'A' && !!label.getAttribute('href'),
+        hasToggle: !!row.querySelector('.overview-tree-toggle'),
+      };
+    });
+  }
+
+  it('役割（コンポーネント／構成要素／束ねる段）を持たないタグは1行も並ばない', async () => {
+    const host = await openOverview();
+    const rows = treeRows(host);
+    expect(rows.length, '構造ツリーが1行も描かれていない＝検査が空振りしている').toBeGreaterThan(0);
+    // corpus には親を持たない要件（`req.viewer` / `req.cli`）が居り、config.roots にも
+    // 入っている。**是正前はこの2件が最上段に並んでいた**（`req.viewer` は要件の子を
+    // 持つので、押しても何も起きない行にもなっていた）。
+    const strays = rows.filter((r) => !['component', 'part', 'group'].includes(r.kind));
+    expect(strays.map((r) => `${r.name}(${r.kind})`), '役割を持たないタグが並んでいる').toEqual([]);
+  });
+
+  it('押しても何も起きない行が0件（開閉の三角も無く、リンクでもない行）', async () => {
+    const host = await openOverview();
+    const rows = treeRows(host);
+    expect(rows.length).toBeGreaterThan(0);
+    // ⚠️ **これが是正の本体である。** 「アンカーである」か「開閉できる」か、
+    // 少なくとも一方は必ず成り立つ。両方を欠いた行は、押しても何も起きない。
+    const dead = rows.filter((r) => !r.isAnchor && !r.hasToggle);
+    expect(dead.map((r) => `${r.name}(${r.kind})`), '押しても何も起きない行がある').toEqual([]);
+  });
+
+  it('並ぶ行の集合そのものを値で固定する（起点・子のどちらかだけ材料を痩せさせる変異を落とす）', async () => {
+    // ⚠️ **「1行以上ある」では足りない。** 純関数を1つに集約しても、**呼び出し側が
+    // 起点と子で違う材料を渡せば非対称は復活する**——そのとき行は減るが0にはならない
+    // ことが多く、件数だけ見ていると素通りする（レビュアの変異 R1/R2 がこの形）。
+    // 集合そのものを固定して、**どこか1つでも欠けたら落ちる**ようにする。
+    const host = await openOverview();
+    expect(treeRows(host).map((r) => r.name)).toEqual([
+      '主要なまとまり', // 束ねる段（起点。実データと同じく起点は束ねる段だけ）
+      'ビューア画面', //   コンポーネント（既定の現在地なので開いている）
+      '意思決定の一覧', //   その構成要素
+      '端末', //           コンポーネント（畳んだまま＝子は出ない）
+      '道具のまとまり', // 子は居るが役割を持つ子が居ない束ねる段
+    ]);
+  });
+
+  it('設定が起点を宣言していないとき（＝実データ側）も、同じ集合が並ぶ', async () => {
+    // ⚠️ **分岐の片側を踏ませるための検査。** 起点は「設定が指定した集合」と
+    // 「親を持たないタグ（フォールバック）」の2分岐で決まる。既定 corpus は `roots` が
+    // 非空なので**宣言している側しか踏まない**——実測では、フォールバック側の起点候補を
+    // コンポーネントだけに絞る変異で 288/288 が緑のままだった。実データでは
+    // コンポーネントは全件が束ねる段の子なので、その変異で**ツリーは0行になる**。
+    const host = await openOverview({ config: NO_ROOTS_CONFIG });
+    // 並ぶものは宣言した側と同じ（順序だけタグの並び順に従う）。
+    expect(treeRows(host).map((r) => r.name)).toEqual([
+      '道具のまとまり', // 子は居るが役割を持つ子が居ない束ねる段
+      '主要なまとまり',
+      'ビューア画面',
+      '意思決定の一覧',
+      '端末',
+    ]);
+    expect(treeRows(host).filter((r) => !r.isAnchor && !r.hasToggle).map((r) => r.name), '押しても何も起きない行がある').toEqual([]);
+  });
+
+  it('開閉の三角がある行は、押すと必ず中身が変わる（開いても何も出ない三角を落とす）', async () => {
+    // ⚠️ 「押しても何も起きない行」を `アンカーでもなく三角も無い` とだけ定義すると、
+    // **三角はあるが開いても何も出ない行**が漏れる（レビュアの変異 M5/M5b）。
+    // 三角の有無ではなく**押した結果**を見る。
+    const host = await openOverview();
+    const rowCount = () => host.querySelectorAll('.overview-tree-row').length;
+    const toggles = () => Array.from(host.querySelectorAll<HTMLElement>('.overview-tree-row')).filter((r) => r.querySelector('.overview-tree-toggle'));
+    expect(toggles().length, '三角のある行が1つも無い＝検査が空振りしている').toBeGreaterThan(0);
+    for (let i = 0; i < toggles().length; i++) {
+      const row = toggles()[i];
+      const name = row.querySelector('.overview-tree-name')?.textContent || '';
+      const before = rowCount();
+      row.querySelector<HTMLElement>('.overview-tree-toggle')!.click();
+      await waitFor(() => rowCount() !== before, `「${name}」の三角を押しても行が1つも増減しない（開いても何も出ない三角）`);
+      // 元に戻して次の行を同じ初期状態で見る
+      const reopened = toggles().find((r) => (r.querySelector('.overview-tree-name')?.textContent || '') === name);
+      reopened?.querySelector<HTMLElement>('.overview-tree-toggle')!.click();
+      await waitFor(() => rowCount() === before, `「${name}」の三角がもう一度押しても戻らない`);
+    }
+  });
+
+  it('役割を別 id が担うプロジェクトでも同じ答えになる（リテラル id に戻す変異を落とす）', async () => {
+    // `ALIAS_*` の世界に `component` という id は無い。役割の解決をリテラルへ戻すと
+    // ツリーが空になるか、逆に役割を持たないタグが混ざる。
+    const host = await openOverview({ config: ALIAS_CONFIG, tags: ALIAS_TAGS });
+    const rows = treeRows(host);
+    expect(rows.length, 'ツリーが空＝役割の解決が宣言を読んでいない').toBeGreaterThan(0);
+    // ALIAS の世界で宣言し直しているのは component だけ。part / group は宣言が無く
+    // 慣用 id へフォールバックするので、その2つはこの世界でも役割を持つ。
+    const strays = rows.filter((r) => !['subject', 'part', 'group'].includes(r.kind));
+    expect(strays.map((r) => `${r.name}(${r.kind})`), '役割を持たないタグが並んでいる').toEqual([]);
+    expect(rows.filter((r) => !r.isAnchor && !r.hasToggle).map((r) => r.name), '押しても何も起きない行がある').toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 共有済み URL の転送（`01KYKS4Y56FAHRVCWKMQJK4RT6` 条項4 の射程を概要の現在地へ）
+// ---------------------------------------------------------------------------
+//
+// ⚠️ **値のガード（`treeModel.test.ts`）だけでは足りない。** 転送先を計算する純関数が
+// 正しくても、**その答えを使わない／痩せた材料を渡す**と転送は起きない。
+// レビュアの変異3通（答えを計算するが `location.replace` を呼ばない／転送先から
+// 構成要素の id を落とす／親を探す材料を常に null にする）は**すべて値のガードを
+// 素通りした**。ここは描画を起こして、**URL がどこへ着いたか**を値として読む。
+//
+// ## この節が落とすもの
+//   ・転送の配線を外す（答えを捨てる）／転送先の材料を痩せさせる／着地先から構成要素を落とす
+// ## この節が落とさないもの
+//   ・履歴を積まないこと（`location.replace` か `hash=` かの区別は happy-dom では見ていない）
+//   ・寄せ先までスクロールすること（happy-dom はレイアウトを計算しない）
+describe('構成要素になったタグを指す古い URL は、転送で生きる', () => {
+  it('コンポーネントとして解決できない現在地が、親コンポーネント＋その構成要素へ着地する', async () => {
+    server = installFakeServer({});
+    mounted = mountApp('#/overview/part.list');
+    const host = mounted.host;
+    await waitFor(() => !!host.querySelector('.overview-tree'), '概要が描かれる');
+    await waitFor(
+      () => window.location.hash === '#/overview/comp.viewer/part/part.list',
+      `古い URL が転送されない（いま: ${window.location.hash}）`,
+    );
+    // 着地したシートが親コンポーネントのものであること（既定へ黙って落ちていない）。
+    await waitFor(() => (host.querySelector('.overview-title')?.textContent || '') === 'ビューア画面', '親コンポーネントのシートに着いていない');
+    // 寄せ先の器が在ること（構成要素の id を落とすと URL は変わってもここが無くなる）。
+    expect(host.querySelector('[data-part="part.list"]'), '寄せ先の構成要素が描かれていない').not.toBeNull();
+  });
+
+  it('コンポーネントを指す現在地は転送しない（射程を広げない）', async () => {
+    // ⚠️ **親がコンポーネントであるコンポーネントを使う。** `comp.cli` は親が束ねる段なので、
+    // 「転送しない」が**「親コンポーネントが見つからない」だけで満たされてしまう**
+    // ——種別の判定をまるごと外しても緑のままになる（空振り）。`comp.cli.sub` は
+    // 親が `comp.cli`（コンポーネント）なので、**種別で弾いていることだけが**
+    // 転送しない理由になる。
+    server = installFakeServer({});
+    mounted = mountApp('#/overview/comp.cli.sub');
+    const host = mounted.host;
+    await waitFor(() => (host.querySelector('.overview-title')?.textContent || '') === '端末: 下位', '端末: 下位のシートが出る');
+    expect(window.location.hash, 'コンポーネントの現在地まで転送している').toBe('#/overview/comp.cli.sub');
   });
 });
 
