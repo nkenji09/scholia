@@ -686,6 +686,75 @@ describe('製品の入口が、この harness と同じ合成ルートを起こ�
   });
 });
 
+// ---------------------------------------------------------------------------
+// 構造ツリーに並ぶもの・並んだ行を押した結果
+// ---------------------------------------------------------------------------
+//
+// ## この節が落とすもの（射程・`CLAUDE.md` 6）
+//
+//   ・**役割を持たないタグが構造ツリーに並ぶ。** 行に付いた種類を値として読むので、
+//     どの経路（起点／子）から混ざっても落ちる。**綴りには依らない。**
+//   ・**押しても何も起きない行ができる。** 「開閉の三角も無く、リンクでもない行」を
+//     `0` 件で見る。是正前は実データで4件あり、`treeLinkFor` の判定だけを直しても
+//     `hasKids` 側を直さなければ再発する——**その組み合わせを DOM の値で見る。**
+//   ・**純関数（`treeModel`）を呼ばない／呼んで答えを捨てる。** ここは描画を起こすので、
+//     判定が正しくても配線が外れていれば落ちる（`treeModel.test.ts` では落ちない層）。
+//
+// ## この節が落とさないもの（名指しする）
+//
+//   1. **行き先が正しいか。** アンカーが付いていることは見るが、その URL が
+//      **意図した相手を指しているか**は見ていない（`treeModel.test.ts` が値で見る）。
+//   2. **見え方。** 並び順・段の付き方・余白は1つも見ていない（happy-dom はレイアウトを
+//      計算しない）。「階層に見えるか」はここでは答えられない。
+//   3. **構成要素の入れ子。** corpus に構成要素の下の構成要素は無い。
+//      入れ子を入れる変異はここでは落ちない（別単位で扱うと決めた範囲）。
+describe('構造ツリーは役割を持つタグだけを並べ、並んだ行はすべて押した意味を持つ', () => {
+  /** 行に付いた種類（`kind-<id>` クラス）と、押した結果を決める形を値として読む。 */
+  function treeRows(host: HTMLElement) {
+    return Array.from(host.querySelectorAll<HTMLElement>('.overview-tree-row')).map((row) => {
+      const label = row.querySelector<HTMLElement>('.overview-tree-label')!;
+      return {
+        name: (row.querySelector('.overview-tree-name')?.textContent || '').trim(),
+        kind: (Array.from(label.classList).find((c) => c.startsWith('kind-')) || '').replace(/^kind-/, ''),
+        isAnchor: label.tagName === 'A' && !!label.getAttribute('href'),
+        hasToggle: !!row.querySelector('.overview-tree-toggle'),
+      };
+    });
+  }
+
+  it('役割（コンポーネント／構成要素／束ねる段）を持たないタグは1行も並ばない', async () => {
+    const host = await openOverview();
+    const rows = treeRows(host);
+    expect(rows.length, '構造ツリーが1行も描かれていない＝検査が空振りしている').toBeGreaterThan(0);
+    // corpus には親を持たない要件（`req.viewer` / `req.cli`）が居り、config.roots にも
+    // 入っている。**是正前はこの2件が最上段に並んでいた**（`req.viewer` は要件の子を
+    // 持つので、押しても何も起きない行にもなっていた）。
+    const strays = rows.filter((r) => !['component', 'part', 'group'].includes(r.kind));
+    expect(strays.map((r) => `${r.name}(${r.kind})`), '役割を持たないタグが並んでいる').toEqual([]);
+  });
+
+  it('押しても何も起きない行が0件（開閉の三角も無く、リンクでもない行）', async () => {
+    const host = await openOverview();
+    const rows = treeRows(host);
+    expect(rows.length).toBeGreaterThan(0);
+    // ⚠️ **これが是正の本体である。** 「アンカーである」か「開閉できる」か、
+    // 少なくとも一方は必ず成り立つ。両方を欠いた行は、押しても何も起きない。
+    const dead = rows.filter((r) => !r.isAnchor && !r.hasToggle);
+    expect(dead.map((r) => `${r.name}(${r.kind})`), '押しても何も起きない行がある').toEqual([]);
+  });
+
+  it('役割を別 id が担うプロジェクトでも同じ答えになる（リテラル id に戻す変異を落とす）', async () => {
+    // `ALIAS_*` の世界に `component` という id は無い。役割の解決をリテラルへ戻すと
+    // ツリーが空になるか、逆に役割を持たないタグが混ざる。
+    const host = await openOverview({ config: ALIAS_CONFIG, tags: ALIAS_TAGS });
+    const rows = treeRows(host);
+    expect(rows.length, 'ツリーが空＝役割の解決が宣言を読んでいない').toBeGreaterThan(0);
+    const strays = rows.filter((r) => !['subject', 'part'].includes(r.kind));
+    expect(strays.map((r) => `${r.name}(${r.kind})`), '役割を持たないタグが並んでいる').toEqual([]);
+    expect(rows.filter((r) => !r.isAnchor && !r.hasToggle).map((r) => r.name), '押しても何も起きない行がある').toEqual([]);
+  });
+});
+
 describe('harness 自身の前提', () => {
   it('製品が投げた要求を1つも取りこぼしていない（迂回していないことの確認）', async () => {
     const host = await open('#/decisions?on=tag:req.viewer.filter&scope=governing');

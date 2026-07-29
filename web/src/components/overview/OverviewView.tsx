@@ -17,6 +17,8 @@ import { summaryOf } from '../../decisionSummary';
 import { buildCurrencyIndex, effectOf, relatedDecisions, replacedBy } from '../decisions/decisionModel';
 import { formatScopeTarget } from '../decisions/decisionScope';
 import { buildDirectByTag, componentBehaviorTxIds, sheetRuleCount } from './sheetModel';
+import { forwardedOverviewTarget, isStructuralKind, structuralRootIds, treeRowAction } from './treeModel';
+import type { TreeRoles } from './treeModel';
 import type { Config, Decision, Tag, TraceabilityResponse } from '../../types';
 
 // 概要ビュー（viewer-overview-browser）: 左=構造ツリー、右=コンポーネント仕様
@@ -193,6 +195,15 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
   const partKind = roleKinds.part;
   const constraintKind = roleKinds.constraint;
   const groupKind = roleKinds.group;
+  // 構造ツリーが並べる3役割（`01KYCC2TDC6PGKPVV6DY90BHR4`「group>component>part」）。
+  // 判定は treeModel が持つ——ここで書き下すと、また場所ごとに別の集合を見ることになる。
+  const treeRoles: TreeRoles = { group: groupKind, component: componentKind, part: partKind };
+
+  /** part タグの親コンポーネント。無ければ null＝ページ内アンカーにできないので、
+      その part はブラウザの詳細へ送る（コンポーネントでない親を選んでも仕様シートは
+      描けず、行き先の無い URL になるため）。
+      ⚠️ 転送（下）と行の指し先の両方がこれを使うので、**両方より前**に置いてある。 */
+  const componentParentOf = (tag: Tag): string | null => (tag.parentIds || []).find((p) => tagById.get(p)?.kind === componentKind) || null;
 
   const [config, setConfig] = useState<Config | null>(null);
   const [traceability, setTraceability] = useState<TraceabilityResponse | null>(null);
@@ -325,6 +336,32 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
   const selFromUrl = componentId && tagById.get(componentId)?.kind === componentKind ? componentId : null;
   const sel = selFromUrl ?? defaultComponentId;
 
+  // 共有済みの URL を転送で生かす（`01KYKS4Y56FAHRVCWKMQJK4RT6` 条項4 を概要の現在地へ）。
+  //
+  // あるコンポーネントを構成要素へ移すと、それを指していた `#/overview/<id>` は
+  // **そのタグをコンポーネントとして解決できなくなり、既定のコンポーネントへ黙って落ちる**
+  // （実測: `#/overview/subject.viewer.tags` が「CLI コマンド」のシートを出した）。
+  // URL は変わらないのに別のものが出る、が一番悪い。
+  //
+  // `location.replace` を使うのは履歴を1つ**積まない**ため——旧 URL と新 URL が並ぶと、
+  // バックを押した利用者が旧 URL に戻され、そこから即座に前へ送り返される
+  // （既存の単票転送 `DecisionPermalinkRedirect` と同じ機構・同じ理由。別機構を作らない）。
+  const forwarded = index
+    ? forwardedOverviewTarget({
+        componentId,
+        kindOf: (id) => tagById.get(id)?.kind,
+        componentParentOf: (id) => {
+          const tg = tagById.get(id);
+          return tg ? componentParentOf(tg) : null;
+        },
+        roles: treeRoles,
+      })
+    : null;
+  useEffect(() => {
+    if (!forwarded) return;
+    window.location.replace(routeHash({ view: 'overview', componentId: forwarded.componentId, partId: forwarded.partId }));
+  }, [forwarded?.componentId, forwarded?.partId]);
+
   // ツリーの展開: 覚えている形があればそれを使い、無ければ group を既定で開く。どちらの
   // 場合も現在地までの経路は開く——URL 直打ち・ブラウザバックで飛び込んできたときに、
   // 選ばれている行が畳まれた枝の中に隠れないため。
@@ -391,27 +428,36 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
     onSelectComponent(id, part);
   };
 
-  /** part タグの親コンポーネント。無ければ null＝ページ内アンカーにできないので、
-      その part はブラウザの詳細へ送る（コンポーネントでない親を選んでも仕様シートは
-      描けず、行き先の無い URL になるため）。 */
-  const componentParentOf = (tag: Tag): string | null => (tag.parentIds || []).find((p) => tagById.get(p)?.kind === componentKind) || null;
-
   // 行の指し先。別レコードへ移動する行は実アンカーにする（ページ内の遷移リンクは
   // 本物の <a href> という一般則 01KXFK3Q1NY9J8Q7FX14T31N7K を概要にも及ぼす・条項(2)）。
-  // 子を持つ構造ノードだけは「その場で開閉するだけ」で遷移ではないので、従来どおり
-  // ボタンのまま＝一般則の対象外。
-  const treeLinkFor = (tag: Tag): { href: string; navigate: () => void } | null => {
+  // 子を持つ構造ノードだけは「その場で開閉するだけ」で遷移ではないので、ボタンのまま
+  // ＝一般則の対象外。
+  //
+  // ⚠️ **どの枝に入るかの判断は treeModel.treeRowAction が1箇所で持つ**。ここは
+  // その答えを href と navigate に写すだけにする——是正前は判断がこの関数の中にあり、
+  // **三角を出す条件（要件系を除いた子）と別の集合（全部の子）**を見ていたせいで、
+  // 三角も出ずリンクにもならない行が実データで4件できていた。
+  const treeLinkFor = (tag: Tag, structuralChildCount: number): { href: string; navigate: () => void } | null => {
     if (!index) return null;
-    if (tag.kind === componentKind) {
-      return { href: routeHash({ view: 'overview', componentId: tag.id }), navigate: () => goTo(tag.id) };
+    const action = treeRowAction({
+      tag,
+      structuralChildCount,
+      componentParentId: componentParentOf(tag),
+      roles: treeRoles,
+    });
+    switch (action.kind) {
+      case 'component':
+        return { href: routeHash({ view: 'overview', componentId: action.componentId }), navigate: () => goTo(action.componentId) };
+      case 'part':
+        return {
+          href: routeHash({ view: 'overview', componentId: action.componentId, partId: action.partId }),
+          navigate: () => goTo(action.componentId, action.partId),
+        };
+      case 'detail':
+        return { href: routeHash({ view: 'spec', tagId: action.tagId }), navigate: () => onOpenTag(action.tagId) };
+      case 'toggle':
+        return null;
     }
-    if (tag.kind === partKind) {
-      const parent = componentParentOf(tag);
-      if (parent) return { href: routeHash({ view: 'overview', componentId: parent, partId: tag.id }), navigate: () => goTo(parent, tag.id) };
-      return { href: routeHash({ view: 'spec', tagId: tag.id }), navigate: () => onOpenTag(tag.id) };
-    }
-    if ((index.childrenByParent.get(tag.id) || []).length) return null;
-    return { href: routeHash({ view: 'spec', tagId: tag.id }), navigate: () => onOpenTag(tag.id) };
   };
 
   // URL がアンカーする構成要素は開いて見せる。保存はしない（利用者の操作ではないので
@@ -465,15 +511,19 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
       if (!tag || seen.has(id)) return;
       seen.add(id);
       const kids = index.childrenByParent.get(id) || [];
-      // ①: part をナビの最深にする。要件葉（leafKinds＝requirement/property 系）は
-      // ツリーに出さない — 要件はシート内の各振る舞いカードで見えるので不要。
-      // 木は構造 kind（group/component/part 等の非葉）だけで組む。
-      const structuralChildren = kids.filter((c) => !index.leafKinds.has(c.kind || '')).map((c) => c.id);
+      // 木は**役割（group/component/part）を担う種類だけ**で組む（正本
+      // 01KYCC2TDC6PGKPVV6DY90BHR4「構造ツリー（… の group>component>part）」）。
+      // 要件はシート内の各振る舞いカードで見えるのでツリーには出さない。
+      //
+      // ⚠️ 是正前はここが「要件系を除く」という**別の綴りの規則**で書かれており、
+      // 起点の側には**何の絞りも無かった**。同じ述語を両方で使う（下の rootIds も同じ）。
+      const structuralChildren = kids.filter((c) => isStructuralKind(c.kind, treeRoles)).map((c) => c.id);
       const isPart = tag.kind === partKind;
       const hasKids = structuralChildren.length > 0;
       const open = !!treeOpen[id];
       const isSel = tag.kind === componentKind && sel === id;
-      const link = treeLinkFor(tag);
+      // ⚠️ 三角を出す条件（hasKids）と、行の指し先を決める材料は**同じ集合**から採る。
+      const link = treeLinkFor(tag, structuralChildren.length);
       const count =
         tag.kind === componentKind
           ? kids.filter((c) => c.kind === partKind).length
@@ -498,10 +548,16 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
       if (!open) return;
       for (const cid of structuralChildren) walk(cid, depth + 1);
     };
-    // design は config.roots を起点にするが、roots 未設定のプロジェクト（この
-    // repo 自身の旧スキーマ等）でツリーが空になるのを避け、parentIds を持たない
-    // トップレベルタグをフォールバック起点にする（汎用性・空表示回避）。
-    const rootIds = config && config.roots.length ? config.roots : index.tags.filter((tg) => !(tg.parentIds && tg.parentIds.length)).map((tg) => tg.id);
+    // 起点。design は config.roots を、未設定なら親を持たないタグをフォールバックに使う。
+    // ⚠️ **どちらの経路にも、子と同じ資格判定を効かせる**（treeModel.structuralRootIds）。
+    // 是正前はフォールバック側が素通しで、役割を持たないタグ13件が最上段に並んでいた
+    // ——うち4件は押しても何も起きない行になっていた（実測）。
+    const rootIds = structuralRootIds({
+      tags: index.tags,
+      configRoots: config ? config.roots : [],
+      kindOf: (id) => tagById.get(id)?.kind,
+      roles: treeRoles,
+    });
     for (const r of rootIds) walk(r, 0);
   }
 
