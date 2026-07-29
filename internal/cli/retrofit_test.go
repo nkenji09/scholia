@@ -246,11 +246,21 @@ func TestRetrofitDogfoodCounts(t *testing.T) {
 	// 緑をそのまま返す**——実際にこの単位で、16/16 になっているのに `ok (cached)` と
 	// 出た。**この検査を信じる前に `-count=1` を付けて走らせること。**
 	//
-	// ⚠️ 次に触る人へ: **e1d44d18 が 183・9df25e5b が 193 で、どちらも境界に近い。**
-	// あと7コミットで 9df25e5b が、17コミットで e1d44d18 が窓を出る。そのたびに
-	// この数字は1つずつ減る（設計どおり）。
-	if resp.AcknowledgeOnly.FindingCount != 16 || resp.AcknowledgeOnly.RecordCount != 16 {
-		t.Fatalf("dogfood acknowledgeOnly = %d findings / %d records, want 16/16", resp.AcknowledgeOnly.FindingCount, resp.AcknowledgeOnly.RecordCount)
+	// ——**予告どおりに動いた。** 直前の注記が「あと7コミットで 9df25e5b が窓を出る」と
+	// 書いていたところへ、「構造ツリーを役割まで絞る」単位が3コミット積み、9df25e5b が
+	// ちょうど 200 に達して窓の外へ出た。16/16 → 15/15。
+	// その単位の着地時点の実測（窓は 200・`git rev-list --count <commit>..HEAD`）:
+	//   e1d44d18: 190 ／ 9df25e5b: 200 ／ 0b3a04bb: 216 ／ fc81ff6f: 228
+	// main（7551cb0）時点では 9df25e5b が 197 だったので、**3コミット積んだぶんだけ動いた**
+	// ＝是正でも回帰でもなく窓の外に出ただけである。`lint` が挙げる decision-stale も
+	// e1d44d18 の1件だけに減っている（実測）。
+	// なお同単位が足した decision 01KYPFJV04R347HWHQKQ2TW275 は advisory を1件も出さない
+	// （`decide --dry-run` で確認済み）ので、この差分に寄与していない。
+	//
+	// ⚠️ 次に触る人へ: **e1d44d18 が 190 で、境界まであと10コミット。**
+	// そこを越えると 15/15 → 14/14 になり、**decision-stale は0件になる**（設計どおり）。
+	if resp.AcknowledgeOnly.FindingCount != 15 || resp.AcknowledgeOnly.RecordCount != 15 {
+		t.Fatalf("dogfood acknowledgeOnly = %d findings / %d records, want 15/15", resp.AcknowledgeOnly.FindingCount, resp.AcknowledgeOnly.RecordCount)
 	}
 	if total := resp.Fixable.ByRule["dead-doc-ref"] + resp.AcknowledgeOnly.ByRule["dead-doc-ref"]; total != 8 {
 		t.Fatalf("dogfood dead-doc-ref total = %d, want 8", total)
