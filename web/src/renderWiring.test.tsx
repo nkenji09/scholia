@@ -749,7 +749,9 @@ describe('構造ツリーは役割を持つタグだけを並べ、並んだ行�
     const host = await openOverview({ config: ALIAS_CONFIG, tags: ALIAS_TAGS });
     const rows = treeRows(host);
     expect(rows.length, 'ツリーが空＝役割の解決が宣言を読んでいない').toBeGreaterThan(0);
-    const strays = rows.filter((r) => !['subject', 'part'].includes(r.kind));
+    // ALIAS の世界で宣言し直しているのは component だけ。part / group は宣言が無く
+    // 慣用 id へフォールバックするので、その2つはこの世界でも役割を持つ。
+    const strays = rows.filter((r) => !['subject', 'part', 'group'].includes(r.kind));
     expect(strays.map((r) => `${r.name}(${r.kind})`), '役割を持たないタグが並んでいる').toEqual([]);
     expect(rows.filter((r) => !r.isAnchor && !r.hasToggle).map((r) => r.name), '押しても何も起きない行がある').toEqual([]);
   });
