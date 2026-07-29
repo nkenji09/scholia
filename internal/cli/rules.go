@@ -145,7 +145,7 @@ func printRules(cmd *cobra.Command, decisions []model.Decision, sortBy string, v
 // 失効（supersede された）/改訂（何かを amend/exception している現行）/現行。
 func currencyLabel(d model.Decision, superseded map[string]bool) string {
 	if superseded[d.ID] {
-		return " [失効: supersede 済]"
+		return withdrawnMarkLabel
 	}
 	if len(d.Supersedes) > 0 {
 		hasSupersede := false

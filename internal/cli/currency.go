@@ -30,6 +30,11 @@ import (
 // 限る保守的な導出もそのまま。画面が既に 2 値へ寄せている
 // （01KYHW54B8ZXH0NEPH2J7N1X39 条項1）ので、端末の機械可読出力も同じ語彙を使う。
 
+// withdrawnMarkLabel は、本文まで出す面（--all）で取り下げ済みに添える印。
+// rules（currencyLabel）と spec（EffectLabel）が同じ文言を使う——面ごとに
+// 別の言い方をすると、読み手は同じ状態を別のものだと受け取る。
+const withdrawnMarkLabel = " [失効: supersede 済]"
+
 // Effect は出力に出せる効力。記録側の 3 値とは別物なので混ぜない。
 type Effect string
 
@@ -190,6 +195,15 @@ func (s decisionSplitter) SplitDecisions(d []model.Decision) ([]model.Decision, 
 
 func (s decisionSplitter) WriteWithdrawn(w io.Writer, withdrawn []model.Decision, indent string) {
 	writeWithdrawn(w, withdrawn, s.view, indent)
+}
+
+// EffectLabel は本文側に出す 1 件の印。--all で取り下げが本文側へ合流したとき、
+// rules と同じ印を付ける（rules は currencyLabel が同じ文言を出す）。
+func (s decisionSplitter) EffectLabel(d model.Decision) string {
+	if s.view.effectOf(d.ID) == EffectReplaced {
+		return withdrawnMarkLabel
+	}
+	return ""
 }
 
 // withdrawnHeading は取り下げ通知の見出し。件数は取り下げられた数。

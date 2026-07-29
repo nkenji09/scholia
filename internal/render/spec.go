@@ -110,6 +110,10 @@ type DecisionSplitter interface {
 	SplitDecisions(decisions []model.Decision) (bodies, withdrawn []model.Decision)
 	// WriteWithdrawn は withdrawn 群を「存在と行き先」だけの形で書く（本文は出さない）。
 	WriteWithdrawn(w io.Writer, withdrawn []model.Decision, indent string)
+	// EffectLabel は本文側に出す 1 件に添える効力の印。効いているものには空を返す。
+	// --all で取り下げが本文側へ合流したとき、それが取り下げ済みだと分かるために要る
+	// ——本文が読めるのに効力が読めないと、rules --all と揃わない。
+	EffectLabel(d model.Decision) string
 }
 
 // allInForce は何も畳まない DecisionSplitter（--all 相当・nil 渡し時の既定）。
@@ -119,6 +123,7 @@ func (allInForce) SplitDecisions(d []model.Decision) ([]model.Decision, []model.
 	return d, nil
 }
 func (allInForce) WriteWithdrawn(io.Writer, []model.Decision, string) {}
+func (allInForce) EffectLabel(model.Decision) string                  { return "" }
 
 // WriteText は SpecReport を人間可読な形式で書き出す。
 // split が nil なら何も畳まない（従来どおり全件を本文ごと出す）。
@@ -141,7 +146,7 @@ func WriteText(w io.Writer, report SpecReport, split DecisionSplitter) {
 	if len(report.TagDecisions) > 0 {
 		bodies, withdrawn := split.SplitDecisions(report.TagDecisions)
 		if len(bodies) > 0 {
-			writeDecisions(w, bodies)
+			writeDecisions(w, bodies, split)
 		}
 		split.WriteWithdrawn(w, withdrawn, "")
 		fmt.Fprintln(w)
@@ -165,7 +170,7 @@ func WriteText(w io.Writer, report SpecReport, split DecisionSplitter) {
 		if len(e.Decisions) > 0 {
 			bodies, withdrawn := split.SplitDecisions(e.Decisions)
 			if len(bodies) > 0 {
-				writeDecisions(w, bodies)
+				writeDecisions(w, bodies, split)
 			}
 			split.WriteWithdrawn(w, withdrawn, "")
 		}
@@ -175,13 +180,14 @@ func WriteText(w io.Writer, report SpecReport, split DecisionSplitter) {
 
 // writeDecisions は decision 群を "decisions:" 見出し付きの箇条書きで書き出す。
 // トップレベルのタグ decision と各遷移の decision で同一体裁を共有する。
-func writeDecisions(w io.Writer, decisions []model.Decision) {
+func writeDecisions(w io.Writer, decisions []model.Decision, split DecisionSplitter) {
 	fmt.Fprintln(w, "decisions:")
 	for _, d := range decisions {
+		label := split.EffectLabel(d)
 		if d.Ref != "" {
-			fmt.Fprintf(w, "  - %s (%s)\n", d.Why, d.Ref)
+			fmt.Fprintf(w, "  -%s %s (%s)\n", label, d.Why, d.Ref)
 		} else {
-			fmt.Fprintf(w, "  - %s\n", d.Why)
+			fmt.Fprintf(w, "  -%s %s\n", label, d.Why)
 		}
 	}
 }
