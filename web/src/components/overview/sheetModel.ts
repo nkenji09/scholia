@@ -52,3 +52,41 @@ export function componentBehaviorTxIds(opts: { partCount: number; directTxIds: r
   if (opts.partCount > 0) return [];
   return [...opts.directTxIds];
 }
+
+/** 規則（decision）を持つ欄。 */
+export interface RuleBearing<D> {
+  rules: readonly D[];
+}
+/** 構成要素の欄（自身の規則＋配下の振る舞いカードの規則）。 */
+export interface PartBearing<D> extends RuleBearing<D> {
+  behaviors: ReadonlyArray<RuleBearing<D>>;
+}
+
+/** シートの見出しに出す「現行ルール N」。
+ *
+ *  ⚠️ **シートの中で実際に開いて読める規則だけを数える**
+ *  （`01KYHW54B8ZXH0NEPH2J7N1X39` 条項5: 見出しの件数と、開いて見える行数を一致させる）。
+ *  数えるのは構成要素／その配下の振る舞い／**直下の振る舞い**／制約の4系統で、
+ *  どれか1つを落とすと「N と言っているのに N 件見つからない」になる。
+ *
+ *  ⚠️ この足し算は `OverviewView` の中に直接書いていた。**そこに書くと、条項を1つ
+ *  落とす変異が何にも落ちない**——見出しの数字は変わるが、その数字が正しいかを
+ *  値として見ている検査がどこにも無かったため（レビュアの変異1件がそこを通った）。 */
+export function sheetRuleCount<D>(
+  sheet: {
+    partBlocks: ReadonlyArray<PartBearing<D>>;
+    ownBehaviors: ReadonlyArray<RuleBearing<D>>;
+    propBlocks: ReadonlyArray<RuleBearing<D>>;
+  },
+  inForce: (d: D) => boolean,
+): number {
+  const count = (entries: readonly D[]) => entries.reduce((n, d) => n + (inForce(d) ? 1 : 0), 0);
+  let total = 0;
+  for (const p of sheet.partBlocks) {
+    total += count(p.rules);
+    for (const b of p.behaviors) total += count(b.rules);
+  }
+  for (const b of sheet.ownBehaviors) total += count(b.rules);
+  for (const p of sheet.propBlocks) total += count(p.rules);
+  return total;
+}

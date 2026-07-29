@@ -2,6 +2,8 @@
 import { render } from 'preact';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  ALIAS_CONFIG,
+  ALIAS_TAGS,
   DEC,
   DEFAULT_CONFIG,
   TAGS,
@@ -57,7 +59,13 @@ import type { FakeServer, HarnessConfig, Mounted } from './testing/renderHarness
 //   ・起こしている面のどれかで、harness が答えを持たない口を叩き始める
 //   ・**設定が決めるはずの語を、プログラムに literal で書く**（役割の呼び名）。
 //     config の呼び名を変えて画面の文言が動くかを見るので、**どう綴っても**落ちる
+//   ・**役割の解決そのものをリテラル kind id に戻す**（`01KYCC2THS5RX3HB27SQGFWSA5`）。
+//     慣用 id のタグが1件も無い corpus（`ALIAS_TAGS`/`ALIAS_CONFIG`）でシートが
+//     描かれることを見るので、**この repo が乗っている経路そのもの**が射程に入る
 //   ・**コンポーネントに直接付いた遷移を、シートが描かない／二重に描く**
+//   ・**遷移の実効タグの合成に vocab を渡し忘れる**（純関数は正しいが材料が痩せる型）
+//   ・**見出しの「現行ルール N」と、シートの中で開いて読める規則の数が食い違う**
+//   ・**空状態が「タグがまだ無い」と「役割を宣言せよ」を取り違える**
 //
 // ## このガードが落とさないもの（名指しする）
 //
@@ -79,9 +87,15 @@ import type { FakeServer, HarnessConfig, Mounted } from './testing/renderHarness
 //      この射程は実際に狭かった: 最初は既定で選ばれる1枚のシートしか見ておらず、
 //      **構成要素を持たないコンポーネント側の欄に literal を書いた変異が素通りした。**
 //      いまは両方の状態を踏むが、「全部の状態を踏んでいる」とは名乗らない。
+//   3b. **役割 part / constraint / group の解決を、リテラル id へ戻す形。**
+//      component については別 id の corpus（`ALIAS_*`）が落とすが、残る3役割は
+//      corpus が慣用 id のままなので、宣言を読まずリテラルに戻しても答えが変わらない。
+//      値としては `roleKinds.test.ts` が守るが、**配線は守られていない。**
+//      3役割ぶんの別 id corpus を足せば埋まる（今回は足していない）。
 //   4. **静的書き出し（`window.__SCHOLIA_STATIC__`）の経路。** api.ts は live と
 //      static の2本を持つが、ここが通すのは live（HTTP）側の1本だけ。static 側だけ
-//      壊す変異はここでは落ちない。
+//      壊す変異はここでは落ちない。**概要タブについては実機で確認した**が、機械の
+//      歯止めは無い（`scholia export --html` を起こす harness が要る）。
 //   5. **規模・実データ特有の形。** corpus は意思決定7件・タグ8件。**`config` の形も
 //      実データとは別物である**——実データは主題種別に役割 component を**宣言して**
 //      いる（`.scholia/config.json`）のに対し、corpus の既定 config は**宣言せず**
@@ -226,7 +240,9 @@ describe('URL に書かれた条件が、一覧の行になって出る（01KYKS
     // 書き換え（利用者から見れば「Back でタグの絞り込みだけ戻らない」うえ、
     // 300ms 後の書き戻しで URL 側が古いタグに上書きされる）が素通りした。
     const host = await open('#/decisions');
-    await expectRows(host, ['D7', 'D6', 'D4', 'D3', 'D2', 'D1']);
+    // D9/D8 は概要シートの規則欄を数えるために足した corpus で、日付は最も古い
+    // （絞り込みの振る舞いは何も変えていない・並びの末尾に付くだけ）。
+    await expectRows(host, ['D7', 'D6', 'D4', 'D3', 'D2', 'D1', 'D9', 'D8']);
     window.location.hash = '#/decisions?dt=req.viewer.filter';
     await expectRows(host, ['D4', 'D3', 'D2']);
     // 取り込んだ条件が、そのまま書き戻しの材料になっていること（古い値で URL を
@@ -442,6 +458,11 @@ describe('画面が名乗る役割の呼び名は、プロジェクトの設定�
     });
     const text = host.querySelector('.overview-empty')?.textContent || '';
     expect(text, '空状態が、設定した呼び名で語っていない').toContain('ZZ役割ZZ');
+    // ⚠️ **テスト名が名乗る「まだ無い」まで検査する。** 呼び名の有無しか見ていなかった
+    // ときは、「タグがまだ無い」と「役割を宣言せよ」を取り違える変異が素通りした
+    // （テスト名が中身より広い＝`CLAUDE.md` 6 の型）。
+    expect(text, '「タグがまだ無い」と言っていない').toContain('まだありません');
+    expect(text, '宣言済みなのに「役割を宣言せよ」と案内している').not.toContain('宣言');
     for (const lit of ROLE_LITERALS) expect(text).not.toContain(lit);
   });
 
@@ -472,15 +493,85 @@ describe('遷移がコンポーネントに直接付いていても、シート�
     const host = await openOverview();
     await selectComponent(host, '端末');
     await waitFor(() => (host.querySelector('.overview-own-behaviors')?.querySelectorAll('.overview-behavior').length ?? 0) > 0, '直下の振る舞いカードが描かれる');
-    const cards = host.querySelectorAll('.overview-own-behaviors .overview-behavior');
-    // ⚠️ 1枚ちょうど。comp.cli は子コンポーネント comp.cli.sub を持ち、そちらにも
-    // 遷移が1本ある——**祖先展開込みの索引を使うと2枚になる**（子の振る舞いが親の
-    // シートに再掲される）。件数だけでその混入を落とす。
-    expect(cards.length, '直下に付いた遷移がカードになっていない／子の分まで混ざっている').toBe(1);
+    const own = host.querySelector('.overview-own-behaviors')!;
+    const cards = own.querySelectorAll('.overview-behavior');
+    // ⚠️ 2枚ちょうど。comp.cli には直接タグ付けされた T-run-cli と、**参照する vocab
+    // 側にだけタグが付いた** T-cli-vocab がある。comp.cli は子コンポーネント
+    // comp.cli.sub も持ち、そちらにも遷移が1本ある——**祖先展開込みの索引を使うと
+    // 3枚になる**（子の振る舞いが親のシートに再掲される）。件数だけで両方を落とす。
+    expect(cards.length, '直下の遷移がカードになっていない／子の分まで混ざっている').toBe(2);
     // カードの中身が、その遷移のものであること（空のカードを数えても検査にならない）。
-    expect(cards[0].textContent).toContain('コマンドを実行する');
-    expect(cards[0].textContent).toContain('結果が印字される');
-    expect(host.querySelector('.overview-own-behaviors')!.textContent, '子コンポーネントの振る舞いが親のシートに出ている').not.toContain('下位を呼ぶ');
+    expect(own.textContent).toContain('コマンドを実行する');
+    expect(own.textContent).toContain('結果が印字される');
+    // ⚠️ **遷移の実効タグは tx.tags だけではない**——参照する vocab のタグも含む。
+    // 純関数はその合成を守っているが、**配線が vocab を渡し忘れる**形は、この行が
+    // 無ければ落ちない（「判断は正しいが1つ外側で痩せた材料を渡す」型）。
+    expect(own.textContent, '語彙側にだけタグが付いた遷移が拾えていない').toContain('語彙経由で束ねる');
+    expect(own.textContent, '子コンポーネントの振る舞いが親のシートに出ている').not.toContain('下位を呼ぶ');
+  });
+
+  it('見出しの「現行ルール N」と、シートの中で開いて読める規則の数が一致する', async () => {
+    // 01KYHW54B8ZXH0NEPH2J7N1X39 条項5。⚠️ **これは decision の条項なのに、直下の
+    // 振る舞いカードの分については機械の歯止めが1つも無かった**——算入を落としても
+    // 全部緑だった。数える対象（T-run-cli / T-cli-vocab への決定）を corpus に置き、
+    // 見出しの数と、実際に読める規則の数を突き合わせる。
+    const host = await openOverview();
+    await selectComponent(host, '端末');
+    await waitFor(() => !!host.querySelector('.overview-own-behaviors'), '直下の欄が描かれる');
+    const headline = /現行ルール\s*(\d+)/.exec(host.querySelector('.overview-cov-meta')?.textContent || '');
+    expect(headline, '見出しに「現行ルール N」が出ていない').not.toBeNull();
+    const toggles = Array.from(host.querySelectorAll('.overview-sheet .overview-rules-toggle'));
+    const readable = toggles.reduce((n, el) => n + Number(/\((\d+)\)/.exec(el.textContent || '')?.[1] ?? 0), 0);
+    expect(readable, '数える対象が0件では検査にならない').toBeGreaterThan(0);
+    expect(Number(headline![1]), '見出しの件数と、シートの中で読める規則の数が食い違っている').toBe(readable);
+  });
+
+  it('直下の欄の見出しが、構成要素の欄の見出しと取り違えられていない', async () => {
+    // ⚠️ 両方に「振る舞い」が含まれるので、「振る舞いという語が出ているか」では
+    // 取り違えを落とせない。**2つの欄の見出しが互いに違うこと**を見る（文言そのものを
+    // ここに書き写すと、言い回しを変えるたびに嘘になる）。
+    const host = await openOverview();
+    await selectComponent(host, 'ビューア画面'); // 構成要素あり
+    const partHeading = host.querySelector('.overview-section-title')?.textContent || '';
+    await selectComponent(host, '端末'); // 構成要素なし＝直下の欄
+    const ownSection = host.querySelector('.overview-own-behaviors')!.closest('.overview-section')!;
+    const ownHeading = ownSection.querySelector('.overview-section-title')?.textContent || '';
+    expect(partHeading, '構成要素の欄の見出しが読めていない').not.toBe('');
+    expect(ownHeading, '直下の欄の見出しが読めていない').not.toBe('');
+    expect(ownHeading, '直下の欄が、構成要素の欄の見出しを名乗っている').not.toBe(partHeading);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 役割 component を、フォールバックと違う id が担う形
+// ---------------------------------------------------------------------------
+//
+// ⚠️ **これがこの単位の成立条件そのものである。** `.scholia/config.json` は主題種別
+// `subject` に役割 component を宣言しており、慣用 id `component` のタグは1件も無い。
+// つまり「シート単位の kind をリテラル `'component'` に固定する」変異を入れると、
+// **この repo の概要タブは丸ごと空に戻る**。それが全部緑で通っていた。
+//
+// **何に落ちるか**: 役割の解決を宣言から読まずリテラルに戻す形（`01KYCC2THS5RX3HB27SQGFWSA5`
+// の眼目）。4役割のうち component について落ちる。
+// **何に落ちないか**: part / constraint / group の解決を同様にリテラルへ戻す形——
+// この corpus はそれらを慣用 id のまま宣言していない（フォールバック経路を常時
+// 踏ませるため）。そこは `roleKinds.test.ts` が値で守るが、**配線は守られていない。**
+describe('役割 component を別 id が担うプロジェクトでも、仕様シートが出る', () => {
+  const aliasWorld = { config: ALIAS_CONFIG, tags: ALIAS_TAGS };
+
+  it('慣用 id のタグが1件も無くても、シートが描かれる（空状態に落ちない）', async () => {
+    const host = await openOverview(aliasWorld);
+    expect(host.querySelector('.overview-empty'), '別 id が役割を担うのに空状態へ落ちている').toBeNull();
+    expect(host.querySelector('.overview-sheet'), '仕様シートが描かれていない').not.toBeNull();
+    // 役割の呼び名も、その別 id の設定ラベルから来る。
+    expect(host.querySelector('.overview-sheet')!.textContent, '別 id の呼び名がバッジに出ていない').toContain('ZZ主題ZZ');
+  });
+
+  it('別 id の世界でも、直下の遷移が振る舞いカードになる', async () => {
+    const host = await openOverview(aliasWorld);
+    await selectComponent(host, '端末');
+    const cards = host.querySelectorAll('.overview-own-behaviors .overview-behavior');
+    expect(cards.length, '別 id の世界では直下の振る舞いが出ていない').toBe(2);
   });
 
   it('構成要素を持つコンポーネントでは、直下の欄を出さない（同じ遷移を2度出さない）', async () => {

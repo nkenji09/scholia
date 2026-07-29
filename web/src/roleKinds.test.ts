@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveRoleKinds, ROLE_FALLBACK_KIND } from './roleKinds';
+import { resolveRoleKinds, roleLabel, ROLE_FALLBACK_KIND } from './roleKinds';
 import type { KindDecl } from './types';
 
 // 概要ビューの「役割 → 実 kind id」の解決を、**入力（config.tagKinds）に対する
@@ -67,5 +67,36 @@ describe('役割 kind の解決（01KYCC2THS5RX3HB27SQGFWSA5: リテラル id �
     const r = resolveRoleKinds(decl({ id: 'subject', label: 'コンポーネント', description: '主題' }));
     expect(r.kinds.component).toBe('component');
     expect(r.declared.component).toBe(false);
+  });
+});
+
+// 呼び名の解決。⚠️ **この判定は元は lookups の中にあり、そこでは「宣言の有無を
+// 見ない」変異が何にも落ちなかった**——値としては変わるのに、その差を見せる面が
+// 描かれない状態があったため（レビュアの変異1件がそこを通った）。判定をここへ
+// 出したので、入力に対する答えとして落とせる。
+describe('役割の呼び名（画面に literal で書かない・01KYCC2THS5RX3HB27SQGFWSA5）', () => {
+  it('宣言があれば、その kind の設定ラベルを返す', () => {
+    const r = resolveRoleKinds(decl({ id: 'subject', behaviors: ['component'] }));
+    expect(roleLabel(r, 'component', { subject: 'コンポーネント' })).toBe('コンポーネント');
+  });
+
+  it('宣言が無ければ空文字（フォールバック先の生の kind id を呼び名にしない）', () => {
+    const r = resolveRoleKinds(decl('requirement', 'concern', 'subject'));
+    // ⚠️ ラベルが**設定に在っても**返さない。フォールバックで当たった `component` は
+    // このプロジェクトが名付けたものではない（01KYCC2TF3NW3JRSSRK9ZHN078）。
+    expect(roleLabel(r, 'component', { component: 'コンポーネント' })).toBe('');
+  });
+
+  it('宣言はあるがラベルが無ければ、その kind id を返す', () => {
+    const r = resolveRoleKinds(decl({ id: 'subject', behaviors: ['component'] }));
+    expect(roleLabel(r, 'component', {})).toBe('subject');
+    expect(roleLabel(r, 'component', undefined)).toBe('subject');
+  });
+
+  it('役割ごとに別々に解決する（別の役割のラベルを取ってこない）', () => {
+    const r = resolveRoleKinds(decl({ id: 'subject', behaviors: ['component'] }, { id: 'piece', behaviors: ['part'] }));
+    const labels = { subject: 'コンポーネント', piece: '構成要素' };
+    expect(roleLabel(r, 'component', labels)).toBe('コンポーネント');
+    expect(roleLabel(r, 'part', labels)).toBe('構成要素');
   });
 });

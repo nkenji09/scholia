@@ -16,7 +16,7 @@ import { loadCardSectionOpen, saveCardSectionOpen } from '../../collapseState';
 import { summaryOf } from '../../decisionSummary';
 import { buildCurrencyIndex, effectOf, relatedDecisions, replacedBy } from '../decisions/decisionModel';
 import { formatScopeTarget } from '../decisions/decisionScope';
-import { buildDirectByTag, componentBehaviorTxIds } from './sheetModel';
+import { buildDirectByTag, componentBehaviorTxIds, sheetRuleCount } from './sheetModel';
 import type { Config, Decision, Tag, TraceabilityResponse } from '../../types';
 
 // 概要ビュー（viewer-overview-browser）: 左=構造ツリー、右=コンポーネント仕様
@@ -300,18 +300,19 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
     return { tags, childrenByParent, ancestorsOf, effByTx, satByTag, directByTag, gapSet, decByTarget, currencyIndex, leafKinds };
   }, [config, traceability, decisions, lookups.ready, tagById, transitionById, vocabById]);
 
-  const hasComponents = !!index && index.tags.some((tg) => tg.kind === componentKind);
-
-  // 空状態の文言。3つに分かれる——選べばよいのか、タグを作ればよいのか、
-  // 役割を宣言すればよいのかで、利用者がやることが違うため。
+  // 空状態の文言。**利用者がやることが違う**ので2つに分かれる——タグを作ればよいのか、
+  // そもそも役割を宣言すればよいのか。
   // ⚠️ **役割の呼び名は必ず lookups が解決したものを使う**（画面に literal で
   // 書かない・01KYCC2THS5RX3HB27SQGFWSA5）。宣言が無いプロジェクトでは呼び名が
   // 存在しないので、役割名を含まない文言（noComponentRole）に落ちる。
-  const emptyStateText = hasComponents
-    ? t.overview.selectPrompt(componentRoleLabel)
-    : roleDeclared.component
-      ? t.overview.noComponentTags(componentRoleLabel)
-      : t.overview.noComponentRole;
+  //
+  // ⚠️ かつてここに「コンポーネントを選んでください」という3つ目の分岐があったが、
+  // **到達しない**ので消した。役割 kind のタグが1件でもあれば必ず既定が選ばれ
+  // （defaultComponentId）、その id は index.tags から採ったものなので selTag は
+  // 必ず解決し、シートが描かれる。つまりシートが null になるのは「役割 kind の
+  // タグが0件」のときだけである。到達しない分岐は、変異を入れても何も変わらない
+  // ＝どんなガードも落とせない場所になる（実際にレビュアの変異1件がそこへ落ちた）。
+  const emptyStateText = roleDeclared.component ? t.overview.noComponentTags(componentRoleLabel) : t.overview.noComponentRole;
 
   // 現在地は URL が持つ（01KYGYYMZSS…）。URL が指すコンポーネントを優先し、無効な id
   // や未指定なら既定（最初の component タグ）へ落とす。既定は URL へ書き戻さない
@@ -567,7 +568,6 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
     const inForce = (d: Decision) => effectOf(d.id, index.currencyIndex) === 'in-force';
     const rulesFor = (targetId: string, via = ''): RuleEntry[] =>
       (index.decByTarget.get(targetId) || []).map((d) => ({ d, via }));
-    const countCurrent = (arr: RuleEntry[]) => arr.reduce((n, e) => n + (inForce(e.d) ? 1 : 0), 0);
 
     // 振る舞いカード1枚分（transition の WHEN/GIVEN/THEN・vocab ラベル解決）と、
     // その transition を target とする decision（規則）。
@@ -624,15 +624,10 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
     // 見える行数が一致すること）。コンポーネント本体の欄を廃止した以上、そこに
     // 集めていた分はシートから読めないので数にも含めない——含めると「N と言って
     // いるのに N 件見つからない」になる。
-    let ruleCount = 0;
-    for (const p of partBlocks) {
-      ruleCount += countCurrent(p.rules);
-      for (const b of p.behaviors) ruleCount += countCurrent(b.rules);
-    }
     // 直下の振る舞いカードも「シート内で実際に読める」ので数に入れる（入れないと
-    // 見出しの件数と、開いて見える行数が食い違う・同 条項5）。
-    for (const b of ownBehaviors) ruleCount += countCurrent(b.rules);
-    for (const p of propBlocks) ruleCount += countCurrent(p.rules);
+    // 見出しの件数と、開いて見える行数が食い違う・同 条項5）。足し算そのものは
+    // sheetModel.sheetRuleCount（純関数）が持つ。
+    const ruleCount = sheetRuleCount({ partBlocks, ownBehaviors, propBlocks }, (e: RuleEntry) => inForce(e.d));
 
     const { lead, body } = splitLead(c.description);
 
@@ -771,9 +766,9 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
   // ちょうど）なので、リンク先が同じ集合になるように揃える。ここを governing に
   // すると「展開して見える件数」と「踏んだ先の件数」が食い違う（条項5 と同じ趣旨）。
   //
-  // ⚠️ このプロジェクトでは概要タブが空（役割 kind を持つタグが0件）なので、
-  // **この経路は本 repo の画面では確かめられない**。設定に宣言が入るまで実機確認は
-  // できないことを result.md に開示してある。
+  // （かつてここに「このプロジェクトでは概要タブが空なので、この経路は本 repo の
+  // 画面では確かめられない」と書いてあった。**その前提は 01KYNV5PYT6A659K8Q3X0NZ9J1 で
+  // 消えた**——主題種別が役割 component を宣言し、実機で17枚のシートが描かれる。）
   const rulesListHref = (scopeRef: string) => routeHash({ view: 'decisions', decisionOn: scopeRef, decisionScope: 'own' });
 
   const renderRules = (key: string, entries: RuleEntry[], label: (n: number) => string, scopeRef: string) => {

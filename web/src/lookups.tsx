@@ -5,7 +5,7 @@ import { api } from './api';
 import { useT } from './i18n';
 import type { Config, Decision, Tag, Transition, VocabEntry } from './types';
 import { kindDeclObject } from './types';
-import { resolveRoleKinds } from './roleKinds';
+import { resolveRoleKinds, roleLabel } from './roleKinds';
 import type { SheetRole } from './roleKinds';
 import { buildCurrencyIndex, formatDecisionAt as formatDecisionAtWithZone } from './components/decisions/decisionModel';
 import type { CurrencyIndex } from './components/decisions/decisionModel';
@@ -152,12 +152,10 @@ export function LookupsProvider({ children }: { children: ComponentChildren }) {
   const tagKindDescription = (kind: string | undefined) => (kind ? tagKindDescriptions[kind] : undefined);
   const ownerKind = config?.ownerKind || '';
 
-  // viewer-overview-browser: 役割 → 実 kind id を解決（判定は ./roleKinds）。
-  const { kinds: roleKinds, declared: roleDeclared } = resolveRoleKinds(config?.tagKinds);
-  // 役割の呼び名は、宣言があるときだけ存在する。フォールバックで当たった
-  // リテラル id（'component' 等）はプロジェクトが名付けたものではないので、
-  // 呼び名としては使わない（画面はそのとき役割名を含まない文言で語る）。
-  const componentRoleLabel = roleDeclared.component ? tagKindLabel(roleKinds.component) : '';
+  // viewer-overview-browser: 役割 → 実 kind id と、その呼び名（判定は ./roleKinds）。
+  const resolvedRoles = resolveRoleKinds(config?.tagKinds);
+  const { kinds: roleKinds, declared: roleDeclared } = resolvedRoles;
+  const componentRoleLabel = roleLabel(resolvedRoles, 'component', tagKindLabels);
 
   const describeMatch = (matchedOn: string) => {
     if (matchedOn === 'id') return t.lookups.searchById;

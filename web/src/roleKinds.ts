@@ -40,6 +40,24 @@ export interface ResolvedRoles {
   declared: Record<SheetRole, boolean>;
 }
 
+/** その役割の**表示上の呼び名**。宣言があればその kind のラベル、無ければ空文字。
+ *
+ *  ⚠️ **画面に役割名を書くときは必ずここを通す**（`01KYCC2THS5RX3HB27SQGFWSA5`：
+ *  役割はリテラル kind id 固定でなく宣言で決まる以上、呼び名も config が決める）。
+ *
+ *  宣言が無いときに空文字を返すのは、フォールバックで当たったリテラル id
+ *  （`component` 等）が**プロジェクトの名付けたものではない**ため。呼び名として
+ *  使うと、生の kind id を画面に出すことになる（`01KYCC2TF3NW3JRSSRK9ZHN078`）。
+ *  呼び名が無いときに画面が何と言うかは、呼び出し側が決める。
+ *
+ *  ⚠️ この判定は `lookups` の中に置いていた。**そこに置くと、値としては正しくても
+ *  「宣言の有無を見ない」変異が何にも落ちない**（描画される面がその差を見せない
+ *  ときがあるため）。判定をここへ出して、入力に対する答えとして検査できるようにした。 */
+export function roleLabel(resolved: ResolvedRoles, role: SheetRole, tagKindLabels: Record<string, string> | undefined): string {
+  if (!resolved.declared[role]) return '';
+  return (tagKindLabels && tagKindLabels[resolved.kinds[role]]) || resolved.kinds[role];
+}
+
 /** config.tagKinds から役割 → 実 kind id を解決する。複数該当時は最初の1つ。 */
 export function resolveRoleKinds(tagKinds: KindDecl[] | undefined): ResolvedRoles {
   const kinds = { ...ROLE_FALLBACK_KIND };

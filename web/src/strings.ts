@@ -63,8 +63,9 @@ const ja = {
     // role が空文字＝役割が宣言されておらず、リテラル id にフォールバックしている
     // 状態。そのプロジェクトが名付けた呼び名は存在しないので、**役割名を含まない**
     // 言い回しに落とす（生の kind id を画面に出さない）。
-    selectPrompt: (role: string) =>
-      role ? `左の構造ツリーから${role}を選ぶと、仕様シートが表示されます。` : '左の構造ツリーから項目を選ぶと、仕様シートが表示されます。',
+    //
+    // かつてここに selectPrompt（「コンポーネントを選ぶと…」）があったが、
+    // **到達しない分岐だったので消した**（OverviewView の emptyStateText を参照）。
     // 役割は宣言されているが、その種別のタグがまだ1件も無い。
     noComponentTags: (role: string) => `このプロジェクトには「${role}」のタグがまだありません。ブラウザから全レコードを横断できます。`,
     // 役割そのものが宣言されていない。⚠️ ここで利用者がやることは「タグを作る」
@@ -655,8 +656,6 @@ const en: Strings = {
   overview: {
     loading: 'Loading…',
     treeHeading: 'Structure',
-    selectPrompt: (role) =>
-      role ? `Pick a ${role} from the structure tree on the left to see its spec sheet.` : 'Pick an item from the structure tree on the left to see its spec sheet.',
     noComponentTags: (role) => `This project has no “${role}” tags yet. You can still browse every record from Browse.`,
     noComponentRole:
       'This project has not decided what a spec sheet stands for yet. Declare that role on one of your tag kinds in Settings and the spec sheets will appear here. You can still browse every record from Browse.',

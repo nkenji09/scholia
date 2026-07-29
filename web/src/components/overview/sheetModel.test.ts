@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildDirectByTag, componentBehaviorTxIds } from './sheetModel';
+import { buildDirectByTag, componentBehaviorTxIds, sheetRuleCount } from './sheetModel';
 import type { Transition, VocabEntry } from '../../types';
 
 // 「どの遷移を、どのコンポーネントの振る舞いとして描くか」を、**入力に対する答え**
@@ -60,5 +60,40 @@ describe('コンポーネント自身の振る舞いとして描く遷移', () =
 
   it('直下の遷移が無ければ空（記録側の穴は埋めずに空のまま見せる）', () => {
     expect(componentBehaviorTxIds({ partCount: 0, directTxIds: [] })).toEqual([]);
+  });
+});
+
+// 見出しの「現行ルール N」。⚠️ **この足し算は OverviewView の中にあり、条項を1つ
+// 落とす変異が何にも落ちなかった**（見出しの数字は変わるが、その数字が正しいかを
+// 値として見ている検査がどこにも無かった）。ここへ出したので落とせる。
+describe('見出しの「現行ルール N」＝シートの中で開いて読める規則の数', () => {
+  // 効力の判定はここでは持たない（decisionModel の役目）。'x' で始まるものを
+  // 「置き換え済み」と見なす軽い代役を渡して、数え方だけを見る。
+  const inForce = (d: string) => !d.startsWith('x');
+  const empty = { partBlocks: [], ownBehaviors: [], propBlocks: [] };
+
+  it('4系統すべてを数える（構成要素・その配下の振る舞い・直下の振る舞い・制約）', () => {
+    const n = sheetRuleCount(
+      {
+        partBlocks: [{ rules: ['a'], behaviors: [{ rules: ['b', 'c'] }] }],
+        ownBehaviors: [{ rules: ['d'] }],
+        propBlocks: [{ rules: ['e'] }],
+      },
+      inForce,
+    );
+    expect(n).toBe(5);
+  });
+
+  it('直下の振る舞いの分を落とさない（決定の条項そのもの）', () => {
+    // ⚠️ この1件がこの describe の主眼。落とすと「N と言っているのに N 件見つからない」。
+    expect(sheetRuleCount({ ...empty, ownBehaviors: [{ rules: ['a', 'b'] }] }, inForce)).toBe(2);
+  });
+
+  it('効いていない規則は数えない（見出しの件数は効いている数）', () => {
+    expect(sheetRuleCount({ ...empty, ownBehaviors: [{ rules: ['a', 'x1', 'x2'] }] }, inForce)).toBe(1);
+  });
+
+  it('何も無ければ 0', () => {
+    expect(sheetRuleCount(empty, inForce)).toBe(0);
   });
 });
