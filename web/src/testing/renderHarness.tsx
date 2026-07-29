@@ -32,6 +32,8 @@ export const DEC = {
   D5: '01HARNESSD5000000000000005',
   D6: '01HARNESSD6000000000000006',
   D7: '01HARNESSD7000000000000007',
+  D8: '01HARNESSD8000000000000008',
+  D9: '01HARNESSD9000000000000009',
 } as const;
 
 export const TAGS: Tag[] = [
@@ -44,19 +46,56 @@ export const TAGS: Tag[] = [
   // なる——だからこそ、この面は corpus 側で起こさないと1行も検査できない。
   { id: 'comp.viewer', name: 'ビューア画面', kind: 'component' },
   { id: 'part.list', name: '意思決定の一覧', kind: 'part', parentIds: ['comp.viewer'] },
+  // 構成要素を持たず、遷移が**直接**付いているコンポーネント。実データはこの形が
+  // 多数派（この repo は 58 遷移中 57 が主題タグ直付け）で、かつては仕様シートが
+  // この形の遷移を1本も描かなかった。corpus に無ければその欠陥は再発しても緑のまま。
+  { id: 'comp.cli', name: '端末', kind: 'component' },
+  // 入れ子のコンポーネント。⚠️ これが無いと「祖先展開込みの索引を使う」変異が
+  // 素通りする——親も子も遷移1本ずつなら、祖先展開しても答えが変わらないため。
+  // 親のシートに子の振る舞いが再掲される形を落とすには、この形が corpus に要る。
+  { id: 'comp.cli.sub', name: '端末: 下位', kind: 'component', parentIds: ['comp.cli'] },
 ];
 
 export const VOCAB: VocabEntry[] = [
   { id: 'v.open-list', category: 'action', label: '一覧をひらく', tags: ['req.viewer.filter'] },
   { id: 'v.rows-shown', category: 'effect', label: '行がならぶ', tags: [] },
+  { id: 'v.run', category: 'action', label: 'コマンドを実行する', tags: [] },
+  { id: 'v.printed', category: 'effect', label: '結果が印字される', tags: [] },
+  { id: 'v.sub', category: 'action', label: '下位を呼ぶ', tags: [] },
+  { id: 'v.boot', category: 'action', label: '画面を起こす', tags: [] },
+  // ⚠️ **タグが vocab 側にしか付いていない**きっかけ。遷移の実効タグは
+  // `tx.tags ∪ 参照 vocab の tags` なので、これも comp.cli の振る舞いである。
+  // これが無いと「合成に vocab を渡し忘れる」変異が描画側で素通りする
+  // （純関数の検査は落ちるのに配線は落ちない＝この repo が繰り返している型）。
+  { id: 'v.cli-only', category: 'action', label: '語彙経由で束ねる', tags: ['comp.cli'] },
 ];
 
 export const TRANSITIONS: Transition[] = [
   { id: 'T-open-list', action: 'v.open-list', given: [], then: ['v.rows-shown'], tags: ['req.viewer.filter'] },
+  // comp.cli に**直接**付いた遷移（構成要素を経由しない）。
+  { id: 'T-run-cli', action: 'v.run', given: [], then: ['v.printed'], tags: ['comp.cli'] },
+  // 子コンポーネントに付いた遷移。親のシートにこれが出たら祖先展開が混ざっている。
+  { id: 'T-sub', action: 'v.sub', given: [], then: ['v.printed'], tags: ['comp.cli.sub'] },
+  // ⚠️ **構成要素を持つコンポーネントに、直接付いた遷移。** これが無いと
+  // 「構成要素があっても直下の欄を出す」変異が描画側では素通りする（構成要素持ちの
+  // コンポーネントに直下の遷移が1本も無ければ、欄を出そうとしても空になるため）。
+  { id: 'T-boot', action: 'v.boot', given: [], then: ['v.rows-shown'], tags: ['comp.viewer'] },
+  // 自身にタグを持たず、参照する vocab のタグだけで comp.cli に属す遷移。
+  { id: 'T-cli-vocab', action: 'v.cli-only', given: [], then: ['v.printed'] },
 ];
 
 /** getRules は時系列**昇順**で返す（一覧側が反転して新しい順に並べる）。 */
 export const DECISIONS: Decision[] = [
+  // ⚠️ **直下の振る舞いカードに紐づく規則。** これが無いと「見出しの『現行ルール N』に
+  // 直下の分を算入する」（01KYNV5PYT6A659K8Q3X0NZ9J1 変更4・01KYHW54B8ZXH0NEPH2J7N1X39
+  // 条項5）を落とす変異が、数える対象がゼロなので素通りする。
+  //
+  // ⚠️ 日付も並びも**既存のどれよりも古く／前に**置いてある。期間の絞り込みを見る検査
+  // （「30日以内は D7 だけ」）の境界を動かさないため——corpus を足した都合で既存の
+  // 検査の期待値を書き換えると、そこで何を守っていたのかが薄まる。一覧は昇順で受けて
+  // 反転するので、先頭に置いた2件は並びの末尾に出る。
+  { id: DEC.D8, target: { type: 'transition', id: 'T-run-cli' }, at: '2026-01-02T00:00:00Z', why: '[D8] 端末の実行は結果を必ず印字する' },
+  { id: DEC.D9, target: { type: 'transition', id: 'T-cli-vocab' }, at: '2026-01-03T00:00:00Z', why: '[D9] 語彙側のタグでも同じ主題に属す' },
   { id: DEC.D1, target: { type: 'tag', id: 'req.viewer' }, at: '2026-01-05T00:00:00Z', why: '[D1] 一覧は URL に書かれた条件から起こす' },
   { id: DEC.D2, target: { type: 'tag', id: 'req.viewer.filter' }, at: '2026-02-05T00:00:00Z', why: '[D2] タグの絞り込みは AND で重ねる' },
   { id: DEC.D3, target: { type: 'transition', id: 'T-open-list' }, at: '2026-03-05T00:00:00Z', why: '[D3] 折りたたみは保存値が既定より勝つ' },
@@ -88,21 +127,51 @@ export const GOVERNS: Record<string, GovernsRef[]> = {
   ],
 };
 
+/** 既定 config。**役割 behaviors を宣言していない**（＝リテラル kind id への
+    フォールバック経路）ままにしてある——宣言していないプロジェクトが従来どおり
+    動くことが、この corpus で常時踏まれている状態を保つため。宣言した側の経路は
+    `installFakeServer({ config: ... })` で差し替えて検査する。 */
 const CONFIG = {
   schemaVersion: 1,
   kinds: { action: ['action'], condition: ['condition'], effect: ['effect'] },
-  tagKinds: ['requirement', 'component', 'part'],
+  tagKinds: ['requirement', 'component', 'part'] as unknown[],
   facetKinds: ['requirement'],
   // 「要件系＝葉」の宣言（概要のカバレッジがここを見る）。
   traceabilityKinds: ['requirement'],
   idPrefix: {},
-  roots: ['comp.viewer', 'req.viewer', 'req.cli'],
+  roots: ['comp.viewer', 'comp.cli', 'req.viewer', 'req.cli'],
   viewer: {},
-  tagKindLabels: { requirement: '要件', component: 'コンポーネント', part: '構成要素' },
+  tagKindLabels: { requirement: '要件', component: 'コンポーネント', part: '構成要素' } as Record<string, string>,
   display: { productName: 'scholia' },
   branch: 'harness',
   localOverride: {},
   effectiveTimezone: 'UTC',
+};
+
+export type HarnessConfig = typeof CONFIG;
+export const DEFAULT_CONFIG: HarnessConfig = CONFIG;
+
+// ---------------------------------------------------------------------------
+// 役割 component を、**フォールバックと違う id** が担う世界
+// ---------------------------------------------------------------------------
+//
+// ⚠️ **これが無いと、シート単位の kind をリテラル `'component'` に固定する変異が
+// 素通りする。** 上の既定 corpus は役割 kind の id が慣用 id とたまたま一致して
+// いるので、「宣言を読んでいるか」と「リテラルを書いているか」を区別できない。
+//
+// `01KYCC2THS5RX3HB27SQGFWSA5` の眼目は「component 概念を**別 id で表す**
+// プロジェクトでも仕様シートが出ること」であり、**この repo 自身がその経路に
+// 乗っている**（`.scholia/config.json` は主題種別 `subject` に役割を宣言する）。
+// つまりここは、製品の成立条件そのものを踏む corpus である。
+
+/** 役割 component を `subject` が担うタグ集合（id は既定 corpus と同じ・kind だけ変える）。 */
+export const ALIAS_TAGS: Tag[] = TAGS.map((t) => (t.kind === 'component' ? { ...t, kind: 'subject' } : t));
+
+/** その世界の config。`component` という id はどこにも無い。 */
+export const ALIAS_CONFIG: HarnessConfig = {
+  ...CONFIG,
+  tagKinds: ['requirement', 'part', { id: 'subject', behaviors: ['component'] }],
+  tagKindLabels: { requirement: '要件', subject: 'ZZ主題ZZ', part: '構成要素' },
 };
 
 const FACETS = {
@@ -139,14 +208,14 @@ export interface FakeServer {
   restore: () => void;
 }
 
-function body(path: string, params: URLSearchParams): unknown | undefined {
+function body(path: string, params: URLSearchParams, opts: ServerOptions): unknown | undefined {
   switch (path) {
     case '/api/config':
-      return CONFIG;
+      return opts.config ?? CONFIG;
     case '/api/facets':
       return FACETS;
     case '/api/tags':
-      return TAGS;
+      return opts.tags ?? TAGS;
     case '/api/vocab':
       return VOCAB;
     case '/api/transitions':
@@ -199,6 +268,12 @@ function body(path: string, params: URLSearchParams): unknown | undefined {
  */
 export interface ServerOptions {
   hold?: string[];
+  /** `/api/config` の答えを差し替える（役割 behaviors を宣言した／していない
+      プロジェクトの両方を、同じ製品コードに食わせるため）。 */
+  config?: HarnessConfig;
+  /** `/api/tags` の答えを差し替える（「役割は宣言したが、その種別のタグがまだ
+      1件も無い」状態を作るため）。 */
+  tags?: Tag[];
 }
 
 export function installFakeServer(opts: ServerOptions = {}): FakeServer {
@@ -219,7 +294,7 @@ export function installFakeServer(opts: ServerOptions = {}): FakeServer {
     const url = new URL(raw, 'http://harness.local');
     server.requests.push(url.pathname + url.search);
     if (opts.hold?.includes(url.pathname)) await new Promise<void>((r) => held.push(r));
-    const payload = body(url.pathname, url.searchParams);
+    const payload = body(url.pathname, url.searchParams, opts);
     if (payload === undefined) {
       server.unhandled.push(url.pathname + url.search);
       return { ok: false, status: 404, statusText: `harness has no answer for ${url.pathname}`, json: async () => ({}) } as Response;

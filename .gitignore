@@ -4,6 +4,10 @@ _workspace/
 
 # local build artifacts
 /scholia
+# ⚠️ 検証用に別名で建てたバイナリ（`go build -o scholia-rev` 等）も除外する。
+# `/scholia` だけだと `git add -A` で 16MB の実行ファイルが混入しうる（実際に
+# レビューで作業ツリーに残っているのが見つかった）。
+/scholia-*
 /dist/
 .scholia/index.db
 .scholia/reviews/

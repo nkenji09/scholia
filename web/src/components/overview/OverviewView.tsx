@@ -16,6 +16,7 @@ import { loadCardSectionOpen, saveCardSectionOpen } from '../../collapseState';
 import { summaryOf } from '../../decisionSummary';
 import { buildCurrencyIndex, effectOf, relatedDecisions, replacedBy } from '../decisions/decisionModel';
 import { formatScopeTarget } from '../decisions/decisionScope';
+import { buildDirectByTag, componentBehaviorTxIds, sheetRuleCount } from './sheetModel';
 import type { Config, Decision, Tag, TraceabilityResponse } from '../../types';
 
 // 概要ビュー（viewer-overview-browser）: 左=構造ツリー、右=コンポーネント仕様
@@ -88,6 +89,10 @@ function useSectionOpen() {
 // 折りたたみのセクション名（collapseState のキー空間。カード側と混ざらないよう
 // overview- を冠する）。
 const SEC_PART = 'overview-part';
+// 構成要素を持たないコンポーネントの「直下の振る舞い」欄。SEC_PART と別名にするのは、
+// 保存のキーが recordId（こちらはコンポーネント id・あちらは構成要素 id）で衝突しない
+// ことを名前でも明らかにするため。
+const SEC_OWN = 'overview-own';
 const SEC_RULES = 'overview-rules';
 const SEC_WHY = 'overview-why';
 const SEC_HISTORY = 'overview-rules-history';
@@ -179,7 +184,7 @@ interface TreeRow {
 export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag, onOpenTx }: Props) {
   const t = useT();
   const lookups = useLookups();
-  const { vocabById, tagById, transitionById, tagName, vocabLabel, tagKindLabel, formatDecisionAt, roleKinds } = lookups;
+  const { vocabById, tagById, transitionById, tagName, vocabLabel, tagKindLabel, formatDecisionAt, roleKinds, roleDeclared, componentRoleLabel } = lookups;
   const { isNarrow, drawerOpen, closeDrawer } = useDrawer();
   // viewer-overview-browser: 概要ビューの役割 → 実 kind id（config.tagKinds の
   // behaviors 宣言で解決済み・無ければリテラル id フォールバック）。以降の
@@ -287,15 +292,31 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
       decByTarget.set(d.target.id, arr);
     }
 
+    // satByTag は祖先展開込みなので、親コンポーネントを引くと子孫の遷移まで返る。
+    // 「そのタグ自身に直接付いた遷移」は別に持つ（sheetModel の注記を参照）。
+    const directByTag = buildDirectByTag(transitionById.values(), vocabById);
+
     const currencyIndex = buildCurrencyIndex(decisions);
     // traceabilityKinds（requirement＋property 等）が「要件系＝葉」。config 由来
     // なので、旧スキーマ（requirement のみ 等）でも空にならず汎用に効く。
     const leafKinds = new Set(config.traceabilityKinds || []);
 
-    return { tags, childrenByParent, ancestorsOf, effByTx, satByTag, gapSet, decByTarget, currencyIndex, leafKinds };
+    return { tags, childrenByParent, ancestorsOf, effByTx, satByTag, directByTag, gapSet, decByTarget, currencyIndex, leafKinds };
   }, [config, traceability, decisions, lookups.ready, tagById, transitionById, vocabById]);
 
-  const hasComponents = !!index && index.tags.some((tg) => tg.kind === componentKind);
+  // 空状態の文言。**利用者がやることが違う**ので2つに分かれる——タグを作ればよいのか、
+  // そもそも役割を宣言すればよいのか。
+  // ⚠️ **役割の呼び名は必ず lookups が解決したものを使う**（画面に literal で
+  // 書かない・01KYCC2THS5RX3HB27SQGFWSA5）。宣言が無いプロジェクトでは呼び名が
+  // 存在しないので、役割名を含まない文言（noComponentRole）に落ちる。
+  //
+  // ⚠️ かつてここに「コンポーネントを選んでください」という3つ目の分岐があったが、
+  // **到達しない**ので消した。役割 kind のタグが1件でもあれば必ず既定が選ばれ
+  // （defaultComponentId）、その id は index.tags から採ったものなので selTag は
+  // 必ず解決し、シートが描かれる。つまりシートが null になるのは「役割 kind の
+  // タグが0件」のときだけである。到達しない分岐は、変異を入れても何も変わらない
+  // ＝どんなガードも落とせない場所になる（実際にレビュアの変異1件がそこへ落ちた）。
+  const emptyStateText = roleDeclared.component ? t.overview.noComponentTags(componentRoleLabel) : t.overview.noComponentRole;
 
   // 現在地は URL が持つ（01KYGYYMZSS…）。URL が指すコンポーネントを優先し、無効な id
   // や未指定なら既定（最初の component タグ）へ落とす。既定は URL へ書き戻さない
@@ -551,13 +572,11 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
     const inForce = (d: Decision) => effectOf(d.id, index.currencyIndex) === 'in-force';
     const rulesFor = (targetId: string, via = ''): RuleEntry[] =>
       (index.decByTarget.get(targetId) || []).map((d) => ({ d, via }));
-    const countCurrent = (arr: RuleEntry[]) => arr.reduce((n, e) => n + (inForce(e.d) ? 1 : 0), 0);
 
-    // part ごとの振る舞い（transition の WHEN/GIVEN/THEN・vocab ラベル解決）と、
-    // 各 transition／part を target とする decision（規則）。
-    const partBlocks = parts.map((p) => {
-      const txIds = index.satByTag.get(p.id) || [];
-      const behaviors = txIds
+    // 振る舞いカード1枚分（transition の WHEN/GIVEN/THEN・vocab ラベル解決）と、
+    // その transition を target とする decision（規則）。
+    const behaviorsOf = (txIds: readonly string[]) =>
+      txIds
         .map((txId) => {
           const tx = transitionById.get(txId);
           if (!tx) return null;
@@ -579,8 +598,21 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
           };
         })
         .filter((b): b is NonNullable<typeof b> => b !== null);
-      return { id: p.id, name: p.name || p.id, txCount: txIds.length, behaviors, rules: rulesFor(p.id) };
+
+    // part ごとの振る舞いと、各 part を target とする decision（規則）。
+    const partBlocks = parts.map((p) => {
+      const txIds = index.satByTag.get(p.id) || [];
+      return { id: p.id, name: p.name || p.id, txCount: txIds.length, behaviors: behaviorsOf(txIds), rules: rulesFor(p.id) };
     });
+
+    // 構成要素を持たないコンポーネントの、直下の遷移＝そのコンポーネント自身の
+    // 振る舞い。これが無いと、遷移をコンポーネントに直接付けているプロジェクトでは
+    // シートが空のまま出る（実測: この repo は 58 遷移中 57 が主題タグ直付けで、
+    // 導入時 17 コンポーネントすべてが構成要素0・振る舞い0 だった）。
+    // 01KYHW4NBNVN9BFXYZMBX8MPF8 が廃止したのは規則の混成リストであって、
+    // 振る舞いのカードではない——同 decision は「構成要素・振る舞い・制約の3文脈
+    // では効いている（カードが文脈そのものなので宛先が自明）」と明記している。
+    const ownBehaviors = behaviorsOf(componentBehaviorTxIds({ partCount: parts.length, directTxIds: index.directByTag.get(c.id) || [] }));
 
     // 「〜しない」制約（property 子タグ）＋ 各制約を target とする decision。
     const propBlocks = propsList.map((p) => ({
@@ -596,12 +628,10 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
     // 見える行数が一致すること）。コンポーネント本体の欄を廃止した以上、そこに
     // 集めていた分はシートから読めないので数にも含めない——含めると「N と言って
     // いるのに N 件見つからない」になる。
-    let ruleCount = 0;
-    for (const p of partBlocks) {
-      ruleCount += countCurrent(p.rules);
-      for (const b of p.behaviors) ruleCount += countCurrent(b.rules);
-    }
-    for (const p of propBlocks) ruleCount += countCurrent(p.rules);
+    // 直下の振る舞いカードも「シート内で実際に読める」ので数に入れる（入れないと
+    // 見出しの件数と、開いて見える行数が食い違う・同 条項5）。足し算そのものは
+    // sheetModel.sheetRuleCount（純関数）が持つ。
+    const ruleCount = sheetRuleCount({ partBlocks, ownBehaviors, propBlocks }, (e: RuleEntry) => inForce(e.d));
 
     const { lead, body } = splitLead(c.description);
 
@@ -611,6 +641,7 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
       lead,
       body,
       partBlocks,
+      ownBehaviors,
       propBlocks,
       covSat,
       covTotal,
@@ -739,9 +770,9 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
   // ちょうど）なので、リンク先が同じ集合になるように揃える。ここを governing に
   // すると「展開して見える件数」と「踏んだ先の件数」が食い違う（条項5 と同じ趣旨）。
   //
-  // ⚠️ このプロジェクトでは概要タブが空（役割 kind を持つタグが0件）なので、
-  // **この経路は本 repo の画面では確かめられない**。設定に宣言が入るまで実機確認は
-  // できないことを result.md に開示してある。
+  // （かつてここに「このプロジェクトでは概要タブが空なので、この経路は本 repo の
+  // 画面では確かめられない」と書いてあった。**その前提は 01KYNV5PYT6A659K8Q3X0NZ9J1 で
+  // 消えた**——主題種別が役割 component を宣言し、実機で17枚のシートが描かれる。）
   const rulesListHref = (scopeRef: string) => routeHash({ view: 'decisions', decisionOn: scopeRef, decisionScope: 'own' });
 
   const renderRules = (key: string, entries: RuleEntry[], label: (n: number) => string, scopeRef: string) => {
@@ -792,6 +823,69 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
       </div>
     );
   };
+
+  // 振る舞いカード1枚。構成要素配下でも、コンポーネント直下でも同じ形で描く
+  // ——2つ目の描き方を作らない（同じものが場所によって違う見え方になると、
+  // どちらが正かが画面から読めなくなる）。
+  type BehaviorBlock = NonNullable<typeof sheet>['ownBehaviors'][number];
+  const renderBehavior = (b: BehaviorBlock) => (
+    <div key={b.id} class="overview-behavior">
+      <div class="overview-when">
+        <span class="overview-when-label">
+          <Icon name="circle-play" size={12} />
+          {t.flow.trigger}
+        </span>
+        <span class="overview-when-text">{b.action}</span>
+        {/* ②: 実 <a href="#/browse/tx/<id>">。⌘/Ctrl/中クリックで別タブ。 */}
+        <HashLink href={routeHash({ view: 'browse', txId: b.id })} onNavigate={() => onOpenTx(b.id)} class="overview-open-tx" title={t.overview.openInBrowser} ariaLabel={t.overview.openInBrowser}>
+          <Icon name="arrow-up-right" size={15} />
+        </HashLink>
+      </div>
+      <div class="overview-gt">
+        <span class="overview-slot-label given">
+          <Icon name="funnel" size={11} />
+          {t.flow.given}
+        </span>
+        <div class="overview-slot-list">
+          {b.given.length === 0 ? (
+            <span class="overview-slot-empty">{t.overview.unconditional}</span>
+          ) : (
+            b.given.map((g, i) => (
+              <span key={i} class="overview-slot-item">
+                <span class="overview-slot-dot given" />
+                <span>{g}</span>
+              </span>
+            ))
+          )}
+        </div>
+        <span class="overview-slot-label then">
+          <Icon name="arrow-right-to-line" size={11} />
+          {t.flow.result}
+        </span>
+        <div class="overview-slot-list">
+          {b.then.map((th, i) => (
+            <span key={i} class="overview-slot-item">
+              <span class="overview-then-n">{i + 1}</span>
+              <span>{th}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+      {b.reqs.length > 0 && (
+        <div class="overview-reqs">
+          <span class="overview-reqs-label">{t.overview.satisfiesReqs}</span>
+          {b.reqs.map((r) => (
+            <HashLink key={r.id} href={routeHash({ view: 'spec', tagId: r.id })} onNavigate={() => onOpenTag(r.id)} class="overview-req-chip" style={{ '--kc': kindColorVar(r.kind) } as JSX.CSSProperties}>
+              <Icon name={kindIconName(r.kind)} size={11} />
+              {r.name || r.id}
+            </HashLink>
+          ))}
+        </div>
+      )}
+      {/* ⑤: この振る舞い（transition）を target とする規則 */}
+      {renderRules('tx:' + b.id, b.rules, t.overview.rulesToggle, formatScopeTarget({ type: 'transition', id: b.id }))}
+    </div>
+  );
 
   return (
     <div class="overview-view">
@@ -974,69 +1068,49 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
                     <div class="overview-part-body">
                     {/* ⑤: この part を target とする規則 */}
                     {renderRules('part:' + p.id, p.rules, t.overview.rulesToggle, formatScopeTarget({ type: 'tag', id: p.id }))}
-                    {p.behaviors.map((b) => (
-                      <div key={b.id} class="overview-behavior">
-                        <div class="overview-when">
-                          <span class="overview-when-label">
-                            <Icon name="circle-play" size={12} />
-                            {t.flow.trigger}
-                          </span>
-                          <span class="overview-when-text">{b.action}</span>
-                          {/* ②: 実 <a href="#/browse/tx/<id>">。⌘/Ctrl/中クリックで別タブ。 */}
-                          <HashLink href={routeHash({ view: 'browse', txId: b.id })} onNavigate={() => onOpenTx(b.id)} class="overview-open-tx" title={t.overview.openInBrowser} ariaLabel={t.overview.openInBrowser}>
-                            <Icon name="arrow-up-right" size={15} />
-                          </HashLink>
-                        </div>
-                        <div class="overview-gt">
-                          <span class="overview-slot-label given">
-                            <Icon name="funnel" size={11} />
-                            {t.flow.given}
-                          </span>
-                          <div class="overview-slot-list">
-                            {b.given.length === 0 ? (
-                              <span class="overview-slot-empty">{t.overview.unconditional}</span>
-                            ) : (
-                              b.given.map((g, i) => (
-                                <span key={i} class="overview-slot-item">
-                                  <span class="overview-slot-dot given" />
-                                  <span>{g}</span>
-                                </span>
-                              ))
-                            )}
-                          </div>
-                          <span class="overview-slot-label then">
-                            <Icon name="arrow-right-to-line" size={11} />
-                            {t.flow.result}
-                          </span>
-                          <div class="overview-slot-list">
-                            {b.then.map((th, i) => (
-                              <span key={i} class="overview-slot-item">
-                                <span class="overview-then-n">{i + 1}</span>
-                                <span>{th}</span>
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                        {b.reqs.length > 0 && (
-                          <div class="overview-reqs">
-                            <span class="overview-reqs-label">{t.overview.satisfiesReqs}</span>
-                            {b.reqs.map((r) => (
-                              <HashLink key={r.id} href={routeHash({ view: 'spec', tagId: r.id })} onNavigate={() => onOpenTag(r.id)} class="overview-req-chip" style={{ '--kc': kindColorVar(r.kind) } as JSX.CSSProperties}>
-                                <Icon name={kindIconName(r.kind)} size={11} />
-                                {r.name || r.id}
-                              </HashLink>
-                            ))}
-                          </div>
-                        )}
-                        {/* ⑤: この振る舞い（transition）を target とする規則 */}
-                        {renderRules('tx:' + b.id, b.rules, t.overview.rulesToggle, formatScopeTarget({ type: 'transition', id: b.id }))}
-                      </div>
-                    ))}
+                    {p.behaviors.map(renderBehavior)}
                     </div>
                     )}
                   </div>
                   );
                 })}
+              </section>
+            )}
+
+            {/* 構成要素を持たないコンポーネントの、直下の遷移。partBlocks とは
+                排他（componentBehaviorTxIds が構成要素ありなら空を返す）なので、
+                同じ遷移が2つの欄に出ることはない。 */}
+            {sheet.ownBehaviors.length > 0 && (
+              <section class="overview-section">
+                <div class="overview-section-head">
+                  <Icon name="puzzle" size={16} class="overview-section-icon" />
+                  <span class="overview-section-title">{t.overview.ownBehaviorsHeading}</span>
+                  <span class="overview-section-hint">{t.overview.behaviorsHint}</span>
+                  <CommentButton recordType="tag" recordId={sheet.c.id} recordTitle={sheet.c.name || sheet.c.id} anchor="behaviors" anchorLabel={t.overview.ownBehaviorsHeading} />
+                </div>
+                {/* ⚠️ **初期は畳む。** 段階的開示（01KYCC2TK3BEDA43TA61TPT4R5:
+                    「下位セクションは初期折りたたみで、初期表示は全体を走査できる
+                    概要に留める」）と、5件以上のセクションは既定で畳む
+                    （01KXDFD2SRHJJ0E551V240JMKT 条項3・概要シート内にも及ぶことは
+                    01KYGYYN8HRNFQEDMBS3DZRRX7 が明示）に従う。
+                    ⚠️ **兄弟の欄（構成要素）と同じ形・同じ機構で置く**——面ごとに
+                    独自の開閉を作らない。開閉の保存も同じ（保存値 > 初期既定）。
+                    畳んだときに走査できるよう、見出しには名前と遷移の数を出す。 */}
+                {(() => {
+                  const ownOpen = sections.isOpen(sheet.c.id, SEC_OWN, false);
+                  return (
+                    <div class="overview-part overview-own-behaviors">
+                      <button type="button" class="overview-part-head" onClick={() => sections.toggle(sheet.c.id, SEC_OWN, false)} aria-expanded={ownOpen}>
+                        <Icon name={ownOpen ? 'chevron-down' : 'chevron-right'} size={15} class="overview-part-chevron" />
+                        <span class="overview-part-dot" style={{ '--kc': kindColorVar(sheet.c.kind) } as JSX.CSSProperties} />
+                        <span class="overview-part-title">{sheet.c.name || sheet.c.id}</span>
+                        <span class="overview-part-spacer" />
+                        <span class="overview-part-count">{t.overview.txCount(sheet.ownBehaviors.length)}</span>
+                      </button>
+                      {ownOpen && <div class="overview-part-body">{sheet.ownBehaviors.map(renderBehavior)}</div>}
+                    </div>
+                  );
+                })()}
               </section>
             )}
 
@@ -1067,7 +1141,7 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
             )}
           </div>
         ) : (
-          <div class="overview-empty dim">{hasComponents ? t.overview.selectPrompt : t.overview.noComponents}</div>
+          <div class="overview-empty dim">{emptyStateText}</div>
         )}
       </main>
     </div>

@@ -53,10 +53,26 @@ const ja = {
   overview: {
     loading: '読み込み中…',
     treeHeading: '構造',
-    // シートに出すコンポーネントが選ばれていない（＝プロジェクトに component
-    // 種別のタグが無い旧スキーマ等）ときの空状態。
-    selectPrompt: '左の構造ツリーからコンポーネントを選ぶと、仕様シートが表示されます。',
-    noComponents: 'このプロジェクトには「コンポーネント」種別のタグがありません。ブラウザから全レコードを横断できます。',
+    // ⚠️ **役割の呼び名をここに literal で書かない。**
+    // 01KYCC2THS5RX3HB27SQGFWSA5（現行）が「役割はリテラル kind id 固定でなく
+    // config.tagKinds の behaviors 宣言で解決する」と定めている以上、その役割を
+    // 画面で何と呼ぶかも config が決める。呼び名は lookups.componentRoleLabel が
+    // 解決したものを引数で受ける（同型のハードコードは語彙ビューで既に一度
+    // 是正済み・下の vocab 節の注記を参照）。
+    //
+    // role が空文字＝役割が宣言されておらず、リテラル id にフォールバックしている
+    // 状態。そのプロジェクトが名付けた呼び名は存在しないので、**役割名を含まない**
+    // 言い回しに落とす（生の kind id を画面に出さない）。
+    //
+    // かつてここに selectPrompt（「コンポーネントを選ぶと…」）があったが、
+    // **到達しない分岐だったので消した**（OverviewView の emptyStateText を参照）。
+    // 役割は宣言されているが、その種別のタグがまだ1件も無い。
+    noComponentTags: (role: string) => `このプロジェクトには「${role}」のタグがまだありません。ブラウザから全レコードを横断できます。`,
+    // 役割そのものが宣言されていない。⚠️ ここで利用者がやることは「タグを作る」
+    // ではなく「役割を宣言する」なので、上とは別の文言にする。宣言方法が
+    // どこにも書かれていなかったのが元の欠陥なので、何をすればよいかまで言う。
+    noComponentRole:
+      '概要に並べる「仕様シートの単位」が、このプロジェクトではまだ決まっていません。設定で、いずれかのタグ種別にその役割を宣言すると、ここに仕様シートが並びます。ブラウザから全レコードを横断できます。',
     openInBrowser: 'ブラウザで開く',
     coverageHeading: 'カバレッジ',
     coverageSuffix: 'の要件が仕様で充足',
@@ -66,6 +82,10 @@ const ja = {
     gapCount: (n: number) => `未充足 ${n}`,
     responsibilityHeading: '責務',
     behaviorsHeading: '構成要素ごとの振る舞い',
+    // 構成要素を持たないコンポーネントで、直下の遷移をそのまま振る舞いとして
+    // 描くときの見出し。シートの表題が既にそのコンポーネント名なので、ここで
+    // 役割名を繰り返さない（＝役割名のハードコードを増やさない）。
+    ownBehaviorsHeading: '振る舞い',
     behaviorsHint: 'きっかけ → 前提 → 結果',
     unconditional: '無条件',
     satisfiesReqs: '満たす要件',
@@ -82,14 +102,10 @@ const ja = {
     // 件数と踏んだ先の件数を食い違わせない）。
     openRulesList: "一覧で開く",
     openRulesListTitle: "この文脈に付いた意思決定を一覧で開く",
-    componentRulesToggle: (n: number) => `このコンポーネントの規則 (${n})`,
-    // decision の出自ラベル（決定がこのコンポーネントに効く経路）。component 本体の
-    // 規則展開でのみ使う（tx/part/制約の展開は target 直下なので via を出さない）。
-    // viaSpec は part 配下に現れない直属 transition の decision を本体へ回収する際の
-    // ラベル（取りこぼし防止）。
-    viaComponent: 'このコンポーネントに直接',
-    viaSpec: 'この仕様に直接',
-    viaTag: (name: string) => `タグ〈${name}〉経由`,
+    // かつてここに componentRulesToggle / viaComponent / viaSpec / viaTag があった。
+    // いずれも 01KYHW4NBNVN9BFXYZMBX8MPF8 条項1 で廃止した「コンポーネント本体の
+    // 規則」欄の文言で、廃止後は呼び出し元が無いまま残っていた。役割名を literal で
+    // 抱えた死んだ文字列なので、上の是正に合わせて取り除く。
   },
   header: {
     fontDec: '文字を小さく',
@@ -640,8 +656,9 @@ const en: Strings = {
   overview: {
     loading: 'Loading…',
     treeHeading: 'Structure',
-    selectPrompt: 'Pick a component from the structure tree on the left to see its spec sheet.',
-    noComponents: 'This project has no tags of kind "component". You can still browse every record from Browse.',
+    noComponentTags: (role) => `This project has no “${role}” tags yet. You can still browse every record from Browse.`,
+    noComponentRole:
+      'This project has not decided what a spec sheet stands for yet. Declare that role on one of your tag kinds in Settings and the spec sheets will appear here. You can still browse every record from Browse.',
     openInBrowser: 'Open in Browse',
     coverageHeading: 'Coverage',
     coverageSuffix: 'requirements satisfied by specs',
@@ -651,6 +668,7 @@ const en: Strings = {
     gapCount: (n) => `${n} unsatisfied`,
     responsibilityHeading: 'Responsibility',
     behaviorsHeading: 'Behavior by part',
+    ownBehaviorsHeading: 'Behavior',
     behaviorsHint: 'trigger → given → result',
     unconditional: 'Unconditional',
     satisfiesReqs: 'Satisfies',
@@ -662,10 +680,6 @@ const en: Strings = {
     rulesToggle: (n) => `Rules (${n})`,
     openRulesList: "Open as list",
     openRulesListTitle: "Open the decisions on this context as a list",
-    componentRulesToggle: (n) => `Rules for this component (${n})`,
-    viaComponent: 'directly on this component',
-    viaSpec: 'directly on this spec',
-    viaTag: (name) => `via tag <${name}>`,
   },
   header: {
     fontDec: 'Decrease font size',
