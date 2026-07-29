@@ -332,7 +332,7 @@ func adoptSupersedeLinks(s *store.Store, r review.Review, decID string, flagSpec
 	// 宣言も --supersedes と同じ不変条件を通す。review は repo にコミットされる
 	// JSON なので、手編集・マージ衝突の解決・別ツールが書いた形が入りうる——
 	// 宣言側を素通りさせると、未知 mode（`"supersedes"` のような綴り誤り）が
-	// そのまま保存され、rules --current が旧 decision を現行のまま出す。まさに
+	// そのまま保存され、`scholia rules` が旧 decision を現行のまま出す。まさに
 	// この要件が消そうとしている失敗が、advisory も lint も伴わず静かに再現する。
 	declared, err := model.NormalizeSupersedeLinks(r.Supersedes, decID)
 	if err != nil {
