@@ -301,7 +301,28 @@ lint は二層で、**error＝記録の自己矛盾**（保存拒否・CI fail �
 - **「生成結果の出力先などの設定」= config**。ビューアが**唯一 CRUD できる**のもここ（§7）。
 - `idPrefix` は**慣例のみ**（強制は kind フィールドが担う・従来どおり）。タグは prefix でなく `kind` で分類する。
 - `idPolicy`（additive・任意）は `idPrefix` と別キーで、**宣言時は新規 id に保存時強制**される（P3 の write ゲートで不一致を reject。既存 id と rename は対象外）。`transition` と、`vocab`（condition/action/effect）・`tagByKind`（tag kind 別）の prefix を宣言できる。宣言案は `scholia config infer-id-policy` が既存 id 分布から出す（read-only・書き込まないので実宣言は config を手で追記する）。
-- **kind 宣言の union 型（`tagKinds`・`kinds.condition`・#45 D9）**: kind は string（id のみ）でも object（`{id, label, description, behaviors}`）でも書ける。**縮退マーシャル**——label/description/behaviors がいずれも空なら string 形で書き戻すので、既存の string 宣言は round-trip で object に膨らまず git diff を汚さない。`behaviors` は kind に付与する機械的意味論のフラグ集合（現状 `"axis"` のみ・将来値は消費面が設計できるまで枠を切らない＝三点閉鎖原則）。flow・lint の軸判定は literal `"axis"` ではなくこの behaviors 宣言を読む（`KindHasBehavior`）——別名 kind を `behaviors:["axis"]` で宣言すれば軸として振る舞う。互換: 旧 string `"axis"` 宣言は behaviors 未宣言でも axis 挙動に対応する。`description` は viewer の kind バッジ tooltip と config 画面に表示する。**フォーマット二重性（string｜object の同一スロット混在）は自覚的トレードオフ**——union 一本化で「既存 string を膨らませない」を選び、代わりに書き手・パーサが2形態を扱う複雑さを負う。
+- **kind 宣言の union 型（`tagKinds`・`kinds.condition`・#45 D9）**: kind は string（id のみ）でも object（`{id, label, description, behaviors}`）でも書ける。**縮退マーシャル**——label/description/behaviors がいずれも空なら string 形で書き戻すので、既存の string 宣言は round-trip で object に膨らまず git diff を汚さない。`behaviors` は kind に付与する機械的意味論のフラグ集合（**将来値は消費面が設計できるまで枠を切らない＝三点閉鎖原則**。現在は消費面のある5値のみ・下表）。flow・lint の軸判定は literal `"axis"` ではなくこの behaviors 宣言を読む（`KindHasBehavior`）——別名 kind を `behaviors:["axis"]` で宣言すれば軸として振る舞う。互換: 旧 string `"axis"` 宣言は behaviors 未宣言でも axis 挙動に対応する。
+
+  **`behaviors` に書ける値と、その消費面**:
+
+  | 値 | 消費するのは | 宣言すると何が起きるか |
+  | --- | --- | --- |
+  | `axis` | flow・gaps・lint（Go） | その kind のタグが網羅検査（L-total・重なり）の軸になる |
+  | `component` | viewer の概要タブ | その kind のタグが**仕様シート1枚の単位**になる。**概要タブは、この役割を担う kind が決まらない限り空のままである** |
+  | `part` | viewer の概要タブ | その kind のタグが、親コンポーネントのシートの**構成要素**として並ぶ（各構成要素に紐づく遷移が振る舞いカードになる） |
+  | `constraint` | viewer の概要タブ | その kind のタグが、シートの**「〜しない」制約**欄に並ぶ |
+  | `group` | viewer の概要タブ | その kind のタグが、構造ツリーの**フォルダ**（既定で開く節）になる |
+
+  `component`/`part`/`constraint`/`group` は viewer だけが読む（Go 側は `KindHasBehavior(kind, "axis")` しか問わない）。したがって**宣言しても Go の挙動は変わらず、lint も検証しない**。未宣言のときは慣用 id（`component`/`part`/`property`/`group`）へフォールバックするので、それらの id を直に使っている既存プロジェクトは宣言なしで従来どおり動く。
+
+  **概要タブを出すための最小の宣言**（`scholia init` の既定 `tagKinds` は `requirement`/`concern`/`subject` で、**役割 kind を1つも含まない**＝新規プロジェクトの概要タブは既定で空である）:
+
+  ```json
+  "tagKinds": ["requirement", "concern",
+               { "id": "subject", "description": "仕様シートの単位", "behaviors": ["component"] }]
+  ```
+
+  遷移を主題タグへ直接付けているプロジェクトでは、`part` を宣言しなくてよい——構成要素を持たないコンポーネントのシートは、**そのコンポーネントに直接付いた遷移**をそのまま振る舞いカードとして並べる（構成要素を持つコンポーネントでは、構成要素側が描くので直下の欄は出さない）。`description` は viewer の kind バッジ tooltip と config 画面に表示する。**フォーマット二重性（string｜object の同一スロット混在）は自覚的トレードオフ**——union 一本化で「既存 string を膨らませない」を選び、代わりに書き手・パーサが2形態を扱う複雑さを負う。
 - **`ownerKind`（オプトイン・#45 D9）**: 空文字（既定・未宣言）なら effect の `owner` は自由文字列のまま（後方互換）。非空を宣言すると owner は `kind==ownerKind` の**subject タグ id 参照**になり、`vocab add/edit --owner` が write-time で実在検証し候補を提示する。owner が subject タグ id を指すことで owner は**正準ルート（タグ詳細）**を持ち、viewer の owner チップに「リンク先を開く」が出る（#45 D9 amend）。既存の自由文字列 owner から subject への対応は `scholia vocab owner-migrate` が提案する（書き込みはしない・実適用は `vocab edit --owner`）。
 - **移行注記（前方非互換・#45 D9）**: object 宣言（label/description/behaviors）を含む config.json は、union 型を知らない**旧バイナリでは読めない**（`tagKinds`/`kinds.condition` の要素を string 前提で unmarshal するため）。したがって object 宣言を導入するプロジェクトは**「バイナリ更新が先・config への object 宣言追加が後」**の順序を守る（`schemaVersion` は据え置き——旧 string 宣言のみの config は前方後方とも互換で、非互換は object 宣言を実際に書いたときにのみ生じる）。書き戻し3経路（viewer `PUT /api/config`・`scholia config set tagKinds`・設定画面 ConfigView）はいずれも union を非破壊に round-trip する（id が残る限り object メタを保持）ので、port 変更等の日常操作で behaviors が黙って消えることはない。
 

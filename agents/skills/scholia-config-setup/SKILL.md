@@ -113,7 +113,26 @@ kind 宣言（`tagKinds`・`kinds.condition`）は **string（id のみ）でも
              { "id": "axis", "description": "網羅検査の軸", "behaviors": ["axis"] }]
 ```
 
-- **`behaviors`（現状 `"axis"` のみ）**: kind に軸性を与える。flow・lint はこの behaviors 宣言を読んで軸判定するので、`axis` 以外の名前の kind でも `behaviors:["axis"]` を宣言すれば網羅検査の軸として振る舞う（旧 string `"axis"` 宣言は互換で軸挙動）。
+- **`behaviors`**: kind に機械的意味論を与える。書ける値は現在5つで、それぞれ消費する面が決まっている（消費面の無い値は足さない＝三点閉鎖原則）。
+
+  | 値 | 消費するのは | 宣言すると何が起きるか |
+  | --- | --- | --- |
+  | `axis` | flow・gaps・lint | その kind のタグが網羅検査（L-total・重なり）の軸になる。`axis` 以外の名前の kind でも軸として振る舞う（旧 string `"axis"` 宣言は互換で軸挙動） |
+  | `component` | ビューアの概要タブ | その kind のタグが**仕様シート1枚の単位**になる |
+  | `part` | ビューアの概要タブ | その kind のタグが、親コンポーネントのシートの**構成要素**として並ぶ |
+  | `constraint` | ビューアの概要タブ | その kind のタグが、シートの**「〜しない」制約**欄に並ぶ |
+  | `group` | ビューアの概要タブ | その kind のタグが、構造ツリーの**フォルダ**（既定で開く節）になる |
+
+- ⚠️ **概要タブを出したいなら、`component` の宣言が要る。** `scholia init` の既定 `tagKinds`（`requirement`/`concern`/`subject`）は役割 kind を1つも含まないので、**何も宣言しないと概要タブは空のまま**である（「概要に並べる仕様シートの単位が決まっていません」と出る）。主題種別をそのまま仕様シートの単位にするなら:
+
+  ```jsonc
+  "tagKinds": ["requirement", "concern",
+               { "id": "subject", "description": "仕様シートの単位", "behaviors": ["component"] }]
+  ```
+
+  遷移を主題タグへ直接付けている（＝構成要素の階層をまだ作っていない）プロジェクトでも、`part` を宣言する必要はない——構成要素を持たないコンポーネントのシートは、そのコンポーネントに**直接付いた遷移**をそのまま振る舞いとして並べる。階層を切ってから `part` を宣言すると、構成要素ごとにまとまる。
+
+- ⚠️ **`component`/`part`/`constraint`/`group` はビューアだけが読む。** Go 側（lint・flow）は検証しないので、綴りを間違えても error にも warn にもならず、**画面に出ないという形でしか気づけない**。宣言したら実際に概要タブを開いて確かめること。
 - **condition kind プリセット**: `condition` の kind は「前提の出どころ」で分類すると読みやすい。典型は5 kind（description 付き object 形で宣言）:
 
 ```jsonc
