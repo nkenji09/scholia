@@ -2,6 +2,8 @@ package cli
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -23,34 +25,74 @@ import (
 //   - 存在と行き先が既定の出力から消えること。
 //   - --all で本文が戻らなくなること。
 //   - JSON から effect が消えること。
+//   - 効いている規則が1件も同居しない対象で、存在と行き先が消えること
+//     （TestCurrency_WithdrawnOnlyTargetKeepsExistenceAndDestination）。
+//     ⚠️ 差し戻し1回目まで、この枝はガードの外にあった——「存在と行き先が消えること」を
+//     落とすと名乗っていながら、実際には落ちなかった。
+//   - --all で取り下げに印が付かなくなること／効いているものにも付くこと
+//     （TestCurrency_AllMarksWithdrawnDistinctly）。これも差し戻し1回目まで素通りしていた。
 //   - decision 本文を出しうる面が**新設されたのに、ここへ登録されないこと**
 //     （TestCurrency_EverySurfaceIsClassified）。
+//   - 「本文を出さない面」への**誤分類**——走らせられる面は実際に走らせて確かめる
+//     （TestCurrency_NoDecisionBodySurfacesReallyEmitNone）。
 //
 // 落ちないもの（原理的に）:
 //   - **人が読む出力の体裁**（見出し語・記号・並び）。ここは意味を見ておらず、
 //     「本文が出ていないか」「id が出ているか」だけを見る。体裁の劣化は捕まらない。
+//     ⚠️ 例外が1つある: --all の印だけは綴りに結び付けている（上記）。
+//     「区別が付いていること」は綴りでしか観測できないため。
+//   - 「本文を出さない面」のうち**走らせていない面**（書き込む面・git/ネットワークを
+//     要する面）。そこは主張のまま——件数はテストが log に出す。
 //   - **viewer / 静的書き出し**。あちらは Go のこの層を通らない（web/ 側の検査と
 //     internal/viewer のテストが担う）。この単位では旧バイナリとの API 差分を
 //     手で測ったが、それは自動では回らない。
 //   - **配布スキル・手順書の記述**。テキストであって、機械で落とす手段が無い
 //     （01KXS68HCNQ0H9QKNYFQ869J19 が言う「遡及機構が無い」領域そのもの）。
 
-// setupWithdrawFixture は「取り下げられた decision が tag と transition の
-// 両方にある」store を作り、(旧tag, 新tag, 旧tx, 新tx) の id を返す。
-func setupWithdrawFixture(t *testing.T, dir string) (oldTag, newTag, oldTx, newTx string) {
+// withdrawFixture は取り下げの検査に使う id 一式。
+type withdrawFixture struct {
+	oldTag, newTag string // req.auth 宛（効いている規則が同居する）
+	oldTx, newTx   string // T-login 宛（同上）
+	oldVocab       string // act.user.submit-login 宛（同上）
+	newVocab       string
+	// req.onlywd 宛。**効いている規則が1件も同居しない対象。**
+	// この枝（本文側が0件）は rules.go が明示的にコメント付きで分けているのに、
+	// 同居する対象しか無い fixture では一度も通らなかった——差し戻し1回目の F2。
+	oldOnly, newOnly string
+}
+
+// setupWithdrawFixture は取り下げられた decision を tag / transition / vocab と、
+// **効いている規則が同居しない対象**にそれぞれ置いた store を作る。
+func setupWithdrawFixture(t *testing.T, dir string) withdrawFixture {
 	t.Helper()
 	setupAuthFixture(t, dir)
+	var f withdrawFixture
 
-	oldTag = decisionIDFromJSON(t, mustRun(t, dir, "decide", "--on", "tag:req.auth",
+	f.oldTag = decisionIDFromJSON(t, mustRun(t, dir, "decide", "--on", "tag:req.auth",
 		"--why", "旧タグ判断ホンブンA", "--json"))
-	newTag = decisionIDFromJSON(t, mustRun(t, dir, "decide", "--on", "tag:req.auth",
-		"--why", "新タグ判断ホンブンB", "--supersedes", oldTag+":supersede", "--json"))
+	f.newTag = decisionIDFromJSON(t, mustRun(t, dir, "decide", "--on", "tag:req.auth",
+		"--why", "新タグ判断ホンブンB", "--supersedes", f.oldTag+":supersede", "--json"))
 
-	oldTx = decisionIDFromJSON(t, mustRun(t, dir, "decide", "--on", "transition:T-login",
+	f.oldTx = decisionIDFromJSON(t, mustRun(t, dir, "decide", "--on", "transition:T-login",
 		"--why", "旧遷移判断ホンブンC", "--json"))
-	newTx = decisionIDFromJSON(t, mustRun(t, dir, "decide", "--on", "transition:T-login",
-		"--why", "新遷移判断ホンブンD", "--supersedes", oldTx+":supersede", "--json"))
-	return oldTag, newTag, oldTx, newTx
+	f.newTx = decisionIDFromJSON(t, mustRun(t, dir, "decide", "--on", "transition:T-login",
+		"--why", "新遷移判断ホンブンD", "--supersedes", f.oldTx+":supersede", "--json"))
+
+	f.oldVocab = decisionIDFromJSON(t, mustRun(t, dir, "decide", "--on", "vocab:act.user.submit-login",
+		"--why", "旧語彙判断ホンブンE", "--json"))
+	f.newVocab = decisionIDFromJSON(t, mustRun(t, dir, "decide", "--on", "vocab:act.user.submit-login",
+		"--why", "新語彙判断ホンブンF", "--supersedes", f.oldVocab+":supersede", "--json"))
+
+	// 取り下げしか無い対象。**祖先を持たせない**（祖先の decision が本文側へ入ると
+	// この枝を通らなくなる）。置き換えた側は別の対象（req.auth）に置く——supersede は
+	// 置き換えた側が同じ対象にいることを要求しないので、これは作り物ではなく実際に
+	// 起こる形である。
+	mustRun(t, dir, "tag", "create", "req.onlywd", "--name", "取り下げのみ", "--kind", "requirement")
+	f.oldOnly = decisionIDFromJSON(t, mustRun(t, dir, "decide", "--on", "tag:req.onlywd",
+		"--why", "旧単独判断ホンブンG", "--json"))
+	f.newOnly = decisionIDFromJSON(t, mustRun(t, dir, "decide", "--on", "tag:req.auth",
+		"--why", "別対象へ移した判断ホンブンH", "--supersedes", f.oldOnly+":supersede", "--json"))
+	return f
 }
 
 // --- 1. 判断そのもの（純関数・入力と出力の対） ---------------------------------
@@ -126,7 +168,7 @@ func decisionIDs(ds []model.Decision) []string {
 
 func TestCurrency_EverySurfaceHidesWithdrawnBodyByDefault(t *testing.T) {
 	dir := t.TempDir()
-	oldTag, newTag, oldTx, newTx := setupWithdrawFixture(t, dir)
+	f := setupWithdrawFixture(t, dir)
 
 	// 面ごとに「取り下げられた本文」「取り下げられた id」「行き先の id」が
 	// 何であるかは違う。tag 宛の面と transition 宛の面を両方通す。
@@ -137,8 +179,8 @@ func TestCurrency_EverySurfaceHidesWithdrawnBodyByDefault(t *testing.T) {
 		liveBody  string // 既定の出力に出るべき本文（効いている側）
 		surfaceID string
 	}
-	tagExp := expect{body: "旧タグ判断ホンブンA", id: oldTag, replacer: newTag, liveBody: "新タグ判断ホンブンB"}
-	txExp := expect{body: "旧遷移判断ホンブンC", id: oldTx, replacer: newTx, liveBody: "新遷移判断ホンブンD"}
+	tagExp := expect{body: "旧タグ判断ホンブンA", id: f.oldTag, replacer: f.newTag, liveBody: "新タグ判断ホンブンB"}
+	txExp := expect{body: "旧遷移判断ホンブンC", id: f.oldTx, replacer: f.newTx, liveBody: "新遷移判断ホンブンD"}
 
 	cases := []struct {
 		name string
@@ -184,20 +226,143 @@ func TestCurrency_EverySurfaceHidesWithdrawnBodyByDefault(t *testing.T) {
 	}
 }
 
+// 効いている規則が1件も同居しない対象でも、存在と行き先は消えない。
+//
+// ⚠️ **この枝（本文側が0件）は、上のテストでは一度も通らない。**
+// 上の fixture は取り下げ1件と現行1件を必ず同じ対象に置くので、常に本文側が1以上ある。
+// ところが実装（rules.go）はこの枝を明示的に分けて書いており、壊れると
+// 「そこに何も無い」と「そこにあったものが取り下げられた」が読み手から区別できなくなる
+// ——提案本文の核心そのものが失われる。差し戻し1回目の F2 で、この抜けが実測された。
+func TestCurrency_WithdrawnOnlyTargetKeepsExistenceAndDestination(t *testing.T) {
+	dir := t.TempDir()
+	f := setupWithdrawFixture(t, dir)
+
+	// 「本当に何も無い対象」との区別が付くことまで見る。片方だけ見ても、
+	// 両方が同じ文言を返す変異は捕まらない。
+	mustRun(t, dir, "tag", "create", "req.empty", "--name", "何も無い", "--kind", "requirement")
+
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{"rules --tag", []string{"rules", "--tag", "req.onlywd"}},
+		{"spec", []string{"spec", "req.onlywd"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			out := mustRun(t, dir, tc.args...)
+
+			if strings.Contains(out, "旧単独判断ホンブンG") {
+				t.Errorf("既定の出力に取り下げた本文が出ている:\n%s", out)
+			}
+			if !strings.Contains(out, f.oldOnly) {
+				t.Errorf("本文側が0件でも、取り下げられた記録の id %s は出るべき:\n%s", f.oldOnly, out)
+			}
+			if !strings.Contains(out, f.newOnly) {
+				t.Errorf("本文側が0件でも、行き先 %s は出るべき:\n%s", f.newOnly, out)
+			}
+
+			// 「本当に何も無い対象」と同じ出力になってはいけない。
+			emptyArgs := append([]string{}, tc.args...)
+			emptyArgs[len(emptyArgs)-1] = "req.empty"
+			empty := mustRun(t, dir, emptyArgs...)
+			if strings.Contains(empty, f.oldOnly) {
+				t.Errorf("何も無い対象に取り下げの id が出ている:\n%s", empty)
+			}
+			if out == empty {
+				t.Errorf("「取り下げられた」と「そこに何も無い」の出力が同一——読み手が区別できない:\n%s", out)
+			}
+		})
+	}
+
+	// --all では本文が戻る（本文側が0件の枝でも --all の経路が生きていること）。
+	all := mustRun(t, dir, "rules", "--tag", "req.onlywd", "--all")
+	if !strings.Contains(all, "旧単独判断ホンブンG") {
+		t.Errorf("--all で取り下げた本文が戻っていない:\n%s", all)
+	}
+
+	// JSON でも同じ答え。
+	var out struct {
+		Decisions []map[string]any `json:"decisions"`
+		Withdrawn []map[string]any `json:"withdrawn"`
+	}
+	mustUnmarshal(t, mustRun(t, dir, "rules", "--tag", "req.onlywd", "--json"), &out)
+	if len(out.Decisions) != 0 {
+		t.Errorf("本文側は0件のはず: %v", out.Decisions)
+	}
+	assertWithdrawnShape(t, out.Withdrawn, f.oldOnly, f.newOnly)
+}
+
+// --all で本文側へ合流した取り下げには、効いているものと区別できる印が付く。
+//
+// 受け入れ条件2 が「--all で従来どおり全文が出る（**印付き**）」と求めている性質。
+// 差し戻し1回目のレビューで、印を全廃する変異が全緑のまま素通りした
+// ——**誰もこの性質を守っていなかった**。
+//
+// ⚠️ **このケースだけは出力の綴りに結び付いている。** 印の文言を変えると落ちる。
+// 他のケースは意味（本文が出るか・id が出るか）を見ているので綴りに依存しないが、
+// 「区別が付いていること」は綴りでしか観測できない。ガードの射程の名乗り（冒頭）の
+// 「体裁は落ちない」に対する意図的な例外である。
+func TestCurrency_AllMarksWithdrawnDistinctly(t *testing.T) {
+	dir := t.TempDir()
+	setupWithdrawFixture(t, dir)
+
+	// 期待する印の数は決め打ちにしない——**同じコマンドの既定 --json が数えた
+	// 取り下げ件数**と突き合わせる。決め打ちだと fixture を足すたびに直す羽目になり、
+	// 「印が多すぎる／少なすぎる」のどちらも見落としやすい。
+	const mark = withdrawnMarkLabel
+
+	t.Run("rules --all", func(t *testing.T) {
+		var j struct {
+			Withdrawn []map[string]any `json:"withdrawn"`
+		}
+		mustUnmarshal(t, mustRun(t, dir, "rules", "--tag", "req.auth", "--json"), &j)
+		out := mustRun(t, dir, "rules", "--tag", "req.auth", "--all")
+		assertMarkCount(t, out, mark, len(j.Withdrawn))
+	})
+
+	t.Run("spec --all", func(t *testing.T) {
+		var j struct {
+			Withdrawn []map[string]any `json:"withdrawn"`
+			Entries   []struct {
+				Withdrawn []map[string]any `json:"withdrawn"`
+			} `json:"entries"`
+		}
+		mustUnmarshal(t, mustRun(t, dir, "spec", "req.auth", "--json"), &j)
+		want := len(j.Withdrawn)
+		for _, e := range j.Entries {
+			want += len(e.Withdrawn)
+		}
+		out := mustRun(t, dir, "spec", "req.auth", "--all")
+		assertMarkCount(t, out, mark, want)
+	})
+}
+
+// assertMarkCount は印の数が取り下げ件数とちょうど一致することを見る。
+// 0 になれば「印を全廃した」、多すぎれば「効いているものにも付けた」で落ちる。
+func assertMarkCount(t *testing.T, out, mark string, want int) {
+	t.Helper()
+	if want == 0 {
+		t.Fatalf("fixture に取り下げが無い（このケースは何も検査していない）")
+	}
+	if got := strings.Count(out, mark); got != want {
+		t.Errorf("--all の印の数 = %d, want %d（取り下げの件数と一致すべき）:\n%s", got, want, out)
+	}
+}
+
 // search は畳まない面。隠さない代わりに印と行き先を必ず出す。
 func TestCurrency_SearchMarksWithdrawnWithoutHiding(t *testing.T) {
 	dir := t.TempDir()
-	oldTag, newTag, _, _ := setupWithdrawFixture(t, dir)
+	f := setupWithdrawFixture(t, dir)
 
 	out := mustRun(t, dir, "search", "ホンブンA")
-	if !strings.Contains(out, oldTag) {
+	if !strings.Contains(out, f.oldTag) {
 		t.Fatalf("search は取り下げられた記録を隠さないはず（id が出ていない）:\n%s", out)
 	}
 	if !strings.Contains(out, "取り下げ済み") {
 		t.Fatalf("search は取り下げ済みの印を付けるはず:\n%s", out)
 	}
-	if !strings.Contains(out, newTag) {
-		t.Fatalf("search の印から行き先 %s へ辿れるはず:\n%s", newTag, out)
+	if !strings.Contains(out, f.newTag) {
+		t.Fatalf("search の印から行き先 %s へ辿れるはず:\n%s", f.newTag, out)
 	}
 
 	// 効いている記録には印を付けない（印は例外側に付ける）。
@@ -220,15 +385,15 @@ func TestCurrency_SearchMarksWithdrawnWithoutHiding(t *testing.T) {
 	}
 	found := false
 	for _, m := range parsed.Matches {
-		if m.ID != oldTag {
+		if m.ID != f.oldTag {
 			continue
 		}
 		found = true
 		if m.Effect != string(EffectReplaced) {
 			t.Errorf("search --json の effect = %q, want %q", m.Effect, EffectReplaced)
 		}
-		if len(m.ReplacedBy) != 1 || m.ReplacedBy[0] != newTag {
-			t.Errorf("search --json の replacedBy = %v, want [%s]", m.ReplacedBy, newTag)
+		if len(m.ReplacedBy) != 1 || m.ReplacedBy[0] != f.newTag {
+			t.Errorf("search --json の replacedBy = %v, want [%s]", m.ReplacedBy, f.newTag)
 		}
 	}
 	if !found {
@@ -240,7 +405,7 @@ func TestCurrency_SearchMarksWithdrawnWithoutHiding(t *testing.T) {
 // 逆リンクを組まなくても効力が分かること、がこの面の要件。
 func TestCurrency_EveryJSONSurfaceCarriesEffect(t *testing.T) {
 	dir := t.TempDir()
-	oldTag, newTag, _, _ := setupWithdrawFixture(t, dir)
+	f := setupWithdrawFixture(t, dir)
 
 	t.Run("rules --json", func(t *testing.T) {
 		var out struct {
@@ -249,9 +414,9 @@ func TestCurrency_EveryJSONSurfaceCarriesEffect(t *testing.T) {
 		}
 		mustUnmarshal(t, mustRun(t, dir, "rules", "--tag", "req.auth", "--json"), &out)
 		assertAllHaveEffect(t, "decisions", out.Decisions)
-		assertWithdrawnShape(t, out.Withdrawn, oldTag, newTag)
+		assertWithdrawnShape(t, out.Withdrawn, f.oldTag, f.newTag)
 		for _, d := range out.Decisions {
-			if d["id"] == oldTag {
+			if d["id"] == f.oldTag {
 				t.Errorf("既定の decisions に取り下げられた記録が混ざっている")
 			}
 		}
@@ -269,7 +434,7 @@ func TestCurrency_EveryJSONSurfaceCarriesEffect(t *testing.T) {
 		}
 		seen := false
 		for _, d := range out.Decisions {
-			if d["id"] == oldTag {
+			if d["id"] == f.oldTag {
 				seen = true
 				if d["effect"] != string(EffectReplaced) {
 					t.Errorf("--all の取り下げ記録の effect = %v, want %q", d["effect"], EffectReplaced)
@@ -291,7 +456,7 @@ func TestCurrency_EveryJSONSurfaceCarriesEffect(t *testing.T) {
 		mustUnmarshal(t, mustRun(t, dir, "decision", "list", "--json"), &out)
 		assertAllHaveEffect(t, "decisions", out.Decisions)
 		for _, d := range out.Decisions {
-			if d["id"] != oldTag {
+			if d["id"] != f.oldTag {
 				continue
 			}
 			if d["effect"] != string(EffectReplaced) {
@@ -314,7 +479,7 @@ func TestCurrency_EveryJSONSurfaceCarriesEffect(t *testing.T) {
 		}
 		mustUnmarshal(t, mustRun(t, dir, "spec", "req.auth", "--json"), &out)
 		assertAllHaveEffect(t, "tagDecisions", out.TagDecisions)
-		assertWithdrawnShape(t, out.Withdrawn, oldTag, newTag)
+		assertWithdrawnShape(t, out.Withdrawn, f.oldTag, f.newTag)
 		for i, e := range out.Entries {
 			assertAllHaveEffect(t, "entries[].decisions", e.Decisions)
 			for _, w := range e.Withdrawn {
@@ -399,16 +564,29 @@ var (
 		"scholia rules",
 		"scholia spec",
 		"scholia search",
+		// text の既定は変えない（取り下げた理由を読む経路を1つ残す必要がある）。
+		// 変えたのは JSON に効力を載せたことだけで、そこは検査している。
 		"scholia decision list",
 	}
-	// decision 本文を出すが、既定を変えないと決めた面。
-	//   decision show   … 1 件を名指しで開く経路。現行性を行で明示する。
-	//   decision list   … 棚卸しの面（上で JSON だけ検査）。text の既定は変えない。
-	//   review show/list… 提案（まだ decision ではない）を読む面。
+	// 端末に decision 本文を出すが、既定を変えないと決めた面。**各行に理由を書く。**
 	surfacesIntentionallyFull = []string{
+		// 1件を名指しで開く経路。「現行性:」の行で効力を明示するので畳まない。
 		"scholia decision show",
 		"scholia show decision",
-		"scholia review list",
+		// ⚠️ 取り下げた decision の本文を**印も注記も無しに**出す（実測・show_vocab.go）。
+		// この単位では振る舞いを変えない——提案本文の射程は rules / spec / search /
+		// decision list の4面で、ここは入っていない。**「検討済みだから出している」の
+		// ではなく、まだ決めていない。** rules --vocab は畳むのに show vocab は無印、
+		// という面どうしの食い違いが残っている（result の「次に埋めるべき穴」）。
+		"scholia show vocab",
+	}
+	// 画面・静的書き出しを起こす面。**このガードの射程外。**
+	// どちらも decision 本文をペイロードに含むが、畳むのは画面側の要件
+	// （01KYHW54B8ZXH0NEPH2J7N1X39 条項4）で、Go のこの層は通らない。
+	// 実測: export --html が書く HTML には取り下げた本文が含まれる（画面が畳む）。
+	surfacesViewerScope = []string{
+		"scholia view",
+		"scholia export",
 	}
 )
 
@@ -431,18 +609,24 @@ func TestCurrency_EverySurfaceIsClassified(t *testing.T) {
 	}
 	walk(newRootCmd(), "")
 
-	// 既知の分類（守っている面 ∪ 意図して全文を出す面 ∪ decision 本文を出さない面）。
-	known := map[string]bool{}
-	for _, s := range append(append([]string{}, surfacesGuarded...), surfacesIntentionallyFull...) {
-		known[s] = true
+	// 既知の分類（4群）。同じ名前が2群に載っていたらそれも間違い。
+	known := map[string]string{}
+	add := func(bucket string, names []string) {
+		for _, s := range names {
+			if prev, dup := known[s]; dup {
+				t.Errorf("%q が %s と %s の両方に載っている", s, prev, bucket)
+			}
+			known[s] = bucket
+		}
 	}
-	for _, s := range surfacesWithoutDecisionBodies {
-		known[s] = true
-	}
+	add("surfacesGuarded", surfacesGuarded)
+	add("surfacesIntentionallyFull", surfacesIntentionallyFull)
+	add("surfacesViewerScope", surfacesViewerScope)
+	add("surfacesNoDecisionBody", surfacesNoDecisionBody)
 
 	var unclassified []string
 	for _, l := range leaves {
-		if !known[l] {
+		if _, ok := known[l]; !ok {
 			unclassified = append(unclassified, l)
 		}
 	}
@@ -450,9 +634,11 @@ func TestCurrency_EverySurfaceIsClassified(t *testing.T) {
 	if len(unclassified) > 0 {
 		t.Fatalf(`未分類の面がある: %v
 
-decision 本文を出す面を足したなら surfacesGuarded に足し、
-取り下げの扱いを上のテストで検査すること。
-本文を出さない面なら surfacesWithoutDecisionBodies に足すこと。
+端末に decision 本文を出す面なら surfacesGuarded に足し、取り下げの扱いを上のテストで検査すること。
+既定を変えないと決めた面なら surfacesIntentionallyFull に**理由つきで**足すこと。
+画面・静的書き出しを起こす面なら surfacesViewerScope に足すこと。
+本文を出さない面なら surfacesNoDecisionBody に足し、走らせられるなら
+noDecisionBodyRunnable にも足して**実測に変える**こと。
 （CLAUDE.md「配線ガードの書き方」5: 新しく作った面には、ガードを置き忘れる）`, unclassified)
 	}
 
@@ -468,9 +654,13 @@ decision 本文を出す面を足したなら surfacesGuarded に足し、
 	}
 }
 
-// decision 本文を出さない面。ここに載せる基準は「decision の why/changed を
-// 出力に含めないこと」であって、decision に触らないことではない。
-var surfacesWithoutDecisionBodies = []string{
+// 端末の出力に decision の本文（why / changed）を出さない面。
+//
+// ⚠️ **基準の言い方に注意。** 「decision に触らない」ではないし、
+// 「`why` という文字列が出力に一切現れない」でもない——`scholia decide --json` は
+// **いま渡した本文をそのまま反響する**が、それは既存の規則の開示ではない。
+// ここで見るのは「**store にある他の decision の本文を読み手へ渡すか**」である。
+var surfacesNoDecisionBody = []string{
 	"scholia init",
 	"scholia lint",
 	"scholia lint baseline update",
@@ -483,8 +673,6 @@ var surfacesWithoutDecisionBodies = []string{
 	"scholia flow",
 	"scholia gaps",
 	"scholia diff",
-	"scholia view",
-	"scholia export",
 	"scholia version",
 	"scholia update",
 	"scholia retrofit",
@@ -492,12 +680,14 @@ var surfacesWithoutDecisionBodies = []string{
 	"scholia decision link",
 	"scholia decision add-commit",
 	"scholia review add",
+	// 提案（まだ decision ではない）の本文を出す面。基準は「store にある他の
+	// **decision** の本文を渡すか」なので、ここは「出さない面」に入る。
+	"scholia review list",
 	"scholia review adopt",
 	"scholia review reject",
 	"scholia review rm",
 	"scholia show tag",
 	"scholia show tx",
-	"scholia show vocab",
 	"scholia tag create",
 	"scholia tag rm",
 	"scholia tag rename",
@@ -519,4 +709,140 @@ var surfacesWithoutDecisionBodies = []string{
 	"scholia refs scan",
 	"scholia refs rewrite",
 	"scholia skills install",
+}
+
+// runnableSurfaces は、分類を**主張ではなく実測**にするための引数表。
+//
+// **なぜ要るか。** 分類の一覧は「未分類の名前」しか落とせない——**誤分類は
+// 原理的に落ちない**。差し戻し1回目のレビューで `show vocab` が「本文を出さない面」に
+// 入っていながら本文を出すことが実測で見つかった（F3）。是正のときに同じ型で
+// `export` も誤分類されていたことが分かった。名前を数えるだけの検査では、どちらも
+// 永久に緑のままだった。
+//
+// **両方向を見る。** 「出さない面」が出していたら落ちるだけでは足りない
+// ——出す面を「出さない面」へ移す誤分類は、その面を実測表から外せば通ってしまう
+// （実際に export でそれが起きた）。だから**表に載っている面はすべて**、
+// その分類が言うとおりの答えを返すことを確かめる。
+//
+// %OLD% は取り下げられた decision の id、%OUT% は一時ディレクトリに置き換える。
+//
+// ⚠️ **表に載っていない面は主張のまま。** 書き込む面（`decide` / `tag create` 等）・
+// git を要する面（`diff`）・ネットワークを要する面（`update`）・
+// 常駐する面（`view`）は走らせていない。件数はテストが log に出す。
+var runnableSurfaces = map[string][]string{
+	// --- decision 本文を出す面 ---
+	"scholia rules":         {"rules", "--tag", "req.auth"},
+	"scholia spec":          {"spec", "req.auth"},
+	"scholia decision list": {"decision", "list"},
+	"scholia decision show": {"decision", "show", "%OLD%"},
+	"scholia show decision": {"show", "decision", "%OLD%"},
+	"scholia show vocab":    {"show", "vocab", "act.user.submit-login"},
+	"scholia export":        {"export", "--html", "%OUT%"},
+	// --- decision 本文を出さない面 ---
+	"scholia lint":        {"lint"},
+	"scholia retrofit":    {"retrofit"},
+	"scholia list":        {"list"},
+	"scholia flow":        {"flow", "act.user.submit-login"},
+	"scholia gaps":        {"gaps", "act.user.submit-login"},
+	"scholia show tag":    {"show", "tag", "req.auth"},
+	"scholia show tx":     {"show", "tx", "T-login"},
+	"scholia tag list":    {"tag", "list"},
+	"scholia kind list":   {"kind", "list"},
+	"scholia version":     {"version"},
+	"scholia refs scan":   {"refs", "scan"},
+	"scholia review list": {"review", "list"},
+}
+
+// TestCurrency_ClassificationMatchesReality は、走らせられる面すべてについて
+// 「分類が言うとおりか」を実測する。
+//
+//	surfacesNoDecisionBody  … decision 本文を1つも出さないこと
+//	それ以外の3群            … decision 本文を出すこと（出さないならその分類が誤り）
+func TestCurrency_ClassificationMatchesReality(t *testing.T) {
+	dir := t.TempDir()
+	f := setupWithdrawFixture(t, dir)
+
+	// fixture が置いた decision 本文すべて。
+	bodies := []string{
+		"旧タグ判断ホンブンA", "新タグ判断ホンブンB",
+		"旧遷移判断ホンブンC", "新遷移判断ホンブンD",
+		"旧語彙判断ホンブンE", "新語彙判断ホンブンF",
+		"旧単独判断ホンブンG", "別対象へ移した判断ホンブンH",
+	}
+
+	bucket := map[string]string{}
+	for _, n := range surfacesGuarded {
+		bucket[n] = "surfacesGuarded"
+	}
+	for _, n := range surfacesIntentionallyFull {
+		bucket[n] = "surfacesIntentionallyFull"
+	}
+	for _, n := range surfacesViewerScope {
+		bucket[n] = "surfacesViewerScope"
+	}
+	for _, n := range surfacesNoDecisionBody {
+		bucket[n] = "surfacesNoDecisionBody"
+	}
+
+	total := len(surfacesGuarded) + len(surfacesIntentionallyFull) +
+		len(surfacesViewerScope) + len(surfacesNoDecisionBody)
+	t.Logf("実測した面 %d / 分類 %d（残り %d は主張のまま——書き込む面・git/ネットワーク/常駐を要する面）",
+		len(runnableSurfaces), total, total-len(runnableSurfaces))
+
+	for name, rawArgs := range runnableSurfaces {
+		t.Run(name, func(t *testing.T) {
+			b, ok := bucket[name]
+			if !ok {
+				t.Fatalf("%q が4群のどこにも無い", name)
+			}
+
+			outDir := t.TempDir()
+			args := make([]string, 0, len(rawArgs))
+			for _, a := range rawArgs {
+				switch a {
+				case "%OLD%":
+					a = f.oldTag
+				case "%OUT%":
+					a = filepath.Join(outDir, "html")
+				}
+				args = append(args, a)
+			}
+
+			out, err := run(t, dir, args...)
+			if err != nil {
+				t.Fatalf("%v が走らない: %v\n%s", args, err, out)
+			}
+			// 書き出す面は、書いたものまで見る（標準出力だけ見ると
+			// 「本文を出していない」と誤読する）。
+			if written := readIfExists(filepath.Join(outDir, "html", "index.html")); written != "" {
+				out += written
+			}
+
+			var found []string
+			for _, body := range bodies {
+				if strings.Contains(out, body) {
+					found = append(found, body)
+				}
+			}
+
+			if b == "surfacesNoDecisionBody" {
+				if len(found) > 0 {
+					t.Errorf("%q は decision 本文 %v を出している——%s への分類が事実に反する", name, found, b)
+				}
+				return
+			}
+			if len(found) == 0 {
+				t.Errorf("%q は decision 本文を1つも出していない——%s への分類が事実に反する（本文を出さないなら surfacesNoDecisionBody）:\n%s",
+					name, b, out)
+			}
+		})
+	}
+}
+
+func readIfExists(path string) string {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return string(b)
 }
