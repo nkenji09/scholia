@@ -1,5 +1,8 @@
 {
   "id": "subject.decision",
   "name": "意思決定 (decide)",
-  "kind": "subject"
+  "kind": "subject",
+  "parentIds": [
+    "grp.record"
+  ]
 }

@@ -1,5 +1,8 @@
 {
   "id": "subject.store",
   "name": "ファイル I/O (store)",
-  "kind": "subject"
+  "kind": "subject",
+  "parentIds": [
+    "grp.record"
+  ]
 }

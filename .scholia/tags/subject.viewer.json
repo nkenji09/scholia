@@ -1,5 +1,8 @@
 {
   "id": "subject.viewer",
   "name": "ビューア",
-  "kind": "subject"
+  "kind": "subject",
+  "parentIds": [
+    "grp.entry"
+  ]
 }

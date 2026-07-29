@@ -1,5 +1,8 @@
 {
   "id": "subject.diff",
   "name": "diff（変更評価）",
-  "kind": "subject"
+  "kind": "subject",
+  "parentIds": [
+    "grp.derive"
+  ]
 }

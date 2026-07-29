@@ -1,5 +1,8 @@
 {
   "id": "subject.lint",
   "name": "lint",
-  "kind": "subject"
+  "kind": "subject",
+  "parentIds": [
+    "grp.record"
+  ]
 }

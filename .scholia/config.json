@@ -69,6 +69,14 @@
       "behaviors": [
         "part"
       ]
+    },
+    {
+      "id": "group",
+      "label": "まとまり",
+      "description": "コンポーネントを束ねる段。構造ツリーの中で、その場で開閉するだけの節。仕様シートは持たない。",
+      "behaviors": [
+        "group"
+      ]
     }
   ],
   "facetKinds": [
@@ -94,7 +102,8 @@
     "concern": "関心",
     "requirement": "要件",
     "subject": "コンポーネント",
-    "part": "構成要素"
+    "part": "構成要素",
+    "group": "まとまり"
   },
   "display": {},
   "timezone": "Asia/Tokyo",
@@ -109,7 +118,8 @@
       "axis": "axis.",
       "concern": "concern.",
       "requirement": "req.",
-      "subject": "subject."
+      "subject": "subject.",
+      "group": "grp."
     }
   }
 }

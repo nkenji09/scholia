@@ -1,5 +1,8 @@
 {
   "id": "subject.cli",
   "name": "CLI コマンド",
-  "kind": "subject"
+  "kind": "subject",
+  "parentIds": [
+    "grp.entry"
+  ]
 }

@@ -1,0 +1,6 @@
+{
+  "id": "grp.entry",
+  "name": "入口",
+  "kind": "group",
+  "description": "利用者が直接操作する面。端末と画面。"
+}
