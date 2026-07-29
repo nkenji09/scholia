@@ -34,7 +34,7 @@ description: 既存 spec（scholia の decision／transition）に照らして�
    id や領域がまだ分からないときは、まず `scholia search` で keyword から候補レコードを逆引きし、そこから rules/show/decision list で正確な集合を詰める。複数コンポが同じ概念語を共有して結果が広がるなら、ヒットに付く owning subject から候補タグを拾い `--tag` で絞り込む。
    ```
    scholia search <keyword> [--type tag|transition|vocab|decision] [--tag <id>]… [--json]  # id 未確定なら逆引きの入口（read-only）。--tag は候補タグのサブツリーへ絞り込み（繰り返し可＝OR）
-   scholia rules --tag <領域>          # 自身＋祖先タグへの decisions＝守るべき規則の全集合
+   scholia rules --tag <領域>          # 自身＋祖先タグへの decisions＝守るべき規則の全集合（既定は効いているものだけ。取り下げは存在と行き先だけ出るので、根拠に使う前に必ず効力を見る）
    scholia show tag <id> / scholia show tx <id> --resolve    # 現状の契約
    scholia decision list --on tag:<id>|transition:<id>    # その対象ちょうどの決定（完全一致）
    scholia list --tag <領域>           # input が跨る transition を把握
