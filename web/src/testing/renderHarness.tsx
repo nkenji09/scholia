@@ -44,12 +44,16 @@ export const TAGS: Tag[] = [
   // 概要（仕様シート）の面を起こすための最小の骨格。この repo の実データには
   // 役割 kind（component/part）を持つタグが1件も無く、概要タブは**実機では空**に
   // なる——だからこそ、この面は corpus 側で起こさないと1行も検査できない。
-  { id: 'comp.viewer', name: 'ビューア画面', kind: 'component' },
+  // ⚠️ **コンポーネントは束ねる段の下に置く。** 実データはこの形（親を持たない役割タグが
+  // **束ねる段だけ**）で、corpus がコンポーネントを起点に持つ形をしていると、
+  // **起点の側から束ねる段の資格だけを外す変異が素通りする**——`comp.*` が残るので
+  // 「1行以上ある」を満たしてしまう。実データではその変異でツリーが**丸ごと空**になる。
+  { id: 'comp.viewer', name: 'ビューア画面', kind: 'component', parentIds: ['grp.main'] },
   { id: 'part.list', name: '意思決定の一覧', kind: 'part', parentIds: ['comp.viewer'] },
   // 構成要素を持たず、遷移が**直接**付いているコンポーネント。実データはこの形が
   // 多数派（この repo は 58 遷移中 57 が主題タグ直付け）で、かつては仕様シートが
   // この形の遷移を1本も描かなかった。corpus に無ければその欠陥は再発しても緑のまま。
-  { id: 'comp.cli', name: '端末', kind: 'component' },
+  { id: 'comp.cli', name: '端末', kind: 'component', parentIds: ['grp.main'] },
   // 入れ子のコンポーネント。⚠️ これが無いと「祖先展開込みの索引を使う」変異が
   // 素通りする——親も子も遷移1本ずつなら、祖先展開しても答えが変わらないため。
   // 親のシートに子の振る舞いが再掲される形を落とすには、この形が corpus に要る。
@@ -73,6 +77,9 @@ export const TAGS: Tag[] = [
   // 起点にならず**1行も描かれない**。最初はこれを入れ忘れ、変異が素通りした（実見）。
   { id: 'grp.tools', name: '道具のまとまり', kind: 'group' },
   { id: 'req.tools', name: '道具の要件', kind: 'requirement', parentIds: ['grp.tools'] },
+  // コンポーネントを実際に束ねる段（実データと同じ形）。上の `grp.tools` は
+  // 「子は居るが役割を持つ子は居ない」形を保つため、こちらとは別に置いてある。
+  { id: 'grp.main', name: '主要なまとまり', kind: 'group' },
 ];
 
 export const VOCAB: VocabEntry[] = [
@@ -159,9 +166,12 @@ const CONFIG = {
   traceabilityKinds: ['requirement'],
   idPrefix: {},
   // ⚠️ 役割を持たない `req.*` を意図的に混ぜてある——**設定が起点に指定していても
-  // 資格判定は効く**ことを、この corpus が常時踏む状態にするため。`grp.tools` は
-  // 「子は居るが役割を持つ子は居ない構造ノード」を描かせるために要る（上の注記）。
-  roots: ['comp.viewer', 'comp.cli', 'req.viewer', 'req.cli', 'grp.tools'],
+  // 資格判定は効く**ことを、この corpus が常時踏む状態にするため。
+  //
+  // ⚠️ **役割を持つ起点は束ねる段だけにしてある**（実データと同じ形）。
+  // コンポーネントを起点に置くと、**起点の側から束ねる段の資格だけを外す変異**が
+  // 「まだ行がある」で素通りする——実データではその変異でツリーが丸ごと空になる。
+  roots: ['grp.main', 'grp.tools', 'req.viewer', 'req.cli'],
   viewer: {},
   tagKindLabels: { requirement: '要件', component: 'コンポーネント', part: '構成要素' } as Record<string, string>,
   display: { productName: 'scholia' },

@@ -21,7 +21,11 @@ import type { TreeRoles } from './treeModel';
 // ## このガードが落とさないもの（名指しする）
 //
 //   1. **配線。** ここは純関数の答えだけを見る。画面がこの答えを**呼ばない**／
-//      呼んで**捨てる**形は落ちない——それは `renderWiring.test.tsx` が描画を起こして見る。
+//      呼んで**捨てる**／**痩せた材料を渡す**形は、**ここでは1件も落ちない。**
+//      ⚠️ これは絵空事ではない——転送について、答えを計算して使わない／転送先から
+//      構成要素の id を落とす／親を探す材料を常に null にする、の3通りが**すべて
+//      このファイルを素通りした**（レビュー実測）。**配線は `renderWiring.test.tsx` が
+//      描画を起こして見る**。片方だけ当てて「red を実見した」と書かないこと。
 //   2. **行き先の正しさ。** 「タグの詳細へ送る」と決めたことは見るが、その URL を
 //      組み立てる `routeHash` の綴りは見ていない。
 //   3. **構成要素の入れ子。** 構成要素の下の構成要素は本実装の範囲外で、
@@ -156,7 +160,15 @@ describe('構成要素へ移したタグを指す共有 URL は、転送で生�
     'subject.cli': 'subject',
     'req.x': 'requirement',
   };
-  const PARENT: Record<string, string | null> = { 'subject.viewer.tags': 'subject.viewer' };
+  // ⚠️ **転送されない側にも「親が見つかる」ものを置く。** ここに構成要素の1件しか
+  // 入れていなかったとき、「転送しない」を見る検査は**4つとも『親が見つからない』だけで
+  // 満たされ**、種別の判定をまるごと外しても緑のままだった（レビュアの変異 R9）。
+  // 種別で弾いていることを見たいなら、**種別以外の条件は満たしている**入力が要る。
+  const PARENT: Record<string, string | null> = {
+    'subject.viewer.tags': 'subject.viewer',
+    'subject.cli': 'grp.entry',
+    'req.x': 'subject.viewer',
+  };
   const call = (componentId: string | undefined) =>
     forwardedOverviewTarget({
       componentId,

@@ -76,7 +76,7 @@ export type TreeRowAction =
  *  構成要素の入れ子（構成要素の下の構成要素）は本実装の範囲外で、そのときは
  *  `componentParentId` が null になり、行はタグの詳細へ落ちる。**これは「入れ子を
  *  正しく扱っている」という主張ではない**——別単位で扱うと決めた範囲である
- *  （`.concierge/nesting-eval.md`）。 */
+ *  （`01KYPFJV04R347HWHQKQ2TW275`「構成要素の入れ子は本決定の範囲外」）。 */
 export function treeRowAction(args: {
   tag: { id: string; kind?: string };
   structuralChildCount: number;
