@@ -12,9 +12,15 @@
 //   --tx <id>     自身＋実効タグへの decisions
 //   --vocab <id>  自身＋その語彙が持つタグとその祖先への decisions
 //
-// --current を付けるのは、カードが開示する件数が**効いている規則の数**だから
-// （01KYHW54B8ZXH0NEPH2J7N1X39 条項5 と同じ数え方）。付けないと置き換え済みも
-// 混ざり、画面の件数とコマンドの出力が食い違う。
+// **フラグは付けない。** `scholia rules` は既定で効いている規則だけを本文で出す
+// ので、カードが開示する件数（効いている規則の数・01KYHW54B8ZXH0NEPH2J7N1X39
+// 条項5 と同じ数え方）とそのまま一致する。
+//
+// かつては `--current` を付けていた。既定が畳まなかった頃はそれで正しかったが、
+// 既定が変わった今は**冗長なだけでなく有害**である——「効いているものだけを得るには
+// 特別な指定が要る」という誤解を画面が再生産し続ける。その誤解を消すのが既定を
+// 変えた理由そのものだった。`--current` は後方互換として受理され続けるので、
+// 外しても出力は 1 文字も変わらない。
 
 export type RecordRef =
   | { kind: 'tag'; id: string }
@@ -28,5 +34,5 @@ const FLAG: Record<RecordRef['kind'], string> = {
 };
 
 export function rulesCommand(record: RecordRef): string {
-  return `scholia rules ${FLAG[record.kind]} ${record.id} --current`;
+  return `scholia rules ${FLAG[record.kind]} ${record.id}`;
 }

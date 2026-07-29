@@ -153,7 +153,7 @@ export function CommentPanel({ onGoto }: Props) {
       // 結線まで1操作で束ねる（01KYHE08WNA8H1Q1DM2H45Y4TK）: 提案が宣言した
       // 置き換え対象を decision 昇格と同じ POST に載せる。ここを送らないと
       // 「adopt の後に手で scholia decision link する」手作業が残り、忘れた
-      // 瞬間に rules --current が改訂済みの旧 decision を現行として出す。
+      // 瞬間に rules が改訂済みの旧 decision を現行として出す。
       // reject は旧を改訂も失効もさせないので載せない。
       const supersedes = decidingKind === 'adopt' ? c.supersedes : undefined;
       const decision = await api.postDecision({

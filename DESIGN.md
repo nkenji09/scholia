@@ -233,12 +233,18 @@ lint は二層で、**error＝記録の自己矛盾**（保存拒否・CI fail �
 - **現行性の機械化（#45 D7）**: decision は append-only ゆえ「今どれが正か」を prose 読解に頼っていた。`supersedes[{id, mode}]`
   で旧 decision への現行性リンクを持つ（旧は無改変＝append-only 完全保持）。**mode ∈ {supersede, amend, exception}**
   （省略時 amend）: `supersede`=全文置換（旧を失効させる）・`amend`=部分改訂（旧は失効しない）・`exception`=一般則への
-  意識的例外（旧は失効しない）。derive は**保守的に mode=supersede のみ**を失効扱いにする（`--current` で被参照を畳む）。
+  意識的例外（旧は失効しない）。derive は**保守的に mode=supersede のみ**を失効扱いにする。**守る規則を引く面（`scholia rules` /
+  `scholia spec`）は既定で失効を畳む**——本文は出さず、「取り下げられた規則 N件」として**存在と行き先（全文置換した側）**を出す。
+  全文は `--all`。`scholia search` は畳まず印を付ける（逆引きの面なので隠すと取り下げた記録に辿り着けなくなる）。
+  `scholia decision list` の既定は畳まない（履歴を追う面・`--current` で畳める）。
   既定を amend にするのは「失効させ忘れ」の系統誤りを避けるため——skill は decide 時に「全文置換か？」を必ず1問挟む。
   `superseded-by` 逆リンクは derive（保存しない）。link は `scholia decide --supersedes <old>[:<mode>]`（新規時）と
   `scholia decision link <new> --supersedes <old>[:<mode>]`（後付け backfill・追記専用・id 実在/自己参照禁止/循環禁止/
   既存 link の mode 改変禁止/冪等）で足す。`scholia decision list --unlinked`（commits 空の棚卸し）と `--current`
-  （失効畳み）、`scholia decision show <id>`（supersedes/superseded-by/acknowledges 込みの詳細）を提供する。
+  （この面だけ opt-in の失効畳み）、`scholia decision show <id>`（supersedes/superseded-by/acknowledges 込みの詳細）を提供する。
+  機械可読出力（`--json`）は `rules` / `spec` / `search` / `decision list` のいずれでも `effect`（`in-force` | `replaced`）
+  を持つ——消費側が全 decision を走査して逆リンクを組み直さなくても効力が分かること。取り下げ側の機械可読出力には本文を
+  載せない（人が読む出力で出さないのに機械可読出力では出す、という食い違いを作らないため）。
 - **desc 現在形ゲート三点配線（#45 D7）**: staleness の半分は decide イベントの外で生まれる（レコード desc が後続の実装・
   decision で古びる）。時刻比較型の鮮度検査は spec-first では実装 commit が常に desc より新しく効かないため採らない。
   代わりに (1) decide 保存前プレビュー・(2) viewer review adopt 応答・(3) `decision add-commit` 同一ターンの三点で、
@@ -537,9 +543,9 @@ scholia review list [--on <transition|vocab|tag>:<id>] [--json]                 
 # 読み取り / 派生ビュー
 scholia show tx <id> [--resolve] [--json]                    # 遷移 1 件（語彙 label 解決）
 scholia show vocab <id> [--json]                             # 語彙 1 件 + 使用箇所（参照 transition の逆引き）+ establishes 双方向逆引き + vocab 宛 decision + ref/altLabels（#45 D5・§3.3）
-scholia spec <subjectTag> [--json]                           # 主題タグで束ねた"仕様"レポート（派生）
+scholia spec <subjectTag> [--all] [--json]                   # 主題タグで束ねた"仕様"レポート（派生）。失効の扱いは rules と同じ（既定は畳む・--all で本文ごと）
 scholia list [--facet <tagKind>] [--tag <id>] [--kind <k>] [--json]   # faceted 一覧・グルーピング
-scholia rules [--tag <id> | --tx <id> | --vocab <id> | --facet <k>] [--sort chrono|target] [--current] [--json]   # --vocab=own∪ vocab.tags＋祖先（#45 D10b・面間整合で viewer governs と同コア）。--current は失効(mode=supersede)を畳んで現行のみ（#45 D7）
+scholia rules [--tag <id> | --tx <id> | --vocab <id> | --facet <k>] [--sort chrono|target] [--all] [--json]   # --vocab=own∪ vocab.tags＋祖先（#45 D10b・面間整合で viewer governs と同コア）。既定で失効(mode=supersede)を畳む＝本文は出さず「取り下げられた規則 N件」として存在と行き先を出す。--all は本文ごと（失効には [失効: supersede 済] の印）。--current は既定と同義で受理（後方互換・--all との同時指定はエラー）
 scholia flow <action> [--json] [--verbose]                    # きっかけ(action)の給条件×遷移マトリクス＋証明可能な gap 検出（honesty-first・派生・§3.4・#39）。--verbose は評価順で解決済みの重なり/subset-shadow と derive した else も開示（#45 D8）
 scholia gaps <action> [--json] [--verbose]                    # flow と同じ解析の gap-only ビュー（抜け・重なり・subset-shadow＋scope-disclosure のみ・§3.4・#39）
 scholia lint [--json] [--ci]                                 # --ci は歯止め（ratchet）: error 常時 exit 1・baseline に無い新規 warn のみ exit 1（不在は非活性・#45 U4）

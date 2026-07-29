@@ -229,11 +229,11 @@ func TestRetrofitDogfoodCounts(t *testing.T) {
 	// decision を結ばなかった」を見る規則なので、古い commit が落ちるのは設計どおり。
 	// この期待値は commit を積むだけで動くので、ズレたらまず窓の境界を疑うこと
 	// （`git rev-list --count <commit>..HEAD` が 200 を超えていないか）。
-	// ——実際にまた動いた。「概要タブが成立する条件」の単位で 4 commit 積んだ結果、
-	// commit fc81ff6f が窓から出て（`git rev-list --count fc81ff6f..HEAD` が
-	// 197 → 201）その decision-stale が1件落ち 18/18 → 17/17。上と同じく是正でも
-	// 回帰でもなく**窓の外に出ただけ**である（実測: 残る decision-stale は
-	// e1d44d18/9df25e5b/0b3a04bb の3件で、いずれも距離 163/173/189）。
+	// ——実際にまた動いた。しかも**2つの単位が独立に同じ境界を踏んだ**: 「概要タブが
+	// 成立する条件」の単位と「端末で取り下げた規則を渡さない」の単位が、それぞれ
+	// commit fc81ff6f を窓の外へ押し出して 18/18 → 17/17 に更新していた（マージで
+	// 両方の説明が衝突した）。**マージ後は履歴がさらに伸びるので、境界は測り直す。**
+	// マージ直後の実測（`git rev-list --count <commit>..HEAD`）はコメント末尾に置く。
 	if resp.AcknowledgeOnly.FindingCount != 17 || resp.AcknowledgeOnly.RecordCount != 17 {
 		t.Fatalf("dogfood acknowledgeOnly = %d findings / %d records, want 17/17", resp.AcknowledgeOnly.FindingCount, resp.AcknowledgeOnly.RecordCount)
 	}

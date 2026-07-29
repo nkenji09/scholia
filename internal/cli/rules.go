@@ -12,13 +12,18 @@ import (
 )
 
 // rulesOutput は --json 出力の形。
+//
+// decisions は既定では「効いている規則」だけ。取り下げられたものは withdrawn に
+// 存在と行き先だけ載る（--all で decisions 側へ合流する）。各要素は effect を
+// 必ず持つので、消費側が全件走査して逆リンクを組まなくても効力が分かる。
 type rulesOutput struct {
-	Decisions []model.Decision `json:"decisions"`
+	Decisions []decisionOut  `json:"decisions"`
+	Withdrawn []withdrawnOut `json:"withdrawn,omitempty"`
 }
 
 func newRulesCmd() *cobra.Command {
 	var tagID, txID, vocabID, facet, sortBy string
-	var asJSON, current bool
+	var asJSON, current, all bool
 	cmd := &cobra.Command{
 		Use:   "rules",
 		Short: "対象（tag/transition/vocab/facet）に関わる decisions を横断集約する（§3.8）",
@@ -35,6 +40,9 @@ func newRulesCmd() *cobra.Command {
 			if sortBy != "chrono" && sortBy != "target" {
 				return fmt.Errorf("--sort は chrono|target のいずれかである必要があります（実際は %q）", sortBy)
 			}
+			if all && current {
+				return fmt.Errorf("--all と --current は同時に指定できません（--current は既定と同じ意味です）")
+			}
 
 			s, err := openStore()
 			if err != nil {
@@ -50,26 +58,34 @@ func newRulesCmd() *cobra.Command {
 				return err
 			}
 
-			// 現行性の区分（#45 D7）: mode=supersede で指された decision を失効扱い。
-			// --current はそれらを畳む（保守的に supersede のみ）。
-			superseded := supersededIDs(snap.Decisions)
-			if current {
-				kept := decisions[:0]
-				for _, d := range decisions {
-					if !superseded[d.ID] {
-						kept = append(kept, d)
-					}
-				}
-				decisions = kept
-			}
+			// 取り下げ（mode=supersede の被参照）は既定で本文を出さない。
+			// 存在と行き先は既定でも出す——「取り下げがあったこと自体」を
+			// 知らせないと、次に読む人は何も気づかないまま古い規則を受け取る。
+			// 全文は --all。判断そのものは currency.go の純関数にある。
+			view := newCurrencyView(snap.Decisions)
 			sortDecisions(decisions, sortBy)
+			bodies, withdrawn := view.partition(decisions, all)
 
 			if asJSON {
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
-				return enc.Encode(rulesOutput{Decisions: decisions})
+				return enc.Encode(rulesOutput{
+					Decisions: view.decisionOuts(bodies),
+					Withdrawn: view.withdrawnOuts(withdrawn),
+				})
 			}
-			printRules(cmd, decisions, sortBy, superseded)
+			// 効いているものが 0 件でも、取り下げがあるなら「該当なし」とは書かない
+			// ——「無い」と「取り下げられた」は読み手にとって別の事実である。
+			if len(bodies) == 0 && len(withdrawn) == 0 {
+				fmt.Fprintln(cmd.OutOrStdout(), "rules: 該当する decision はありません")
+				return nil
+			}
+			if len(bodies) == 0 {
+				fmt.Fprintln(cmd.OutOrStdout(), "rules: 効いている decision はありません")
+			} else {
+				printRules(cmd, bodies, sortBy, view)
+			}
+			writeWithdrawn(cmd.OutOrStdout(), withdrawn, view, "")
 			return nil
 		},
 	}
@@ -79,7 +95,8 @@ func newRulesCmd() *cobra.Command {
 	cmd.Flags().StringVar(&facet, "facet", "", "指定 kind を持つ全タグを対象にする")
 	cmd.Flags().StringVar(&sortBy, "sort", "chrono", "並び順（chrono=at昇順・既定 | target=対象ごとにグループ化）")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "JSON で出力する")
-	cmd.Flags().BoolVar(&current, "current", false, "失効（mode=supersede で指された）decision を畳んで現行のみ表示する（#45 D7）")
+	cmd.Flags().BoolVar(&all, "all", false, "取り下げられた decision も本文ごと出す（既定は存在と行き先のみ）")
+	cmd.Flags().BoolVar(&current, "current", false, "既定と同じ（後方互換のため受理する。取り下げの本文は既定でも出ません）")
 	return cmd
 }
 
@@ -102,12 +119,8 @@ func sortDecisions(decisions []model.Decision, sortBy string) {
 	})
 }
 
-func printRules(cmd *cobra.Command, decisions []model.Decision, sortBy string, superseded map[string]bool) {
+func printRules(cmd *cobra.Command, decisions []model.Decision, sortBy string, view currencyView) {
 	out := cmd.OutOrStdout()
-	if len(decisions) == 0 {
-		fmt.Fprintln(out, "rules: 該当する decision はありません")
-		return
-	}
 	if sortBy == "target" {
 		var lastTarget model.DecisionTarget
 		first := true
@@ -117,13 +130,13 @@ func printRules(cmd *cobra.Command, decisions []model.Decision, sortBy string, s
 				lastTarget = d.Target
 				first = false
 			}
-			fmt.Fprintf(out, "  [%s]%s\n", d.ID, currencyLabel(d, superseded))
+			fmt.Fprintf(out, "  [%s]%s\n", d.ID, currencyLabel(d, view.superseded))
 			printDecisionLine(out, d)
 		}
 		return
 	}
 	for _, d := range decisions {
-		fmt.Fprintf(out, "[%s] %s:%s%s\n", d.At, d.Target.Type, d.Target.ID, currencyLabel(d, superseded))
+		fmt.Fprintf(out, "[%s] %s:%s%s\n", d.At, d.Target.Type, d.Target.ID, currencyLabel(d, view.superseded))
 		printDecisionLine(out, d)
 	}
 }
@@ -132,7 +145,7 @@ func printRules(cmd *cobra.Command, decisions []model.Decision, sortBy string, s
 // 失効（supersede された）/改訂（何かを amend/exception している現行）/現行。
 func currencyLabel(d model.Decision, superseded map[string]bool) string {
 	if superseded[d.ID] {
-		return " [失効: supersede 済]"
+		return withdrawnMarkLabel
 	}
 	if len(d.Supersedes) > 0 {
 		hasSupersede := false

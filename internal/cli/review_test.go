@@ -375,7 +375,7 @@ func addReviewWithSupersedes(t *testing.T, dir string, specs ...string) string {
 
 // 回帰の芯: 提案が置き換えを宣言していれば、`review adopt` **だけ**で結線される
 // （`scholia decision link` を手で叩かない）。ここが落ちると本件の不具合が再発し、
-// rules --current が改訂済みの旧 decision を現行として出す。
+// `scholia rules` が改訂済みの旧 decision を現行として出す。
 func TestCLI_ReviewAdopt_LinksDeclaredSupersedes(t *testing.T) {
 	dir := t.TempDir()
 	oldID := supersedeFixture(t, dir)
@@ -614,7 +614,7 @@ func writeReviewSupersedes(t *testing.T, dir, reviewID, rawJSON string) {
 
 // adopt は review が持ってきた宣言も --supersedes と同じ不変条件に通す。
 // ここが緩むと、未知 mode（"supersedes" のような綴り誤り）がそのまま保存され、
-// rules --current が旧 decision を現行のまま出す——この要件が消そうとしている
+// `scholia rules` が旧 decision を現行のまま出す——この要件が消そうとしている
 // 失敗そのものが、advisory も lint も伴わず静かに再現する。しかも link は
 // append-only で unlink が無いので取り消せない。
 func TestCLI_ReviewAdopt_RejectsMalformedDeclaration(t *testing.T) {

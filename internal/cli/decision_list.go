@@ -12,8 +12,12 @@ import (
 )
 
 // decisionListOutput は --json 出力の形。
+//
+// 各要素は effect（in-force | replaced）を必ず持つ。人が読む出力には
+// `[失効: supersede 済]` が付くのに JSON には何も無く、消費側が全件走査して
+// supersedes[] の逆リンクを組まない限り効力を知れない、という食い違いがあった。
 type decisionListOutput struct {
-	Decisions []model.Decision `json:"decisions"`
+	Decisions []decisionOut `json:"decisions"`
 }
 
 // newDecisionListCmd は decision レコードをフラットに一覧する（§3.8）。
@@ -46,7 +50,12 @@ func newDecisionListCmd() *cobra.Command {
 
 			// --current（#45 D7）: mode=supersede で指された decision を失効として畳む
 			// （保守的に supersede のみ）。amend/exception は現行のまま。
-			superseded := supersededIDs(snap.Decisions)
+			//
+			// この面の既定は変えない——rules / spec が「守る規則を引く」面なのに対し、
+			// ここは decision レコードそのものの棚卸しで、取り下げた理由を読む経路を
+			// 1 つ残しておく必要がある。変えるのは JSON に効力を載せることだけ。
+			view := newCurrencyView(snap.Decisions)
+			superseded := view.superseded
 
 			decisions := make([]model.Decision, 0, len(snap.Decisions))
 			for _, d := range snap.Decisions {
@@ -68,7 +77,7 @@ func newDecisionListCmd() *cobra.Command {
 			if asJSON {
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
-				return enc.Encode(decisionListOutput{Decisions: decisions})
+				return enc.Encode(decisionListOutput{Decisions: view.decisionOuts(decisions)})
 			}
 			printDecisionList(cmd, decisions, superseded)
 			return nil

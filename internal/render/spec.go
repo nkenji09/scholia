@@ -98,8 +98,39 @@ func decisionsForTarget(decisions []model.Decision, targetType, targetID string)
 	return out
 }
 
+// DecisionSplitter は「本文まで出す群」と「存在と行き先だけ出す群」に分ける判断と、
+// 後者の書き出しを、レポートの組み立てから切り離して受け取るための口。
+//
+// 判断の本体は internal/cli 側の純関数（currencyView）にある。ここへ持ち込まないのは、
+// SpecReport 自体は viewer（internal/viewer/derived.go）とも共有していて、
+// **画面は取り下げも含めた全件を受け取って自分で畳む**必要があるから——
+// レポートの中身を削ると画面の折りたたみが空になる。畳むのは端末の書き出しだけ。
+type DecisionSplitter interface {
+	// SplitDecisions は入力の順序を保ったまま 2 群に分ける。
+	SplitDecisions(decisions []model.Decision) (bodies, withdrawn []model.Decision)
+	// WriteWithdrawn は withdrawn 群を「存在と行き先」だけの形で書く（本文は出さない）。
+	WriteWithdrawn(w io.Writer, withdrawn []model.Decision, indent string)
+	// EffectLabel は本文側に出す 1 件に添える効力の印。効いているものには空を返す。
+	// --all で取り下げが本文側へ合流したとき、それが取り下げ済みだと分かるために要る
+	// ——本文が読めるのに効力が読めないと、rules --all と揃わない。
+	EffectLabel(d model.Decision) string
+}
+
+// allInForce は何も畳まない DecisionSplitter（--all 相当・nil 渡し時の既定）。
+type allInForce struct{}
+
+func (allInForce) SplitDecisions(d []model.Decision) ([]model.Decision, []model.Decision) {
+	return d, nil
+}
+func (allInForce) WriteWithdrawn(io.Writer, []model.Decision, string) {}
+func (allInForce) EffectLabel(model.Decision) string                  { return "" }
+
 // WriteText は SpecReport を人間可読な形式で書き出す。
-func WriteText(w io.Writer, report SpecReport) {
+// split が nil なら何も畳まない（従来どおり全件を本文ごと出す）。
+func WriteText(w io.Writer, report SpecReport, split DecisionSplitter) {
+	if split == nil {
+		split = allInForce{}
+	}
 	title := report.Tag.Name
 	if title == "" {
 		title = report.Tag.ID
@@ -113,7 +144,11 @@ func WriteText(w io.Writer, report SpecReport) {
 	// タグ自体への decision は entries とは独立にトップレベルで出す。transition を
 	// 持たないタグ（entries=0）でも decision が見えるように（tag-decision-visibility）。
 	if len(report.TagDecisions) > 0 {
-		writeDecisions(w, report.TagDecisions)
+		bodies, withdrawn := split.SplitDecisions(report.TagDecisions)
+		if len(bodies) > 0 {
+			writeDecisions(w, bodies, split)
+		}
+		split.WriteWithdrawn(w, withdrawn, "")
 		fmt.Fprintln(w)
 	}
 
@@ -133,7 +168,11 @@ func WriteText(w io.Writer, report SpecReport) {
 		fmt.Fprintln(w, line)
 
 		if len(e.Decisions) > 0 {
-			writeDecisions(w, e.Decisions)
+			bodies, withdrawn := split.SplitDecisions(e.Decisions)
+			if len(bodies) > 0 {
+				writeDecisions(w, bodies, split)
+			}
+			split.WriteWithdrawn(w, withdrawn, "")
 		}
 		fmt.Fprintln(w)
 	}
@@ -141,13 +180,14 @@ func WriteText(w io.Writer, report SpecReport) {
 
 // writeDecisions は decision 群を "decisions:" 見出し付きの箇条書きで書き出す。
 // トップレベルのタグ decision と各遷移の decision で同一体裁を共有する。
-func writeDecisions(w io.Writer, decisions []model.Decision) {
+func writeDecisions(w io.Writer, decisions []model.Decision, split DecisionSplitter) {
 	fmt.Fprintln(w, "decisions:")
 	for _, d := range decisions {
+		label := split.EffectLabel(d)
 		if d.Ref != "" {
-			fmt.Fprintf(w, "  - %s (%s)\n", d.Why, d.Ref)
+			fmt.Fprintf(w, "  -%s %s (%s)\n", label, d.Why, d.Ref)
 		} else {
-			fmt.Fprintf(w, "  - %s\n", d.Why)
+			fmt.Fprintf(w, "  -%s %s\n", label, d.Why)
 		}
 	}
 }

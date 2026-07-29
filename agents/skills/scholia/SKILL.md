@@ -54,7 +54,7 @@ spec ファイルも proposal ファイルも無い。**提案 = 作業ツリー
 scholia diff [<ref1> [<ref2>]]  # 現在 vs <ref1>（既定 HEAD）＝pending diff（主線）
                               # <ref1> vs <ref2>（両方 git ref）は landed 監査用（例: <commit>^ <commit>）
                               # semantic diff（語彙± / 遷移± / then 順序 / decisions±）
-scholia rules --tag <id>        # その提案が触るタグの過去 decisions（守る規則）と照合
+scholia rules --tag <id>        # その提案が触るタグの過去 decisions（守る規則）と照合。既定は効いているものだけ（取り下げは存在と行き先だけ出る・全文は --all）
 scholia decide --on transition:<id> --why "評価: 取り込まない。<理由>" --ref <PR/URL> [--commit <hash>…]
                               # adopt = 変更を採用 ＋「採用」decision を append
                               # reject = 採用しない ＋「取り込まない・理由」decision を append
@@ -143,7 +143,7 @@ decision は append-only ゆえ「今どれが正か」は `supersedes` リン�
 - **部分改訂か？**（除外条項の精緻化等・旧は生きたまま）→ `--supersedes <old>:amend`（既定）。
 - **一般則への意識的例外か？**（旧は生きたまま）→ `--supersedes <old>:exception`。
 
-既定 amend は「失効させ忘れ」を避けるための保守側。derive（`--current`・viewer 現行フィルタ）は **mode=supersede のみ**失効扱いにする。新規時は `scholia decide --supersedes`、後付けは `scholia decision link <new> --supersedes <old>[:<mode>]`（追記専用・自己参照/循環/既存 link の mode 改変は拒否）。未結線の実装来歴は `scholia decision list --unlinked` で棚卸しし `decision add-commit` で結ぶ。詳細は `scholia decision show <id>`（supersedes/superseded-by/acknowledges 込み）。
+既定 amend は「失効させ忘れ」を避けるための保守側。derive（`rules`/`spec` の既定・`decision list --current`・viewer 現行フィルタ）は **mode=supersede のみ**失効扱いにする。取り下げられた decision は `rules`/`spec` の既定では本文が出ず、存在と行き先だけ出る（全文は `--all`）。`search` は畳まず印を付ける。新規時は `scholia decide --supersedes`、後付けは `scholia decision link <new> --supersedes <old>[:<mode>]`（追記専用・自己参照/循環/既存 link の mode 改変は拒否）。未結線の実装来歴は `scholia decision list --unlinked` で棚卸しし `decision add-commit` で結ぶ。詳細は `scholia decision show <id>`（supersedes/superseded-by/acknowledges 込み）。
 
 ## 規約を変えたら手本も掃除する（retrofit）
 
@@ -197,9 +197,9 @@ scholia review list [--on <transition|vocab|tag>:<id>] [--json]
 
 # 読み取り / 派生ビュー
 scholia show tx <id> [--resolve] [--json]
-scholia spec <subjectTag> [--json]
+scholia spec <subjectTag> [--all] [--json]                    # rules と同じ扱い（既定は効いている規則だけ・--all で本文ごと）
 scholia list [--facet <tagKind>] [--tag <id>] [--kind <k>] [--json]
-scholia rules [--tag <id> | --tx <id> | --vocab <id> | --facet <k>] [--sort chrono|target] [--json]  # --vocab=own∪ vocab.tags＋祖先（#45 D10b）
+scholia rules [--tag <id> | --tx <id> | --vocab <id> | --facet <k>] [--sort chrono|target] [--all] [--json]  # --vocab=own∪ vocab.tags＋祖先（#45 D10b）。既定は効いている規則だけ（取り下げは存在と行き先だけ出る）・--all で本文ごと
 scholia search <keyword> [--type tag|transition|vocab|decision] [--tag <id>]… [--json]   # keyword で横断逆引き（id 未確定な入口）。transition は実効タグ・action kind でもヒット（viewer 検索と同一コア・#45 D10b）。--tag は候補タグのサブツリー（実効タグ包含・list --tag と同義）へ絞り込み（繰り返し可＝OR・#1）
 scholia lint [--json]
 scholia retrofit [--rule <id>] [--json]                       # advisory 規則で store を read-only 走査し是正候補を棚卸し（--fix なし・exit 0）

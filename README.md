@@ -164,7 +164,7 @@ Run `scholia <command> --help` for the full flag reference, or see [DESIGN.md](D
 
 `scholia rules` surfaces the rules to follow, and `scholia decision list` surfaces past judgments, both in machine-readable form.
 `scholia show vocab <id>` reverse-looks-up the transitions that reference a given vocabulary entry — the true impact set for a safe refactor.
-`scholia rules --current` folds in superseded decisions so only what's still in force shows up, and `scholia decision list --unlinked` finds decisions with no commit landed yet — useful when auditing follow-through.
+`scholia rules` and `scholia spec` show only what is still in force. A withdrawn decision is not silently dropped: its existence and where it was replaced stay in the output, and `--all` brings the full text back. `scholia search` never folds anything — it marks withdrawn hits instead, so you can still find them. Every JSON payload carries an `effect` field (`in-force` / `replaced`) so a machine reader does not have to reconstruct the reverse links itself. `scholia decision list --unlinked` finds decisions with no commit landed yet — useful when auditing follow-through.
 
 Claude Code skills (`scholia` / `scholia-change` / `scholia-triage` / `scholia-config-setup`) are bundled under `agents/skills/`, and there are two ways to install them:
 
