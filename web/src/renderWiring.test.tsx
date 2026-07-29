@@ -66,6 +66,8 @@ import type { FakeServer, HarnessConfig, Mounted } from './testing/renderHarness
 //   ・**遷移の実効タグの合成に vocab を渡し忘れる**（純関数は正しいが材料が痩せる型）
 //   ・**見出しの「現行ルール N」と、シートの中で開いて読める規則の数が食い違う**
 //   ・**空状態が「タグがまだ無い」と「役割を宣言せよ」を取り違える**
+//   ・**新しい欄を初期全開で置く**（段階的開示・01KYCC2TK3BEDA43TA61TPT4R5／
+//     01KXDFD2SRHJJ0E551V240JMKT 条項3）。畳んだ状態で走査できる数が出ることも見る
 //
 // ## このガードが落とさないもの（名指しする）
 //
@@ -422,6 +424,18 @@ async function openOverview(opts: { config?: HarnessConfig; tags?: typeof TAGS }
   return host;
 }
 
+/** 直下の振る舞いの欄を開く（初期は畳まれている）。開く前後の枚数も返す。 */
+async function openOwnBehaviors(host: HTMLElement): Promise<{ before: number; after: number; head: HTMLElement }> {
+  await waitFor(() => !!host.querySelector('.overview-own-behaviors'), '直下の欄が描かれる');
+  const box = host.querySelector('.overview-own-behaviors')!;
+  const before = box.querySelectorAll('.overview-behavior').length;
+  const head = box.querySelector('.overview-part-head') as HTMLElement;
+  expect(head, '直下の欄に開閉の見出しが無い').toBeTruthy();
+  head.click();
+  await waitFor(() => (host.querySelector('.overview-own-behaviors')?.querySelectorAll('.overview-behavior').length ?? 0) > 0, '直下の振る舞いカードが描かれる');
+  return { before, after: host.querySelector('.overview-own-behaviors')!.querySelectorAll('.overview-behavior').length, head };
+}
+
 /** 構造ツリーの行を名前で押す（別のコンポーネントのシートへ移る）。 */
 async function selectComponent(host: HTMLElement, name: string): Promise<void> {
   await waitFor(() => !!host.querySelector('.overview-tree'), '構造ツリーが描かれる');
@@ -492,7 +506,7 @@ describe('遷移がコンポーネントに直接付いていても、シート�
     // comp.cli は構成要素を持たず、T-run-cli が直接付いている。
     const host = await openOverview();
     await selectComponent(host, '端末');
-    await waitFor(() => (host.querySelector('.overview-own-behaviors')?.querySelectorAll('.overview-behavior').length ?? 0) > 0, '直下の振る舞いカードが描かれる');
+    await openOwnBehaviors(host);
     const own = host.querySelector('.overview-own-behaviors')!;
     const cards = own.querySelectorAll('.overview-behavior');
     // ⚠️ 2枚ちょうど。comp.cli には直接タグ付けされた T-run-cli と、**参照する vocab
@@ -517,13 +531,41 @@ describe('遷移がコンポーネントに直接付いていても、シート�
     // 見出しの数と、実際に読める規則の数を突き合わせる。
     const host = await openOverview();
     await selectComponent(host, '端末');
-    await waitFor(() => !!host.querySelector('.overview-own-behaviors'), '直下の欄が描かれる');
+    // 畳んだままでは規則のトグルが描かれない（＝数える対象がゼロになって検査が空振りする）。
+    await openOwnBehaviors(host);
     const headline = /現行ルール\s*(\d+)/.exec(host.querySelector('.overview-cov-meta')?.textContent || '');
     expect(headline, '見出しに「現行ルール N」が出ていない').not.toBeNull();
     const toggles = Array.from(host.querySelectorAll('.overview-sheet .overview-rules-toggle'));
     const readable = toggles.reduce((n, el) => n + Number(/\((\d+)\)/.exec(el.textContent || '')?.[1] ?? 0), 0);
     expect(readable, '数える対象が0件では検査にならない').toBeGreaterThan(0);
     expect(Number(headline![1]), '見出しの件数と、シートの中で読める規則の数が食い違っている').toBe(readable);
+  });
+
+  it('直下の欄は初期表示で畳まれていて、押すと開く（段階的開示）', async () => {
+    // 01KYCC2TK3BEDA43TA61TPT4R5（下位セクションは初期折りたたみ・初期表示は走査に留める）と
+    // 01KXDFD2SRHJJ0E551V240JMKT 条項3（5件以上は既定で畳む）。兄弟の欄（構成要素）は
+    // 最初からこれを守っており、**新設した欄だけが全開だった**（`CLAUDE.md` 5 が名指しした
+    // 「新しく作った面に規律を持ち込み忘れる」型）。
+    const host = await openOverview();
+    await selectComponent(host, '端末');
+    const { before, after, head } = await openOwnBehaviors(host);
+    expect(before, '初期表示で振る舞いカードが開いたまま出ている').toBe(0);
+    expect(after, '押しても開かない').toBeGreaterThan(0);
+    expect(head.getAttribute('aria-expanded'), '開いたのに aria-expanded が追随していない').toBe('true');
+  });
+
+  it('畳んだままでも、何がどれだけあるかを走査できる', async () => {
+    // 「初期表示は**全体を走査できる概要に留める**」（同 decision）。畳んだ状態で
+    // 中身が読めないのは正しいが、**何がどれだけあるか**まで消えると走査にならない。
+    const host = await openOverview();
+    await selectComponent(host, '端末');
+    await waitFor(() => !!host.querySelector('.overview-own-behaviors'), '直下の欄が描かれる');
+    const head = host.querySelector('.overview-own-behaviors .overview-part-head')!;
+    expect(head.getAttribute('aria-expanded'), '初期表示で開いている').toBe('false');
+    // 遷移の数が読めること（2本ある）。数字そのものを見るので、言い回しを変えても通る。
+    const count = /(\d+)/.exec(head.querySelector('.overview-part-count')?.textContent || '');
+    expect(count, '畳んだ見出しに数が出ていない').not.toBeNull();
+    expect(Number(count![1]), '畳んだ見出しの数が、開いて出るカードの数と違う').toBe(2);
   });
 
   it('直下の欄の見出しが、構成要素の欄の見出しと取り違えられていない', async () => {
@@ -570,8 +612,9 @@ describe('役割 component を別 id が担うプロジェクトでも、仕様�
   it('別 id の世界でも、直下の遷移が振る舞いカードになる', async () => {
     const host = await openOverview(aliasWorld);
     await selectComponent(host, '端末');
-    const cards = host.querySelectorAll('.overview-own-behaviors .overview-behavior');
-    expect(cards.length, '別 id の世界では直下の振る舞いが出ていない').toBe(2);
+    const { before, after } = await openOwnBehaviors(host);
+    expect(before, '別 id の世界だけ初期表示で開いている').toBe(0);
+    expect(after, '別 id の世界では直下の振る舞いが出ていない').toBe(2);
   });
 
   it('構成要素を持つコンポーネントでは、直下の欄を出さない（同じ遷移を2度出さない）', async () => {

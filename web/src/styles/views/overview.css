@@ -542,13 +542,10 @@
   gap: var(--sp-3);
 }
 
-/* 構成要素を持たないコンポーネントの、直下の振る舞い。構成要素配下のカード列と
-   同じ積み方にする（同じものが場所によって違う見え方にならないように）。 */
-.overview-own-behaviors {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
-}
+/* 構成要素を持たないコンポーネントの「直下の振る舞い」欄は、`.overview-part` と
+   同じ形（見出し＋畳める本体）で置く。よって専用の規則は要らない——`.overview-own-behaviors`
+   は検査と読み手のための目印だけで、見え方は兄弟の欄と1つの規則を共有する。
+   ⚠️ ここに独自の規則を足すと、同じものが場所によって違う見え方になる。 */
 
 .overview-behavior {
   display: flex;

@@ -89,6 +89,10 @@ function useSectionOpen() {
 // 折りたたみのセクション名（collapseState のキー空間。カード側と混ざらないよう
 // overview- を冠する）。
 const SEC_PART = 'overview-part';
+// 構成要素を持たないコンポーネントの「直下の振る舞い」欄。SEC_PART と別名にするのは、
+// 保存のキーが recordId（こちらはコンポーネント id・あちらは構成要素 id）で衝突しない
+// ことを名前でも明らかにするため。
+const SEC_OWN = 'overview-own';
 const SEC_RULES = 'overview-rules';
 const SEC_WHY = 'overview-why';
 const SEC_HISTORY = 'overview-rules-history';
@@ -1084,7 +1088,29 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
                   <span class="overview-section-hint">{t.overview.behaviorsHint}</span>
                   <CommentButton recordType="tag" recordId={sheet.c.id} recordTitle={sheet.c.name || sheet.c.id} anchor="behaviors" anchorLabel={t.overview.ownBehaviorsHeading} />
                 </div>
-                <div class="overview-own-behaviors">{sheet.ownBehaviors.map(renderBehavior)}</div>
+                {/* ⚠️ **初期は畳む。** 段階的開示（01KYCC2TK3BEDA43TA61TPT4R5:
+                    「下位セクションは初期折りたたみで、初期表示は全体を走査できる
+                    概要に留める」）と、5件以上のセクションは既定で畳む
+                    （01KXDFD2SRHJJ0E551V240JMKT 条項3・概要シート内にも及ぶことは
+                    01KYGYYN8HRNFQEDMBS3DZRRX7 が明示）に従う。
+                    ⚠️ **兄弟の欄（構成要素）と同じ形・同じ機構で置く**——面ごとに
+                    独自の開閉を作らない。開閉の保存も同じ（保存値 > 初期既定）。
+                    畳んだときに走査できるよう、見出しには名前と遷移の数を出す。 */}
+                {(() => {
+                  const ownOpen = sections.isOpen(sheet.c.id, SEC_OWN, false);
+                  return (
+                    <div class="overview-part overview-own-behaviors">
+                      <button type="button" class="overview-part-head" onClick={() => sections.toggle(sheet.c.id, SEC_OWN, false)} aria-expanded={ownOpen}>
+                        <Icon name={ownOpen ? 'chevron-down' : 'chevron-right'} size={15} class="overview-part-chevron" />
+                        <span class="overview-part-dot" style={{ '--kc': kindColorVar(sheet.c.kind) } as JSX.CSSProperties} />
+                        <span class="overview-part-title">{sheet.c.name || sheet.c.id}</span>
+                        <span class="overview-part-spacer" />
+                        <span class="overview-part-count">{t.overview.txCount(sheet.ownBehaviors.length)}</span>
+                      </button>
+                      {ownOpen && <div class="overview-part-body">{sheet.ownBehaviors.map(renderBehavior)}</div>}
+                    </div>
+                  );
+                })()}
               </section>
             )}
 
