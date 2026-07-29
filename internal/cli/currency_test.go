@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -33,16 +34,26 @@ import (
 //     （TestCurrency_AllMarksWithdrawnDistinctly）。これも差し戻し1回目まで素通りしていた。
 //   - decision 本文を出しうる面が**新設されたのに、ここへ登録されないこと**
 //     （TestCurrency_EverySurfaceIsClassified）。
-//   - 「本文を出さない面」への**誤分類**——走らせられる面は実際に走らせて確かめる
-//     （TestCurrency_NoDecisionBodySurfacesReallyEmitNone）。
+//   - 分類の**誤分類**——表に載せた面は実際に走らせて両方向に確かめる
+//     （TestCurrency_ClassificationMatchesReality）。
+//   - 利用者に出る案内文が旧既定を教えたままになること
+//     （TestCurrency_AdviceDoesNotTeachOldDefault）。
+//   - --all と --current の同時指定を黙って受理すること
+//     （TestCurrency_AllAndCurrentAreExclusive）。
 //
 // 落ちないもの（原理的に）:
 //   - **人が読む出力の体裁**（見出し語・記号・並び）。ここは意味を見ておらず、
 //     「本文が出ていないか」「id が出ているか」だけを見る。体裁の劣化は捕まらない。
 //     ⚠️ 例外が1つある: --all の印だけは綴りに結び付けている（上記）。
 //     「区別が付いていること」は綴りでしか観測できないため。
-//   - 「本文を出さない面」のうち**走らせていない面**（書き込む面・git/ネットワークを
-//     要する面）。そこは主張のまま——件数はテストが log に出す。
+//   - **実測表（runnableSurfaces）に載っていない面。** そこは主張のまま——
+//     件数はテストが log に出す。⚠️ 表そのものは手で維持しているので、
+//     **分類を変えると同時に表からも外す**編集は捕まらない（レビュアの変異 N8）。
+//     宣言と検査を同じ人が編集できる以上、これは原理的に残る。
+//     せめて縮まないよう、表の下限を数える歯止めだけ置いてある。
+//   - **同じ意味の記述が別の言い方で再導入されること**（G1 の型）。
+//     捕まえているのは `rules --current` という綴り 1 点だけである
+//     （TestCurrency_NoStaleSpellingInProductSources に理由を書いた）。
 //   - **viewer / 静的書き出し**。あちらは Go のこの層を通らない（web/ 側の検査と
 //     internal/viewer のテストが担う）。この単位では旧バイナリとの API 差分を
 //     手で測ったが、それは自動では回らない。
@@ -732,6 +743,7 @@ var surfacesNoDecisionBody = []string{
 var runnableSurfaces = map[string][]string{
 	// --- decision 本文を出す面 ---
 	"scholia rules":         {"rules", "--tag", "req.auth"},
+	"scholia search":        {"search", "ホンブンA"},
 	"scholia spec":          {"spec", "req.auth"},
 	"scholia decision list": {"decision", "list"},
 	"scholia decision show": {"decision", "show", "%OLD%"},
@@ -782,6 +794,14 @@ func TestCurrency_ClassificationMatchesReality(t *testing.T) {
 	}
 	for _, n := range surfacesNoDecisionBody {
 		bucket[n] = "surfacesNoDecisionBody"
+	}
+
+	// ⚠️ 表が縮まないための歯止め。分類を変えると同時に表からも外す編集は
+	// 原理的に捕まらない（射程の名乗り参照）が、**外したこと自体**はここで落ちる。
+	// 面を減らす正当な理由があるなら、この数も一緒に下げること。
+	const minRunnable = 20
+	if len(runnableSurfaces) < minRunnable {
+		t.Errorf("実測表が %d 面まで縮んでいる（下限 %d）——分類の裏付けが減っている", len(runnableSurfaces), minRunnable)
 	}
 
 	total := len(surfacesGuarded) + len(surfacesIntentionallyFull) +
@@ -845,4 +865,100 @@ func readIfExists(path string) string {
 		return ""
 	}
 	return string(b)
+}
+
+// --- 4. 利用者に出る案内文が旧既定を教えていないこと -------------------------
+
+// 既定を変えたとき、**利用者に出る案内文が旧既定を教えたまま**になっていた
+// （差し戻し2回目の G1）。しかも同じ意味の一文が画面側のコード内コメントにもあり、
+// **利用者に出ない方だけを直して、出る方を残した**。
+//
+// ここは実際に adopt を踏んで、出てきた文言そのものを検査する。
+func TestCurrency_AdviceDoesNotTeachOldDefault(t *testing.T) {
+	dir := t.TempDir()
+	setupAuthFixture(t, dir)
+
+	// 既存 decision がある対象へ提案を出して adopt すると、結線を促す advisory が出る。
+	mustRun(t, dir, "decide", "--on", "tag:req.auth", "--why", "先にある判断")
+	var rv struct {
+		ID string `json:"id"`
+	}
+	mustUnmarshal(t, mustRun(t, dir, "review", "add", "--on", "tag:req.auth",
+		"--body", "あとから来た提案", "--source", "ai", "--json"), &rv)
+	out := mustRun(t, dir, "review", "adopt", rv.ID)
+
+	if !strings.Contains(out, "supersede-unlinked") {
+		t.Fatalf("結線を促す advisory が出ていない（この検査が何も見ていない）:\n%s", out)
+	}
+	if strings.Contains(out, "--current") {
+		t.Errorf("利用者に出る案内文が、いまも --current を畳む手段として教えている:\n%s", out)
+	}
+	if !strings.Contains(out, "scholia rules") {
+		t.Errorf("案内文が、結線しないとどの面が旧を現行として出すのかを述べていない:\n%s", out)
+	}
+}
+
+// ⚠️ **これはガードではなく、洗い残しの目印である。**
+//
+// 「同じ意味の記述が2箇所にあり、片側だけ直す」型は、綴りの照合では原理的に閉じない
+// ——同じことを別の言い方で書けば通る（CLAUDE.md「配線ガードの書き方」2）。
+// だからここで捕まえるのは **`rules --current` という綴りが product のソースへ
+// 戻ってくること 1 点だけ**である。言い換えた再導入は捕まらない。
+//
+// それでも置くのは、G1 が**まさにこの綴り**で起きたからで、
+// 同じ綴りの再導入だけは無料で止められるため。
+func TestCurrency_NoStaleSpellingInProductSources(t *testing.T) {
+	roots := []string{"../../internal", "../../cmd"}
+	const stale = "rules --current"
+
+	var hits []string
+	for _, root := range roots {
+		err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
+				return err
+			}
+			// テストは「--current を渡すとどうなるか」を実際に検査するので対象外。
+			if strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+			b, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			for i, line := range strings.Split(string(b), "\n") {
+				if strings.Contains(line, stale) {
+					hits = append(hits, fmt.Sprintf("%s:%d: %s", path, i+1, strings.TrimSpace(line)))
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("走査に失敗: %v", err)
+		}
+	}
+	if len(hits) > 0 {
+		t.Errorf(`%q が product のソースに戻っている:
+%s
+
+既定は畳む側になったので、この綴りは旧既定を教える。
+「scholia rules（既定）」か「decision list --current」のどちらを指すのかを書き分けること。`,
+			stale, strings.Join(hits, "\n"))
+	}
+}
+
+// 誤用（--all と --current の同時指定）を黙って受理しないこと。
+// レビュアの変異 N2 が素通りしていた——誰もこの性質を守っていなかった。
+func TestCurrency_AllAndCurrentAreExclusive(t *testing.T) {
+	dir := t.TempDir()
+	f := setupWithdrawFixture(t, dir)
+
+	out, err := run(t, dir, "rules", "--tag", "req.auth", "--all", "--current")
+	if err == nil {
+		t.Fatalf("--all と --current の同時指定はエラーになるべき:\n%s", out)
+	}
+	// 黙って受理して取り下げた本文を渡してしまう変異を、値でも見る。
+	if strings.Contains(out, "旧タグ判断ホンブンA") {
+		t.Errorf("誤用時に取り下げた本文を渡している:\n%s", out)
+	}
+	_ = f
 }
