@@ -47,7 +47,13 @@
   "tagKinds": [
     "requirement",
     "concern",
-    "subject",
+    {
+      "id": "subject",
+      "description": "主題。仕様シートの単位＝概要タブが1枚のシートとして描く対象。",
+      "behaviors": [
+        "component"
+      ]
+    },
     {
       "id": "axis",
       "label": "軸",
