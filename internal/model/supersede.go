@@ -69,7 +69,7 @@ func (e *SupersedeError) Error() string {
 // "<ulid>[:<mode>]" 解析・viewer の構造化 JSON・review が持ってきた宣言）、
 // 経路ごとに書き分けるとどれか1つだけが緩む——実際、adopt が持ち上げる宣言は
 // mode 3値と重複の検査を素通りしていた。未知の mode は SupersedeMode() が
-// そのまま返し、rules --current は mode == "supersede" だけを畳むので、
+// そのまま返し、derive は mode == "supersede" だけを畳むので、
 // "supersedes" のような綴り誤りが入ると旧 decision が現行のまま残る。しかも
 // link は append-only で unlink が無く、取り消せない。
 func NormalizeSupersedeLinks(links []SupersedeLink, selfID string) ([]SupersedeLink, error) {

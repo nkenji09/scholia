@@ -40,7 +40,7 @@ input が触る挙動を、どの decision と transition が支配している�
 
 ```
 scholia search <keyword> [--type tag|transition|vocab|decision] [--tag <id>]… [--json]   # id/領域が未確定なら逆引きの入口（read-only）。--tag は候補タグのサブツリーへ絞り込み（繰り返し可＝OR）
-scholia rules --tag <領域>            # そのタグ自身＋祖先タグへの decisions＝守るべき規則の全集合
+scholia rules --tag <領域>            # そのタグ自身＋祖先タグへの decisions＝守るべき規則の全集合（既定は効いているものだけ。取り下げは存在と行き先だけ出る・全文は --all）
 scholia show tag <id>                 # タグ（要件）の現状
 scholia show tx <id> --resolve        # transition の現契約（action→given→then・vocab を解決して読む）
 scholia decision list --on tag:<id>            # その対象ちょうどに付いた decision（完全一致・祖先展開なし）

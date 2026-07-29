@@ -154,7 +154,8 @@ type SupersedeLink struct {
 }
 
 // SupersedeLink.Mode の3値（#45 D7）。
-//   - ModeSupersede: 全文置換（旧を失効させる）。derive の --current で被参照を畳む唯一の mode。
+//   - ModeSupersede: 全文置換（旧を失効させる）。derive が被参照を畳む唯一の mode
+//     （rules / spec の既定・decision list --current・viewer の現行フィルタ）。
 //   - ModeAmend: 部分改訂（既定・旧は失効しない）。既定を amend にするのは
 //     「失効させ忘れ」の系統誤りを避けるため（skill が decide 時に「全文置換か？」を必ず1問挟む）。
 //   - ModeException: 一般則への意識的例外（旧は失効しない）。

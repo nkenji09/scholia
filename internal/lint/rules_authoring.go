@@ -258,7 +258,7 @@ func TargetUnlinkedSupersede(snap store.Snapshot, target model.DecisionTarget, l
 	}
 	return []Finding{advisory("supersede-unlinked", target.Type, target.ID, "supersedes", "",
 		"改訂なら `scholia review add --supersedes <oldUlid>[:<mode>]` で宣言してから adopt する（採用時なら `review adopt --supersedes`）。純粋な新規要件で旧を指さないならこの advisory は無視してよい",
-		"%s %s: 既存 decision が %d 件あるのに現行性リンク（supersedes）の宣言がありません（旧を改訂したなら結線しないと rules --current が旧を現行のまま出します）",
+		"%s %s: 既存 decision が %d 件あるのに現行性リンク（supersedes）の宣言がありません（旧を改訂したなら結線しないと scholia rules が旧を現行のまま出します）",
 		target.Type, target.ID, prior)}
 }
 

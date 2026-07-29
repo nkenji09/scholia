@@ -97,7 +97,7 @@ desc に書かない。正典＝[`../_scholia-shared/references/modeling-princip
 提供体験・要件そのものが変わったとき。
 
 1. **入口理解** — コメントを読み、`scholia show tag <id>` と `scholia rules --tag <id>`（過去 decision＝守る規則）で
-   現状を把握する。
+   現状を把握する。`rules` の既定は効いている規則だけで、取り下げられたものは存在と行き先だけ出る（全文は `--all`）。
 2. **Tag に decide** — 人と対話し、要件変更の why を確定してから記録する（cross-cutting 不変条件の更新）:
    ```
    scholia decide --on tag:<id> --why "<要件変更の理由>" --ref <PR/URL>
