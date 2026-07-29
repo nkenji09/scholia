@@ -232,10 +232,25 @@ func TestRetrofitDogfoodCounts(t *testing.T) {
 	// ——実際にまた動いた。しかも**2つの単位が独立に同じ境界を踏んだ**: 「概要タブが
 	// 成立する条件」の単位と「端末で取り下げた規則を渡さない」の単位が、それぞれ
 	// commit fc81ff6f を窓の外へ押し出して 18/18 → 17/17 に更新していた（マージで
-	// 両方の説明が衝突した）。**マージ後は履歴がさらに伸びるので、境界は測り直す。**
-	// マージ直後の実測（`git rev-list --count <commit>..HEAD`）はコメント末尾に置く。
-	if resp.AcknowledgeOnly.FindingCount != 17 || resp.AcknowledgeOnly.RecordCount != 17 {
-		t.Fatalf("dogfood acknowledgeOnly = %d findings / %d records, want 17/17", resp.AcknowledgeOnly.FindingCount, resp.AcknowledgeOnly.RecordCount)
+	// 両方の説明が衝突した）。
+	// **そしてマージそのものが、さらにもう1件を窓の外へ出した。** 両単位の commit が
+	// 合流して履歴が伸び、commit 0b3a04bb が 195 → 209 になり 17/17 → 16/16。
+	// マージ直後の実測（`git rev-list --count <commit>..HEAD`・窓は 200）:
+	//   e1d44d18: 183 ／ 9df25e5b: 193 ／ 0b3a04bb: 209 ／ fc81ff6f: 221
+	// `lint` が挙げる decision-stale も e1d44d18・9df25e5b の2件に減っている。
+	// 是正でも回帰でもなく**窓の外に出ただけ**である。
+	//
+	// ⚠️⚠️ **`go test` の結果キャッシュに騙されないこと。** この検査は git の履歴を
+	// 入力に取るが、**Go のテストキャッシュはそれを入力として見ない**。マージした直後に
+	// `go test ./...` を打つと、ソースが変わっていないパッケージは**キャッシュ済みの
+	// 緑をそのまま返す**——実際にこの単位で、16/16 になっているのに `ok (cached)` と
+	// 出た。**この検査を信じる前に `-count=1` を付けて走らせること。**
+	//
+	// ⚠️ 次に触る人へ: **e1d44d18 が 183・9df25e5b が 193 で、どちらも境界に近い。**
+	// あと7コミットで 9df25e5b が、17コミットで e1d44d18 が窓を出る。そのたびに
+	// この数字は1つずつ減る（設計どおり）。
+	if resp.AcknowledgeOnly.FindingCount != 16 || resp.AcknowledgeOnly.RecordCount != 16 {
+		t.Fatalf("dogfood acknowledgeOnly = %d findings / %d records, want 16/16", resp.AcknowledgeOnly.FindingCount, resp.AcknowledgeOnly.RecordCount)
 	}
 	if total := resp.Fixable.ByRule["dead-doc-ref"] + resp.AcknowledgeOnly.ByRule["dead-doc-ref"]; total != 8 {
 		t.Fatalf("dogfood dead-doc-ref total = %d, want 8", total)
