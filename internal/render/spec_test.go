@@ -123,7 +123,7 @@ func TestWriteText_TagDecisionsVisibleWithZeroTransitions(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	WriteText(&buf, report)
+	WriteText(&buf, report, nil)
 	out := buf.String()
 
 	if !strings.Contains(out, "decisions:") || !strings.Contains(out, "【不採用】この要件は実装しない") {
@@ -181,7 +181,7 @@ func TestWriteText_ContainsWhenGivenThenAndDecisions(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	WriteText(&buf, report)
+	WriteText(&buf, report, nil)
 	out := buf.String()
 
 	for _, want := range []string{

@@ -36,6 +36,13 @@ type searchMatch = index.RecordMatch
 type searchMatchOut struct {
 	searchMatch
 	Subjects []string `json:"subjects"`
+	// Effect は decision 型のヒットにだけ載る効力（in-force | replaced）。
+	// **検索は畳まない。** 「知っている語から記録へ辿り着く」逆引きの面なので、
+	// 取り下げた記録に辿り着けなくなると、なぜ取り下げたかを調べる入口が消える。
+	// 隠さない代わりに、取り下げ済みであることを必ず示す。
+	Effect Effect `json:"effect,omitempty"`
+	// ReplacedBy は取り下げ済みのヒットの行き先（＝全文置換した側）。
+	ReplacedBy []string `json:"replacedBy,omitempty"`
 }
 
 type searchOutput struct {
@@ -122,12 +129,18 @@ func newSearchCmd() *cobra.Command {
 			// --tag に渡せるスコープ候補）を付ける。--tag と同じ帰属判定を流用する
 			// （index.OwningSubjects）。ownerKind 未宣言なら subjects は空で無害。
 			ownerKind := snap.Config.OwnerKind
+			view := newCurrencyView(snap.Decisions)
 			enriched := make([]searchMatchOut, 0, len(matches))
 			for _, m := range matches {
-				enriched = append(enriched, searchMatchOut{
+				e := searchMatchOut{
 					searchMatch: m,
 					Subjects:    index.OwningSubjects(ix, &snap, ownerKind, m.Type, m.ID),
-				})
+				}
+				if m.Type == searchTypeDecision {
+					e.Effect = view.effectOf(m.ID)
+					e.ReplacedBy = view.replacedBy(m.ID)
+				}
+				enriched = append(enriched, e)
 			}
 
 			if asJSON {
@@ -143,6 +156,18 @@ func newSearchCmd() *cobra.Command {
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "そのタグのサブツリー（実効タグ包含・list --tag と同義）に属する record へ絞り込む（繰り返し可＝OR・--type と AND 合成）")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "JSON で出力する")
 	return cmd
+}
+
+// withdrawnMark は取り下げ済みのヒットに付ける印。効いているものには何も付けない
+// （現行が既定であって、印は例外側に付ける）。
+func withdrawnMark(m searchMatchOut) string {
+	if m.Effect != EffectReplaced {
+		return ""
+	}
+	if len(m.ReplacedBy) == 0 {
+		return " [取り下げ済み: 行き先不明]"
+	}
+	return " [取り下げ済み → " + strings.Join(m.ReplacedBy, ", ") + "]"
 }
 
 func isValidSearchType(t string) bool {
@@ -178,7 +203,9 @@ func printSearchMatches(cmd *cobra.Command, matches []searchMatchOut) {
 			if len(m.Subjects) > 0 {
 				suffix = "  · subject: " + strings.Join(m.Subjects, ", ")
 			}
-			fmt.Fprintf(out, "  %s [%s] %s%s\n", m.ID, m.Field, m.Snippet, suffix)
+			// 取り下げ済みの印。行き先まで同じ行に出すので、ここから
+			// 「では今は何が効いているのか」へ辿れる。
+			fmt.Fprintf(out, "  %s%s [%s] %s%s\n", m.ID, withdrawnMark(m), m.Field, m.Snippet, suffix)
 		}
 	}
 
