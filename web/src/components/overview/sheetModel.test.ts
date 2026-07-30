@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildDirectByTag, buildPartTree, componentBehaviorTxIds, countPartPanels, sheetRuleCount } from './sheetModel';
+import { buildDirectByTag, buildPartTree, componentBehaviorTxIds, countPartPanels, panelPathTo, sheetRuleCount } from './sheetModel';
 import type { Transition, VocabEntry } from '../../types';
 
 // 「どの遷移を、どのコンポーネントの振る舞いとして描くか」と「構成要素の欄を
@@ -268,6 +268,70 @@ describe('構成要素の欄を、記録の親子どおりに入れ子で組む'
     );
     // p1 は記録の順で c の下（`['c','p2']` の最初）、p2 はその下。欄は各1つ。
     expect(shape(tree)).toEqual(['p1', 'p1>p2']);
+  });
+});
+
+// ===========================================================================
+// そのシートの中で、目当ての欄までの間の段
+// ===========================================================================
+//
+// ## この describe が落とすもの（射程・`CLAUDE.md` 6）
+//
+//   ・**間の段を1段しか返さない／自分を含めてしまう／深い順で返す。**
+//   ・**そのシートに無い欄について、空配列を返してしまう**（＝「間の段は無い」と
+//     「このシートに無い」を取り違える形）。呼び出し側はこの2つで別のことをする。
+//
+// ## この describe が落とさないもの（名指しする）
+//
+//   ・**呼び出し側がこの答えを使わず、記録を上へ辿った道を使う形**（＝F1 の欠陥そのもの）。
+//     それは `renderWiring.test.tsx` が描画を起こして落とす。
+describe('シートの欄の木の中で、目当ての欄までの間の段', () => {
+  /** `panelPathTo` は `PartNode` の `id`/`children` だけを見る。 */
+  type Node = { id: string; txIds: string[]; children: Node[]; otherParentIds: string[] };
+  const n = (id: string, children: Node[] = []): Node => ({ id, txIds: [], children, otherParentIds: [] });
+
+  it('浅い順に、目当て自身を含まない経路を返す', () => {
+    const tree = [n('a', [n('b', [n('c')])]), n('d')];
+    expect(panelPathTo(tree, 'c')).toEqual(['a', 'b']);
+    expect(panelPathTo(tree, 'b')).toEqual(['a']);
+    // シート直下の欄には間の段が無い＝空配列（null ではない）。
+    expect(panelPathTo(tree, 'a')).toEqual([]);
+    expect(panelPathTo(tree, 'd')).toEqual([]);
+  });
+
+  it('そのシートに無い欄は null（「間の段が無い」と区別する）', () => {
+    // ⚠️ ここで空配列を返すと、呼び出し側は「間の段は無いが欄は在る」と読む。
+    // **多親では「この欄はこのシートには無い」が起きる**ので、その2つは区別が要る。
+    expect(panelPathTo([n('a', [n('b')])], 'zz')).toBeNull();
+    expect(panelPathTo([], 'a')).toBeNull();
+  });
+
+  it('多親の欄は、シートごとに違う経路を返す（同じ id でも道が違う）', () => {
+    // 2つのシートの木を、`buildPartTree` が実際に返す形で作って突き合わせる。
+    const TAGS = [
+      { id: 'c1', kind: 'subject' },
+      { id: 'c2', kind: 'subject' },
+      { id: 'a', kind: 'piece', parentIds: ['c1'] },
+      { id: 'b', kind: 'piece', parentIds: ['c2'] },
+      { id: 'shared', kind: 'piece', parentIds: ['a', 'b'] },
+    ];
+    const byId = new Map(TAGS.map((t) => [t.id, t]));
+    const kids = new Map<string, string[]>();
+    for (const t of TAGS) for (const p of t.parentIds || []) kids.set(p, [...(kids.get(p) || []), t.id]);
+    const treeOf = (componentId: string) =>
+      buildPartTree({
+        componentId,
+        childIdsOf: (id) => kids.get(id) || [],
+        parentIdsOf: (id) => byId.get(id)?.parentIds || [],
+        isPart: (id) => byId.get(id)?.kind === 'piece',
+        isPlace: (id) => byId.get(id)?.kind === 'piece' || byId.get(id)?.kind === 'subject',
+        directTxIdsOf: () => [],
+      });
+    // ⚠️ **これが F1 の核心。** 同じ `shared` について、シートごとに間の段が違う。
+    // 記録を上へ辿る判定は片方（記録の順＝`a`）しか返さないので、**もう一方のシートでは
+    // 間の段を開けられない**。そのシートの木に聞けば、そのシートの答えが出る。
+    expect(panelPathTo(treeOf('c1'), 'shared')).toEqual(['a']);
+    expect(panelPathTo(treeOf('c2'), 'shared')).toEqual(['b']);
   });
 });
 

@@ -995,6 +995,10 @@ describe('構成要素の欄が入れ子になり、各欄は直接付いた分�
       'part.list>part.shared.index',
       'part.list>part.shared.pair',
       'part.detail',
+      // ⚠️ 記録の1つ目の親（`part.orphan`）はこのシートに居ないので、**このシートに居る
+      // 2つ目の親の下**に置かれる。置き場所は「記録の親の順」だが、**候補はそのシートに
+      // 居る親だけ**である（`buildPartTree` の (2)）。
+      'part.detail>part.shared.deadfirst',
       'part.shared.probe',
       'part.shared.mixed',
     ]);
@@ -1033,6 +1037,27 @@ describe('構成要素の欄が入れ子になり、各欄は直接付いた分�
     const panels = host.querySelectorAll('.overview-sheet .overview-part[data-part]').length;
     expect(panels, '欄が1つも出ていない＝検査が空振りしている').toBeGreaterThan(1);
     expect(Number(headline![1]), '見出しの件数と、シートに出ている欄の数が食い違っている').toBe(panels);
+  });
+
+  it('ツリーのコンポーネント行の件数と、そのシートの「構成要素 N」が同じ数え方', async () => {
+    // ⚠️ **これは差し戻しで指摘された食い違いの再発防止である。** 是正前はツリーの
+    // コンポーネント行が「直下の構成要素の数」、ヘッダが「入れ子込みの欄の数」で、
+    // 入れ子があると**同じ画面に2つの数え方が同居していた**（実測: ツリー「ビューア 11」／
+    // ヘッダ「構成要素 16」）——本文 条項5 が「同じ画面の中で2つの数え方を同居させない」を
+    // 構造ツリーの件数にも及ぼすと書いた、その当のもの。
+    const host = await openOverview();
+    for (const name of ['ビューア画面', '書き出し', '端末']) {
+      await selectComponent(host, name);
+      const headline = /構成要素\s*(\d+)/.exec(host.querySelector('.overview-cov-meta')?.textContent || '');
+      expect(headline, `${name}: 見出しに「構成要素 N」が出ていない`).not.toBeNull();
+      const row = Array.from(host.querySelectorAll('.overview-tree-row')).find((r) => (r.querySelector('.overview-tree-name')?.textContent || '').trim() === name)!;
+      const shown = row.querySelector('.overview-tree-count')?.textContent ?? '0';
+      expect(Number(shown), `${name}: ツリーの件数（${shown}）とヘッダの「構成要素 ${headline![1]}」が食い違っている`).toBe(Number(headline![1]));
+    }
+    // 空振り防止: 入れ子を持つシートで、その数が直下の子の数より多いこと。
+    await selectComponent(host, 'ビューア画面');
+    const n = Number(/構成要素\s*(\d+)/.exec(host.querySelector('.overview-cov-meta')?.textContent || '')![1]);
+    expect(n, '入れ子込みの数になっていない（直下の子は4件）').toBeGreaterThan(4);
   });
 
   it('入れ子の欄も初期表示では畳まれている（段階的開示を新しい面に持ち込む）', async () => {
@@ -1213,6 +1238,17 @@ describe('構造ツリーとシートが、多親の構成要素について同�
     expect((groupAbove.querySelector('.overview-tree-name')?.textContent || '').trim()).toBe('主要なまとまり');
   });
 
+  it('パンくずが2段以上あるとき、上まで全部出る（直上で止めない）', async () => {
+    // ⚠️ **1段のパンくずだけを見ていると「直上の親で遡りを止める」変異が素通りする**（実見）
+    // ——`書き出し` のパンくずは1段なので、止めても同じ答えになる。`端末: 下位` は
+    // `束ねる段 > 端末` の2段なので、そこで初めて差が出る。
+    const host = await openOverview();
+    await openTreeNode(host, '端末'); // 既定で畳まれているので開いてから選ぶ
+    await selectComponent(host, '端末: 下位');
+    const crumbs = Array.from(host.querySelectorAll('.overview-crumbs .overview-crumb')).map((el) => (el.textContent || '').trim());
+    expect(crumbs, 'パンくずが直上の親で止まっている／順序が逆さ').toEqual(['主要なまとまり', '端末']);
+  });
+
   it('入れ子の構成要素の行は、概要の中に留まる（タグ詳細へ抜けない）', async () => {
     const host = await openOverview();
     await openTreeNode(host, '意思決定の一覧');
@@ -1235,6 +1271,70 @@ describe('構造ツリーとシートが、多親の構成要素について同�
 });
 
 describe('入れ子の構成要素を指す共有 URL が生きる', () => {
+  /** `scrollIntoView` が呼ばれた相手を `data-part` で数える（happy-dom はレイアウトを
+   *  計算しないので、位置ではなく**呼ばれたかどうか**を見る）。 */
+  async function withScrollSpy<T>(body: (calls: string[]) => Promise<T>): Promise<T> {
+    const calls: string[] = [];
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function (this: Element) {
+      calls.push((this as HTMLElement).getAttribute('data-part') || this.className);
+    };
+    try {
+      return await body(calls);
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  }
+
+  // ⚠️⚠️ **この2本が F1 の再発防止である。**
+  //
+  // 多親の欄は複数のコンポーネントのシートに出るが、**間の段を開ける処理が「記録を上へ
+  // 辿った道」を使っていたため、記録の2つ目の親の側のシートでは別のシートの段を開けて
+  // いた**——欄はそのシートに実在するのに寄せ先が DOM に無く、1px も寄らなかった（実測）。
+  //
+  // ⚠️ **1つ目の親の側だけ通しても意味がない**（そちらは是正前から通っていた）。
+  // だから**両側**を対で見る。corpus の `part.shared.index` は
+  // `parentIds: ['part.list'(ビューア画面), 'part.export.job'(書き出し)]`。
+  for (const c of [
+    { label: '1つ目の親の側', hash: '#/overview/comp.viewer/part/part.shared.index', title: 'ビューア画面', mid: 'part.list' },
+    { label: '2つ目の親の側', hash: '#/overview/comp.export/part/part.shared.index', title: '書き出し', mid: 'part.export.job' },
+  ]) {
+    it(`多親の欄を${c.label}のシートから指すと、間の段が開いて寄せに行く`, async () => {
+      await withScrollSpy(async (calls) => {
+        server = installFakeServer({});
+        mounted = mountApp(c.hash);
+        const host = mounted.host;
+        await waitFor(() => (host.querySelector('.overview-title')?.textContent || '') === c.title, `${c.title} のシートに着いていない`);
+        // 間の段が、**そのシートの中の親**で開いていること。
+        await waitFor(
+          () => host.querySelector(`[data-part="${c.mid}"] > .overview-part-head`)?.getAttribute('aria-expanded') === 'true',
+          `${c.label}: 間の段（${c.mid}）が開いていない`,
+        );
+        // 寄せ先の器が在り、そこへ寄せに行っていること。
+        await waitFor(() => !!host.querySelector('[data-part="part.shared.index"]'), `${c.label}: 寄せ先の欄が描かれていない`);
+        await waitFor(
+          () => calls.includes('part.shared.index'),
+          `${c.label}: 寄せに行っていない（呼ばれたのは: ${calls.join(',') || 'なし'}）`,
+        );
+      });
+    });
+  }
+
+  it('そのシートに無い欄を指しても、別のシートの段を開けない（射程を広げない）', async () => {
+    // ⚠️ **「そのシートの木に聞く」形にした副作用を固定する。** `part.export.job` は
+    // 書き出しのシートの欄で、ビューア画面のシートには居ない。ビューア画面を見ている
+    // あいだにそれを指されても、**書き出しのシートの段を開けてはいけない**。
+    server = installFakeServer({});
+    mounted = mountApp('#/overview/comp.viewer/part/part.export.job');
+    const host = mounted.host;
+    await waitFor(() => (host.querySelector('.overview-title')?.textContent || '') === 'ビューア画面', 'ビューア画面のシートに着いていない');
+    await new Promise((r) => setTimeout(r, 200));
+    expect(host.querySelector('[data-part="part.export.job"]'), 'このシートに無い欄が描かれている').toBeNull();
+    // このシートの欄は、どれも初期表示のまま（勝手に開いていない）。
+    const open = Array.from(host.querySelectorAll('.overview-sheet .overview-part-head')).filter((h) => h.getAttribute('aria-expanded') === 'true');
+    expect(open.map((h) => h.textContent?.trim().slice(0, 12)), '関係のない欄が開いている').toEqual([]);
+  });
+
   it('寄せに行く（器が在るだけで終わらない）', async () => {
     // ⚠️ **これは実機で見つけた欠陥の再発防止である。** 入れ子では間の段が開くまで
     // 要素そのものが存在せず、寄せの effect の1回目は `null` を掴む。そこで早期に
@@ -1255,6 +1355,30 @@ describe('入れ子の構成要素を指す共有 URL が生きる', () => {
     } finally {
       Element.prototype.scrollIntoView = original;
     }
+  });
+
+  it('記録の1つ目の親の道が行き止まりでも、欄が在るシートへ転送する', async () => {
+    // ⚠️ **これは差し戻しで指摘された欠陥の再発防止である。** 是正前は「記録の順で先に
+    // 来た道」にコンポーネントが居ないとそこで諦め、**転送されず既定のコンポーネントの
+    // シートを黙って出していた**——その構成要素の欄は別のシートに実在するのに。
+    // `01KYPFJV04R347HWHQKQ2TW275` が「URL は変わらないのに別のものが出るのが一番悪い」と
+    // 名指しした状態そのもので、本 decision はその決定を不変と宣言している。
+    await withScrollSpy(async (calls) => {
+      server = installFakeServer({});
+      mounted = mountApp('#/overview/part.shared.deadfirst');
+      const host = mounted.host;
+      await waitFor(
+        () => window.location.hash === '#/overview/comp.viewer/part/part.shared.deadfirst',
+        `転送されない（いま: ${window.location.hash}）`,
+      );
+      await waitFor(() => (host.querySelector('.overview-title')?.textContent || '') === 'ビューア画面', '欄が在るシートに着いていない');
+      // 間の段（このシートに居る2つ目の親）が開き、寄せに行くこと。
+      await waitFor(
+        () => host.querySelector('[data-part="part.detail"] > .overview-part-head')?.getAttribute('aria-expanded') === 'true',
+        '間の段が開いていない',
+      );
+      await waitFor(() => calls.includes('part.shared.deadfirst'), `寄せに行っていない（呼ばれたのは: ${calls.join(',') || 'なし'}）`);
+    });
   });
 
   it('転送されたうえで、間の段が開いて寄せ先の器が在る', async () => {

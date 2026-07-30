@@ -16,7 +16,7 @@ import { loadCardSectionOpen, saveCardSectionOpen } from '../../collapseState';
 import { summaryOf } from '../../decisionSummary';
 import { buildCurrencyIndex, effectOf, relatedDecisions, replacedBy } from '../decisions/decisionModel';
 import { formatScopeTarget } from '../decisions/decisionScope';
-import { buildDirectByTag, buildPartTree, componentBehaviorTxIds, countPartPanels, sheetRuleCount } from './sheetModel';
+import { buildDirectByTag, buildPartTree, componentBehaviorTxIds, countPartPanels, panelPathTo, sheetRuleCount } from './sheetModel';
 import type { PartNode } from './sheetModel';
 import { forwardedOverviewTarget, isStructuralKind, structuralPlace, structuralRootIds, treeRowAction } from './treeModel';
 import type { TreeRoles } from './treeModel';
@@ -210,7 +210,13 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
    *
    *  `parentIds` を引数に取るのは、構造ツリーが多親のタグを**親ごとに**描くため
    *  ——その行が居る経路の親だけを渡すと、**ツリーの位置と行き先が同じ答えになる。**
-   *  ⚠️ **4箇所（行の指し先・転送・パンくず・欄の組み立て）がすべてここを通る。** */
+   *
+   *  ⚠️ **「記録を上へ辿る問い」だけがここを通る**（行の指し先・共有 URL の転送・パンくず・
+   *  開示の行き先）。**「いま見ているシートの中でどこに居るか」は別の問い**で、そちらは
+   *  シートの欄の木（`buildPartTree` の答え）に聞く——`sheetModel.panelPathTo`。
+   *  ⚠️ **間の段を開けるのにこの関数を使ってはいけない。** 多親では上へ辿った道と、
+   *  いま見ているシートが**別の道を指すことがある**（実測: 別のシートの段を開けてしまい、
+   *  いま見ているシートの寄せ先が DOM に存在しなかった）。 */
   const placeOf = (parentIds: readonly string[]) =>
     structuralPlace({
       parentIds,
@@ -328,6 +334,41 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
 
     return { tags, childrenByParent, ancestorsOf, effByTx, satByTag, directByTag, gapSet, decByTarget, currencyIndex, leafKinds };
   }, [config, traceability, decisions, lookups.ready, tagById, transitionById, vocabById]);
+
+  /** そのコンポーネントのシートに出す構成要素の欄の木（①入れ子 ＋ ③多親は1回だけ）。
+   *
+   *  ⚠️ **ツリーの件数もシートの欄も、ここ1箇所から採る。** 是正前はツリーのコンポーネント
+   *  行が「直下の構成要素の数」、シートのヘッダが「入れ子込みの欄の数」で、入れ子があると
+   *  **同じ画面に2つの数え方が同居していた**（実測: ツリー「ビューア 11」／ヘッダ
+   *  「構成要素 16」）——`01KYHW54B8ZXH0NEPH2J7N1X39` 条項5 にそのまま当たる。 */
+  const sheetPartTree = (componentId: string): PartNode[] => {
+    if (!index) return [];
+    return buildPartTree({
+      componentId,
+      childIdsOf: (id) => (index.childrenByParent.get(id) || []).map((tg) => tg.id),
+      parentIdsOf: (id) => tagById.get(id)?.parentIds || [],
+      isPart: (id) => tagById.get(id)?.kind === partKind,
+      isPlace: (id) => {
+        const k = tagById.get(id)?.kind;
+        return k === partKind || k === componentKind;
+      },
+      // ⚠️ **祖先展開込みの索引（satByTag）を渡さない。** 渡すと親の欄に配下の
+      // 振る舞いが再掲され、同じ遷移が1枚のシートの中で二重に出る（実測30組）。
+      directTxIdsOf: (id) => index.directByTag.get(id) || [],
+    });
+  };
+
+  /** コンポーネント id → そのシートに出る欄の数（入れ子込み）。ツリーの件数がこれを使う。 */
+  const partPanelCounts = useMemo(() => {
+    const out = new Map<string, number>();
+    if (!index) return out;
+    for (const tg of index.tags) {
+      if (tg.kind !== componentKind) continue;
+      out.set(tg.id, countPartPanels(sheetPartTree(tg.id)));
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, componentKind, partKind]);
 
   // 空状態の文言。**利用者がやることが違う**ので2つに分かれる——タグを作ればよいのか、
   // そもそも役割を宣言すればよいのか。
@@ -485,15 +526,22 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
   // ⚠️ **入れ子の構成要素では、間の段もぜんぶ開ける必要がある。** 目当ての欄だけを
   // 開いても、それが畳まれた親の欄の中にあるかぎり**要素そのものが存在しない**
   // ——URL は正しく転送されるのに寄る先が無く、「転送はされるが寄らない」になる
-  // （C3 と同じ症状が入れ子で復活する）。間の段は `structuralPlace` の答えから採る。
+  // （C3 と同じ症状が入れ子で復活する）。
+  //
+  // ⚠️⚠️ **間の段は「いま見ているシートの欄の木」から採る**（`sheetModel.panelPathTo`）。
+  // 是正前はここが `placeOf(...).ancestorIds`——**記録を上へ辿った道**だった。多親では
+  // その道といま見ているシートが別の道を指すことがあり、**別のシートの段を開けて、
+  // いま見ているシートの段は畳まれたまま**になっていた（実測: corpus の
+  // `#/overview/comp.export/part/part.shared.index` で寄せ先が DOM に存在しなかった）。
+  // こうすると **行の行き先・欄の組み立て・間の段の3つが同じ答え**になる。
   useEffect(() => {
-    if (!partId) return;
-    for (const a of placeOf(tagById.get(partId)?.parentIds || []).ancestorIds) {
-      if (tagById.get(a)?.kind === partKind) sections.forceOpen(a, SEC_PART);
-    }
+    if (!partId || !sel) return;
+    const path = panelPathTo(sheetPartTree(sel), partId);
+    if (!path) return; // このシートにその欄は無い（転送側が別のシートへ送る）
+    for (const a of path) sections.forceOpen(a, SEC_PART);
     sections.forceOpen(partId, SEC_PART);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [partId, index]);
+  }, [partId, sel, index]);
 
   // アンカーされた構成要素の位置まで寄せる。
   //
@@ -563,9 +611,13 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
       // ⚠️ **構成要素の件数は「直接付いた分」で数える。** 是正前は `satByTag`（祖先展開込み）
       // だったので、欄の側を直接分に変えると**同じ画面の中に2つの数え方が同居する**
       // （実測: ツリー11 / 欄4）——`01KYHW54B8ZXH0NEPH2J7N1X39` 条項5 にそのまま当たる。
+      // ⚠️ **コンポーネント行の件数は、そのシートのヘッダの「構成要素 N」と同じ数え方**
+      // （入れ子込みの欄の数・`partPanelCounts` はヘッダと同じ関数から採っている）。
+      // 是正前は「直下の構成要素の数」で、入れ子があると**同じ画面に2つの数え方が
+      // 同居していた**（実測: ツリー「ビューア 11」／ヘッダ「構成要素 16」）。
       const count =
         tag.kind === componentKind
-          ? kids.filter((c) => c.kind === partKind).length
+          ? (partPanelCounts.get(id) ?? 0)
           : isPart
             ? (index.directByTag.get(id) || []).length
             : structuralChildren.length;
@@ -696,19 +748,9 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
     // 構成要素の欄を、記録の親子どおりに入れ子で組む（①）。多親はシートごとに1回だけ（③B′）。
     // ⚠️ **判断は `sheetModel.buildPartTree` が持つ**——ここに書き下すと、入力に対する
     // 答えとして検査できなくなる（`CLAUDE.md` 1）。
-    const partTree = buildPartTree({
-      componentId: c.id,
-      childIdsOf: (id) => (index.childrenByParent.get(id) || []).map((tg) => tg.id),
-      parentIdsOf: (id) => tagById.get(id)?.parentIds || [],
-      isPart: (id) => tagById.get(id)?.kind === partKind,
-      isPlace: (id) => {
-        const k = tagById.get(id)?.kind;
-        return k === partKind || k === componentKind;
-      },
-      // ⚠️ **祖先展開込みの索引（satByTag）を渡さない。** 渡すと親の欄に配下の
-      // 振る舞いが再掲され、同じ遷移が1枚のシートの中で二重に出る（実測30組）。
-      directTxIdsOf: (id) => index.directByTag.get(id) || [],
-    });
+    // ⚠️ **ツリーの件数・間の段を開ける処理と、同じ `sheetPartTree` を通る。**
+    // ここで別の組み立てを書くと、同じシートについて2つの答えができる。
+    const partTree = sheetPartTree(c.id);
 
     /** 「もう一方の親」の欄を指す先。別のコンポーネントに属する親なら、そちらの
         シートの当該箇所を指す（`structuralPlace` の答えをそのまま使う——ここで

@@ -158,6 +158,27 @@ export function buildPartTree(args: {
   return build(componentId);
 }
 
+/** そのシートの欄の木の中で、目当ての欄までの**間の段**（浅い順・目当て自身は含まない）。
+ *
+ *  ⚠️ **「そのタグはどこに居るか」（`treeModel.structuralPlace`）を、ここに使ってはいけない。**
+ *  あちらは**記録を上へ辿って**答えを出すので、多親では**いま見ているシートとは別の道**を
+ *  指すことがある。その答えで間の段を開けると、**別のシートの段を開けてしまい、いま見て
+ *  いるシートの段は畳まれたまま**になる——実測: `#/overview/comp.export/part/part.shared.index`
+ *  で、欄はそのシートに在るのに寄せ先が DOM に存在せず、1px も寄らなかった。
+ *
+ *  **どのシートを見ているかに依存する問いは、そのシートの欄の木に答えさせる。**
+ *  こうすると **行の行き先・欄の組み立て・間の段の3つが同じ答え**になる。
+ *
+ *  そのシートに目当ての欄が無ければ null（＝転送も寄せも起きない形。呼び出し側は何もしない）。 */
+export function panelPathTo(nodes: readonly PartNode[], partId: string): string[] | null {
+  for (const node of nodes) {
+    if (node.id === partId) return [];
+    const deeper = panelPathTo(node.children, partId);
+    if (deeper) return [node.id, ...deeper];
+  }
+  return null;
+}
+
 /** 規則（decision）を持つ欄。 */
 export interface RuleBearing<D> {
   rules: readonly D[];

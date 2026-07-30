@@ -192,24 +192,48 @@ describe('「そのタグはどこに居るか」の答えは1つ', () => {
     expect(place('piece.shared', ['subject.flow', 'subject.viewer']).componentId).toBe('subject.flow');
   });
 
-  it('コンポーネントに行き着かない構成要素は null（射程を名乗る）', () => {
+  it('どの親の道にもコンポーネントが無ければ null', () => {
     expect(place('piece.orphan').componentId).toBeNull();
     expect(place('piece.orphan').ancestorIds).toEqual([]);
-    // ⚠️ **選んだ1本の道に無ければ null。** 記録の順で先に来た親の道にコンポーネントが
-    // 居ないとき、別の親の道にあっても探しに行かない——**これは決めた規則である。**
-    const TWO = {
+  });
+
+  it('選んだ道に無ければ、他の親の道も辿る（黙って別のシートを出さないため）', () => {
+    // ⚠️ **是正前はここで諦めて null を返していた。** そのせいで、その構成要素の欄が
+    // 別のシートに実在するのに**共有 URL が転送されず、既定のコンポーネントのシートを
+    // 黙って出していた**（実測）——`01KYPFJV04R347HWHQKQ2TW275` が「一番悪い」と
+    // 名指しした状態そのもの。
+    const TWO: Record<string, { kind: string; parentIds?: string[] }> = {
       ...TAGS,
-      'piece.lonely': { kind: 'piece' },
+      'piece.lonely': { kind: 'piece' }, // 行き止まり（上にコンポーネントが居ない）
       'piece.two': { kind: 'piece', parentIds: ['piece.lonely', 'subject.viewer'] },
     };
     const two = structuralPlace({
-      parentIds: TWO['piece.two'].parentIds,
-      parentIdsOf: (x) => (TWO as Record<string, { parentIds?: string[] }>)[x]?.parentIds || [],
-      kindOf: (x) => (TWO as Record<string, { kind: string }>)[x]?.kind,
+      parentIds: TWO['piece.two'].parentIds!,
+      parentIdsOf: (x) => TWO[x]?.parentIds || [],
+      kindOf: (x) => TWO[x]?.kind,
       roles: ROLES,
     });
-    expect(two.componentId).toBeNull();
+    expect(two.componentId, '他の親の道を辿っていない').toBe('subject.viewer');
+    // ⚠️ **祖先の並びは、記録の順で先に来た道のまま**（コンポーネントとは別の道を指す）。
+    // だからこの並びを「そのシートの中の間の段」として使ってはいけない。
     expect(two.ancestorIds).toEqual(['piece.lonely']);
+  });
+
+  it('他の道を辿るときも、答えを決めるのは記録の親の順（走査順に依らない）', () => {
+    // 2つの行き先候補があるとき、記録の順で先に来た道の答えを採る。順を入れ替えると変わる。
+    const T: Record<string, { kind: string; parentIds?: string[] }> = {
+      'grp.a': { kind: 'grp' },
+      'subject.x': { kind: 'subject', parentIds: ['grp.a'] },
+      'subject.y': { kind: 'subject', parentIds: ['grp.a'] },
+      'piece.viaX': { kind: 'piece', parentIds: ['subject.x'] },
+      'piece.viaY': { kind: 'piece', parentIds: ['subject.y'] },
+      'piece.dead': { kind: 'piece' },
+    };
+    const call = (parents: string[]) =>
+      structuralPlace({ parentIds: parents, parentIdsOf: (x) => T[x]?.parentIds || [], kindOf: (x) => T[x]?.kind, roles: ROLES }).componentId;
+    // どちらも「先頭が行き止まり」なので他の道へ落ちる。落ちた先は記録の順で決まる。
+    expect(call(['piece.dead', 'piece.viaX', 'piece.viaY'])).toBe('subject.x');
+    expect(call(['piece.dead', 'piece.viaY', 'piece.viaX'])).toBe('subject.y');
   });
 
   it('循環しても止まる', () => {
