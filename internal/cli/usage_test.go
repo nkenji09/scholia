@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -147,7 +148,7 @@ func runMeasured(t *testing.T, level usage.Level, args ...string) (out string, l
 	t.Helper()
 	path := usageTestEnv(t)
 	var stdout, stderr bytes.Buffer
-	_ = executeWithUsage(level, args, &stdout, &stderr)
+	_ = executeWithUsage(level, usage.Record, args, &stdout, &stderr)
 
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -329,6 +330,143 @@ func TestResolveUsageLevel(t *testing.T) {
 	}
 }
 
+// --- 既定 off の不変（正本 条項 10: オフのときは何もしない）---
+
+// unsetUsageEnv は SCHOLIA_USAGE_LEVEL を**未設定**にする。
+//
+// t.Setenv を一度通してから消すのは、テスト終了時に元の値へ戻す後始末を testing に登録するため
+// （t.Unsetenv は無い）。ここで os.LookupEnv を本番と同じまま使いたいので、
+// lookup を偽装せずに環境そのものを未設定にする。
+func unsetUsageEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv(usage.EnvVar, "この値は Unsetenv で消える（後始末の登録のためだけに一度置く）")
+	if err := os.Unsetenv(usage.EnvVar); err != nil {
+		t.Fatalf("Unsetenv: %v", err)
+	}
+}
+
+// usageOffCase は「既定 off で何も変わらない」を確かめる 1 つの起動。
+type usageOffCase struct {
+	name string
+	args func(dir string) []string
+}
+
+// usageOffCases は起動の並び。
+//
+// ⚠️ **読み取りだけを並べない。** 単位AI の手測り 16 通りは全部読み取り系で、
+// 書き込み系が 1 つも無かった（レビュアが 22 通りへ広げて埋めた軸）。
+// 書き込み・失敗する起動・引数不足・`--help`・store を開かない起動を入れてある。
+var usageOffCases = []usageOffCase{
+	{"読み取り（出力がある）", func(dir string) []string {
+		return []string{"--dir", dir, "rules", "--tag", projectNamedArg}
+	}},
+	{"読み取り（一覧）", func(dir string) []string { return []string{"--dir", dir, "list"} }},
+	{"書き込み", func(dir string) []string {
+		return []string{"--dir", dir, "tag", "create", "req.written-while-off", "--name", "オフで書く", "--kind", "requirement"}
+	}},
+	{"失敗する起動", func(dir string) []string { return []string{"--dir", dir, "no-such-command"} }},
+	{"引数が足りない起動", func(dir string) []string { return []string{"--dir", dir, "show"} }},
+	{"--help", func(string) []string { return []string{"--help"} }},
+	{"store を開かない起動", func(string) []string { return []string{"version"} }},
+}
+
+// TestUsage_DefaultOffDoesNotEnterTheMeasuredPath は、正本で**最も重い不変**
+// （条項 10: 環境変数が未設定なら出力・exit code・生成物のいずれも変わらない）を自動で守る。
+//
+// 2 つを**対で**見る。
+//
+//  1. **計測経路に入らないこと**——sink が 1 度も呼ばれない。
+//     ⚠️ 「ログのファイルが作られない」だけでは足りない。usage.Record 自身がオフを弾くので、
+//     オフで計測経路を通ってしまう変異（レビュアの R-1: off 分岐を丸ごと消す）でもファイルは増えない。
+//  2. **出力が計測層を通さない経路とバイト同一であること**——注記の混入・writer の非素通しを捕まえる。
+//
+// ⚠️ **この検査の射程**（CLAUDE.md 6）:
+// 落ちるのは「オフなのに観測を組み立てて sink へ渡すこと」と「オフなのに出力・エラー・生成物が変わること」である。
+// **sink を呼ばずに writer を包むだけの変異は落ちない**——ただしそれは出力・exit code・生成物の
+// どれも変えないので、条項 10 が名指しする観測可能な差にはならない（変わるのは所要だけである）。
+// 「包んでいないこと」自体は TestUsage_PlainRootHandsCobraTheWritersUnwrapped が同一性で見ている。
+func TestUsage_DefaultOffDoesNotEnterTheMeasuredPath(t *testing.T) {
+	for _, c := range usageOffCases {
+		t.Run(c.name, func(t *testing.T) {
+			logPath := usageTestEnv(t)
+			unsetUsageEnv(t)
+
+			// 1) 計測層をまったく通さない経路（＝計測を入れる前の Execute と同じこと）。
+			baseDir := seedStore(t, projectNamedArg)
+			var baseOut bytes.Buffer
+			baseRoot := newRootCmd()
+			baseRoot.SetArgs(c.args(baseDir))
+			baseRoot.SetOut(&baseOut)
+			baseRoot.SetErr(&baseOut)
+			baseErr := baseRoot.Execute()
+
+			// 2) 環境変数が未設定のまま、本番の入口（Execute の中身）を通す。
+			offDir := seedStore(t, projectNamedArg)
+			var offOut bytes.Buffer
+			sinkCalls := 0
+			sink := func(l usage.Level, _ usage.Observation) {
+				sinkCalls++
+				t.Errorf("環境変数が未設定なのに計測経路を通り、sink が段 %s で呼ばれた", l)
+			}
+			offErr := execute(os.LookupEnv, sink, c.args(offDir), &offOut, &offOut)
+
+			if sinkCalls != 0 {
+				t.Errorf("sink が %d 回呼ばれた（オフでは 0 回）", sinkCalls)
+			}
+			if _, err := os.Stat(logPath); !os.IsNotExist(err) {
+				t.Errorf("オフなのに計測ログが作られた（%s・err=%v）", logPath, err)
+			}
+			if _, err := os.Stat(filepath.Dir(logPath)); !os.IsNotExist(err) {
+				t.Errorf("オフなのに計測ログのディレクトリが作られた: %s", filepath.Dir(logPath))
+			}
+
+			// プロジェクトルートが違うので、そこだけ正規化してからバイト比較する。
+			want := strings.ReplaceAll(baseOut.String(), baseDir, "<DIR>")
+			got := strings.ReplaceAll(offOut.String(), offDir, "<DIR>")
+			if got != want {
+				t.Errorf("オフで出力が変わった\n計測層なし: %q\nオフ経路  : %q", want, got)
+			}
+			if (baseErr == nil) != (offErr == nil) {
+				t.Errorf("オフでエラーの有無が変わった: 計測層なし=%v / オフ経路=%v", baseErr, offErr)
+			}
+			if baseErr != nil && offErr != nil {
+				wantErr := strings.ReplaceAll(baseErr.Error(), baseDir, "<DIR>")
+				gotErr := strings.ReplaceAll(offErr.Error(), offDir, "<DIR>")
+				if gotErr != wantErr {
+					t.Errorf("オフでエラーが変わった\n計測層なし: %q\nオフ経路  : %q", wantErr, gotErr)
+				}
+			}
+		})
+	}
+}
+
+// TestUsage_PlainRootHandsCobraTheWritersUnwrapped は、オフ経路が cobra へ渡す writer が
+// **渡されたものそのもの**であること——包んでいない＝観測していないこと——を同一性で見る。
+func TestUsage_PlainRootHandsCobraTheWritersUnwrapped(t *testing.T) {
+	var out, errw bytes.Buffer
+	root := newPlainRoot(nil, &out, &errw)
+	if got := root.OutOrStdout(); got != io.Writer(&out) {
+		t.Errorf("オフ経路が標準出力を包んでいる: %T", got)
+	}
+	if got := root.ErrOrStderr(); got != io.Writer(&errw) {
+		t.Errorf("オフ経路が標準エラーを包んでいる: %T", got)
+	}
+}
+
+// TestUsage_RootSilencesUsageOnError は、オフ経路で SetOut していることが振る舞いを変えない
+// **前提**を固定する。
+//
+// cobra の `cmd.Print*` と既定の UsageFunc は `OutOrStderr()` へ書く——SetOut していなければ
+// 標準エラー、していれば標準出力である。計測を入れる前のオフ経路は SetOut していなかったので、
+// **失敗した起動で usage が出ないこと**が「オフで出力が変わらない」の前提になっている。
+// SilenceUsage が false に戻ると、この前提が崩れて宛先が stderr → stdout に動く。
+func TestUsage_RootSilencesUsageOnError(t *testing.T) {
+	if root := newRootCmd(); !root.SilenceUsage {
+		t.Errorf("SilenceUsage が false。オフ経路は SetOut しているので、" +
+			"失敗した起動の usage が標準エラーではなく標準出力へ出るようになる（計測前との差になる）")
+	}
+}
+
 // TestUsage_CountingDoesNotChangeOutput は、計測を入れた経路と入れない経路で
 // 標準出力のバイト列が同一であること（計数 writer が素通しであること）。
 func TestUsage_CountingDoesNotChangeOutput(t *testing.T) {
@@ -341,7 +479,7 @@ func TestUsage_CountingDoesNotChangeOutput(t *testing.T) {
 
 	usageTestEnv(t)
 	var stdout, stderr bytes.Buffer
-	if err := executeWithUsage(usage.Detailed, []string{"--dir", dir, "rules", "--tag", projectNamedArg}, &stdout, &stderr); err != nil {
+	if err := executeWithUsage(usage.Detailed, usage.Record, []string{"--dir", dir, "rules", "--tag", projectNamedArg}, &stdout, &stderr); err != nil {
 		t.Fatalf("計測ありの実行が失敗: %v", err)
 	}
 	if got := stdout.String() + stderr.String(); got != plain {

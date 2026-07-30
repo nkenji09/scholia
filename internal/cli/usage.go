@@ -30,21 +30,48 @@ var (
 var usageProjectRoot string
 
 // Execute is the CLI entrypoint called from cmd/scholia/main.go.
+func Execute() error {
+	return execute(os.LookupEnv, usage.Record, nil, os.Stdout, os.Stderr)
+}
+
+// execute は Execute の中身を、**環境の読み方・記録の宛先・引数・出力先を渡せる形**に割ったもの。
 //
 // 収集レベルが立っているときだけ、標準出力・標準エラーを数える writer で包み、
 // 起動ごとに 1 行を記録する（正本 01KYSKM4T0RWRY1N7407KZSZ17）。
 //
-// ⚠️ **オフ（既定）のときは観測もしない。** 環境変数が未設定なら、この関数は
-// 計測を入れる前とまったく同じ経路を通る——writer も差し替えず、時刻も測らず、注記も出さない。
-func Execute() error {
-	level, note := resolveUsageLevel(os.LookupEnv)
+// ⚠️ **オフ（既定）のときは計測経路に入らない**——writer も差し替えず、時刻も測らず、
+// 観測も組み立てず、sink も呼ばない（条項 10）。
+//
+// この 4 つの引数を外から渡せるようにしたのは、**その不変を自動で検査するため**である。
+// 割る前は `Execute()` が os の値を直に読んでいたので、off 分岐を丸ごと消す変異
+// （レビュアの R-1）を当てても全部緑のままだった——「オフのときは何もしない」という
+// 正本で最も重い不変に、自動ガードが 1 本も無かった。
+// 検査は TestUsage_DefaultOffDoesNotEnterTheMeasuredPath（射程はそこに書いてある）。
+func execute(lookup func(string) (string, bool), sink usage.Sink, args []string, stdout, stderr io.Writer) error {
+	level, note := resolveUsageLevel(lookup)
 	if note != "" {
-		fmt.Fprint(os.Stderr, note)
+		fmt.Fprint(stderr, note)
 	}
 	if level <= usage.Off {
-		return newRootCmd().Execute()
+		return newPlainRoot(args, stdout, stderr).Execute()
 	}
-	return executeWithUsage(level, nil, os.Stdout, os.Stderr)
+	return executeWithUsage(level, sink, args, stdout, stderr)
+}
+
+// newPlainRoot は**計測をまったく入れない**実行経路の root コマンドを組み立てる。
+//
+// ⚠️ **渡された writer をそのまま cobra へ渡す**（包まない）。ここが条項 10 の実体で、
+// 「包んでいないこと」は TestUsage_PlainRootHandsCobraTheWritersUnwrapped が値（同一性）で見ている。
+//
+// args が nil のときは cobra の既定（os.Args[1:]）を使う。テストだけが値を渡す。
+func newPlainRoot(args []string, stdout, stderr io.Writer) *cobra.Command {
+	root := newRootCmd()
+	if args != nil {
+		root.SetArgs(args)
+	}
+	root.SetOut(stdout)
+	root.SetErr(stderr)
+	return root
 }
 
 // resolveUsageLevel は環境変数から段を決め、必要なら標準エラーへ出す注記を返す。
@@ -70,7 +97,7 @@ func resolveUsageLevel(lookup func(string) (string, bool)) (usage.Level, string)
 // （root に差せば全コマンドを覆える。⚠️ 子コマンドが自前で SetOut したらこの前提は崩れる）。
 //
 // args が nil のときは cobra の既定（os.Args[1:]）を使う。テストだけが値を渡す。
-func executeWithUsage(level usage.Level, args []string, stdout, stderr io.Writer) error {
+func executeWithUsage(level usage.Level, sink usage.Sink, args []string, stdout, stderr io.Writer) error {
 	start := time.Now()
 
 	outCounter := usage.NewCountingWriter(stdout)
@@ -87,7 +114,7 @@ func executeWithUsage(level usage.Level, args []string, stdout, stderr io.Writer
 	elapsed := time.Since(start)
 
 	// ⚠️ ここから先で何が起きても、返すのは cobra の err だけである（条項 11）。
-	usage.Record(level, buildObservation(level, executed, err, elapsed, outCounter, errCounter))
+	sink(level, buildObservation(level, executed, err, elapsed, outCounter, errCounter))
 	return err
 }
 
