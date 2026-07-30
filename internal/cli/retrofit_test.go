@@ -257,10 +257,19 @@ func TestRetrofitDogfoodCounts(t *testing.T) {
 	// なお同単位が足した decision 01KYPFJV04R347HWHQKQ2TW275 は advisory を1件も出さない
 	// （`decide --dry-run` で確認済み）ので、この差分に寄与していない。
 	//
-	// ⚠️ 次に触る人へ: **e1d44d18 が 190 で、境界まであと10コミット。**
-	// そこを越えると 15/15 → 14/14 になり、**decision-stale は0件になる**（設計どおり）。
-	if resp.AcknowledgeOnly.FindingCount != 15 || resp.AcknowledgeOnly.RecordCount != 15 {
-		t.Fatalf("dogfood acknowledgeOnly = %d findings / %d records, want 15/15", resp.AcknowledgeOnly.FindingCount, resp.AcknowledgeOnly.RecordCount)
+	// ——**予告どおりに動いた（2度目）。** 「構成要素を入れ子にする」単位が10コミット積み、
+	// e1d44d18 が 190 → 208 で窓の外へ出た。15/15 → 14/14 で、**decision-stale は0件**。
+	// その単位の着地時点の実測（窓は 200・`git rev-list --count <commit>..HEAD`）:
+	//   e1d44d18: 208 ／ 9df25e5b: 218 ／ 0b3a04bb: 234 ／ fc81ff6f: 246
+	// `lint` が挙げる decision-stale も0件（実測）。是正でも回帰でもなく窓の外に出ただけである。
+	// なお同単位が足した decision 01KYR820NZP20CKNSFEBXBMX1P は advisory を1件も出さない
+	// （`decide --dry-run` で確認済み）ので、この差分に寄与していない。
+	//
+	// ⚠️ 次に触る人へ: **decision-stale は今 0件で、これ以上「窓の外に出る」ぶんは無い。**
+	// 次にこの数が動くときは**新しい真ヒットが増えたとき**なので、窓の境界ではなく
+	// 「レコードを触ったのに decision を結ばなかった commit を作ったか」を先に疑うこと。
+	if resp.AcknowledgeOnly.FindingCount != 14 || resp.AcknowledgeOnly.RecordCount != 14 {
+		t.Fatalf("dogfood acknowledgeOnly = %d findings / %d records, want 14/14", resp.AcknowledgeOnly.FindingCount, resp.AcknowledgeOnly.RecordCount)
 	}
 	if total := resp.Fixable.ByRule["dead-doc-ref"] + resp.AcknowledgeOnly.ByRule["dead-doc-ref"]; total != 8 {
 		t.Fatalf("dogfood dead-doc-ref total = %d, want 8", total)
