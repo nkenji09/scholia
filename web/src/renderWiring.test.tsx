@@ -1333,6 +1333,19 @@ describe('入れ子の構成要素を指す共有 URL が生きる', () => {
     // このシートの欄は、どれも初期表示のまま（勝手に開いていない）。
     const open = Array.from(host.querySelectorAll('.overview-sheet .overview-part-head')).filter((h) => h.getAttribute('aria-expanded') === 'true');
     expect(open.map((h) => h.textContent?.trim().slice(0, 12)), '関係のない欄が開いている').toEqual([]);
+
+    // ⚠️⚠️ **ここまでで止めると、名乗りが実際の射程より広くなる**（レビュアの変異 P03 が
+    // 素通りした）。「開けた」かどうかは**そのシートを見ているあいだは分からない**
+    // ——`forceOpen` はこの場の表示だけを開く（永続値は書かない）ので、
+    // **開けられた欄が描かれるのは、そのシートへ移ったとき**である。
+    // だから**移って `aria-expanded` を見る**。ここが「別のシートの段を開けない」の実体。
+    window.location.hash = '#/overview/comp.export';
+    await waitFor(() => (host.querySelector('.overview-title')?.textContent || '') === '書き出し', '書き出しのシートに移れない');
+    await new Promise((r) => setTimeout(r, 200));
+    expect(
+      host.querySelector('[data-part="part.export.job"] > .overview-part-head')?.getAttribute('aria-expanded'),
+      '別のシートに移ったら、指されていた欄が勝手に開いていた（＝そのシートの外の段を開けている）',
+    ).toBe('false');
   });
 
   it('寄せに行く（器が在るだけで終わらない）', async () => {
