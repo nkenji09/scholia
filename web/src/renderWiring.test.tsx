@@ -1118,6 +1118,12 @@ describe('1つの構成要素が複数の親にまたがっていることが、
     expect(link!.textContent, '開示がもう一方の親を名指ししていない').toContain('書き出しのジョブ');
     // 置いた側の親は開示に出さない（同じことを位置と言葉で2回言わない）。
     expect(also!.textContent, '置いた側の親まで開示している').not.toContain('意思決定の一覧');
+    // ⚠️ **居場所にならない親（要件タグ）を開示に混ぜない。** `part.shared.pair` は
+    // 3つ目の親に要件タグを持つ——これが無いと、開示から役割の判定を外す変異が
+    // 描画側で素通りする（実見）。
+    const pairAlso = host.querySelector('[data-part="part.shared.pair"] > .overview-part-body > .overview-part-also')!;
+    expect(pairAlso.textContent, '同じシートの兄弟が開示されていない').toContain('意思決定の単票');
+    expect(pairAlso.textContent, '居場所にならない要件タグまで開示している').not.toContain('ナビ');
   });
 
   it('開示が名乗る役割の呼び名も、プロジェクトの設定に追随する', async () => {
