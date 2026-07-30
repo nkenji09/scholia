@@ -214,7 +214,7 @@ var dogfoodKnownAckOnly = map[string]string{
 // # このガードが落ちる範囲（射程）
 //
 //  1. 是正可能な advisory が1件でも残ったとき（fixable != 0/0）。
-//  2. レコード由来の acknowledge-only に、dogfoodKnownAckOnly の外のキーが出たとき。
+//  2. レコード由来の acknowledge-only に、dogfoodKnownAckOnly（rule+target キー）の外が出たとき。
 //  3. commit を対象に取る advisory が decision-stale 以外に現れたとき。
 //  4. 走査対象の store が空だったとき（1・2 が空振りで緑になるのを塞ぐ）。
 //
@@ -228,7 +228,7 @@ var dogfoodKnownAckOnly = map[string]string{
 // 導出される（internal/lint/rules_decision_stale.go）。窓は commit を積むだけで
 // 動くので、件数を固定すると**このガードが検査していない作業が commit を積んだだけ
 // で期待値が動く**。実際に動いた——期待値の移動 11 回・そのための専用 commit 8 本・
-// 説明コメント 70 行・マージ衝突 1 回。しかも正当な追随と「実装に合わせて検査を
+// 説明コメント 75 行・マージ衝突 1 回。しかも正当な追随と「実装に合わせて検査を
 // 曲げた」が外形上まったく同じに見えるため、毎回レビューの注意力を食っていた。
 // 正本 01KXWPQDGMDB01V86KZ91M0BPQ（D7）は decision-stale について
 // 「機械マイグレーション型 commit の偽陽性が残るため容認可能とする」と定めている。
