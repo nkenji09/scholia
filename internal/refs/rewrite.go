@@ -40,6 +40,33 @@ type Report struct {
 	Skipped        []SkipNote   `json:"skipped,omitempty"`
 }
 
+// UnreadableSkips returns the skips that mean unfinished work rather than a
+// deliberate omission: a candidate that should have been readable and was not
+// (SkipUnreadable). After an apply run, each one is a file whose old ids are
+// still there, so a caller that acts on source must not call such a run a
+// success — whereas SkipBinary/SkipTooLarge/SkipNotRegular are files this
+// package is designed never to read, and skipping them completes the job.
+//
+// The distinction is by property, not by path: the same file is "unfinished"
+// or "not ours to read" depending only on whether reading it failed.
+//
+// One case sits on the line and is worth naming: a directory the walk fallback
+// could not list comes back as SkipNotRegular (readSourceFile only sees a
+// directory, and cannot tell it from a gitlink), so source files under it are
+// neither scanned nor counted here. On the `git ls-files` path — the default
+// whenever the project is a git repo — those files are enumerated individually
+// and each unreadable one is counted, so this gap is specific to running with
+// no git available.
+func (r Report) UnreadableSkips() []SkipNote {
+	var out []SkipNote
+	for _, sk := range r.Skipped {
+		if sk.Reason == SkipUnreadable {
+			out = append(out, sk)
+		}
+	}
+	return out
+}
+
 // Execute scans root for every pair's OldID and, when apply is true,
 // replaces each boundary-safe occurrence with the pair's NewID, writing
 // changed files atomically (temp file + rename), one file at a time. With
@@ -80,10 +107,7 @@ func Execute(root string, pairs []Pair, apply bool, opts ...Options) (Report, er
 
 	var report Report
 	for _, relPath := range files {
-		content, skip, err := readSourceFile(root, relPath)
-		if err != nil {
-			return Report{}, err
-		}
+		content, skip := readSourceFile(root, relPath)
 		if skip != nil {
 			report.Skipped = append(report.Skipped, *skip)
 			continue

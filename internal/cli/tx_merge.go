@@ -55,7 +55,7 @@ func newTxMergeCmd() *cobra.Command {
 					formatAddedTags(result.AddedTags))
 				printRenameRefsReport(cmd, report, refsFlags.rewrite)
 			}
-			return refsFailedErr(report)
+			return refsFailedErr(report, refsFlags.rewrite)
 		},
 	}
 	cmd.Flags().StringVar(&into, "into", "", "統合先（生き残る遷移）の id（必須）")

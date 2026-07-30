@@ -59,7 +59,7 @@ func newTagRenameCmd() *cobra.Command {
 					len(result.UpdatedVocab), len(result.UpdatedDecisions))
 				printRenameRefsReport(cmd, report, refsFlags.rewrite)
 			}
-			return refsFailedErr(report)
+			return refsFailedErr(report, refsFlags.rewrite)
 		},
 	}
 	cmd.Flags().BoolVar(&cascade, "cascade", false, "<old-id> を id プレフィックスに持つ子孫タグごと改名する")

@@ -43,7 +43,7 @@ func newRefsRewriteCmd() *cobra.Command {
 			} else {
 				printRenameRefsReport(cmd, &report, apply)
 			}
-			return refsFailedErr(&report)
+			return refsFailedErr(&report, apply)
 		},
 	}
 	cmd.Flags().BoolVar(&apply, "apply", false, "実際に書き換える（既定は dry-run 表示のみ）")
