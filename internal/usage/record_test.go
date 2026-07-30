@@ -351,24 +351,57 @@ func TestDefaultPath_IsASingleFileOutsideTheProject(t *testing.T) {
 	}
 }
 
+// TestCountingWriter_PassesThroughUnchanged は、計数 writer が
+// **バイト列にも境界にも触らない**こと。
+//
+// ⚠️ 末尾の改行・空の書き込み・多バイト文字を入れてあるのは、
+// 「素通し」と称する検査が実際には落ちない綴りを通した前例があるため
+// （最初の版は `bytes.TrimRight(p, "\n")` という変異を素通りさせた）。
 func TestCountingWriter_PassesThroughUnchanged(t *testing.T) {
 	var sink strings.Builder
 	c := NewCountingWriter(&sink)
-	payloads := []string{"あいう", "", "x"}
+	payloads := []string{
+		"rules: 該当する decision はありません\n", // 末尾改行
+		"\n\n",                          // 改行だけ
+		"",                              // 空
+		"あいう",                           // 多バイト・末尾改行なし
+		"  末尾に空白 \t ",                   // 末尾の空白
+	}
 	for _, p := range payloads {
 		n, err := c.Write([]byte(p))
 		if err != nil {
 			t.Fatalf("Write(%q): %v", p, err)
 		}
 		if n != len(p) {
-			t.Errorf("Write(%q) が %d を返した", p, n)
+			t.Errorf("Write(%q) が %d を返した（want %d）", p, n, len(p))
 		}
 	}
-	if got, want := sink.String(), strings.Join(payloads, ""); got != want {
-		t.Errorf("下流の内容が変わった: %q != %q", got, want)
+	want := strings.Join(payloads, "")
+	if got := sink.String(); got != want {
+		t.Errorf("下流の内容が変わった:\n got=%q\nwant=%q", got, want)
 	}
-	if got := c.Bytes(); got != int64(len(strings.Join(payloads, ""))) {
-		t.Errorf("数えたバイト数が %d", got)
+	if got := c.Bytes(); got != int64(len(want)) {
+		t.Errorf("数えたバイト数が %d（want %d）", got, len(want))
+	}
+}
+
+// errWriter は下流の失敗をそのまま返すかを見るための writer。
+type errWriter struct{ err error }
+
+func (e errWriter) Write(p []byte) (int, error) { return 3, e.err }
+
+func TestCountingWriter_PropagatesDownstreamResult(t *testing.T) {
+	want := os.ErrClosed
+	c := NewCountingWriter(errWriter{err: want})
+	n, err := c.Write([]byte("0123456789"))
+	if err != want {
+		t.Errorf("下流のエラーが返らない: %v", err)
+	}
+	if n != 3 {
+		t.Errorf("下流が返した n をそのまま返していない: %d", n)
+	}
+	if c.Bytes() != 3 {
+		t.Errorf("実際に渡ったバイト数を数えていない: %d", c.Bytes())
 	}
 }
 
