@@ -80,10 +80,7 @@ func Execute(root string, pairs []Pair, apply bool, opts ...Options) (Report, er
 
 	var report Report
 	for _, relPath := range files {
-		content, skip, err := readSourceFile(root, relPath)
-		if err != nil {
-			return Report{}, err
-		}
+		content, skip := readSourceFile(root, relPath)
 		if skip != nil {
 			report.Skipped = append(report.Skipped, *skip)
 			continue
