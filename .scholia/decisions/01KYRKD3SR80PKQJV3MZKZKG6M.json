@@ -8,6 +8,9 @@
   "changed": "spec 起票（実装前・prospective）: add act.user.skills-show / act.user.skills-ls・cond.skills-doc-resolved / unmatched / ambiguous・eff.log.skill-doc-body / skill-doc-names / reject-unresolved-skill-doc・tx.skills.show-body / show-unmatched / show-ambiguous / ls。実装は internal/cli/skills.go の skills コマンド群に show / ls を追加し、既存 install と同じ embed FS を読む。各 SKILL.md に「別 repo のスキルから共有リファレンスへ到達するときは show を手順番号に置く」旨を追記する（遡及機構）。",
   "ref": "DESIGN §10",
   "at": "2026-07-30T04:09:30Z",
+  "commits": [
+    "3e183c0"
+  ],
   "supersedes": [
     {
       "id": "01KXGMPYF1R5S31ERJ0442F22K",
