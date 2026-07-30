@@ -1,0 +1,10 @@
+{
+  "id": "cond.usage-level-unparsable",
+  "category": "condition",
+  "label": "収集レベルが設定されているが解釈できない",
+  "kind": "env",
+  "tags": [
+    "axis.usage.level"
+  ],
+  "description": "環境変数は設定されているが、値が 4 段のいずれの名前にも解釈できない（空文字を含む）。"
+}

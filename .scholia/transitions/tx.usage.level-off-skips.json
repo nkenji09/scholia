@@ -1,0 +1,14 @@
+{
+  "id": "tx.usage.level-off-skips",
+  "action": "act.lifecycle.invocation-complete",
+  "given": [
+    "cond.usage-level-off"
+  ],
+  "then": [
+    "eff.state.usage-skip-observation"
+  ],
+  "tags": [
+    "req.usage-measurement",
+    "subject.cli"
+  ]
+}

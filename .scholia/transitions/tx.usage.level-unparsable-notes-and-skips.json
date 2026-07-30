@@ -1,0 +1,15 @@
+{
+  "id": "tx.usage.level-unparsable-notes-and-skips",
+  "action": "act.lifecycle.invocation-complete",
+  "given": [
+    "cond.usage-level-unparsable"
+  ],
+  "then": [
+    "eff.log.usage-unparsable-note",
+    "eff.state.usage-skip-observation"
+  ],
+  "tags": [
+    "req.usage-measurement",
+    "subject.cli"
+  ]
+}

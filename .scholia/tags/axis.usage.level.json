@@ -1,0 +1,10 @@
+{
+  "id": "axis.usage.level",
+  "name": "計測: 収集レベル軸（未設定 / 明示オフ / 解釈不能 / マスク / 通常 / 詳細）",
+  "kind": "axis",
+  "parentIds": [
+    "req.usage-measurement"
+  ],
+  "description": "環境変数 1 つの解釈結果を束ねる軸。段は互いに排他で組み合わせが無いので、この軸の値はちょうど 1 つが成り立つ。",
+  "total": true
+}

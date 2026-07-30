@@ -1,0 +1,10 @@
+{
+  "id": "cond.usage-level-off",
+  "category": "condition",
+  "label": "収集レベルに明示のオフが指定されている",
+  "kind": "env",
+  "tags": [
+    "axis.usage.level"
+  ],
+  "description": "環境変数が設定されており、その値がオフの段の名前として解釈できる。"
+}

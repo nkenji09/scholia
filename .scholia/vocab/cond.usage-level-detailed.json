@@ -1,0 +1,10 @@
+{
+  "id": "cond.usage-level-detailed",
+  "category": "condition",
+  "label": "収集レベルが詳細",
+  "kind": "env",
+  "tags": [
+    "axis.usage.level"
+  ],
+  "description": "環境変数の値が詳細の段の名前として解釈できる。"
+}

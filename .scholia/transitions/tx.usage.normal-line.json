@@ -1,0 +1,16 @@
+{
+  "id": "tx.usage.normal-line",
+  "action": "act.lifecycle.invocation-complete",
+  "given": [
+    "cond.usage-level-normal"
+  ],
+  "then": [
+    "eff.state.usage-line-ready",
+    "eff.state.usage-withhold-record-body",
+    "eff.state.usage-withhold-call-shape"
+  ],
+  "tags": [
+    "req.usage-measurement",
+    "subject.cli"
+  ]
+}

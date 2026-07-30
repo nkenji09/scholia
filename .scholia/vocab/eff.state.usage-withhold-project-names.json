@@ -1,0 +1,8 @@
+{
+  "id": "eff.state.usage-withhold-project-names",
+  "category": "effect",
+  "label": "プロジェクトが名付けたものを行に載せない",
+  "kind": "state",
+  "owner": "subject.cli",
+  "description": "値としても、そこから導いた形（長さ・先頭・要約・ダイジェスト）としても載せない。基数の小さい集合への一方向変換は、集合を持つ者にとって変換ではない。"
+}

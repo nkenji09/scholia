@@ -1,0 +1,8 @@
+{
+  "id": "eff.state.usage-withhold-call-shape",
+  "category": "effect",
+  "label": "呼び出しの形と量の内訳を行に載せない",
+  "kind": "state",
+  "owner": "subject.cli",
+  "description": "フラグの値・自由文の長さ・標準エラーの量・所要の内訳を載せない。載るのはフラグの名前と、選択子の種類と、数と時刻まで。"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "cond.usage-log-writable",
+  "category": "condition",
+  "label": "計測ログの置き場所へ書ける",
+  "kind": "env",
+  "tags": [
+    "axis.usage.write-outcome"
+  ],
+  "description": "リポジトリの外の置き場所を作成・追記できる。"
+}

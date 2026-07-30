@@ -1,0 +1,8 @@
+{
+  "id": "eff.state.usage-drop-record",
+  "category": "effect",
+  "label": "記録を諦める",
+  "kind": "state",
+  "owner": "subject.cli",
+  "description": "書けなければ黙って捨てる。本業の出力・exit code・所要のいずれも変わらない。"
+}

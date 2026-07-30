@@ -1,0 +1,10 @@
+{
+  "id": "cond.usage-level-unset",
+  "category": "condition",
+  "label": "収集レベルの環境変数が未設定",
+  "kind": "env",
+  "tags": [
+    "axis.usage.level"
+  ],
+  "description": "段を切り替える環境変数がプロセス環境に存在しない。既定の状態。"
+}

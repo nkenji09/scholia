@@ -1,0 +1,11 @@
+{
+  "id": "eff.state.usage-line-ready",
+  "category": "effect",
+  "label": "その段の 1 行を組み立てる",
+  "kind": "state",
+  "owner": "subject.cli",
+  "description": "段によらず同じキーの集合で組み立て、記録しない項目は「記録していない」と読める唯一の形で埋める。段の名前も行に入る。",
+  "establishes": [
+    "cond.usage-line-ready"
+  ]
+}

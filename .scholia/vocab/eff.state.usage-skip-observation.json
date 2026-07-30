@@ -1,0 +1,8 @@
+{
+  "id": "eff.state.usage-skip-observation",
+  "category": "effect",
+  "label": "観測そのものを行わない",
+  "kind": "state",
+  "owner": "subject.cli",
+  "description": "出力を数える writer を差し込まず、時刻も測らず、行も組み立てない。出力・exit code・所要・生成物のいずれも増えない。"
+}

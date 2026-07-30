@@ -1,0 +1,7 @@
+{
+  "id": "act.lifecycle.invocation-complete",
+  "category": "action",
+  "label": "1 起動の完了（計測点）",
+  "kind": "lifecycle",
+  "description": "scholia の 1 回の起動が終わり、渡した量が確定する点。段の解決はここより前に済んでいるが、量・所要・exit code はここで初めて揃う。"
+}

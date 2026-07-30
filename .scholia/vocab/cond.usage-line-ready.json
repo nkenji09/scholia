@@ -1,0 +1,7 @@
+{
+  "id": "cond.usage-line-ready",
+  "category": "condition",
+  "label": "計測の 1 行が組み上がっている",
+  "kind": "derived",
+  "description": "段に応じて取捨した 1 行が組み立て済みで、あとは置き場所へ渡すだけの状態。"
+}
