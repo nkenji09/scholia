@@ -266,6 +266,105 @@ func TestExecute_BadCandidateFromWalkFallbackDoesNotAbortScan(t *testing.T) {
 	}
 }
 
+// TestExecute_ApplyFaceBadCandidateRewritesTheGoodFilesAndDisclosesTheSkip is
+// the same acceptance criterion on the face that actually writes. The two tests
+// above only exercise apply=false, so a caller that promoted a skip to fatal —
+// or dropped it from the report — *only when apply is true* stayed green: the
+// reported bug, restored on the half of the code that mutates source.
+//
+// That face is the more expensive one to lose. applyRenameRefs runs
+// Execute(apply=true) after the `.scholia` rename has already committed, so
+// aborting there leaves the store renamed and every source reference untouched.
+//
+// Scope: error-or-not, the bytes on disk, and the skip's presence in the report,
+// all with apply=true. Exit codes are the CLI's job (cli/refs_test.go).
+func TestExecute_ApplyFaceBadCandidateRewritesTheGoodFilesAndDisclosesTheSkip(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "hooks/impl.go", "// tx.foo.bar\npackage hooks\n")
+	// Sorts before "hooks/impl.go": an abort here would swallow the rewrite.
+	if err := os.Symlink(filepath.Join(root, "hooks"), filepath.Join(root, "aaa-link")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	files, err := EnumerateFiles(root)
+	if err != nil {
+		t.Fatalf("EnumerateFiles: %v", err)
+	}
+	var sawCandidate bool
+	for _, f := range files {
+		if f == "aaa-link" {
+			sawCandidate = true
+		}
+	}
+	if !sawCandidate {
+		t.Fatalf("precondition: the bad candidate must be enumerated, got %v", files)
+	}
+
+	report, err := Execute(root, []Pair{{OldID: "tx.foo.bar", NewID: "tx.foo.baz"}}, true)
+	if err != nil {
+		t.Fatalf("Execute(apply=true) aborted on a non-regular candidate: %v", err)
+	}
+	if len(report.RewrittenFiles) != 1 || report.RewrittenFiles[0] != "hooks/impl.go" {
+		t.Fatalf("expected hooks/impl.go to be rewritten, got %v", report.RewrittenFiles)
+	}
+	// The bytes, not just the report: an abort or a lost write is only visible here.
+	got, err := os.ReadFile(filepath.Join(root, "hooks/impl.go"))
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if string(got) != "// tx.foo.baz\npackage hooks\n" {
+		t.Fatalf("the good file must be rewritten despite the bad candidate, got %q", got)
+	}
+	if skipReasons(report)["aaa-link"] != SkipNotRegular {
+		t.Fatalf("the skip must stay visible on the apply face too, got %+v", report.Skipped)
+	}
+}
+
+// TestExecute_ApplyFaceUnreadableCandidateIsReportedAsUnfinishedWork pins the
+// property the CLI's exit code is built on: a candidate that could not be read
+// is unfinished work (its old ids are still in the file), while a candidate this
+// package is designed not to read is not. Both are skips; only one is counted by
+// UnreadableSkips.
+func TestExecute_ApplyFaceUnreadableCandidateIsReportedAsUnfinishedWork(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file permission semantics differ on windows")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("running as root: file permissions do not deny anything")
+	}
+	root := t.TempDir()
+	writeFile(t, root, "ok.go", "// tx.foo.bar\n")
+	writeFile(t, root, "unreadable.go", "// tx.foo.bar\n")
+	locked := filepath.Join(root, "unreadable.go")
+	if err := os.Chmod(locked, 0o000); err != nil {
+		t.Fatalf("Chmod: %v", err)
+	}
+	t.Cleanup(func() { os.Chmod(locked, 0o644) })
+	// A by-design skip alongside it, to show the two are not the same bucket.
+	if err := os.Symlink(root, filepath.Join(root, "self-link")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	report, err := Execute(root, []Pair{{OldID: "tx.foo.bar", NewID: "tx.foo.baz"}}, true)
+	if err != nil {
+		t.Fatalf("Execute(apply=true): %v", err)
+	}
+	unreadable := report.UnreadableSkips()
+	if len(unreadable) != 1 || unreadable[0].Path != "unreadable.go" {
+		t.Fatalf("expected exactly the unreadable file to count as unfinished work, got %+v (all skips %+v)", unreadable, report.Skipped)
+	}
+	if skipReasons(report)["self-link"] != SkipNotRegular {
+		t.Fatalf("expected the by-design skip to still be reported, got %+v", report.Skipped)
+	}
+	// ...and the readable file was still rewritten.
+	got, err := os.ReadFile(filepath.Join(root, "ok.go"))
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if string(got) != "// tx.foo.baz\n" {
+		t.Fatalf("expected ok.go to be rewritten, got %q", got)
+	}
+}
+
 func TestScanIDs_ReportsOccurrencesWithoutModifyingSource(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, root, "main.go", "// see req.foo and act.user.submit-login\n")

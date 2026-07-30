@@ -25,10 +25,23 @@ var alwaysExcludedDirs = map[string]bool{
 	".concierge": true,
 }
 
+// Skip reasons. Three of them are by design — this package is never meant to
+// read such a candidate, so a run that skipped them still did its whole job.
+// SkipUnreadable is the odd one out: a candidate that should have been readable
+// was not read, which is an inventory item for a scan but *unfinished work* for
+// an apply (the old ids in that file are still there). Callers that act on
+// source distinguish the two via Report.UnreadableSkips.
+const (
+	SkipBinary     = "binary"
+	SkipTooLarge   = "too-large"
+	SkipNotRegular = "not-regular"
+	SkipUnreadable = "unreadable"
+)
+
 // SkipNote records a file EnumerateFiles/Execute chose not to read, and why.
 type SkipNote struct {
 	Path   string `json:"path"`
-	Reason string `json:"reason"` // "binary" | "too-large" | "not-regular" | "unreadable"
+	Reason string `json:"reason"` // one of the Skip* constants above
 }
 
 // EnumerateFiles lists candidate source files under root (the project
@@ -103,10 +116,16 @@ func walkFiles(root string) ([]string, error) {
 			// mid-walk. Enumeration does not get to decide readability, so
 			// hand the path on as a candidate rather than aborting the whole
 			// walk — readSourceFile is the one place that answers read-or-skip,
-			// and it will record a visible SkipNote for it. (Walk does not
-			// descend into a directory it could not read, so the files under
-			// such a directory are not enumerated; the skip names the
-			// directory, not each file lost under it.)
+			// and it will record a visible SkipNote for it. Handing it on also
+			// recovers what a stricter enumerator would lose: an entry whose
+			// Lstat failed transiently is a readable regular file by the time
+			// readSourceFile stats it, and is scanned normally.
+			//
+			// (Walk does not descend into a directory it could not read, so the
+			// files under such a directory are not enumerated; the skip names the
+			// directory, not each file lost under it. On the walk path that
+			// directory therefore reads as SkipNotRegular — see
+			// Report.UnreadableSkips for why that distinction matters on apply.)
 			out = append(out, rel)
 			return nil
 		}
@@ -170,24 +189,24 @@ func readSourceFile(root, relPath string) ([]byte, *SkipNote) {
 	absPath := filepath.Join(root, filepath.FromSlash(relPath))
 	info, err := os.Stat(absPath)
 	if err != nil {
-		return nil, &SkipNote{Path: relPath, Reason: "unreadable"}
+		return nil, &SkipNote{Path: relPath, Reason: SkipUnreadable}
 	}
 	if !info.Mode().IsRegular() {
-		return nil, &SkipNote{Path: relPath, Reason: "not-regular"}
+		return nil, &SkipNote{Path: relPath, Reason: SkipNotRegular}
 	}
 	if info.Size() > maxScanFileSize {
-		return nil, &SkipNote{Path: relPath, Reason: "too-large"}
+		return nil, &SkipNote{Path: relPath, Reason: SkipTooLarge}
 	}
 	data, err := os.ReadFile(absPath)
 	if err != nil {
-		return nil, &SkipNote{Path: relPath, Reason: "unreadable"}
+		return nil, &SkipNote{Path: relPath, Reason: SkipUnreadable}
 	}
 	sniff := data
 	if len(sniff) > 8192 {
 		sniff = sniff[:8192]
 	}
 	if bytes.IndexByte(sniff, 0) >= 0 {
-		return nil, &SkipNote{Path: relPath, Reason: "binary"}
+		return nil, &SkipNote{Path: relPath, Reason: SkipBinary}
 	}
 	return data, nil
 }

@@ -139,14 +139,41 @@ func uniqueRewriteSuggestions(matches []refs.Match) []refs.Pair {
 	return out
 }
 
-// refsFailedErr builds the non-zero-exit error for a rename command when
-// --rewrite-refs applied but left one or more files unwritten. The `.scholia`
-// rename itself is unaffected (already committed).
-func refsFailedErr(report *refs.Report) error {
-	if report == nil || len(report.Failed) == 0 {
+// refsFailedErr builds the non-zero-exit error for a command that rewrote
+// source and left work unfinished. Two kinds count, and they are symmetric:
+// a file that was read and could not be written back (refs.FailedFile), and a
+// file that could not be read in the first place (refs.Report.UnreadableSkips).
+// Both leave old ids in source, and both are retryable with
+// `scholia refs rewrite --apply` once the obstruction is gone.
+//
+// applied says whether this run was actually meant to change source. It has to
+// be a parameter rather than something inferred from the report: a dry-run and
+// an apply see exactly the same unreadable candidate, and only for the apply is
+// it unfinished work. For `scholia refs scan` and every dry-run the same
+// candidate is just an item of the inventory — reported, exit 0.
+//
+// The other skip reasons never reach here: binary/too-large/not-regular are
+// files refs is designed not to read, so skipping them finished the job.
+// The `.scholia` rename a rename command already committed is unaffected either
+// way (source rewriting is best-effort and never unwinds it).
+func refsFailedErr(report *refs.Report, applied bool) error {
+	if report == nil {
 		return nil
 	}
-	return fmt.Errorf("ソース書換に失敗したファイルがあります（%d 件。rename 自体は確定済み・scholia refs rewrite --apply で再実行可）", len(report.Failed))
+	var unreadable []refs.SkipNote
+	if applied {
+		unreadable = report.UnreadableSkips()
+	}
+	switch {
+	case len(report.Failed) == 0 && len(unreadable) == 0:
+		return nil
+	case len(unreadable) == 0:
+		return fmt.Errorf("ソース書換に失敗したファイルがあります（%d 件。rename 自体は確定済み・scholia refs rewrite --apply で再実行可）", len(report.Failed))
+	case len(report.Failed) == 0:
+		return fmt.Errorf("読めなかったソースファイルがあり、旧 id が残っている可能性があります（%d 件・上の skip (unreadable) 参照。原因を除いてから scholia refs rewrite --apply で再実行可）", len(unreadable))
+	default:
+		return fmt.Errorf("書換に失敗したファイル %d 件・読めなかったファイル %d 件があり、旧 id が残っている可能性があります（原因を除いてから scholia refs rewrite --apply で再実行可）", len(report.Failed), len(unreadable))
+	}
 }
 
 func encodeRenameJSON[T any](cmd *cobra.Command, rename T, report *refs.Report) error {

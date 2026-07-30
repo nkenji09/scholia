@@ -47,7 +47,7 @@ func newVocabRenameCmd() *cobra.Command {
 					result.OldID, result.NewID, len(result.UpdatedTransitions))
 				printRenameRefsReport(cmd, report, refsFlags.rewrite)
 			}
-			return refsFailedErr(report)
+			return refsFailedErr(report, refsFlags.rewrite)
 		},
 	}
 	cmd.Flags().StringVar(&to, "to", "", "新しい id（必須）")
