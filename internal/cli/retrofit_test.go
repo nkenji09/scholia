@@ -2,7 +2,9 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -175,18 +177,87 @@ func TestRetrofitRuleFilterAndUnknownRule(t *testing.T) {
 	}
 }
 
-// dogfood 統合: 実 store の件数（desc-length は U3 のスコープなので 8 規則ベース）。
-// フェーズ2 増分2.3a の retrofit fixable の desc 浄化（D4-d）で、fixable の
-// derived-value-in-desc 4／stale-tense 7／dead-doc-ref 11 を 13 レコードの desc から
-// 除いて fixable は 22/13 → 0/0 へ追随（ack-only 13/13 は不変）。dead-doc-ref の
-// 総数は 19 → 8（残り 8 は全て decision 判断欄位の design-options/tweaks3/.concierge
-// 参照＝append-only ゆえ acknowledge-only）。
-func TestRetrofitDogfoodCounts(t *testing.T) {
+// dogfoodKnownAckOnly は「レコード由来で、是正が原理的に不能」と既に容認した
+// advisory の集合。キーは rule+target（lint --ci の baseline entry と同じキー取り・
+// 01KXS4BB6KKX02XMDCS9EHNE6X）で、message や引用位置には依存しない。
+// 値は「何を容認したのか」の一言——新しい entry を足す人が、diff だけで説明を
+// 済ませられるようにするため。
+//
+// ここに載るのは decision の判断欄位（why/changed/ref）に書かれてしまった引用
+// だけである。decision は append-only なので後から書き換えられない——だから
+// 「是正しろ」ではなく「既知として容認する」しかない（#45 U2）。
+var dogfoodKnownAckOnly = map[string]string{
+	// why が実装のファイル:行番号を引用している（行番号は実装が動けば腐る）。
+	"why-file-line|01KXNGQYRM718XH18RGSNSQCW1": "why: internal/flow/text.go:58",
+	"why-file-line|01KXNGQYRV3ZQSMSWXNA4BGTF7": "why: internal/flow/analyze.go:323",
+	"why-file-line|01KXNGQYS14G2XPDW19Y8JGX4B": "why: internal/flow/analyze.go:192 ほか3箇所",
+	"why-file-line|01KXNGQYS8997QET0KWJA29B38": "why: internal/flow/analyze.go:449",
+
+	// 判断欄位が、store に存在しない id を引用している。
+	"dangling-id|01KXFEXG01RS00RHAVS3TMP25Y": "changed: 廃止済み tx.action",
+	"dangling-id|01KY1VDJWZF7M23K4X1J62QYXV": "why: 説明のための架空例 req.foo.1-1",
+
+	// 判断欄位が、repo に無い文書を引用している（作業台帳・gitignore 対象）。
+	"dead-doc-ref|01KXFEXG08YT8TB04BR7RA400Q": "why: tweaks3 §",
+	"dead-doc-ref|01KXJ3JEKNGHAF4XHGM8WV9N90": "ref: .concierge/decision.md",
+	"dead-doc-ref|01KXJ7GESNX3JCQ1FCEXTMSGDK": "why: .concierge/decision.md",
+	"dead-doc-ref|01KXMGGD6DS88CHGRJ9GPRBRVX": "why: design-options §",
+	"dead-doc-ref|01KXMRBB3PYJZMEXS7JTQQPP8D": "ref: design-options §",
+	"dead-doc-ref|01KXMRBB3XJYTQ4WM3MZGZZY7C": "ref: design-options §",
+	"dead-doc-ref|01KXMRBB447FDSRPH6ZAWVC7W2": "ref: design-options §",
+	"dead-doc-ref|01KXMRBNXTN8742KDJVV4HW15V": "why・ref: design-options §",
+}
+
+// TestRetrofitDogfoodAdvisories は、この repo 自身の `.scholia` を retrofit で
+// 走査し「自分の記録が自分の規則に従っているか」を見る dogfood ガード。
+//
+// # このガードが落ちる範囲（射程）
+//
+//  1. 是正可能な advisory が1件でも残ったとき（fixable != 0/0）。
+//  2. レコード由来の acknowledge-only に、dogfoodKnownAckOnly の外のキーが出たとき。
+//  3. commit を対象に取る advisory が decision-stale 以外に現れたとき。
+//  4. 走査対象の store が空だったとき（1・2 が空振りで緑になるのを塞ぐ）。
+//
+// # 落ちない範囲（原理を1つ）
+//
+// **このガードは「まだ知らない種類が出たか」だけを見る。既に知っている種類が
+// 何件に増減したかは見ない。** よって decision-stale が窓の出入りで増えても
+// 減っても、このガードは何も言わない。これは漏れではなく設計である。
+//
+// decision-stale は直近 decisionStaleScanLimit(=200) commit という**移動窓**から
+// 導出される（internal/lint/rules_decision_stale.go）。窓は commit を積むだけで
+// 動くので、件数を固定すると**このガードが検査していない作業が commit を積んだだけ
+// で期待値が動く**。実際に動いた——期待値の移動 11 回・そのための専用 commit 8 本・
+// 説明コメント 70 行・マージ衝突 1 回。しかも正当な追随と「実装に合わせて検査を
+// 曲げた」が外形上まったく同じに見えるため、毎回レビューの注意力を食っていた。
+// 正本 01KXWPQDGMDB01V86KZ91M0BPQ（D7）は decision-stale について
+// 「機械マイグレーション型 commit の偽陽性が残るため容認可能とする」と定めている。
+// **容認可能と決めたものを、容認するたびに検査の編集で払わせない。**
+// 窓の境界そのものの挙動は、生の履歴ではなく合成した履歴で決定的に検査する
+// （internal/lint の TestDecisionStaleWindowBoundary）。
+//
+// 既知集合の向きは lint --ci の baseline ratchet（01KXS4BB6KKX02XMDCS9EHNE6X）に
+// 揃えた——**新しいキーは落とし、消えたキーでは落とさない**（記録が良くなる方向で
+// 赤くしない）。台帳ファイル .scholia/lint-baseline.json 自体は使わない: あれは
+// severity=warn の歯止めで advisory(info) を意図的に対象外にしており、そこへ広げる
+// のは製品の振る舞いの変更になる。考え方だけを借りて機構は増やさない。
+func TestRetrofitDogfoodAdvisories(t *testing.T) {
 	s, err := store.Discover(".")
 	if err != nil {
 		t.Fatalf("dogfood store not found: %v", err)
 	}
 	root := filepath.Dir(s.Dir)
+
+	// 走査対象が空でないことの錨（射程 4）。fixable==0 と「既知集合の外なし」は
+	// どちらも空の store で真になるので、これが無いと store を見失っても緑になる。
+	snap, err := s.LoadAll()
+	if err != nil {
+		t.Fatalf("dogfood LoadAll: %v", err)
+	}
+	if len(snap.Decisions) == 0 || len(snap.Transitions) == 0 {
+		t.Fatalf("dogfood store が空に見える（decisions %d / transitions %d）——走査が成立していない",
+			len(snap.Decisions), len(snap.Transitions))
+	}
 
 	out, err := run(t, root, "retrofit", "--json")
 	if err != nil {
@@ -196,82 +267,46 @@ func TestRetrofitDogfoodCounts(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &resp); err != nil {
 		t.Fatalf("json decode: %v", err)
 	}
+
+	// 射程 1: 是正可能な advisory は残っていない（記録を編集すれば直せるものは直してある）。
 	if resp.Fixable.FindingCount != 0 || resp.Fixable.RecordCount != 0 {
-		t.Fatalf("dogfood fixable = %d findings / %d records, want 0/0", resp.Fixable.FindingCount, resp.Fixable.RecordCount)
+		t.Fatalf("dogfood fixable = %d findings / %d records, want 0/0（byRule: %v）",
+			resp.Fixable.FindingCount, resp.Fixable.RecordCount, resp.Fixable.ByRule)
 	}
-	// #45 D7 で decision-stale（git 導出・commit 対象・AcknowledgeOnly=true）を
-	// 追加したため 13/13 → 14/14。増分は「レコード変更 commit に decision 非同伴」の
-	// 1 commit（record 編集では是正できず acknowledges でのみ解消＝ack-only）。
-	// さらに #45 Step3 の U3③(B) で write-gate/authoring-advisory を実装遷移へタグ付け
-	// した data-work commit（遷移2件のタグ変更・scholia decision 非同伴）が decision-stale
-	// の2件目として真ヒットし 14/14 → 15/15。
-	// #45 束5（D8）で update 5遷移への priority 宣言＋tx.flow effect vocab の意味論改訂を
-	// 束ねた data-work commit（正本 decision は前もって base commit で記録済・当該 commit
-	// 自体には decision 非同伴）が decision-stale の3件目として真ヒットし 15/15 → 16/16。
-	// #45 束6（D9）の data-work commit（owner 60・condition kind 47・subject 2枚・
-	// ownerKind 宣言＝107 vocab＋config を編集・正本 decision 01KXY6PXRR… は前もって
-	// base commit で記録済ゆえ当該 commit 自体には decision 非同伴）が decision-stale の
-	// 4件目として真ヒットし 16/16 → 17/17。D7 が「機械マイグレーション/データ作業型
-	// commit は偽陽性として残り acknowledges で容認可」と規定した挙動どおりの新実測
-	// （info・lint --ci は warn を数えるため緑・regression ではない）。
-	// #45 束7（D10b-5）の flow 入口昇格 data-work commit（既存 tx.viewer.action-flow-link
-	// に subject.viewer.vocab を追加＝vocab 導線を正規形『1原子＋複数 subject タグ』で
-	// 記録・正本 decision 01KXYED63YFK… は前もって base commit 326007a で記録済ゆえ当該
-	// commit 自体には decision 非同伴）が decision-stale の5件目として真ヒットし
-	// 17/17 → 18/18。D7 規定どおりの新実測（info・lint --ci 緑・regression ではない）。
-	// decision 01KY1VDJWZF7M23K4X1J62QYXV（BrowseRail サジェスト順位付け・
-	// req.comfortable-viewer.faceted-nav amend）の why 例示 `req.foo.1-1` が
-	// dangling-id の新規真ヒットとして加わり 18/18 → 19/19（判断欄位＝append-only
-	// ゆえ是正不能・acknowledge-only）。
-	// #5（集約2面の廃止）の実装コミットで commit 95679d2b が decisionStaleScanLimit
-	// (=200) の窓から外れ、その decision-stale が1件落ちて 19/19 → 18/18。是正でも
-	// 回帰でもなく**窓の外に出ただけ**——decision-stale は「最近レコードを触ったのに
-	// decision を結ばなかった」を見る規則なので、古い commit が落ちるのは設計どおり。
-	// この期待値は commit を積むだけで動くので、ズレたらまず窓の境界を疑うこと
-	// （`git rev-list --count <commit>..HEAD` が 200 を超えていないか）。
-	// ——実際にまた動いた。しかも**2つの単位が独立に同じ境界を踏んだ**: 「概要タブが
-	// 成立する条件」の単位と「端末で取り下げた規則を渡さない」の単位が、それぞれ
-	// commit fc81ff6f を窓の外へ押し出して 18/18 → 17/17 に更新していた（マージで
-	// 両方の説明が衝突した）。
-	// **そしてマージそのものが、さらにもう1件を窓の外へ出した。** 両単位の commit が
-	// 合流して履歴が伸び、commit 0b3a04bb が 195 → 209 になり 17/17 → 16/16。
-	// マージ直後の実測（`git rev-list --count <commit>..HEAD`・窓は 200）:
-	//   e1d44d18: 183 ／ 9df25e5b: 193 ／ 0b3a04bb: 209 ／ fc81ff6f: 221
-	// `lint` が挙げる decision-stale も e1d44d18・9df25e5b の2件に減っている。
-	// 是正でも回帰でもなく**窓の外に出ただけ**である。
-	//
-	// ⚠️⚠️ **`go test` の結果キャッシュに騙されないこと。** この検査は git の履歴を
-	// 入力に取るが、**Go のテストキャッシュはそれを入力として見ない**。マージした直後に
-	// `go test ./...` を打つと、ソースが変わっていないパッケージは**キャッシュ済みの
-	// 緑をそのまま返す**——実際にこの単位で、16/16 になっているのに `ok (cached)` と
-	// 出た。**この検査を信じる前に `-count=1` を付けて走らせること。**
-	//
-	// ——**予告どおりに動いた。** 直前の注記が「あと7コミットで 9df25e5b が窓を出る」と
-	// 書いていたところへ、「構造ツリーを役割まで絞る」単位が3コミット積み、9df25e5b が
-	// ちょうど 200 に達して窓の外へ出た。16/16 → 15/15。
-	// その単位の着地時点の実測（窓は 200・`git rev-list --count <commit>..HEAD`）:
-	//   e1d44d18: 190 ／ 9df25e5b: 200 ／ 0b3a04bb: 216 ／ fc81ff6f: 228
-	// main（7551cb0）時点では 9df25e5b が 197 だったので、**3コミット積んだぶんだけ動いた**
-	// ＝是正でも回帰でもなく窓の外に出ただけである。`lint` が挙げる decision-stale も
-	// e1d44d18 の1件だけに減っている（実測）。
-	// なお同単位が足した decision 01KYPFJV04R347HWHQKQ2TW275 は advisory を1件も出さない
-	// （`decide --dry-run` で確認済み）ので、この差分に寄与していない。
-	//
-	// ——**予告どおりに動いた（2度目）。** 「構成要素を入れ子にする」単位が10コミット積み、
-	// e1d44d18 が 190 → 208 で窓の外へ出た。15/15 → 14/14 で、**decision-stale は0件**。
-	// その単位の着地時点の実測（窓は 200・`git rev-list --count <commit>..HEAD`）:
-	//   e1d44d18: 208 ／ 9df25e5b: 218 ／ 0b3a04bb: 234 ／ fc81ff6f: 246
-	// `lint` が挙げる decision-stale も0件（実測）。是正でも回帰でもなく窓の外に出ただけである。
-	// なお同単位が足した decision 01KYR820NZP20CKNSFEBXBMX1P は advisory を1件も出さない
-	// （`decide --dry-run` で確認済み）ので、この差分に寄与していない。
-	//
-	// ⚠️ 次に触る人へ: **decision-stale は今 0件で、これ以上「窓の外に出る」ぶんは無い。**
-	// 次にこの数が動くときは**新しい真ヒットが増えたとき**なので、窓の境界ではなく
-	// 「レコードを触ったのに decision を結ばなかった commit を作ったか」を先に疑うこと。
-	if resp.AcknowledgeOnly.FindingCount != 14 || resp.AcknowledgeOnly.RecordCount != 14 {
-		t.Fatalf("dogfood acknowledgeOnly = %d findings / %d records, want 14/14", resp.AcknowledgeOnly.FindingCount, resp.AcknowledgeOnly.RecordCount)
+
+	// 射程 2・3: acknowledge-only を出自で分ける。
+	//   git 由来（TargetType == "commit"）  = 移動窓——件数を見ない。
+	//   レコード由来                        = 既知集合の外が出たら落とす。
+	seen := make(map[string]bool, len(dogfoodKnownAckOnly))
+	var unknown []string
+	for _, f := range resp.Findings {
+		if !f.AcknowledgeOnly {
+			continue // fixable は射程 1 で 0 件と確認済み
+		}
+		if f.TargetType == "commit" {
+			if f.Rule != "decision-stale" {
+				t.Fatalf("commit を対象に取る advisory が decision-stale 以外に増えた: %+v\n"+
+					"（移動窓由来の finding をこのガードは数えない。新しい窓依存の規則を足したなら射程を書き直すこと）", f)
+			}
+			continue
+		}
+		key := f.Rule + "|" + f.Target
+		seen[key] = true
+		if _, ok := dogfoodKnownAckOnly[key]; !ok {
+			unknown = append(unknown, fmt.Sprintf("  %s（%s）: %s", key, f.Field, f.Quote))
+		}
 	}
-	if total := resp.Fixable.ByRule["dead-doc-ref"] + resp.AcknowledgeOnly.ByRule["dead-doc-ref"]; total != 8 {
-		t.Fatalf("dogfood dead-doc-ref total = %d, want 8", total)
+	if len(unknown) > 0 {
+		sort.Strings(unknown)
+		t.Fatalf("既知集合に無い acknowledge-only advisory が出た（%d 件）:\n%s\n\n"+
+			"decision の判断欄位は append-only で是正できない。内容を見直せないなら\n"+
+			"dogfoodKnownAckOnly に「何を容認したのか」を添えて追加すること。",
+			len(unknown), strings.Join(unknown, "\n"))
+	}
+	for key, note := range dogfoodKnownAckOnly {
+		if !seen[key] {
+			// 落とさない（記録が良くなる方向で赤くしない・lint --ci の stale entry と同じ扱い）。
+			t.Logf("既知集合の entry が今は出ていない（解消済み・次に触る人が消してよい）: %s（%s）", key, note)
+		}
 	}
 }
