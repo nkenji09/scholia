@@ -362,10 +362,10 @@ func TestCountingWriter_PassesThroughUnchanged(t *testing.T) {
 	c := NewCountingWriter(&sink)
 	payloads := []string{
 		"rules: 該当する decision はありません\n", // 末尾改行
-		"\n\n",                          // 改行だけ
-		"",                              // 空
-		"あいう",                           // 多バイト・末尾改行なし
-		"  末尾に空白 \t ",                   // 末尾の空白
+		"\n\n",        // 改行だけ
+		"",            // 空
+		"あいう",         // 多バイト・末尾改行なし
+		"  末尾に空白 \t ", // 末尾の空白
 	}
 	for _, p := range payloads {
 		n, err := c.Write([]byte(p))
