@@ -681,6 +681,7 @@ scholia/
     diff/                     # semantic diff（git ref / 作業ツリー間）
     render/                   # 派生"仕様"ビュー・export
     review/                   # AI 提案コメントのサイドカー（.scholia/reviews/・§8.4）
+    usage/                    # 道具が渡した量の計測（オプトイン・4 段の収集レベル・§9.2）
     cli/                      # cobra コマンド
   internal/viewer/            # HTTP サーバ ＋ //go:embed（config/decision/transition 書込・reviews/diff/rules 読取）
   web/                        # ビューア SPA のソース（ビルド→ go:embed）
@@ -704,6 +705,27 @@ scholia/
   - **governs（#45 D10b-1）**: CLI `scholia rules`・viewer `GET /api/governs`・static export が `index.SelectRulesDecisionsFor`／`index.GovernsForTag/Transition/Vocab` を共有する。
   - **検索コア一本化（#45 D10b-3）**: CLI `scholia search`・viewer `GET /api/search`・static corpus が `index.SearchRecords`／`searchCorpus` を共有する。
 - **以後の運用**: CLI／viewer の片面だけに query 意味論を足す変更は、本 decision（`01KXYED62CEKBY97D7X66BMC9A`）に照らして評価する。前段を片面だけで拡張することは、意図的な per-surface decision（後段）とは別物として扱う。
+
+### 9.2 道具が渡した量の計測（オプトイン・`internal/usage`）
+
+**正本は decision `01KYSKM4T0RWRY1N7407KZSZ17`（tag `req.usage-measurement`）。ここはその配線の記述で、
+食い違ったら正本が勝つ。** 振る舞いは遷移（`tx.usage.*`・2 つの action）に起こしてある。
+
+- **既定は計測しない。** 環境変数 `SCHOLIA_USAGE_LEVEL` が未設定なら、`cli.Execute` は計測を入れる前と
+  同じ経路を通る——writer も差し替えず、時刻も測らず、注記も出さない。段は `off|masked|normal|detailed` の
+  4 値で、未知の値・空文字はオフに倒す（ただし**設定されているのに解釈できないときだけ**標準エラーに 1 行注記する）。
+- **量を数える点は 1 か所**: 全コマンドが `cmd.OutOrStdout()` に書き、cobra の `getOut` は自分の writer を
+  持たないコマンドを親へ委ねる。だから root に数える writer を差せば全コマンドを覆える。
+  ⚠️ **子コマンドが自前で `SetOut` したらこの前提は崩れる。**
+  （`internal/cli/editor.go` の `$EDITOR` 起動だけは `os.Stdout` を直に子プロセスへ渡すので数に入らない。）
+- **貫く原理**: ログは `.scholia` の中身を写さない。「どの記録を、どう引いて、どれだけ渡したか」は持ち、
+  「その記録に何が書いてあるか」は持たない（自由文の引数は**長さ**だけ）。§1 の git-as-DB は不変で、
+  計測ログは真実の源ではなく**捨ててよい副産物**である——だから `.scholia/` 配下ではなく
+  ユーザのキャッシュ配下（`<UserCacheDir>/scholia/usage.jsonl`・JSON Lines・追記のみ）に置く。
+- **段 × 項目の判断は 1 つの純関数** `usage.Records(Level, Field)` にあり、行の組み立ては `AllFields()` を
+  回してそこを通してしか値を置かない（表を通らない経路を作らない）。記録しない項目は `null` ただ 1 つの形で
+  埋まり、**キーの集合は段によって変わらない**。検査は 4 段 × 全項目の対で行う。
+- **集計のための新しいサブコマンド・フラグは足さない（フラグ数 ±0）。** 記録に失敗しても本業は落ちない。
 
 ---
 
