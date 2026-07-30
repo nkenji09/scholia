@@ -1235,6 +1235,28 @@ describe('構造ツリーとシートが、多親の構成要素について同�
 });
 
 describe('入れ子の構成要素を指す共有 URL が生きる', () => {
+  it('寄せに行く（器が在るだけで終わらない）', async () => {
+    // ⚠️ **これは実機で見つけた欠陥の再発防止である。** 入れ子では間の段が開くまで
+    // 要素そのものが存在せず、寄せの effect の1回目は `null` を掴む。そこで早期に
+    // return すると**再寄せの予約もしないまま終わり**、依存はどれも変わらないので
+    // 二度と走らない——URL は正しく転送され、間の段も開くのに、**1度も寄らない。**
+    // happy-dom はレイアウトを計算しないので位置は見ない。**呼ばれたかどうか**を見る。
+    const calls: string[] = [];
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function (this: Element) {
+      calls.push((this as HTMLElement).getAttribute('data-part') || this.className);
+    };
+    try {
+      server = installFakeServer({});
+      mounted = mountApp('#/overview/comp.viewer/part/part.list.row.cell');
+      const host = mounted.host;
+      await waitFor(() => !!host.querySelector('[data-part="part.list.row.cell"]'), '寄せ先の器が描かれていない');
+      await waitFor(() => calls.includes('part.list.row.cell'), `入れ子の寄せ先へ寄せに行っていない（呼ばれたのは: ${calls.join(',')}）`);
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
   it('転送されたうえで、間の段が開いて寄せ先の器が在る', async () => {
     server = installFakeServer({});
     mounted = mountApp('#/overview/part.list.row.cell');

@@ -549,10 +549,11 @@
 
 /* 入れ子の構成要素の欄。⚠️ **見出しも開閉も直下の欄と同じ規則を使う**——ここで
    足すのは「段が見える」ための字下げと縦線だけにする（2つ目の描き方を作らない）。
-   1段 24px。狭い画面（本文 485px）で段が深くなっても横スクロールを出さないため、
-   段の字下げは `padding-left` で入れて幅を食わせる（`margin-left` で外へ押し出さない）。 */
+   1段 32px（＋縦線1px）。狭い画面（本文 485px）で段が深くなっても横スクロールを
+   出さないため、段の字下げは `padding-left` で入れて幅を食わせる
+   （`margin-left` で外へ押し出さない）。 */
 .overview-part-nested {
-  padding-left: 24px;
+  padding-left: 32px;
   border-left: 1px solid var(--lm-border);
 }
 

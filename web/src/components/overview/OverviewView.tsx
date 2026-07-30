@@ -515,14 +515,20 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
   // が本体スクロール復元で受けているのと同型の罠なので、対処も同型にする——本体側
   // （scrollRestore.ts の reinforce）と同じく、伸びたあとに一度だけ寄せ直す。新経路のために
   // 別機構を作らない。
+  //
+  // ⚠️ **寄せ先が「まだ無い」ときに諦めてはいけない。** 入れ子の構成要素では、間の段が
+  // 畳まれているあいだ**要素そのものが存在しない**。直前の effect が間の段を開けるが、
+  // それが DOM に出るのは次の描画なので、この effect の1回目では `find()` が null を返す。
+  // そこで早期に return すると**再寄せの予約もしないまま終わる**——依存（partId/sel/
+  // index/anchorRequest）はどれも変わらないので、この effect は二度と走らない。
+  // 実機で確認した症状: 入れ子を指す URL は正しく転送され、間の段も開くのに、**1度も寄らない。**
+  // だから「見つかったら寄せる」と「一拍あとにもう一度探して寄せる」を**別々に**行う。
   useEffect(() => {
     if (!partId) return;
     const root = mainRef.current;
     if (!root) return;
     const find = () => root.querySelector<HTMLElement>(`[data-part="${cssEscape(partId)}"]`);
-    const el = find();
-    if (!el) return;
-    el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    find()?.scrollIntoView({ block: 'start', behavior: 'smooth' });
     // rAF ではなく setTimeout なのも本体側と同じ理由（タブが背面でも動かすため）。
     const reinforce = setTimeout(() => find()?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 120);
     return () => clearTimeout(reinforce);
