@@ -180,14 +180,16 @@ func TestCLI_RefsRewriteApplyExitsZeroOnDeliberateSkips(t *testing.T) {
 }
 
 // refsApplyFaces is every command that can rewrite source references — i.e.
-// every caller that passes `applied` to refsFailedErr. Adding a sixth such
-// command means adding a row here, and the test below then holds it to the same
-// rule; wiring one face to a wrong `applied` value fails that face's row.
+// every caller that passes `applied` to refsFailedErr. Wiring one face to a
+// wrong `applied` value fails that face's row.
 //
-// Enumerating the faces is not the same shape as enumerating loopholes: the
-// faces are a closed set the compiler already forces to declare `applied`
-// (grep refsFailedErr), and the rule under test is one property applied to all
-// of them, not a list of things that might go wrong.
+// Enumerating the faces is not the same shape as enumerating loopholes: the rule
+// under test is one property applied to all of them, not a list of things that
+// might go wrong. What keeps the set honest, stated precisely: the compiler
+// forces every *existing* call site to declare `applied`, and
+// TestCurrency_EverySurfaceIsClassified fails for any new runnable command, so a
+// sixth face cannot appear silently — but nothing forces it into this table.
+// Adding the row is a convention.
 var refsApplyFaces = []struct {
 	name string
 	// setup builds a fresh store whose records contain oldID, and returns its dir.
