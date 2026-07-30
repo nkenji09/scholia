@@ -79,6 +79,10 @@ interface Lookups {
       呼び名が存在しない＝役割名を含まない別の文言で語る（強引に id を出さない・
       01KYCC2TF3NW3JRSSRK9ZHN078）。 */
   componentRoleLabel: string;
+  /** 役割 part を担う kind の**表示上の呼び名**。解決の規則は
+      `componentRoleLabel` と同じ（宣言が無ければ空文字）。
+      多親の構成要素の開示（「この〈呼び名〉は、次の親にも属する」）が使う。 */
+  partRoleLabel: string;
   /** Header's product name: config.display.productName, falling back to
       "scholia" (2026-07-11 tweaks5 §2). */
   productName: string;
@@ -156,6 +160,7 @@ export function LookupsProvider({ children }: { children: ComponentChildren }) {
   const resolvedRoles = resolveRoleKinds(config?.tagKinds);
   const { kinds: roleKinds, declared: roleDeclared } = resolvedRoles;
   const componentRoleLabel = roleLabel(resolvedRoles, 'component', tagKindLabels);
+  const partRoleLabel = roleLabel(resolvedRoles, 'part', tagKindLabels);
 
   const describeMatch = (matchedOn: string) => {
     if (matchedOn === 'id') return t.lookups.searchById;
@@ -195,6 +200,7 @@ export function LookupsProvider({ children }: { children: ComponentChildren }) {
     roleKinds,
     roleDeclared,
     componentRoleLabel,
+    partRoleLabel,
     productName,
     headerSubtitle,
     tagline,

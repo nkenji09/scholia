@@ -53,13 +53,119 @@ export function componentBehaviorTxIds(opts: { partCount: number; directTxIds: r
   return [...opts.directTxIds];
 }
 
+/** 仕様シートに置く構成要素の欄1つ。記録の親子どおりに入れ子になる。 */
+export interface PartNode {
+  id: string;
+  /** その欄が出す遷移＝**その構成要素に直接付いた分だけ**（祖先展開を通さない）。 */
+  txIds: string[];
+  /** 配下の構成要素の欄。 */
+  children: PartNode[];
+  /** この欄を置いた親**以外**の親（記録の順）。「もう一方の親」の開示に使う。 */
+  otherParentIds: string[];
+}
+
+/** 仕様シートの構成要素の欄を、記録の親子どおりに組む。
+ *
+ *  ## この関数が決めていること
+ *
+ *  1. **入れ子**（①）。構成要素の下の構成要素も欄になる。段の深さに上限を置かない。
+ *  2. **各欄が出すのは「その構成要素に直接付いた分」だけ**（`directTxIdsOf`）。
+ *     祖先展開込みの索引を渡すと、親の欄に配下の振る舞いが再掲され、**同じ遷移が
+ *     1枚のシートの中で二重に出る**（実測: 親子の二重が30組・最悪の1本は同じシートに6枚）。
+ *  3. **多親は、シートごとに1回だけ**（③・案B′）。1つの構成要素が複数の親を持つとき、
+ *     **親が属するそれぞれのコンポーネントのシートには1回ずつ出る**が、
+ *     **1枚のシートの中では1回だけ**出す。
+ *  4. **どの親の下に置くかは「記録に書かれた親の順」で決める。**
+ *     ⚠️ **走査順に依らない。** シートを上から降りて最初に出会った親に置く形は、
+ *     欄の描き順という**実装の偶然**に居場所を委ねることになる。記録が正本である。
+ *  5. **置かなかった親は `otherParentIds` に残す**（位置で言えないものを言葉で言うため）。
+ *     ⚠️ ここには**別のコンポーネントに属する親も入る**——それが「1つの部品が複数の
+ *     コンポーネントにまたがっている」という、この単位が表現したい事実そのものだから。
+ *
+ *  ## この関数が答えないこと（射程・`CLAUDE.md` 6）
+ *
+ *  ・**記録が祖先と子孫の両方に同じ遷移を直接貼った形は、ここでは消えない。**
+ *    消すのは「索引が持ち上げたぶん」だけである（実測: 直接分だけにしても、そういう
+ *    記録では親子の二重が6組残った）。**歯止めは置いていない。**
+ *  ・**親子関係の無い欄どうしに同じ遷移が出ることも消さない**（実測で20組残る）。
+ *    別々の構成要素の要件を1本の振る舞いが満たす形は、消してはいけないものである。
+ *  ・欄が実際に描かれるか・畳まれているかは見ない（描画側の配線）。 */
+export function buildPartTree(args: {
+  componentId: string;
+  /** タグ id → その子タグ id（**記録の順**）。 */
+  childIdsOf: (id: string) => readonly string[];
+  /** タグ id → その親タグ id（**記録の順**）。 */
+  parentIdsOf: (id: string) => readonly string[];
+  /** その id が構成要素の役割を担うか。 */
+  isPart: (id: string) => boolean;
+  /** その id が「居場所」になりうる役割（構成要素／コンポーネント）を担うか。
+      `otherParentIds` に何を残すかを決めるのに使う——要件タグを親に持つ構成要素の
+      「もう一方の親」に要件タグを出しても、居場所の話にならない。 */
+  isPlace: (id: string) => boolean;
+  /** タグ id → その構成要素に**直接付いた**遷移 id。 */
+  directTxIdsOf: (id: string) => readonly string[];
+}): PartNode[] {
+  const { componentId, childIdsOf, parentIdsOf, isPart, isPlace, directTxIdsOf } = args;
+
+  // (1) このシートに属する構成要素を、コンポーネントから記録の親子を降りて集める。
+  const members = new Set<string>();
+  const stack = [componentId];
+  const walked = new Set<string>();
+  while (stack.length) {
+    const cur = stack.pop()!;
+    if (walked.has(cur)) continue;
+    walked.add(cur);
+    for (const kid of childIdsOf(cur)) {
+      if (!isPart(kid)) continue;
+      members.add(kid);
+      stack.push(kid);
+    }
+  }
+
+  // (2) 各構成要素の居場所を「記録に書かれた親の順」で1つに決める。
+  //     このシートの中に居る親（コンポーネント自身、またはこのシートの構成要素）だけが候補。
+  const placeUnder = new Map<string, string>();
+  const others = new Map<string, string[]>();
+  for (const id of members) {
+    const parents = parentIdsOf(id);
+    const inSheet = parents.filter((p) => p === componentId || members.has(p));
+    const chosen = inSheet[0];
+    if (chosen === undefined) continue; // 到達したのに親が居ない＝起こらないが、黙って落とす
+    placeUnder.set(id, chosen);
+    others.set(
+      id,
+      parents.filter((p) => p !== chosen && isPlace(p)),
+    );
+  }
+
+  // (3) 欄の木を組む。並びは**記録の子の順**に従う（描き順を決める規則も記録に置く）。
+  const emitted = new Set<string>();
+  const build = (parentId: string): PartNode[] => {
+    const out: PartNode[] = [];
+    for (const kid of childIdsOf(parentId)) {
+      if (!members.has(kid) || emitted.has(kid)) continue;
+      if (placeUnder.get(kid) !== parentId) continue;
+      emitted.add(kid);
+      out.push({
+        id: kid,
+        txIds: [...directTxIdsOf(kid)],
+        children: build(kid),
+        otherParentIds: others.get(kid) || [],
+      });
+    }
+    return out;
+  };
+  return build(componentId);
+}
+
 /** 規則（decision）を持つ欄。 */
 export interface RuleBearing<D> {
   rules: readonly D[];
 }
-/** 構成要素の欄（自身の規則＋配下の振る舞いカードの規則）。 */
+/** 構成要素の欄（自身の規則＋配下の振る舞いカードの規則＋**配下の構成要素の欄**）。 */
 export interface PartBearing<D> extends RuleBearing<D> {
   behaviors: ReadonlyArray<RuleBearing<D>>;
+  children: ReadonlyArray<PartBearing<D>>;
 }
 
 /** シートの見出しに出す「現行ルール N」。
@@ -73,11 +179,16 @@ export interface PartBearing<D> extends RuleBearing<D> {
  *  落とす変異が何にも落ちない**——見出しの数字は変わるが、その数字が正しいかを
  *  値として見ている検査がどこにも無かったため（レビュアの変異1件がそこを通った）。
  *
- *  ⚠️ **4系統すべてを値で守っているのはこの file の検査だけである。**
+ *  ⚠️ **入れ子の欄は5系統目である。** 欄が入れ子になった以上、**配下の欄の中の規則も
+ *  「シートの中で開いて読める」**——数えないと見出しの数が足りなくなる。逆に、数え方を
+ *  「その構成要素に直接付いた分」に変えたので、**同じ規則を2回数えることは無い**
+ *  （素直に祖先展開込みで描くと、実測で 20 が 28 になり、実在する20件と食い違った）。
+ *
+ *  ⚠️ **5系統すべてを値で守っているのはこの file の検査だけである。**
  *  描画側（`renderWiring.test.tsx`）の「見出しの件数＝開いて読める数」の突き合わせが
- *  踏むのは **直下の振る舞い と 構成要素の自身の規則の2系統だけ**——corpus の構成要素は
- *  配下に振る舞いを持たず、制約タグは1件も無いので、その2スロットを落としても
- *  描画側は緑のままになる（実測）。**ここの検査を薄くすると、その2系統は誰も見ない。** */
+ *  踏むのは **直下の振る舞い／構成要素の自身の規則／入れ子の欄の自身の規則の3系統**で、
+ *  残る2系統（**構成要素配下の振る舞いの規則・制約の規則**）は corpus にその形が無いので
+ *  落としても緑のままになる。**ここの検査を薄くすると、その2系統は誰も見ない。** */
 export function sheetRuleCount<D>(
   sheet: {
     partBlocks: ReadonlyArray<PartBearing<D>>;
@@ -87,12 +198,32 @@ export function sheetRuleCount<D>(
   inForce: (d: D) => boolean,
 ): number {
   const count = (entries: readonly D[]) => entries.reduce((n, d) => n + (inForce(d) ? 1 : 0), 0);
+  const countPart = (p: PartBearing<D>): number => {
+    let n = count(p.rules);
+    for (const b of p.behaviors) n += count(b.rules);
+    // ⚠️ **入れ子の欄まで降りる。** ここを1段で止めると、入れ子の中の規則が
+    // 見出しの数に入らず「N と言っているのに N 件より多く見つかる」になる。
+    for (const c of p.children) n += countPart(c);
+    return n;
+  };
   let total = 0;
-  for (const p of sheet.partBlocks) {
-    total += count(p.rules);
-    for (const b of p.behaviors) total += count(b.rules);
-  }
+  for (const p of sheet.partBlocks) total += countPart(p);
   for (const b of sheet.ownBehaviors) total += count(b.rules);
   for (const p of sheet.propBlocks) total += count(p.rules);
   return total;
+}
+
+/** シートに出る構成要素の欄の総数（入れ子を含む）。
+ *
+ *  ⚠️ ヘッダの「構成要素 N」は**シートに実際に出る欄の数**でなければならない
+ *  （`01KYHW54B8ZXH0NEPH2J7N1X39` 条項5「見出しの件数と、開いて見える数を一致させる」）。
+ *  直下の子の数で数えると、入れ子の欄が数に入らない。 */
+export function countPartPanels(nodes: readonly NestedPanel[]): number {
+  let n = 0;
+  for (const node of nodes) n += 1 + countPartPanels(node.children);
+  return n;
+}
+/** 数えるのに要るのは「配下の欄」だけ（`PartNode` も描画側の欄もこの形を満たす）。 */
+export interface NestedPanel {
+  children: readonly NestedPanel[];
 }
