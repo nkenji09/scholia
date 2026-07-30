@@ -290,7 +290,8 @@ describe('見出しの「現行ルール N」＝シートの中で開いて読�
   // 「置き換え済み」と見なす軽い代役を渡して、数え方だけを見る。
   const inForce = (d: string) => !d.startsWith('x');
   const empty = { partBlocks: [], ownBehaviors: [], propBlocks: [] };
-  const part = (rules: string[], behaviors: string[][] = [], children: Array<ReturnType<typeof part>> = []) => ({
+  type Bearing = { rules: string[]; behaviors: Array<{ rules: string[] }>; children: Bearing[] };
+  const part = (rules: string[], behaviors: string[][] = [], children: Bearing[] = []): Bearing => ({
     rules,
     behaviors: behaviors.map((r) => ({ rules: r })),
     children,
