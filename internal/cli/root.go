@@ -3,6 +3,7 @@ package cli
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -49,14 +50,21 @@ func newRootCmd() *cobra.Command {
 	return cmd
 }
 
-// Execute is the CLI entrypoint called from cmd/scholia/main.go.
-func Execute() error {
-	return newRootCmd().Execute()
-}
+// Execute の実体は usage.go にある（計測の配線を1か所に閉じるため）。
 
 // openStore は init 以外のコマンドが .scholia を解決する共通ヘルパ。
 // --dir があればそのプロジェクトルート直下の .scholia を、無ければ cwd から上方探索する（DESIGN に明記の無い実装判断）。
 func openStore() (*store.Store, error) {
+	s, err := openStoreUncounted()
+	if err == nil {
+		// 計測が「この起動はどのプロジェクトに対して動いたか」を知る唯一の点。
+		// 通常・詳細でだけ行に載る（usage.Records）。
+		usageProjectRoot = filepath.Dir(s.Dir)
+	}
+	return s, err
+}
+
+func openStoreUncounted() (*store.Store, error) {
 	if dirFlag != "" {
 		return store.Open(dirFlag)
 	}
