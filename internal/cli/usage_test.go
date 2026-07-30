@@ -189,6 +189,9 @@ const projectNamedArg = "req.acme-confidential-billing"
 // 本 repo のタグは 78 件しかなく長さはほぼ一意なので、長さが出れば名前は指せてしまう。
 // マスクの境界は性質として usage.Records / Field.NamesProject の側に書いてあり、
 // **ここはその一部しか担保しない。ここを埋めたつもりになってはいけない。**
+//
+// 導いたものの側は TestUsage_MaskedLineIsNonInterferingWithProjectNames が差分で見ている
+// （2 つの入力についてバイト同一であること）。**両方合わせても「すべての入力の証明」にはならない。**
 func TestUsage_MaskedLineDoesNotContainProjectNamedArguments(t *testing.T) {
 	dir := seedStore(t, projectNamedArg)
 
@@ -224,6 +227,96 @@ func TestUsage_MaskedLineDoesNotContainProjectNamedArguments(t *testing.T) {
 			t.Errorf("マスクの行で %q が null でない: %v", key, line[key])
 		}
 	}
+}
+
+// usageNonInterferenceHoldOut は「プロジェクトが名付けたものと無関係に、あるいは量そのものとして
+// 実行ごとに変わってよい」と**明示的に宣言した**項目。
+//
+// ⚠️ **ここに無い項目は、2 回の実行でバイト同一でなければならない。**
+// Field.NamesProject の手宣言（項目ごと・18 個）と違い、**新しい項目はここに足さない限り
+// 自動的に検査対象になる**——閉じ方がこちらのほうが強い。
+var usageNonInterferenceHoldOut = map[string]bool{
+	"ts":         true, // 時刻。実行ごとに進む
+	"durationUs": true, // 所要。実行ごとに揺れる
+	// stdoutBytes は「量」そのもの（正本がマスクで残すと決めた項目）で、原則は検査対象である。
+	// レコード id の長さが違えば出力の長さも変わるので、**長さ違いの対でだけ** hold-out する。
+}
+
+// TestUsage_MaskedLineIsNonInterferingWithProjectNames は、マスクの行が
+// **プロジェクトが名付けた入力の関数になっていない**ことを差分で見る。
+//
+// 正本の歯止め 3 の値検査（TestUsage_MaskedLineDoesNotContainProjectNamedArguments /
+// TestLine_MaskedDoesNotContainProjectNamedValues）が捕まえるのは「値がそのまま出ること」だけで、
+// 値から**導いたもの**——長さ・先頭数文字・ダイジェスト——は捕まえない。
+// こちらはプロジェクトが名付けたものだけを変えて 2 回走らせ、行がバイト同一であることを見るので、
+// 導いたものが 1 ビットでも行に漏れれば落ちる。
+//
+// **これは「捕まえられない綴りの列挙」ではなく 1 つの性質である**（CLAUDE.md 2）。
+//
+// ⚠️ **この検査の射程**（CLAUDE.md 6）:
+//   - 言えるのは「**この 2 つの入力について行が同じ**」までで、すべての入力についての証明ではない。
+//   - hold-out（上の 3 つ）に載せた項目は見ていない。
+//   - **マスクの段だけを見る。** 通常・詳細はプロジェクトが名付けたものを載せると決めた段なので、
+//     この性質は成り立たないし、成り立ってはいけない。
+func TestUsage_MaskedLineIsNonInterferingWithProjectNames(t *testing.T) {
+	const (
+		shortID = "req.a"
+		longID  = "req.bbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+		sameA   = "req.aaaaaaaaaaaaaaaa"
+		sameB   = "req.zzzzzzzzzzzzzzzz"
+	)
+	cases := []struct {
+		name       string
+		a, b       string
+		holdStdout bool
+	}{
+		{"同じ長さ・違う中身（値・先頭・ダイジェストの漏れを捕まえる）", sameA, sameB, false},
+		{"違う長さ（長さの漏れを捕まえる）", shortID, longID, true},
+		// レコード id を同じにして、違うのはプロジェクトのパスだけ。
+		// 正本の「マスクでは複数プロジェクトを区別できない」が実装で成立していること。
+		{"プロジェクトのパスだけ違う", sameA, sameA, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			la := maskedLineFor(t, c.a)
+			lb := maskedLineFor(t, c.b)
+			for _, m := range []map[string]any{la, lb} {
+				for k := range usageNonInterferenceHoldOut {
+					delete(m, k)
+				}
+				if c.holdStdout {
+					delete(m, "stdoutBytes")
+				}
+			}
+			ja, err := json.Marshal(la)
+			if err != nil {
+				t.Fatalf("再符号化できない: %v", err)
+			}
+			jb, err := json.Marshal(lb)
+			if err != nil {
+				t.Fatalf("再符号化できない: %v", err)
+			}
+			if string(ja) != string(jb) {
+				t.Errorf(`マスクの行がプロジェクトが名付けたものに依存している（＝導いたものが漏れている）
+  %q の行: %s
+  %q の行: %s`, c.a, ja, c.b, jb)
+			}
+			// 空の行どうしを比べても同一になるので、「残るべきものが残る」も同時に見る。
+			if la["level"] != "masked" || la["command"] != "scholia rules" {
+				t.Errorf("比べた行が空になっている: %s", ja)
+			}
+		})
+	}
+}
+
+// maskedLineFor は、プロジェクトが名付けたレコード 1 件だけを置いた新しい store に対して
+// マスクで 1 回走らせ、その行を返す。**store は呼び出しごとに別の場所に作られる**ので、
+// レコード id とプロジェクトのパスの両方が呼び出しごとに変わる。
+func maskedLineFor(t *testing.T, tagID string) map[string]any {
+	t.Helper()
+	dir := seedStore(t, tagID)
+	_, line := runMeasured(t, usage.Masked, "--dir", dir, "rules", "--tag", tagID)
+	return line
 }
 
 // TestUsage_NormalLineNamesTheRecordAndTheProject は、通常が

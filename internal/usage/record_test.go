@@ -173,6 +173,10 @@ var projectNamedStrings = []string{
 // 本 repo のタグは 78 件しかなく、長さはほぼ一意なので、長さが出れば名前は指せてしまう。
 // だからマスクの境界は性質として「導いたものも書かない」と Records / NamesProject の側に書いてあり、
 // この検査はその一部しか担保しない。**ここを埋めたつもりになってはいけない。**
+//
+// 導いたものの側は cli の TestUsage_MaskedLineIsNonInterferingWithProjectNames が差分で見ている
+// （プロジェクトが名付けたものだけを変えて 2 回走らせ、行がバイト同一であること）。
+// あちらは配線した経路を実際に走らせる検査なので、Line だけを見るこちらでは代われない。
 func TestLine_MaskedDoesNotContainProjectNamedValues(t *testing.T) {
 	obs := fullObservation()
 	obs.RecordIDs = append([]string(nil), projectNamedStrings...)
