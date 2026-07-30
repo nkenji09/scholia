@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -78,8 +79,8 @@ func Record(l Level, obs Observation) {
 // ⚠️ **未設定のときはこれを呼ばない**（既定の振る舞いを 1 文字も変えないため）。
 // 黙ってオフに倒さないのは、「オフだと思っていない人がオフで走り続けるのが一番害が大きい」ため。
 func UnparsableNote(raw string) string {
-	return fmt.Sprintf("注記: %s=%q は解釈できません（%v のいずれか）。計測はオフで実行します。\n",
-		EnvVar, raw, LevelNames())
+	return fmt.Sprintf("注記: %s=%q は解釈できません（%s のいずれか）。計測はオフで実行します。\n",
+		EnvVar, raw, strings.Join(LevelNames(), "|"))
 }
 
 // CountingWriter は下流へ素通ししながら、渡したバイト数と Write に掛かった時間を数える。
