@@ -1,0 +1,10 @@
+{
+  "id": "axis.usage.write-outcome",
+  "name": "計測: 記録の書き込み結果軸（書ける / 書けない）",
+  "kind": "axis",
+  "parentIds": [
+    "req.usage-measurement"
+  ],
+  "description": "組み上がった 1 行を置き場所へ渡した結果を束ねる軸。",
+  "total": true
+}

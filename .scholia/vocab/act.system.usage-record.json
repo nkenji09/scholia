@@ -1,0 +1,7 @@
+{
+  "id": "act.system.usage-record",
+  "category": "action",
+  "label": "計測の 1 行を置き場所へ書く",
+  "kind": "system",
+  "description": "組み立てた計測 1 行を、リポジトリの外の追記専用ファイルへ渡す。"
+}

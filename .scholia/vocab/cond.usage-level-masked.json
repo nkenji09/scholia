@@ -1,0 +1,10 @@
+{
+  "id": "cond.usage-level-masked",
+  "category": "condition",
+  "label": "収集レベルがマスク",
+  "kind": "env",
+  "tags": [
+    "axis.usage.level"
+  ],
+  "description": "環境変数の値がマスクの段の名前として解釈できる。"
+}

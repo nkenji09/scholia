@@ -1,0 +1,17 @@
+{
+  "id": "tx.usage.masked-line",
+  "action": "act.lifecycle.invocation-complete",
+  "given": [
+    "cond.usage-level-masked"
+  ],
+  "then": [
+    "eff.state.usage-line-ready",
+    "eff.state.usage-withhold-record-body",
+    "eff.state.usage-withhold-project-names",
+    "eff.state.usage-withhold-call-shape"
+  ],
+  "tags": [
+    "req.usage-measurement",
+    "subject.cli"
+  ]
+}

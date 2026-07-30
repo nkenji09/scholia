@@ -1,0 +1,15 @@
+{
+  "id": "tx.usage.detailed-line",
+  "action": "act.lifecycle.invocation-complete",
+  "given": [
+    "cond.usage-level-detailed"
+  ],
+  "then": [
+    "eff.state.usage-line-ready",
+    "eff.state.usage-withhold-record-body"
+  ],
+  "tags": [
+    "req.usage-measurement",
+    "subject.cli"
+  ]
+}

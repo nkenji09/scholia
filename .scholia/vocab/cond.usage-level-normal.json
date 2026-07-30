@@ -1,0 +1,10 @@
+{
+  "id": "cond.usage-level-normal",
+  "category": "condition",
+  "label": "収集レベルが通常",
+  "kind": "env",
+  "tags": [
+    "axis.usage.level"
+  ],
+  "description": "環境変数の値が通常の段の名前として解釈できる。"
+}

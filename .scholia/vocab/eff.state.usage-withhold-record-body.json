@@ -1,0 +1,8 @@
+{
+  "id": "eff.state.usage-withhold-record-body",
+  "category": "effect",
+  "label": "記録の中身を行に載せない",
+  "kind": "state",
+  "owner": "subject.cli",
+  "description": "全段に共通して引く線。自由文の引数は値を載せない。中身は .scholia にあり id から引ける。"
+}

@@ -1,0 +1,8 @@
+{
+  "id": "eff.log.usage-unparsable-note",
+  "category": "effect",
+  "label": "解釈できない収集レベルを標準エラーに 1 行注記する",
+  "kind": "log",
+  "owner": "subject.cli",
+  "description": "オフだと思っていない人がオフで走り続けないための注記。変数が未設定のときは出さない。"
+}

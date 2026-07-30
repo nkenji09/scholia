@@ -1,0 +1,8 @@
+{
+  "id": "eff.storage.usage-append-line",
+  "category": "effect",
+  "label": "リポジトリの外の 1 ファイルへ 1 行追記する",
+  "kind": "storage",
+  "owner": "subject.cli",
+  "description": "JSON Lines・追記のみ。真実の源ではなく捨ててよい副産物なので .scholia 配下には置かない。"
+}

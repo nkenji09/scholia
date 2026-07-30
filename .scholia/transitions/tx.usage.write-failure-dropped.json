@@ -1,0 +1,15 @@
+{
+  "id": "tx.usage.write-failure-dropped",
+  "action": "act.system.usage-record",
+  "given": [
+    "cond.usage-line-ready",
+    "cond.usage-log-unwritable"
+  ],
+  "then": [
+    "eff.state.usage-drop-record"
+  ],
+  "tags": [
+    "req.usage-measurement",
+    "subject.cli"
+  ]
+}

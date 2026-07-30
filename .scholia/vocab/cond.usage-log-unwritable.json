@@ -1,0 +1,10 @@
+{
+  "id": "cond.usage-log-unwritable",
+  "category": "condition",
+  "label": "計測ログの置き場所へ書けない",
+  "kind": "env",
+  "tags": [
+    "axis.usage.write-outcome"
+  ],
+  "description": "置き場所を作成・追記できない（権限・別種のファイルが居座る・容量など）。"
+}
