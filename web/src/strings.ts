@@ -87,6 +87,12 @@ const ja = {
     // 役割名を繰り返さない（＝役割名のハードコードを増やさない）。
     ownBehaviorsHeading: '振る舞い',
     behaviorsHint: 'きっかけ → 前提 → 結果',
+    // 多親の構成要素の開示。1枚の仕様シートの中では欄を1回だけ出すので、位置では
+    // 言えない所属を言葉で言う（③B′）。⚠️ **役割の呼び名は config が決める**ので
+    // 引数で受ける（`roleLabel` 経由）。宣言が無いプロジェクトでは呼び名が存在しない
+    // ので、**役割名を含まない**言い回しに落とす（生の kind id を画面に出さない・
+    // 01KYCC2TF3NW3JRSSRK9ZHN078）。
+    alsoBelongsTo: (role: string) => (role ? `この${role}は、次の親にも属する` : 'これは、次の親にも属する'),
     unconditional: '無条件',
     satisfiesReqs: '満たす要件',
     txCount: (n: number) => `${n} 遷移`,
@@ -670,6 +676,7 @@ const en: Strings = {
     behaviorsHeading: 'Behavior by part',
     ownBehaviorsHeading: 'Behavior',
     behaviorsHint: 'trigger → given → result',
+    alsoBelongsTo: (role) => (role ? `This ${role} also belongs under` : 'This also belongs under'),
     unconditional: 'Unconditional',
     satisfiesReqs: 'Satisfies',
     txCount: (n) => `${n} transitions`,

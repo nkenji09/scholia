@@ -16,8 +16,9 @@ import { loadCardSectionOpen, saveCardSectionOpen } from '../../collapseState';
 import { summaryOf } from '../../decisionSummary';
 import { buildCurrencyIndex, effectOf, relatedDecisions, replacedBy } from '../decisions/decisionModel';
 import { formatScopeTarget } from '../decisions/decisionScope';
-import { buildDirectByTag, componentBehaviorTxIds, sheetRuleCount } from './sheetModel';
-import { forwardedOverviewTarget, isStructuralKind, structuralRootIds, treeRowAction } from './treeModel';
+import { buildDirectByTag, buildPartTree, componentBehaviorTxIds, countPartPanels, panelPathTo, sheetRuleCount } from './sheetModel';
+import type { PartNode } from './sheetModel';
+import { forwardedOverviewTarget, isStructuralKind, structuralPlace, structuralRootIds, treeRowAction } from './treeModel';
 import type { TreeRoles } from './treeModel';
 import type { Config, Decision, Tag, TraceabilityResponse } from '../../types';
 
@@ -186,7 +187,7 @@ interface TreeRow {
 export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag, onOpenTx }: Props) {
   const t = useT();
   const lookups = useLookups();
-  const { vocabById, tagById, transitionById, tagName, vocabLabel, tagKindLabel, formatDecisionAt, roleKinds, roleDeclared, componentRoleLabel } = lookups;
+  const { vocabById, tagById, transitionById, tagName, vocabLabel, tagKindLabel, formatDecisionAt, roleKinds, roleDeclared, componentRoleLabel, partRoleLabel } = lookups;
   const { isNarrow, drawerOpen, closeDrawer } = useDrawer();
   // viewer-overview-browser: 概要ビューの役割 → 実 kind id（config.tagKinds の
   // behaviors 宣言で解決済み・無ければリテラル id フォールバック）。以降の
@@ -199,11 +200,30 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
   // 判定は treeModel が持つ——ここで書き下すと、また場所ごとに別の集合を見ることになる。
   const treeRoles: TreeRoles = { group: groupKind, component: componentKind, part: partKind };
 
-  /** part タグの親コンポーネント。無ければ null＝ページ内アンカーにできないので、
-      その part はブラウザの詳細へ送る（コンポーネントでない親を選んでも仕様シートは
-      描けず、行き先の無い URL になるため）。
-      ⚠️ 転送（下）と行の指し先の両方がこれを使うので、**両方より前**に置いてある。 */
-  const componentParentOf = (tag: Tag): string | null => (tag.parentIds || []).find((p) => tagById.get(p)?.kind === componentKind) || null;
+  /** 「そのタグはどこに居るか」——**この面が出す唯一の答え**（`treeModel.structuralPlace`）。
+   *
+   *  ⚠️ **ここを直上の親だけを見る形へ戻さないこと。** 是正前は
+   *  `(tag.parentIds||[]).find(p => kind(p) === component)` で、**入れ子の構成要素では
+   *  null になり**、(1) 行がタグの詳細へ落ちる (2) 共有 URL が転送されず既定の
+   *  シートを黙って出す、の2つが同時に起きていた（実測）。パンくずはこれをまったく
+   *  通らず `parentIds[0]` を素通しで遡っており、同じ画面でツリーと違う答えを出していた。
+   *
+   *  `parentIds` を引数に取るのは、構造ツリーが多親のタグを**親ごとに**描くため
+   *  ——その行が居る経路の親だけを渡すと、**ツリーの位置と行き先が同じ答えになる。**
+   *
+   *  ⚠️ **「記録を上へ辿る問い」だけがここを通る**（行の指し先・共有 URL の転送・パンくず・
+   *  開示の行き先）。**「いま見ているシートの中でどこに居るか」は別の問い**で、そちらは
+   *  シートの欄の木（`buildPartTree` の答え）に聞く——`sheetModel.panelPathTo`。
+   *  ⚠️ **間の段を開けるのにこの関数を使ってはいけない。** 多親では上へ辿った道と、
+   *  いま見ているシートが**別の道を指すことがある**（実測: 別のシートの段を開けてしまい、
+   *  いま見ているシートの寄せ先が DOM に存在しなかった）。 */
+  const placeOf = (parentIds: readonly string[]) =>
+    structuralPlace({
+      parentIds,
+      parentIdsOf: (id) => tagById.get(id)?.parentIds || [],
+      kindOf: (id) => tagById.get(id)?.kind,
+      roles: treeRoles,
+    });
 
   const [config, setConfig] = useState<Config | null>(null);
   const [traceability, setTraceability] = useState<TraceabilityResponse | null>(null);
@@ -315,6 +335,41 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
     return { tags, childrenByParent, ancestorsOf, effByTx, satByTag, directByTag, gapSet, decByTarget, currencyIndex, leafKinds };
   }, [config, traceability, decisions, lookups.ready, tagById, transitionById, vocabById]);
 
+  /** そのコンポーネントのシートに出す構成要素の欄の木（①入れ子 ＋ ③多親は1回だけ）。
+   *
+   *  ⚠️ **ツリーの件数もシートの欄も、ここ1箇所から採る。** 是正前はツリーのコンポーネント
+   *  行が「直下の構成要素の数」、シートのヘッダが「入れ子込みの欄の数」で、入れ子があると
+   *  **同じ画面に2つの数え方が同居していた**（実測: ツリー「ビューア 11」／ヘッダ
+   *  「構成要素 16」）——`01KYHW54B8ZXH0NEPH2J7N1X39` 条項5 にそのまま当たる。 */
+  const sheetPartTree = (componentId: string): PartNode[] => {
+    if (!index) return [];
+    return buildPartTree({
+      componentId,
+      childIdsOf: (id) => (index.childrenByParent.get(id) || []).map((tg) => tg.id),
+      parentIdsOf: (id) => tagById.get(id)?.parentIds || [],
+      isPart: (id) => tagById.get(id)?.kind === partKind,
+      isPlace: (id) => {
+        const k = tagById.get(id)?.kind;
+        return k === partKind || k === componentKind;
+      },
+      // ⚠️ **祖先展開込みの索引（satByTag）を渡さない。** 渡すと親の欄に配下の
+      // 振る舞いが再掲され、同じ遷移が1枚のシートの中で二重に出る（実測30組）。
+      directTxIdsOf: (id) => index.directByTag.get(id) || [],
+    });
+  };
+
+  /** コンポーネント id → そのシートに出る欄の数（入れ子込み）。ツリーの件数がこれを使う。 */
+  const partPanelCounts = useMemo(() => {
+    const out = new Map<string, number>();
+    if (!index) return out;
+    for (const tg of index.tags) {
+      if (tg.kind !== componentKind) continue;
+      out.set(tg.id, countPartPanels(sheetPartTree(tg.id)));
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, componentKind, partKind]);
+
   // 空状態の文言。**利用者がやることが違う**ので2つに分かれる——タグを作ればよいのか、
   // そもそも役割を宣言すればよいのか。
   // ⚠️ **役割の呼び名は必ず lookups が解決したものを使う**（画面に literal で
@@ -350,10 +405,9 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
     ? forwardedOverviewTarget({
         componentId,
         kindOf: (id) => tagById.get(id)?.kind,
-        componentParentOf: (id) => {
-          const tg = tagById.get(id);
-          return tg ? componentParentOf(tg) : null;
-        },
+        // ⚠️ **入れ子でも効く答えを渡す。** 直上の親だけを見る形を渡すと、入れ子の
+        // 構成要素を指す URL が転送されず既定のシートへ黙って落ちる（実測）。
+        componentParentOf: (id) => placeOf(tagById.get(id)?.parentIds || []).componentId,
         roles: treeRoles,
       })
     : null;
@@ -437,12 +491,17 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
   // その答えを href と navigate に写すだけにする——是正前は判断がこの関数の中にあり、
   // **三角を出す条件（要件系を除いた子）と別の集合（全部の子）**を見ていたせいで、
   // 三角も出ずリンクにもならない行が実データで4件できていた。
-  const treeLinkFor = (tag: Tag, structuralChildCount: number): { href: string; navigate: () => void } | null => {
+  //
+  // ⚠️ **`pathParentId` は「その行が居る経路の親」。** 多親のタグは親ごとに行が出るので、
+  // ここに `tag.parentIds` ぜんぶを渡すと**どの行も同じ1つの行き先**になり、
+  // 「フロー解析器の下に出ている行を押すとビューアのシートへ飛ぶ」という食い違いが
+  // 復活する（実測でそうなっていた）。
+  const treeLinkFor = (tag: Tag, structuralChildCount: number, pathParentId: string | null): { href: string; navigate: () => void } | null => {
     if (!index) return null;
     const action = treeRowAction({
       tag,
       structuralChildCount,
-      componentParentId: componentParentOf(tag),
+      componentParentId: placeOf(pathParentId ? [pathParentId] : tag.parentIds || []).componentId,
       roles: treeRoles,
     });
     switch (action.kind) {
@@ -463,10 +522,26 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
   // URL がアンカーする構成要素は開いて見せる。保存はしない（利用者の操作ではないので
   // 永続値を書き換えない）——保存済みの「閉じ」があるときにマウント時点でそれを
   // 上書きしないのは 01KXDFD2SRHJJ0E551V240JMKT(2) が守っている当のもの。
+  //
+  // ⚠️ **入れ子の構成要素では、間の段もぜんぶ開ける必要がある。** 目当ての欄だけを
+  // 開いても、それが畳まれた親の欄の中にあるかぎり**要素そのものが存在しない**
+  // ——URL は正しく転送されるのに寄る先が無く、「転送はされるが寄らない」になる
+  // （C3 と同じ症状が入れ子で復活する）。
+  //
+  // ⚠️⚠️ **間の段は「いま見ているシートの欄の木」から採る**（`sheetModel.panelPathTo`）。
+  // 是正前はここが `placeOf(...).ancestorIds`——**記録を上へ辿った道**だった。多親では
+  // その道といま見ているシートが別の道を指すことがあり、**別のシートの段を開けて、
+  // いま見ているシートの段は畳まれたまま**になっていた（実測: corpus の
+  // `#/overview/comp.export/part/part.shared.index` で寄せ先が DOM に存在しなかった）。
+  // こうすると **行の行き先・欄の組み立て・間の段の3つが同じ答え**になる。
   useEffect(() => {
-    if (partId) sections.forceOpen(partId, SEC_PART);
+    if (!partId || !sel) return;
+    const path = panelPathTo(sheetPartTree(sel), partId);
+    if (!path) return; // このシートにその欄は無い（転送側が別のシートへ送る）
+    for (const a of path) sections.forceOpen(a, SEC_PART);
+    sections.forceOpen(partId, SEC_PART);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [partId]);
+  }, [partId, sel, index]);
 
   // アンカーされた構成要素の位置まで寄せる。
   //
@@ -488,14 +563,20 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
   // が本体スクロール復元で受けているのと同型の罠なので、対処も同型にする——本体側
   // （scrollRestore.ts の reinforce）と同じく、伸びたあとに一度だけ寄せ直す。新経路のために
   // 別機構を作らない。
+  //
+  // ⚠️ **寄せ先が「まだ無い」ときに諦めてはいけない。** 入れ子の構成要素では、間の段が
+  // 畳まれているあいだ**要素そのものが存在しない**。直前の effect が間の段を開けるが、
+  // それが DOM に出るのは次の描画なので、この effect の1回目では `find()` が null を返す。
+  // そこで早期に return すると**再寄せの予約もしないまま終わる**——依存（partId/sel/
+  // index/anchorRequest）はどれも変わらないので、この effect は二度と走らない。
+  // 実機で確認した症状: 入れ子を指す URL は正しく転送され、間の段も開くのに、**1度も寄らない。**
+  // だから「見つかったら寄せる」と「一拍あとにもう一度探して寄せる」を**別々に**行う。
   useEffect(() => {
     if (!partId) return;
     const root = mainRef.current;
     if (!root) return;
     const find = () => root.querySelector<HTMLElement>(`[data-part="${cssEscape(partId)}"]`);
-    const el = find();
-    if (!el) return;
-    el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    find()?.scrollIntoView({ block: 'start', behavior: 'smooth' });
     // rAF ではなく setTimeout なのも本体側と同じ理由（タブが背面でも動かすため）。
     const reinforce = setTimeout(() => find()?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 120);
     return () => clearTimeout(reinforce);
@@ -505,11 +586,14 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
   // ---- 構造ツリー行（treeVals 相当） ----
   const treeRows: TreeRow[] = [];
   if (index) {
-    const seen = new Set<string>();
-    const walk = (id: string, depth: number) => {
+    // ⚠️ **多親のタグは、属するすべての親の下に出す。** 是正前は `seen` を木ぜんぶで
+    // 共有していたので「走査順で先に降りた親の下に1回だけ」出ており、**シートの側は
+    // 別の親を選ぶ**ことがあった（実測: ツリーはフロー解析器の下、シートはビューア）。
+    // 端末側（`scholia tag list --tree`）は既にすべての親の下に繰り返し出しており、
+    // 画面をそこへ揃える。循環だけは経路ごとの `path` で止める（木ぜんぶでは止めない）。
+    const walk = (id: string, depth: number, path: readonly string[]) => {
       const tag = tagById.get(id);
-      if (!tag || seen.has(id)) return;
-      seen.add(id);
+      if (!tag || path.includes(id)) return;
       const kids = index.childrenByParent.get(id) || [];
       // 木は**役割（group/component/part）を担う種類だけ**で組む（正本
       // 01KYCC2TDC6PGKPVV6DY90BHR4「構造ツリー（… の group>component>part）」）。
@@ -523,15 +607,24 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
       const open = !!treeOpen[id];
       const isSel = tag.kind === componentKind && sel === id;
       // ⚠️ 三角を出す条件（hasKids）と、行の指し先を決める材料は**同じ集合**から採る。
-      const link = treeLinkFor(tag, structuralChildren.length);
+      const link = treeLinkFor(tag, structuralChildren.length, path.length ? path[path.length - 1] : null);
+      // ⚠️ **構成要素の件数は「直接付いた分」で数える。** 是正前は `satByTag`（祖先展開込み）
+      // だったので、欄の側を直接分に変えると**同じ画面の中に2つの数え方が同居する**
+      // （実測: ツリー11 / 欄4）——`01KYHW54B8ZXH0NEPH2J7N1X39` 条項5 にそのまま当たる。
+      // ⚠️ **コンポーネント行の件数は、そのシートのヘッダの「構成要素 N」と同じ数え方**
+      // （入れ子込みの欄の数・`partPanelCounts` はヘッダと同じ関数から採っている）。
+      // 是正前は「直下の構成要素の数」で、入れ子があると**同じ画面に2つの数え方が
+      // 同居していた**（実測: ツリー「ビューア 11」／ヘッダ「構成要素 16」）。
       const count =
         tag.kind === componentKind
-          ? kids.filter((c) => c.kind === partKind).length
+          ? (partPanelCounts.get(id) ?? 0)
           : isPart
-            ? (index.satByTag.get(id) || []).length
+            ? (index.directByTag.get(id) || []).length
             : structuralChildren.length;
       treeRows.push({
-        key: id,
+        // ⚠️ **多親のタグは同じ id の行が複数出る**ので、鍵は**経路**で作る
+        // （id を鍵にすると preact が同じ行として畳んでしまう）。
+        key: [...path, id].join('>'),
         tagId: id,
         depth,
         name: tag.name || id,
@@ -546,7 +639,8 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
         onClick: link ? link.navigate : () => toggleNode(id),
       });
       if (!open) return;
-      for (const cid of structuralChildren) walk(cid, depth + 1);
+      const nextPath = [...path, id];
+      for (const cid of structuralChildren) walk(cid, depth + 1, nextPath);
     };
     // 起点。design は config.roots を、未設定なら親を持たないタグをフォールバックに使う。
     // ⚠️ **どちらの経路にも、子と同じ資格判定を効かせる**（treeModel.structuralRootIds）。
@@ -558,7 +652,7 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
       kindOf: (id) => tagById.get(id)?.kind,
       roles: treeRoles,
     });
-    for (const r of rootIds) walk(r, 0);
+    for (const r of rootIds) walk(r, 0, []);
   }
 
   // ---- コンポーネント仕様シート（sheetVals 相当） ----
@@ -567,19 +661,15 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
     if (!index || !selTag || selTag.kind !== componentKind) return null;
     const c = selTag;
 
-    const crumbs: Tag[] = [];
-    {
-      let up = (c.parentIds || [])[0];
-      const guard = new Set<string>();
-      while (up && tagById.get(up) && !guard.has(up)) {
-        guard.add(up);
-        crumbs.unshift(tagById.get(up)!);
-        up = (tagById.get(up)!.parentIds || [])[0];
-      }
-    }
+    // パンくず＝このコンポーネントの構造上の祖先。
+    // ⚠️ **是正前はここが `parentIds[0]` を素通しで遡っていた**ので、ツリーが役割で
+    // 除いたタグがパンくずに出ていた（実測: 同じ画面でツリーが「記録を作り、保つ ＞ lint」、
+    // パンくずが「補助機能 ＞ 要件トレーサビリティ」）。**同じ問いには同じ答えを使う。**
+    const crumbs: Tag[] = placeOf(c.parentIds || [])
+      .ancestorIds.map((id) => tagById.get(id))
+      .filter((tg): tg is Tag => !!tg);
 
     const childTags = index.childrenByParent.get(c.id) || [];
-    const parts = childTags.filter((tg) => tg.kind === partKind);
     const propsList = childTags.filter((tg) => isConstraintTag(tg, constraintKind));
 
     const cmpTxIds = new Set(index.satByTag.get(c.id) || []);
@@ -655,11 +745,50 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
         })
         .filter((b): b is NonNullable<typeof b> => b !== null);
 
-    // part ごとの振る舞いと、各 part を target とする decision（規則）。
-    const partBlocks = parts.map((p) => {
-      const txIds = index.satByTag.get(p.id) || [];
-      return { id: p.id, name: p.name || p.id, txCount: txIds.length, behaviors: behaviorsOf(txIds), rules: rulesFor(p.id) };
+    // 構成要素の欄を、記録の親子どおりに入れ子で組む（①）。多親はシートごとに1回だけ（③B′）。
+    // ⚠️ **判断は `sheetModel.buildPartTree` が持つ**——ここに書き下すと、入力に対する
+    // 答えとして検査できなくなる（`CLAUDE.md` 1）。
+    // ⚠️ **ツリーの件数・間の段を開ける処理と、同じ `sheetPartTree` を通る。**
+    // ここで別の組み立てを書くと、同じシートについて2つの答えができる。
+    const partTree = sheetPartTree(c.id);
+
+    /** 「もう一方の親」の欄を指す先。別のコンポーネントに属する親なら、そちらの
+        シートの当該箇所を指す（`structuralPlace` の答えをそのまま使う——ここで
+        別の遡り方を書くと、また同じ問いに2つの答えができる）。 */
+    const placeHrefOf = (id: string): string | null => {
+      const tg = tagById.get(id);
+      if (!tg) return null;
+      if (tg.kind === componentKind) return routeHash({ view: 'overview', componentId: id });
+      const owner = placeOf(tg.parentIds || []).componentId;
+      return owner ? routeHash({ view: 'overview', componentId: owner, partId: id }) : null;
+    };
+
+    // 欄1つ分（見出し・直接分の振る舞い・自身の規則・開示・配下の欄）。
+    type PartBlock = {
+      id: string;
+      name: string;
+      txCount: number;
+      behaviors: ReturnType<typeof behaviorsOf>;
+      rules: RuleEntry[];
+      /** 位置で言えない「もう一方の親」（③B′ の開示）。 */
+      alsoUnder: Array<{ id: string; name: string; href: string | null }>;
+      children: PartBlock[];
+    };
+    const toBlock = (node: PartNode): PartBlock => ({
+      id: node.id,
+      name: tagById.get(node.id)?.name || node.id,
+      // ⚠️ 畳んだ見出しに出す数も**直接分**（ツリーの件数と同じ数え方に揃える）。
+      txCount: node.txIds.length,
+      behaviors: behaviorsOf(node.txIds),
+      rules: rulesFor(node.id),
+      alsoUnder: node.otherParentIds.map((pid) => ({
+        id: pid,
+        name: tagById.get(pid)?.name || pid,
+        href: placeHrefOf(pid),
+      })),
+      children: node.children.map(toBlock),
     });
+    const partBlocks = partTree.map(toBlock);
 
     // 構成要素を持たないコンポーネントの、直下の遷移＝そのコンポーネント自身の
     // 振る舞い。これが無いと、遷移をコンポーネントに直接付けているプロジェクトでは
@@ -668,7 +797,7 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
     // 01KYHW4NBNVN9BFXYZMBX8MPF8 が廃止したのは規則の混成リストであって、
     // 振る舞いのカードではない——同 decision は「構成要素・振る舞い・制約の3文脈
     // では効いている（カードが文脈そのものなので宛先が自明）」と明記している。
-    const ownBehaviors = behaviorsOf(componentBehaviorTxIds({ partCount: parts.length, directTxIds: index.directByTag.get(c.id) || [] }));
+    const ownBehaviors = behaviorsOf(componentBehaviorTxIds({ partCount: partBlocks.length, directTxIds: index.directByTag.get(c.id) || [] }));
 
     // 「〜しない」制約（property 子タグ）＋ 各制約を target とする decision。
     const propBlocks = propsList.map((p) => ({
@@ -702,7 +831,9 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
       covSat,
       covTotal,
       covPct,
-      partCount: parts.length,
+      // ⚠️ **シートに実際に出る欄の数**（入れ子を含む）。直下の子の数で数えると、
+      // 「構成要素 N」が入れ子の欄を数えず、見出しの数と読める数が食い違う（同 条項5）。
+      partCount: countPartPanels(partTree),
       ruleCount,
       gapReqs,
     };
@@ -943,6 +1074,71 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
     </div>
   );
 
+  // 構成要素の欄1つ。**入れ子の欄も同じこの関数が描く**——2つ目の描き方を作らない
+  // （同じものが場所によって違う見え方になると、どちらが正かが画面から読めなくなる）。
+  //
+  // ⚠️ **入れ子のために独自の開閉機構を作らない。** 開閉も保存も直下の欄と同じ
+  // `sections`（保存値 > 初期既定・初期は畳む）を通る
+  // （01KYNYQABMTXQ3CFFHCMTKEATB / 01KYCC2TK3BEDA43TA61TPT4R5 / 01KXDFD2SRHJJ0E551V240JMKT 条項3）。
+  // ⚠️ **`data-part` は入れ子の欄にも付ける。** これが寄せ先で、無いと入れ子を指す
+  // 共有 URL が「転送はされるが寄らない」状態になる。
+  type PartBlock = NonNullable<typeof sheet>['partBlocks'][number];
+  const renderPart = (p: PartBlock, depth: number) => {
+    // ④: part 見出しは「ピル」でなく「見出し」。kind 色はドットのアクセントに
+    // 留め、タイポは見出し。ヘッダクリックで開閉（chevron 付き）・初期は畳む。
+    const partOpen = sections.isOpen(p.id, SEC_PART, false);
+    return (
+      <div key={p.id} class={'overview-part' + (depth > 0 ? ' overview-part-nested' : '')} data-part={p.id}>
+        <button type="button" class="overview-part-head" onClick={() => sections.toggle(p.id, SEC_PART, false)} aria-expanded={partOpen}>
+          <Icon name={partOpen ? 'chevron-down' : 'chevron-right'} size={15} class="overview-part-chevron" />
+          <span class="overview-part-dot" style={{ '--kc': 'var(--k-prt)' } as JSX.CSSProperties} />
+          <span class="overview-part-title">{p.name}</span>
+          <span class="overview-part-spacer" />
+          <span class="overview-part-count">{t.overview.txCount(p.txCount)}</span>
+        </button>
+        {partOpen && (
+          <div class="overview-part-body">
+            {/* ③B′ の開示: この構成要素が属する**もう一方の親**。1枚のシートの中では
+                欄を1回だけ出すので、位置で言えない所属を**言葉で**言う。
+                ⚠️ **別レコードへ移動する行なので本物の `<a href>` で描く**
+                （01KXFK3Q1NY9J8Q7FX14T31N7K）。⚠️ **役割の呼び名は設定が決める**
+                （01KYCC2THS5RX3HB27SQGFWSA5 / 01KYCC2TF3NW3JRSSRK9ZHN078）ので
+                literal で書かず、宣言が無いときは呼び名を含まない言い回しに落ちる。 */}
+            {p.alsoUnder.length > 0 && (
+              <div class="overview-part-also">
+                <Icon name="arrow-up-right" size={12} class="overview-part-also-icon" />
+                <span class="overview-part-also-text">{t.overview.alsoBelongsTo(partRoleLabel)}</span>
+                {p.alsoUnder.map((o) =>
+                  o.href ? (
+                    <HashLink
+                      key={o.id}
+                      href={o.href}
+                      onNavigate={() => {
+                        window.location.hash = o.href!;
+                      }}
+                      class="overview-part-also-link"
+                    >
+                      {o.name}
+                    </HashLink>
+                  ) : (
+                    <span key={o.id} class="overview-part-also-name">
+                      {o.name}
+                    </span>
+                  ),
+                )}
+              </div>
+            )}
+            {/* ⑤: この part を target とする規則 */}
+            {renderRules('part:' + p.id, p.rules, t.overview.rulesToggle, formatScopeTarget({ type: 'tag', id: p.id }))}
+            {p.behaviors.map(renderBehavior)}
+            {/* 配下の構成要素の欄（①）。段の深さに上限を置かない。 */}
+            {p.children.map((k) => renderPart(k, depth + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div class="overview-view">
       {isNarrow && drawerOpen && <div class="overview-backdrop" onClick={closeDrawer} />}
@@ -1107,29 +1303,7 @@ export function OverviewView({ componentId, partId, onSelectComponent, onOpenTag
                   <span class="overview-section-hint">{t.overview.behaviorsHint}</span>
                   <CommentButton recordType="tag" recordId={sheet.c.id} recordTitle={sheet.c.name || sheet.c.id} anchor="behaviors" anchorLabel={t.overview.behaviorsHeading} />
                 </div>
-                {sheet.partBlocks.map((p) => {
-                  // ④: part 見出しは「ピル」でなく「見出し」。kind 色はドットのアクセントに
-                  // 留め、タイポは見出し。ヘッダクリックで開閉（chevron 付き）・初期は畳む。
-                  const partOpen = sections.isOpen(p.id, SEC_PART, false);
-                  return (
-                  <div key={p.id} class="overview-part" data-part={p.id}>
-                    <button type="button" class="overview-part-head" onClick={() => sections.toggle(p.id, SEC_PART, false)} aria-expanded={partOpen}>
-                      <Icon name={partOpen ? 'chevron-down' : 'chevron-right'} size={15} class="overview-part-chevron" />
-                      <span class="overview-part-dot" style={{ '--kc': 'var(--k-prt)' } as JSX.CSSProperties} />
-                      <span class="overview-part-title">{p.name}</span>
-                      <span class="overview-part-spacer" />
-                      <span class="overview-part-count">{t.overview.txCount(p.txCount)}</span>
-                    </button>
-                    {partOpen && (
-                    <div class="overview-part-body">
-                    {/* ⑤: この part を target とする規則 */}
-                    {renderRules('part:' + p.id, p.rules, t.overview.rulesToggle, formatScopeTarget({ type: 'tag', id: p.id }))}
-                    {p.behaviors.map(renderBehavior)}
-                    </div>
-                    )}
-                  </div>
-                  );
-                })}
+                {sheet.partBlocks.map((p) => renderPart(p, 0))}
               </section>
             )}
 

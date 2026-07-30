@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { forwardedOverviewTarget, isStructuralKind, structuralRootIds, treeRowAction } from './treeModel';
+import { forwardedOverviewTarget, isStructuralKind, structuralPlace, structuralRootIds, treeRowAction } from './treeModel';
 import type { TreeRoles } from './treeModel';
 
 // ===========================================================================
@@ -28,11 +28,15 @@ import type { TreeRoles } from './treeModel';
 //      描画を起こして見る**。片方だけ当てて「red を実見した」と書かないこと。
 //   2. **行き先の正しさ。** 「タグの詳細へ送る」と決めたことは見るが、その URL を
 //      組み立てる `routeHash` の綴りは見ていない。
-//   3. **構成要素の入れ子。** 構成要素の下の構成要素は本実装の範囲外で、
-//      いまは「親コンポーネントが見つからない」として詳細へ落ちる。**その落ち方が
-//      正しいと主張しているのではなく、範囲外だと名乗っている**（別単位で扱う）。
+//   3. **多親のとき、記録の順で後に来る親の道。** `structuralPlace` は選んだ1本の道
+//      しか辿らない（下の describe が値でその射程を固定している）。「別の親の道を
+//      辿れば見つかったのに null を返した」形は**欠陥ではなく決めた規則**である。
 //   4. **要件タグをツリーに出すかどうかの根拠**そのもの。ここが見ているのは
 //      「役割3つだけを通す」という形であって、正本がそう定めていることは見ていない。
+//   5. **多親のタグが本当に親ごとに描かれるか。** ここは「経路の親を1つ渡せば
+//      その経路の答えが出る」ことしか見ていない。**呼び出し側が `tag.parentIds` を
+//      まるごと渡して全部の行を同じ行き先にする**形は、`renderWiring.test.tsx` が
+//      描画を起こして落とす。
 
 /** この repo の実データと同じ形——役割 component を `subject` が担い、
     part / group は別 id、慣用 id（`component` 等）はどこにも無い世界。 */
@@ -106,6 +110,168 @@ describe('起点と子は、同じ資格判定を通る', () => {
   });
 });
 
+// ===========================================================================
+// 「そのタグはどこに居るか」——4箇所が通る唯一の答え
+// ===========================================================================
+//
+// ## この describe が落とすもの（射程・`CLAUDE.md` 6）
+//
+//   ・**直上の親だけを見る形へ戻す。** 構成要素が何段挟まっていても、上へ辿って
+//     最初に見つかるコンポーネントが答えになることを見る。
+//   ・**役割の資格判定を通さない形へ戻す**（`parentIds[0]` の素通し）。役割を持たない
+//     親を混ぜた入力で、パンくずの並びが変わることを見る。
+//   ・**多親の答えを走査順に委ねる。** 記録の親の順を入れ替えると答えが変わることを見る。
+//   ・**祖先の並びを深い順で返す**（パンくずが逆さになる形）。
+//
+// ## この describe が落とさないもの（名指しする）
+//
+//   ・**配線。** この答えを呼ばない／呼んで捨てる／痩せた材料を渡す形は1件も落ちない。
+describe('「そのタグはどこに居るか」の答えは1つ', () => {
+  // 実データと同じ形——役割を持たない親（要件）が混ざり、構成要素が入れ子になっている。
+  const TAGS: Record<string, { kind: string; parentIds?: string[] }> = {
+    'grp.entry': { kind: 'grp' },
+    'req.trace': { kind: 'requirement' },
+    'subject.viewer': { kind: 'subject', parentIds: ['grp.entry'] },
+    'piece.vocab': { kind: 'piece', parentIds: ['subject.viewer'] },
+    // コンポーネントの下のコンポーネントと、その構成要素（「いちばん近い」を見る材料）。
+    'subject.viewer.inner': { kind: 'subject', parentIds: ['subject.viewer'] },
+    'piece.inner': { kind: 'piece', parentIds: ['subject.viewer.inner'] },
+    'piece.vocab.list': { kind: 'piece', parentIds: ['piece.vocab'] },
+    'piece.vocab.list.filter': { kind: 'piece', parentIds: ['piece.vocab.list'] },
+    // 役割を持たない親が `parentIds[0]` に居る形（実測で作れた・lint は通る）。
+    'subject.lint': { kind: 'subject', parentIds: ['req.trace', 'grp.entry'] },
+    // 多親（親が別々のコンポーネント）。
+    'subject.flow': { kind: 'subject', parentIds: ['grp.entry'] },
+    'piece.shared': { kind: 'piece', parentIds: ['subject.viewer', 'subject.flow'] },
+    // 親を1つも持たない構成要素。
+    'piece.orphan': { kind: 'piece' },
+  };
+  const place = (id: string, parentIds?: readonly string[]) =>
+    structuralPlace({
+      parentIds: parentIds ?? TAGS[id]?.parentIds ?? [],
+      parentIdsOf: (x) => TAGS[x]?.parentIds || [],
+      kindOf: (x) => TAGS[x]?.kind,
+      roles: ROLES,
+    });
+
+  it('入れ子の構成要素でも、上へ辿って最初のコンポーネントが答えになる', () => {
+    // ⚠️ **直上の親だけを見る形は、この3件すべてで null を返す**（＝行がタグの詳細へ
+    // 落ち、共有 URL が転送されない）。段の数を変えても答えが変わらないことを見る。
+    expect(place('piece.vocab').componentId).toBe('subject.viewer');
+    expect(place('piece.vocab.list').componentId).toBe('subject.viewer');
+    expect(place('piece.vocab.list.filter').componentId).toBe('subject.viewer');
+  });
+
+  it('答えは「いちばん近いコンポーネント」（外側のコンポーネントを返さない）', () => {
+    // ⚠️ **この1件が無いと、「最初に見つかったコンポーネント」を返す変異が素通りする**
+    // （実見）——上にコンポーネントが1つしか無い入力では、どちらでも同じ答えになる。
+    expect(place('piece.inner').componentId).toBe('subject.viewer.inner');
+    expect(place('piece.inner').ancestorIds).toEqual(['grp.entry', 'subject.viewer', 'subject.viewer.inner']);
+  });
+
+  it('祖先の並びは浅い順で、役割を持たない親は通さない', () => {
+    // ⚠️ **これがパンくずの是正そのもの。** 素通しで遡る実装は `req.trace` を返し、
+    // 同じ画面でツリーと違う答えを出す（実測: ツリー「記録を作り、保つ ＞ lint」、
+    // パンくず「補助機能 ＞ 要件トレーサビリティ」）。
+    expect(place('subject.lint').ancestorIds).toEqual(['grp.entry']);
+    // 浅い順であること（深い順で返すとパンくずが逆さになる）。
+    expect(place('piece.vocab.list.filter').ancestorIds).toEqual(['grp.entry', 'subject.viewer', 'piece.vocab', 'piece.vocab.list']);
+  });
+
+  it('経路の親を1つ渡せば、その経路の答えが出る（ツリーの位置と行き先を揃えるため）', () => {
+    // ⚠️ **多親のタグは親ごとに行が出る。** その行の行き先は「その行が居る経路」の
+    // 答えでなければならない——是正前はツリーの位置が走査順、行き先が `parentIds` の順で、
+    // 「フロー解析器の下に出ている行を押すとビューアのシートへ飛ぶ」になっていた（実測）。
+    expect(place('piece.shared', ['subject.flow']).componentId).toBe('subject.flow');
+    expect(place('piece.shared', ['subject.viewer']).componentId).toBe('subject.viewer');
+  });
+
+  it('親を絞らないときは、記録に書かれた親の順に従う（走査順に依らない）', () => {
+    expect(place('piece.shared').componentId).toBe('subject.viewer');
+    // 記録の順を入れ替えれば答えも変わる。**走査順で決める実装はこの対で落ちる。**
+    expect(place('piece.shared', ['subject.flow', 'subject.viewer']).componentId).toBe('subject.flow');
+  });
+
+  it('どの親の道にもコンポーネントが無ければ null', () => {
+    expect(place('piece.orphan').componentId).toBeNull();
+    expect(place('piece.orphan').ancestorIds).toEqual([]);
+  });
+
+  it('選んだ道に無ければ、他の親の道も辿る（黙って別のシートを出さないため）', () => {
+    // ⚠️ **是正前はここで諦めて null を返していた。** そのせいで、その構成要素の欄が
+    // 別のシートに実在するのに**共有 URL が転送されず、既定のコンポーネントのシートを
+    // 黙って出していた**（実測）——`01KYPFJV04R347HWHQKQ2TW275` が「一番悪い」と
+    // 名指しした状態そのもの。
+    const TWO: Record<string, { kind: string; parentIds?: string[] }> = {
+      ...TAGS,
+      'piece.lonely': { kind: 'piece' }, // 行き止まり（上にコンポーネントが居ない）
+      'piece.two': { kind: 'piece', parentIds: ['piece.lonely', 'subject.viewer'] },
+    };
+    const two = structuralPlace({
+      parentIds: TWO['piece.two'].parentIds!,
+      parentIdsOf: (x) => TWO[x]?.parentIds || [],
+      kindOf: (x) => TWO[x]?.kind,
+      roles: ROLES,
+    });
+    expect(two.componentId, '他の親の道を辿っていない').toBe('subject.viewer');
+    // ⚠️ **祖先の並びは、記録の順で先に来た道のまま**（コンポーネントとは別の道を指す）。
+    // だからこの並びを「そのシートの中の間の段」として使ってはいけない。
+    expect(two.ancestorIds).toEqual(['piece.lonely']);
+  });
+
+  it('他の道を辿るときも、答えを決めるのは記録の親の順（走査順に依らない）', () => {
+    // 2つの行き先候補があるとき、記録の順で先に来た道の答えを採る。順を入れ替えると変わる。
+    const T: Record<string, { kind: string; parentIds?: string[] }> = {
+      'grp.a': { kind: 'grp' },
+      'subject.x': { kind: 'subject', parentIds: ['grp.a'] },
+      'subject.y': { kind: 'subject', parentIds: ['grp.a'] },
+      'piece.viaX': { kind: 'piece', parentIds: ['subject.x'] },
+      'piece.viaY': { kind: 'piece', parentIds: ['subject.y'] },
+      'piece.dead': { kind: 'piece' },
+    };
+    const call = (parents: string[]) =>
+      structuralPlace({ parentIds: parents, parentIdsOf: (x) => T[x]?.parentIds || [], kindOf: (x) => T[x]?.kind, roles: ROLES }).componentId;
+    // どちらも「先頭が行き止まり」なので他の道へ落ちる。落ちた先は記録の順で決まる。
+    expect(call(['piece.dead', 'piece.viaX', 'piece.viaY'])).toBe('subject.x');
+    expect(call(['piece.dead', 'piece.viaY', 'piece.viaX'])).toBe('subject.y');
+  });
+
+  it('循環しても止まる', () => {
+    const CYCLE: Record<string, { kind: string; parentIds?: string[] }> = {
+      a: { kind: 'piece', parentIds: ['b'] },
+      b: { kind: 'piece', parentIds: ['a'] },
+    };
+    const p = structuralPlace({
+      parentIds: ['b'],
+      parentIdsOf: (x) => CYCLE[x]?.parentIds || [],
+      kindOf: (x) => CYCLE[x]?.kind,
+      roles: ROLES,
+    });
+    expect(p.ancestorIds).toEqual(['a', 'b']);
+    expect(p.componentId).toBeNull();
+  });
+
+  it('役割 id をリテラルに固定していない（慣用 id が1つも無い世界でも同じ答え）', () => {
+    // ROLES の世界に `component` という id は無い。リテラルで判定していると
+    // `subject.viewer` を見つけられず null になる。
+    expect(place('piece.vocab.list').componentId).toBe('subject.viewer');
+    const LITERAL: Record<string, { kind: string; parentIds?: string[] }> = {
+      'grp.entry': { kind: 'group' },
+      'comp.v': { kind: 'component', parentIds: ['grp.entry'] },
+      'part.a': { kind: 'part', parentIds: ['comp.v'] },
+      'part.b': { kind: 'part', parentIds: ['part.a'] },
+    };
+    const p = structuralPlace({
+      parentIds: ['part.a'],
+      parentIdsOf: (x) => LITERAL[x]?.parentIds || [],
+      kindOf: (x) => LITERAL[x]?.kind,
+      roles: LITERAL_ROLES,
+    });
+    expect(p.componentId).toBe('comp.v');
+    expect(p.ancestorIds).toEqual(['grp.entry', 'comp.v', 'part.a']);
+  });
+});
+
 describe('行を押したときの答えは4通りで、「何も起きない」は無い', () => {
   const call = (tag: { id: string; kind?: string }, structuralChildCount: number, componentParentId: string | null = null) =>
     treeRowAction({ tag, structuralChildCount, componentParentId, roles: ROLES });
@@ -124,8 +290,20 @@ describe('行を押したときの答えは4通りで、「何も起きない」
     });
   });
 
-  it('親コンポーネントが見つからない構成要素は、詳細へ送る（無反応にしない）', () => {
-    // ⚠️ これは「入れ子を正しく扱っている」ではなく「範囲外を無反応にしない」という主張。
+  it('入れ子の構成要素も、親コンポーネントのシートの該当箇所へ寄る', () => {
+    // ⚠️ 呼び出し側が `structuralPlace` の答え（上へ辿って最初のコンポーネント）を
+    // 渡す限り、段が何段挟まっていても答えは同じ形になる。是正前はここが null になり、
+    // **行がタグの詳細へ落ちて概要から抜けていた**。
+    expect(call({ id: 'piece.vocab.list.filter', kind: 'piece' }, 2, 'subject.viewer')).toEqual({
+      kind: 'part',
+      componentId: 'subject.viewer',
+      partId: 'piece.vocab.list.filter',
+    });
+  });
+
+  it('コンポーネントに行き着かない構成要素は、詳細へ送る（無反応にしない）', () => {
+    // 記録側の穴（どの道にもコンポーネントが居ない）でも、行を押して何も起きない
+    // 状態にはしない。
     expect(call({ id: 'piece.orphan', kind: 'piece' }, 0, null)).toEqual({ kind: 'detail', tagId: 'piece.orphan' });
   });
 
@@ -193,5 +371,30 @@ describe('構成要素へ移したタグを指す共有 URL は、転送で生�
     PARENT['subject.viewer.tags'] = null;
     expect(call('subject.viewer.tags')).toBeNull();
     PARENT['subject.viewer.tags'] = 'subject.viewer';
+  });
+
+  it('入れ子の構成要素を指す URL も転送される（`structuralPlace` と噛み合わせる）', () => {
+    // ⚠️ **転送の材料に「直上の親だけを見る答え」を渡すと、入れ子では null になり
+    // 転送されない**——`#/overview/<入れ子の id>` が既定のコンポーネントのシートを
+    // 黙って出す（実測）。ここでは2つの純関数を噛み合わせて、その組で答えが出ることを見る。
+    const NEST: Record<string, { kind: string; parentIds?: string[] }> = {
+      'grp.entry': { kind: 'grp' },
+      'subject.viewer': { kind: 'subject', parentIds: ['grp.entry'] },
+      'piece.vocab': { kind: 'piece', parentIds: ['subject.viewer'] },
+      'piece.deep': { kind: 'piece', parentIds: ['piece.vocab'] },
+    };
+    const forwarded = forwardedOverviewTarget({
+      componentId: 'piece.deep',
+      kindOf: (id) => NEST[id]?.kind,
+      componentParentOf: (id) =>
+        structuralPlace({
+          parentIds: NEST[id]?.parentIds || [],
+          parentIdsOf: (x) => NEST[x]?.parentIds || [],
+          kindOf: (x) => NEST[x]?.kind,
+          roles: ROLES,
+        }).componentId,
+      roles: ROLES,
+    });
+    expect(forwarded).toEqual({ componentId: 'subject.viewer', partId: 'piece.deep' });
   });
 });
