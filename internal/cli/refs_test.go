@@ -179,6 +179,182 @@ func TestCLI_RefsRewriteApplyExitsZeroOnDeliberateSkips(t *testing.T) {
 	}
 }
 
+// refsApplyFaces is every command that can rewrite source references — i.e.
+// every caller that passes `applied` to refsFailedErr. Adding a sixth such
+// command means adding a row here, and the test below then holds it to the same
+// rule; wiring one face to a wrong `applied` value fails that face's row.
+//
+// Enumerating the faces is not the same shape as enumerating loopholes: the
+// faces are a closed set the compiler already forces to declare `applied`
+// (grep refsFailedErr), and the rule under test is one property applied to all
+// of them, not a list of things that might go wrong.
+var refsApplyFaces = []struct {
+	name string
+	// setup builds a fresh store whose records contain oldID, and returns its dir.
+	setup      func(t *testing.T) string
+	oldID      string
+	newID      string
+	applyArgs  []string
+	dryRunArgs []string
+}{
+	{
+		name: "refs rewrite --apply",
+		setup: func(t *testing.T) string {
+			dir := t.TempDir()
+			mustRun(t, dir, "init")
+			return dir
+		},
+		oldID:      "req.foo",
+		newID:      "req.bar",
+		applyArgs:  []string{"refs", "rewrite", "req.foo", "req.bar", "--apply"},
+		dryRunArgs: []string{"refs", "rewrite", "req.foo", "req.bar"},
+	},
+	{
+		name: "tag rename --rewrite-refs",
+		setup: func(t *testing.T) string {
+			dir := t.TempDir()
+			setupAuthFixture(t, dir)
+			return dir
+		},
+		oldID:      "req.auth",
+		newID:      "req.authn",
+		applyArgs:  []string{"tag", "rename", "req.auth", "req.authn", "--rewrite-refs"},
+		dryRunArgs: []string{"tag", "rename", "req.auth", "req.authn"},
+	},
+	{
+		name: "vocab rename --rewrite-refs",
+		setup: func(t *testing.T) string {
+			dir := t.TempDir()
+			setupAuthFixture(t, dir)
+			return dir
+		},
+		oldID:      "act.user.submit-login",
+		newID:      "act.user.sign-in",
+		applyArgs:  []string{"vocab", "rename", "act.user.submit-login", "--to", "act.user.sign-in", "--rewrite-refs"},
+		dryRunArgs: []string{"vocab", "rename", "act.user.submit-login", "--to", "act.user.sign-in"},
+	},
+	{
+		name: "tx rename --rewrite-refs",
+		setup: func(t *testing.T) string {
+			dir := t.TempDir()
+			setupAuthFixture(t, dir)
+			return dir
+		},
+		oldID:      "T-login",
+		newID:      "T-signin",
+		applyArgs:  []string{"tx", "rename", "T-login", "--to", "T-signin", "--rewrite-refs"},
+		dryRunArgs: []string{"tx", "rename", "T-login", "--to", "T-signin"},
+	},
+	{
+		name:       "tx merge --rewrite-refs",
+		setup:      setupMergeStore,
+		oldID:      "T-dup",
+		newID:      "T-surv",
+		applyArgs:  []string{"tx", "merge", "T-dup", "--into", "T-surv", "--rewrite-refs"},
+		dryRunArgs: []string{"tx", "merge", "T-dup", "--into", "T-surv"},
+	},
+}
+
+// TestCLI_EveryApplyFaceExitsNonZeroWhenACandidateCouldNotBeRead holds all five
+// source-rewriting commands to the same rule, because the previous round wired
+// the rule into five places and only tested two of them — the other three could
+// be set to "this run changed nothing" and no test noticed.
+//
+// The stakes are the same on every face: applyRenameRefs runs after the
+// `.scholia` write has committed, so a silent exit 0 leaves the record renamed
+// or merged, the source still holding the old id, and nothing saying so.
+func TestCLI_EveryApplyFaceExitsNonZeroWhenACandidateCouldNotBeRead(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file permission semantics differ on windows")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("running as root: file permissions do not deny anything")
+	}
+	for _, face := range refsApplyFaces {
+		t.Run(face.name, func(t *testing.T) {
+			// Applying: the unreadable candidate is unfinished work → non-zero.
+			dir := face.setup(t)
+			writeSourceFile(t, dir, "readable.go", "// see "+face.oldID+" here\n")
+			lockSourceFile(t, dir, "locked.go", "// see "+face.oldID+" here too\n")
+
+			out, err := run(t, dir, face.applyArgs...)
+			if err == nil {
+				t.Fatalf("expected non-zero exit when a source file could not be read, got success:\n%s", out)
+			}
+			if !strings.Contains(out, "skip (unreadable)") || !strings.Contains(out, "locked.go") {
+				t.Fatalf("expected the unread file to be named in output, got:\n%s", out)
+			}
+			// The work that could be done was still done.
+			if got := readSourceFile(t, dir, "readable.go"); got != "// see "+face.newID+" here\n" {
+				t.Fatalf("expected readable.go to be rewritten to %q, got %q", face.newID, got)
+			}
+
+			// Not applying: the same candidate is just an inventory item → exit 0.
+			dryDir := face.setup(t)
+			lockSourceFile(t, dryDir, "locked.go", "// see "+face.oldID+" here too\n")
+			if dryOut, dryErr := run(t, dryDir, face.dryRunArgs...); dryErr != nil {
+				t.Fatalf("dry-run must not fail on an unreadable candidate: %v\n%s", dryErr, dryOut)
+			}
+		})
+	}
+}
+
+// lockSourceFile writes a source file and makes it unreadable for the rest of
+// the test (restored on cleanup so the temp dir can be removed).
+func lockSourceFile(t *testing.T, dir, rel, content string) {
+	t.Helper()
+	writeSourceFile(t, dir, rel, content)
+	path := filepath.Join(dir, filepath.FromSlash(rel))
+	if err := os.Chmod(path, 0o000); err != nil {
+		t.Fatalf("Chmod: %v", err)
+	}
+	t.Cleanup(func() { os.Chmod(path, 0o644) })
+}
+
+// TestCLI_RefsRewriteApplyReportsBothKindsOfUnfinishedWork covers the branch
+// where a run leaves *both* kinds of leftover: a file it could not read, and a
+// file it read and could not write back. Three of refsFailedErr's four branches
+// were exercised by the tests above; this is the fourth, and without it that
+// branch could return "nothing to report" with every test still green.
+//
+// It also pins that every unreadable file is counted, not just the first — the
+// count is what tells the user how much is left.
+func TestCLI_RefsRewriteApplyReportsBothKindsOfUnfinishedWork(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file permission semantics differ on windows")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("running as root: permissions do not deny anything")
+	}
+	dir := t.TempDir()
+	mustRun(t, dir, "init")
+	writeSourceFile(t, dir, "ok.go", "// see req.foo here\n")
+	// Two unreadable files, so a count that stops at the first one is visible.
+	lockSourceFile(t, dir, "locked1.go", "// see req.foo here\n")
+	lockSourceFile(t, dir, "locked2.go", "// see req.foo here\n")
+	// Readable, matched, but its directory forbids the temp file the atomic
+	// write needs — read succeeds, write fails.
+	writeSourceFile(t, dir, "ro/frozen.go", "// see req.foo here\n")
+	roDir := filepath.Join(dir, "ro")
+	if err := os.Chmod(roDir, 0o500); err != nil {
+		t.Fatalf("Chmod: %v", err)
+	}
+	t.Cleanup(func() { os.Chmod(roDir, 0o755) })
+
+	out, err := run(t, dir, "refs", "rewrite", "req.foo", "req.bar", "--apply")
+	if err == nil {
+		t.Fatalf("expected non-zero exit when work was left unfinished, got success:\n%s", out)
+	}
+	for _, want := range []string{"書換に失敗したファイル 1 件", "読めなかったファイル 2 件"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("expected both kinds of leftover counted in %q, got:\n%s", want, out)
+		}
+	}
+	if got := readSourceFile(t, dir, "ok.go"); got != "// see req.bar here\n" {
+		t.Fatalf("expected ok.go to be rewritten, got %q", got)
+	}
+}
+
 // TestCLI_TagRenameRewriteRefsExitsNonZeroWhenACandidateCouldNotBeRead is the
 // same rule on the face where losing it costs the most: applyRenameRefs runs
 // after the `.scholia` rename has committed, so a silent exit 0 would leave the
