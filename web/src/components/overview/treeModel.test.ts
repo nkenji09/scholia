@@ -133,6 +133,9 @@ describe('「そのタグはどこに居るか」の答えは1つ', () => {
     'req.trace': { kind: 'requirement' },
     'subject.viewer': { kind: 'subject', parentIds: ['grp.entry'] },
     'piece.vocab': { kind: 'piece', parentIds: ['subject.viewer'] },
+    // コンポーネントの下のコンポーネントと、その構成要素（「いちばん近い」を見る材料）。
+    'subject.viewer.inner': { kind: 'subject', parentIds: ['subject.viewer'] },
+    'piece.inner': { kind: 'piece', parentIds: ['subject.viewer.inner'] },
     'piece.vocab.list': { kind: 'piece', parentIds: ['piece.vocab'] },
     'piece.vocab.list.filter': { kind: 'piece', parentIds: ['piece.vocab.list'] },
     // 役割を持たない親が `parentIds[0]` に居る形（実測で作れた・lint は通る）。
@@ -157,6 +160,13 @@ describe('「そのタグはどこに居るか」の答えは1つ', () => {
     expect(place('piece.vocab').componentId).toBe('subject.viewer');
     expect(place('piece.vocab.list').componentId).toBe('subject.viewer');
     expect(place('piece.vocab.list.filter').componentId).toBe('subject.viewer');
+  });
+
+  it('答えは「いちばん近いコンポーネント」（外側のコンポーネントを返さない）', () => {
+    // ⚠️ **この1件が無いと、「最初に見つかったコンポーネント」を返す変異が素通りする**
+    // （実見）——上にコンポーネントが1つしか無い入力では、どちらでも同じ答えになる。
+    expect(place('piece.inner').componentId).toBe('subject.viewer.inner');
+    expect(place('piece.inner').ancestorIds).toEqual(['grp.entry', 'subject.viewer', 'subject.viewer.inner']);
   });
 
   it('祖先の並びは浅い順で、役割を持たない親は通さない', () => {

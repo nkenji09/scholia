@@ -792,13 +792,22 @@ describe('構造ツリーは役割を持つタグだけを並べ、並んだ行�
     expect(dead.map((r) => `${r.name}(${r.kind})`), '押しても何も起きない行がある').toEqual([]);
   });
 
+  /** 期待の行並びに落ち着くのを待ってから、集合そのものを突き合わせる。
+   *  ⚠️ 束ねる段が既定で開くのは最初の描画の**後**に走る効果なので、即時の assert は
+   *  「まだ子が並んでいない」状態を読んでしまう（実見）。待ちで失敗させず最後に
+   *  expect するのは、食い違ったときに何が出ていたかを赤の文面に出すため。 */
+  async function expectTreeNames(host: HTMLElement, want: string[]): Promise<void> {
+    await waitFor(() => treeRows(host).map((r) => r.name).join(',') === want.join(','), `ツリーが ${want.join(',')} になる`, 1500).catch(() => {});
+    expect(treeRows(host).map((r) => r.name)).toEqual(want);
+  }
+
   it('並ぶ行の集合そのものを値で固定する（起点・子のどちらかだけ材料を痩せさせる変異を落とす）', async () => {
     // ⚠️ **「1行以上ある」では足りない。** 純関数を1つに集約しても、**呼び出し側が
     // 起点と子で違う材料を渡せば非対称は復活する**——そのとき行は減るが0にはならない
     // ことが多く、件数だけ見ていると素通りする（レビュアの変異 R1/R2 がこの形）。
     // 集合そのものを固定して、**どこか1つでも欠けたら落ちる**ようにする。
     const host = await openOverview();
-    expect(treeRows(host).map((r) => r.name)).toEqual([
+    await expectTreeNames(host, [
       '主要なまとまり', // 束ねる段（起点。実データと同じく起点は束ねる段だけ）
       'ビューア画面', //   コンポーネント（既定の現在地なので開いている）
       '意思決定の一覧', //   その構成要素（配下に構成要素を持つ＝畳んだまま）
@@ -819,7 +828,7 @@ describe('構造ツリーは役割を持つタグだけを並べ、並んだ行�
     // コンポーネントは全件が束ねる段の子なので、その変異で**ツリーは0行になる**。
     const host = await openOverview({ config: NO_ROOTS_CONFIG });
     // 並ぶものは宣言した側と同じ（順序だけタグの並び順に従う）。
-    expect(treeRows(host).map((r) => r.name)).toEqual([
+    await expectTreeNames(host, [
       '道具のまとまり', // 子は居るが役割を持つ子が居ない束ねる段
       '主要なまとまり',
       'ビューア画面',
@@ -1013,6 +1022,19 @@ describe('構成要素の欄が入れ子になり、各欄は直接付いた分�
     expect(row.querySelector('.overview-tree-count')?.textContent).toBe('1');
   });
 
+  it('見出しの「構成要素 N」が、シートに出る欄の数（入れ子を含む）と一致する', async () => {
+    // ⚠️ **これが無いと `countPartPanels` が入れ子を数えない変異が、描画側では
+    // 素通りする**（実見: 純関数だけが red）。`01KYHW54B8ZXH0NEPH2J7N1X39` 条項5 は
+    // 「見出しの件数と、開いて見える数を一致させる」——欄の数もその対象である。
+    const host = await openOverview();
+    await openAllParts(host);
+    const headline = /構成要素\s*(\d+)/.exec(host.querySelector('.overview-cov-meta')?.textContent || '');
+    expect(headline, '見出しに「構成要素 N」が出ていない').not.toBeNull();
+    const panels = host.querySelectorAll('.overview-sheet .overview-part[data-part]').length;
+    expect(panels, '欄が1つも出ていない＝検査が空振りしている').toBeGreaterThan(1);
+    expect(Number(headline![1]), '見出しの件数と、シートに出ている欄の数が食い違っている').toBe(panels);
+  });
+
   it('入れ子の欄も初期表示では畳まれている（段階的開示を新しい面に持ち込む）', async () => {
     const host = await openOverview();
     await waitFor(() => !!host.querySelector('[data-part="part.list"]'), '構成要素の欄が描かれる');
@@ -1192,6 +1214,17 @@ describe('構造ツリーとシートが、多親の構成要素について同�
     expect(row, 'ツリーに入れ子の行が出ていない').toBeTruthy();
     // ⚠️ 是正前は `#/spec/<id>`（概要の外）を指していた。
     expect(row!.href, '入れ子の行を押すと概要から抜ける').toBe('#/overview/comp.viewer/part/part.list.row');
+  });
+
+  it('行き先は「いちばん近いコンポーネント」（外側のコンポーネントへ飛ばさない）', async () => {
+    // ⚠️ **これが無いと「最初に見つかったコンポーネント」を返す変異が素通りする**（実見）
+    // ——他の構成要素は上にコンポーネントが1つしか無いので、どちらでも同じ答えになる。
+    const host = await openOverview();
+    await openTreeNode(host, '端末');
+    await openTreeNode(host, '端末: 下位');
+    const row = rows(host).find((r) => r.name === '下位の面');
+    expect(row, 'ツリーに入れ子のコンポーネントの構成要素が出ていない').toBeTruthy();
+    expect(row!.href, '外側のコンポーネントのシートへ飛ばしている').toBe('#/overview/comp.cli.sub/part/part.sub.pane');
   });
 });
 
