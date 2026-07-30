@@ -1,0 +1,7 @@
+{
+  "id": "eff.log.reject-unresolved-skill-doc",
+  "category": "effect",
+  "label": "指定名を解決できない旨と参照できる名前の一覧を stderr へ出し、非 0 で終了する",
+  "kind": "log",
+  "owner": "subject.cli"
+}

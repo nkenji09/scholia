@@ -84,6 +84,13 @@ decision は **append-only**（過去を消す提案＝取り込み拒否の最�
 > desc=最新形・decision=履歴／コンポ別語彙は「遷移から kind で束ねる」派生ビュー／実装の同一性は実装フェーズの関心で
 > 設計段階は per-component 既定。
 
+**別 repo に自分のスキルを置いていて、そこからこの正典を参照させたいときは、パスを書かず
+`scholia skills show modeling-principles` を手順番号に置く**（`scholia skills ls` で名前を確認できる）。
+上の相対パスが解決するのは同一プラグイン／同一 install 先の内側だけで、別 repo のスキルからは届かない。
+プラグイン実体のパスはバージョンを含み、`skills install` 先も `--project`／`--user` で変わるので、
+パスを直書きすると次の更新で腐る。**「〜に従う」という言及は踏まれず、実行するコマンドは踏まれる**
+——到達手段を名指ししない指差しが実際に素通りされた実測が根拠（decision `01KYRKD3SR80PKQJV3MZKZKG6M`）。
+
 **記録を書く前のチェック（意味判断3点のみ・機械判定できる規律は保存時の advisory が担う・正典 → `../_scholia-shared/references/modeling-principles.md`）**:
 
 - [ ] **軸は action から見つけたか（投影 vs 遷移）** — enum 型フィールドを一律 axis にしない。判定は「その効果は今の状態からいつでも再生成できるか？」＝ **YES は投影**（型検査の仕事・軸にしない）／**NO は遷移**（軸候補）（§3）。

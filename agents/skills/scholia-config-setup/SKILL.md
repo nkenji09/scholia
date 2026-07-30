@@ -316,5 +316,5 @@ scholia config get
 ## 関連
 
 - 日々の記録（tx/decide/lint の運用）は [scholia スキル](../scholia/SKILL.md) へ。
-- **粒度・同一性・命名・記録の原則は共有リファレンス `../_scholia-shared/references/modeling-principles.md`**（vocab=実装の同一性／tag=概念の族／概念には `concept` のような facet kind を足す／per-component 既定 等）。分類軸（手順 2 の tagKinds/facetKinds/traceabilityKinds）を決めるときの拠り所。
+- **粒度・同一性・命名・記録の原則は共有リファレンス `../_scholia-shared/references/modeling-principles.md`**（vocab=実装の同一性／tag=概念の族／概念には `concept` のような facet kind を足す／per-component 既定 等）。分類軸（手順 2 の tagKinds/facetKinds/traceabilityKinds）を決めるときの拠り所。別 repo のスキルから読ませるときは相対パスが届かないので `scholia skills show modeling-principles` を手順に置く。
 - config の全フィールドの意味は `DESIGN.md` §3.6（内部設計の背景）。

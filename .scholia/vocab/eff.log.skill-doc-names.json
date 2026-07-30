@@ -1,0 +1,7 @@
+{
+  "id": "eff.log.skill-doc-names",
+  "category": "effect",
+  "label": "参照できるスキル文書の名前を stdout へ一覧する",
+  "kind": "log",
+  "owner": "subject.cli"
+}

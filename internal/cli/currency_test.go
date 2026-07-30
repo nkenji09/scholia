@@ -720,6 +720,10 @@ var surfacesNoDecisionBody = []string{
 	"scholia refs scan",
 	"scholia refs rewrite",
 	"scholia skills install",
+	// embed 済みスキル文書（SKILL.md・共有リファレンス）を渡す面。store を一切
+	// 読まないので decision 本文は原理的に出ない。
+	"scholia skills show",
+	"scholia skills ls",
 }
 
 // runnableSurfaces は、分類を**主張ではなく実測**にするための引数表。
@@ -763,6 +767,8 @@ var runnableSurfaces = map[string][]string{
 	"scholia version":     {"version"},
 	"scholia refs scan":   {"refs", "scan"},
 	"scholia review list": {"review", "list"},
+	"scholia skills show": {"skills", "show", "modeling-principles"},
+	"scholia skills ls":   {"skills", "ls"},
 }
 
 // TestCurrency_ClassificationMatchesReality は、走らせられる面すべてについて
@@ -799,7 +805,7 @@ func TestCurrency_ClassificationMatchesReality(t *testing.T) {
 	// ⚠️ 表が縮まないための歯止め。分類を変えると同時に表からも外す編集は
 	// 原理的に捕まらない（射程の名乗り参照）が、**外したこと自体**はここで落ちる。
 	// 面を減らす正当な理由があるなら、この数も一緒に下げること。
-	const minRunnable = 20
+	const minRunnable = 22
 	if len(runnableSurfaces) < minRunnable {
 		t.Errorf("実測表が %d 面まで縮んでいる（下限 %d）——分類の裏付けが減っている", len(runnableSurfaces), minRunnable)
 	}

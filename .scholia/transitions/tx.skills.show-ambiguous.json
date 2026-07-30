@@ -1,0 +1,14 @@
+{
+  "id": "tx.skills.show-ambiguous",
+  "action": "act.user.skills-show",
+  "given": [
+    "cond.skills-doc-ambiguous"
+  ],
+  "then": [
+    "eff.log.reject-unresolved-skill-doc"
+  ],
+  "tags": [
+    "req.skill-distribution",
+    "subject.cli"
+  ]
+}
