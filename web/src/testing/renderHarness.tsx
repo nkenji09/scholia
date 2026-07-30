@@ -34,6 +34,9 @@ export const DEC = {
   D7: '01HARNESSD7000000000000007',
   D8: '01HARNESSD8000000000000008',
   D9: '01HARNESSD9000000000000009',
+  /** **入れ子の構成要素**を対象にした規則。⚠️ これが無いと「見出しの『現行ルール N』が
+      入れ子の欄の中まで数える」を落とす変異が、数える対象がゼロなので素通りする。 */
+  D10: '01HARNESSD10000000000000A',
 } as const;
 
 export const TAGS: Tag[] = [
@@ -50,6 +53,15 @@ export const TAGS: Tag[] = [
   // 「1行以上ある」を満たしてしまう。実データではその変異でツリーが**丸ごと空**になる。
   { id: 'comp.viewer', name: 'ビューア画面', kind: 'component', parentIds: ['grp.main'] },
   { id: 'part.list', name: '意思決定の一覧', kind: 'part', parentIds: ['comp.viewer'] },
+  // ⚠️ **配下に構成要素を持つ構成要素（入れ子・3段）。** これが無いと、入れ子の欄を
+  // 1段で止める変異・入れ子の行の指し先を落とす変異・「現行ルール N」が入れ子の中を
+  // 数えない変異が、**すべて素通りする**（数える対象も描く対象も無いため）。
+  // 段は3段（`part.list > part.list.row > part.list.row.cell`）——2段だと
+  // 「1段だけ降りる」実装で答えが変わらない形が残る。
+  { id: 'part.list.row', name: '一覧の行', kind: 'part', parentIds: ['part.list'] },
+  { id: 'part.list.row.cell', name: '行の欄', kind: 'part', parentIds: ['part.list.row'] },
+  // comp.viewer のもう1つの構成要素（多親「同じシートの兄弟」の相手として要る）。
+  { id: 'part.detail', name: '意思決定の単票', kind: 'part', parentIds: ['comp.viewer'] },
   // 構成要素を持たず、遷移が**直接**付いているコンポーネント。実データはこの形が
   // 多数派（この repo は 58 遷移中 57 が主題タグ直付け）で、かつては仕様シートが
   // この形の遷移を1本も描かなかった。corpus に無ければその欠陥は再発しても緑のまま。
@@ -58,6 +70,30 @@ export const TAGS: Tag[] = [
   // 素通りする——親も子も遷移1本ずつなら、祖先展開しても答えが変わらないため。
   // 親のシートに子の振る舞いが再掲される形を落とすには、この形が corpus に要る。
   { id: 'comp.cli.sub', name: '端末: 下位', kind: 'component', parentIds: ['comp.cli'] },
+  // 3枚目のコンポーネント。多親の相手として要る。
+  // ⚠️ **`comp.cli` を相手に使わないこと。** `comp.cli` は「構成要素を持たない
+  // コンポーネント」として直下の振る舞いの欄を守っている corpus であり、そこへ
+  // 構成要素を1つ足すと**その欄が消えて、既存のガードが空振りに変わる**。
+  // ⚠️ **`parentIds[0]` に役割を持たないタグを置いてある**（実データで作れた形・`lint` は通る）。
+  // これが無いと、シートのパンくずを「`parentIds[0]` を素通しで遡る」形へ戻す変異が
+  // **素通りする**——他のコンポーネントは `parentIds[0]` がそのまま束ねる段なので、
+  // 素通しでも同じ答えになるため。実測ではこの形で、同じ画面のツリーとパンくずが
+  // 違う答えを出していた。
+  { id: 'comp.export', name: '書き出し', kind: 'component', parentIds: ['req.tools', 'grp.main'] },
+  { id: 'part.export.job', name: '書き出しのジョブ', kind: 'part', parentIds: ['comp.export'] },
+  // ---------------------------------------------------------------------------
+  // 多親の4形（③B′ が守るもの）。⚠️ **corpus にこの形が無いと、③のガードは全部空振りする。**
+  // ---------------------------------------------------------------------------
+  // 形1: 親が**別々のコンポーネント**。→ 両方のシートに1回ずつ出る。
+  //   ⚠️ この形は**是正前の実装でも既に両方から読めていた**ので、案A（記録の1つ目の親に
+  //   固定）へ戻す変異は「いま読めているものを失う」。それを落とすのがこの1件の役目。
+  { id: 'part.shared.probe', name: '共有: 走査', kind: 'part', parentIds: ['comp.viewer', 'comp.export'] },
+  // 形2: 親が**別コンポーネントの構成要素**。→ 是正前はどのシートにも出なかった形（C2）。
+  { id: 'part.shared.index', name: '共有: 索引の構築', kind: 'part', parentIds: ['part.list', 'part.export.job'] },
+  // 形3: 2つの親が**同じシートの中で親子**（コンポーネントとその構成要素）。
+  { id: 'part.shared.mixed', name: '共有: 混在', kind: 'part', parentIds: ['comp.viewer', 'part.list'] },
+  // 形4: 2つの親が**同じシートの中で兄弟**（同じコンポーネントの2つの構成要素）。
+  { id: 'part.shared.pair', name: '共有: 位置の復元', kind: 'part', parentIds: ['part.list', 'part.detail'] },
   // ⚠️ **役割を持たない種類が「子」の位置に居る形。** これが無いと、構造ツリーの
   // 子の絞りを「役割で絞る」から「要件系を除く」へ戻す変異が**素通りする**——
   // 上の要件タグはどちらの綴りでも除かれるので、答えが変わらないため。
@@ -94,6 +130,12 @@ export const VOCAB: VocabEntry[] = [
   // これが無いと「合成に vocab を渡し忘れる」変異が描画側で素通りする
   // （純関数の検査は落ちるのに配線は落ちない＝この repo が繰り返している型）。
   { id: 'v.cli-only', category: 'action', label: '語彙経由で束ねる', tags: ['comp.cli'] },
+  // 入れ子・多親の欄が「直接付いた分」を出していることを、カードの中身で見分けるための語彙。
+  { id: 'v.list', category: 'action', label: '一覧をならべる', tags: [] },
+  { id: 'v.row', category: 'action', label: '行をえがく', tags: [] },
+  { id: 'v.cell', category: 'action', label: '欄をえがく', tags: [] },
+  { id: 'v.index', category: 'action', label: '索引を組む', tags: [] },
+  { id: 'v.probe', category: 'action', label: '走査する', tags: [] },
 ];
 
 export const TRANSITIONS: Transition[] = [
@@ -108,6 +150,16 @@ export const TRANSITIONS: Transition[] = [
   { id: 'T-boot', action: 'v.boot', given: [], then: ['v.rows-shown'], tags: ['comp.viewer'] },
   // 自身にタグを持たず、参照する vocab のタグだけで comp.cli に属す遷移。
   { id: 'T-cli-vocab', action: 'v.cli-only', given: [], then: ['v.printed'] },
+  // ⚠️ **入れ子の各段に、直接付いた遷移を1本ずつ置く。** これが無いと「欄に祖先展開込みの
+  // 索引を使う」変異が描画側で素通りする——親の欄に配下の分が持ち上がっても、配下に
+  // 遷移が無ければカードの枚数が変わらないため。段ごとに別の語彙を使うので、
+  // **どの欄にどのカードが出たか**を中身で見分けられる。
+  { id: 'T-list', action: 'v.list', given: [], then: ['v.rows-shown'], tags: ['part.list'] },
+  { id: 'T-row', action: 'v.row', given: [], then: ['v.rows-shown'], tags: ['part.list.row'] },
+  { id: 'T-cell', action: 'v.cell', given: [], then: ['v.rows-shown'], tags: ['part.list.row.cell'] },
+  // 多親の構成要素に直接付いた遷移（欄が出ていることを中身で確かめるため）。
+  { id: 'T-index', action: 'v.index', given: [], then: ['v.rows-shown'], tags: ['part.shared.index'] },
+  { id: 'T-probe', action: 'v.probe', given: [], then: ['v.rows-shown'], tags: ['part.shared.probe'] },
 ];
 
 /** getRules は時系列**昇順**で返す（一覧側が反転して新しい順に並べる）。 */
@@ -122,6 +174,9 @@ export const DECISIONS: Decision[] = [
   // 反転するので、先頭に置いた2件は並びの末尾に出る。
   { id: DEC.D8, target: { type: 'transition', id: 'T-run-cli' }, at: '2026-01-02T00:00:00Z', why: '[D8] 端末の実行は結果を必ず印字する' },
   { id: DEC.D9, target: { type: 'transition', id: 'T-cli-vocab' }, at: '2026-01-03T00:00:00Z', why: '[D9] 語彙側のタグでも同じ主題に属す' },
+  // ⚠️ **入れ子の構成要素（3段目の親）を対象にした規則。** 日付は上2件と同じ理由で
+  // 既存のどれよりも古く置く（期間の絞り込みを見る検査の境界を動かさない）。
+  { id: DEC.D10, target: { type: 'tag', id: 'part.list.row' }, at: '2026-01-04T00:00:00Z', why: '[D10] 行は単票の中身を全部持つ' },
   { id: DEC.D1, target: { type: 'tag', id: 'req.viewer' }, at: '2026-01-05T00:00:00Z', why: '[D1] 一覧は URL に書かれた条件から起こす' },
   { id: DEC.D2, target: { type: 'tag', id: 'req.viewer.filter' }, at: '2026-02-05T00:00:00Z', why: '[D2] タグの絞り込みは AND で重ねる' },
   { id: DEC.D3, target: { type: 'transition', id: 'T-open-list' }, at: '2026-03-05T00:00:00Z', why: '[D3] 折りたたみは保存値が既定より勝つ' },
