@@ -1,0 +1,12 @@
+{
+  "id": "tx.skills.ls",
+  "action": "act.user.skills-ls",
+  "given": [],
+  "then": [
+    "eff.log.skill-doc-names"
+  ],
+  "tags": [
+    "req.skill-distribution",
+    "subject.cli"
+  ]
+}

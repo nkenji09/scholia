@@ -1,0 +1,6 @@
+{
+  "id": "cond.skills-doc-resolved",
+  "category": "condition",
+  "label": "指定名が embed 済みスキルツリーの1ファイルに解決する",
+  "kind": "input"
+}

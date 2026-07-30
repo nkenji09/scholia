@@ -1,0 +1,14 @@
+{
+  "id": "tx.skills.show-body",
+  "action": "act.user.skills-show",
+  "given": [
+    "cond.skills-doc-resolved"
+  ],
+  "then": [
+    "eff.log.skill-doc-body"
+  ],
+  "tags": [
+    "req.skill-distribution",
+    "subject.cli"
+  ]
+}

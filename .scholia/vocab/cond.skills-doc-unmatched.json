@@ -1,0 +1,6 @@
+{
+  "id": "cond.skills-doc-unmatched",
+  "category": "condition",
+  "label": "指定名がどのファイルにも一致しない",
+  "kind": "input"
+}

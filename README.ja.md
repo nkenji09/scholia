@@ -162,6 +162,16 @@ scholia skills install --user     # ~/.claude/skills/ へ
 
 どちらも**単一ソース**（`agents/skills/`）を配布する。プラグインはマーケットプレイス経由で、`scholia skills install` はバイナリの `//go:embed` 由来で、同じスキルを届ける。スキル（`agents/` 配下）に変更を含むリリースでは、プラグイン版（`agents/.claude-plugin/plugin.json`）の version をそのリリースタグに揃える（詳細は [RELEASING.md](RELEASING.md)）。
 
+**別 repo のスキルから scholia の共有リファレンスを読ませたいときは、パスではなくコマンドを置く。**
+
+```sh
+scholia skills ls                             # 参照できる文書の名前を一覧
+scholia skills show modeling-principles       # 全文を stdout へ（ディスクには書かない）
+scholia skills show scholia-change/SKILL.md   # 短縮名が衝突する SKILL.md はパスで指定
+```
+
+自分のリポジトリに置いたスキルから scholia 側の文書を参照するとき、パスの直書きは腐る（プラグイン実体のパスはバージョンを含み、`skills install` 先も `--project`／`--user` で変わる）。`scholia skills show` を手順として置けば、cwd もバージョンも問わず同じ形で読める。
+
 ## ライセンス
 
 MIT License. [LICENSE](LICENSE) を参照。

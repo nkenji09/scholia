@@ -184,6 +184,16 @@ scholia skills install --user     # into ~/.claude/skills/
 
 Both paths ship the **same single source** (`agents/skills/`); the plugin serves it via the marketplace, while `scholia skills install` serves it from the binary's `//go:embed` copy. For releases that include skill changes (`agents/`), the plugin version (`agents/.claude-plugin/plugin.json`) is kept in sync with the release tag (see [RELEASING.md](RELEASING.md)).
 
+**To make a skill in another repo read scholia's shared references, hand it a command — not a path.**
+
+```sh
+scholia skills ls                             # list the documents you can name
+scholia skills show modeling-principles        # full text to stdout (nothing written to disk)
+scholia skills show scholia-change/SKILL.md    # SKILL.md short names collide — use the path
+```
+
+Hardcoding a path from your own repo rots: the plugin copy lives under a version-stamped directory, and the `skills install` destination changes with `--project` / `--user`. A `scholia skills show` step reads the same document regardless of cwd or installed version.
+
 ## License
 
 MIT License. See [LICENSE](LICENSE).

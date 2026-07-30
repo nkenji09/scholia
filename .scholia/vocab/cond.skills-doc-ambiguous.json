@@ -1,0 +1,6 @@
+{
+  "id": "cond.skills-doc-ambiguous",
+  "category": "condition",
+  "label": "指定名が複数のファイルに一致する",
+  "kind": "input"
+}

@@ -91,6 +91,8 @@ issue）を指し、`.concierge/` 等の揮発物は指さない。
 編集するとき、desc・label を確定する前に [scholia スキルの「記録を書く前のチェック」](../scholia/SKILL.md)
 を通す（きっかけ/前提/結果の書き分け・desc は「何か」だけ・markdown・派生できる情報や「〜を参照」メタ指示を
 desc に書かない。正典＝[`../_scholia-shared/references/modeling-principles.md`](../_scholia-shared/references/modeling-principles.md)）。
+別 repo のスキルから正典を読ませるときは相対パスが届かないので、パスではなく
+`scholia skills show modeling-principles` を手順番号に置く。
 
 ## Case 1: Tag の要件変更
 

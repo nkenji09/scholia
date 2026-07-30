@@ -1,0 +1,7 @@
+{
+  "id": "eff.log.skill-doc-body",
+  "category": "effect",
+  "label": "embed 由来のスキル文書の全文を stdout へ書き出す",
+  "kind": "log",
+  "owner": "subject.cli"
+}

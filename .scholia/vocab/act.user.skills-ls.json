@@ -1,0 +1,6 @@
+{
+  "id": "act.user.skills-ls",
+  "category": "action",
+  "label": "scholia skills ls を実行",
+  "kind": "user"
+}

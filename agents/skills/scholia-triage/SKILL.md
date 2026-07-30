@@ -91,3 +91,4 @@ description: 既存 spec（scholia の decision／transition）に照らして�
   [scholia-change スキル](../scholia-change/SKILL.md)。
 - 日々の読み書きコマンド・判定材料の説明は [scholia スキル](../scholia/SKILL.md)（変更評価フロー節）。
 - 粒度・同一性・命名の原則は [`../_scholia-shared/references/modeling-principles.md`](../_scholia-shared/references/modeling-principles.md)。
+  別 repo のスキルから読ませるときは相対パスが届かないので `scholia skills show modeling-principles` を手順に置く。

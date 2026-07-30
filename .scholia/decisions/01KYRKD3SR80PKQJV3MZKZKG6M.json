@@ -1,0 +1,20 @@
+{
+  "id": "01KYRKD3SR80PKQJV3MZKZKG6M",
+  "target": {
+    "type": "tag",
+    "id": "req.skill-distribution"
+  },
+  "why": "## 共有リファレンスへの到達は、相対パスではなくコマンドで配る\n\n### 結論\n\n`agents/skills/_scholia-shared/references/` 配下の共有リファレンスへ、**別 repo のスキルからも到達できる経路**を CLI に置く。\n\n1. `scholia skills show \u003c名前\u003e` — embed 済みスキルツリーの当該ファイルの**全文を stdout へ**出す。節指定・用途別プリセットは持たない。\n2. `scholia skills ls` — 参照できる名前を一覧する。名前が発見できなければコマンドは打たれないため、show と対で置く。\n3. 名前の解決は短縮名（拡張子なしの basename）と embed 相対パスの両方を受け、**複数に一致したらエラーにして片方を黙って選ばない**。\n4. `scholia skills path` は**作らない**。共有リファレンスはバイナリに embed されておりファイルシステム上のパスを持たないので、path を返すには一時展開かインストール済みコピーへの依存が要る。既決 01KXGMPYF1R5S31ERJ0442F22K の「両経路はファイルを複製せず symlink も張らない」と擦れる。\n\n### なぜ\n\n01KXGMPYF1R5S31ERJ0442F22K は「プラグインキャッシュには sibling 構造ごとコピーされるため各 SKILL の `../_scholia-shared/...` 相対参照は解決する」と書いた。この保証は**同一プラグイン内からの到達に限られる**。repo 固有のスキルを自分の repo に置いている利用者環境では、相対パスがそこへ届かない。本 decision はその射程の穴を埋める部分改訂である。\n\n実測（2026-07-30・利用者の別 repo での観測）: repo 固有スキルの SKILL.md は共有リファレンスを「パス参照でなく、ユーザー環境に入っている scholia 基盤スキル群のそれを指す」と明記していた。つまり**意図的に解決不能なパス**が書かれていた。結果、委譲されたサブエージェントはその一文を読んだが**当該ファイルを開かなかった**（transcript に開いた記録なし）。機械判定できる規律（派生値の列挙・時点依存語・desc 長・idPolicy 命名）は保存時ゲートが守ったが、意味判断の規律（label 規約・投影と遷移の境界・phase-boundary）は照合されないまま実装へ進んだ。\n\nこれは 01KXS68HCNQ0H9QKNYFQ869J19（明文化しても遡及機構が無ければ挙動は変わらない）の別インスタンスである。**到達手段を名指ししない指差しは踏まれない。** パスを書けない事情が正しくても、代わりの到達手段を名指ししなければ指差しは宙に浮く。\n\nコマンドの形を採る理由は 3 つ:\n\n1. **cwd 非依存** — バイナリは PATH にあり、どの repo からでも同じ形で打てる。\n2. **version 非依存** — プラグイン実体は `…/cache/scholia/scholia/\u003cversion\u003e/skills/…` とバージョンを含むパスに置かれる。パスを直書きさせると次の upgrade で腐る。CLI 経路の `.claude/skills/` も --project と --user でパスが変わる（01KXEVDGYY0KJV2GBMJHT1RAGK）。到達手段としてパスは元から安定していない。\n3. **手順に置ける** — 「〜に従う」という言及は素通りされるが、実行するコマンドは手順番号に置ける。scholia 自身のスキルが decide の前に `--dry-run` を手順として置いているのと同型。\n\n全文のみとし節指定を持たない理由: 共有リファレンスは起票時点で 22KB 程度（6k tokens 相当）で、サブエージェント 1 回の読み込みとしては十分安い。節番号や見出しスラグを引数にすると**見出しが他 repo との互換面になり**、正本側の見出しを直すと他 repo の SKILL.md が腐る。互換面は短縮名だけに保つ。実需が出たら別 decision で足す。",
+  "changed": "spec 起票（実装前・prospective）: add act.user.skills-show / act.user.skills-ls・cond.skills-doc-resolved / unmatched / ambiguous・eff.log.skill-doc-body / skill-doc-names / reject-unresolved-skill-doc・tx.skills.show-body / show-unmatched / show-ambiguous / ls。実装は internal/cli/skills.go の skills コマンド群に show / ls を追加し、既存 install と同じ embed FS を読む。各 SKILL.md に「別 repo のスキルから共有リファレンスへ到達するときは show を手順番号に置く」旨を追記する（遡及機構）。",
+  "ref": "DESIGN §10",
+  "at": "2026-07-30T04:09:30Z",
+  "commits": [
+    "3e183c0"
+  ],
+  "supersedes": [
+    {
+      "id": "01KXGMPYF1R5S31ERJ0442F22K",
+      "mode": "amend"
+    }
+  ]
+}

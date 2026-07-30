@@ -1,0 +1,6 @@
+{
+  "id": "act.user.skills-show",
+  "category": "action",
+  "label": "scholia skills show \u003c名前\u003e を実行",
+  "kind": "user"
+}

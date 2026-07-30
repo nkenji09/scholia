@@ -717,6 +717,8 @@ scholia/
 4. **⭐ npm ランチャ** — postinstall で対応バイナリを取得。**`npx scholia …` がゼロインストールで動く**（esbuild=Go / Biome=Rust の実績）
 5. **`go install`**
 6. **Claude plugin ＋ `.agents/skills`**（＋ 必要なら `.cursor/rules` 等）— 無ければ検出してインストールを促し、あとはバイナリに委譲
+   - 単一ソース `agents/skills/` を 2 経路（`scholia skills install` の embed 展開／marketplace 経由のプラグイン）で配る。複製も symlink も張らない。
+   - **到達経路は第 3 の口として `scholia skills show <名前>`／`scholia skills ls`** — 別 repo に自前のスキルを置いている利用者が、共有リファレンス（`_scholia-shared/references/`）へパスなしで届くための口。相対パスが解決するのは同一プラグイン／同一 install 先の内側だけで、プラグイン実体のパスはバージョンを含むため他 repo からの直書きは腐る。`show` は全文を stdout へ出し、ディスクには何も書かない（節指定は持たない＝見出しを他 repo との互換面にしない）。
 
 ---
 
