@@ -880,11 +880,10 @@ var usageOffCases = []usageOffCase{
 // どれも変えないので、条項 10 が名指しする観測可能な差にはならない（変わるのは所要だけである）。
 // 「包んでいないこと」自体は TestUsage_PlainRootHandsCobraTheWritersUnwrapped が同一性で見ている。
 //
-// ⚠️ **本番の入口（Execute）そのものは、この検査も他のどの検査も通っていない。**
-// ここが呼ぶのは execute で、`Execute()` が「os.LookupEnv と usage.Record と os.Stdout/os.Stderr を
-// 渡して execute を呼ぶだけ」であることは検査していない——`Execute()` の中身を書き換える変異
-// （たとえば段を決め打ちする・別の sink を渡す）は、全部緑のまま通る。
-// **塞ぐには本物のバイナリを走らせる検査が要る**（いまは手で取った A/B しかない）。別単位。
+// ⚠️ **この検査が呼ぶのは execute であって、本番の入口（Execute）ではない。**
+// `Execute()` が「os.LookupEnv と usage.Record と os.Stdout/os.Stderr を渡して execute を呼ぶだけ」
+// であることは、ここではなく usage_entrypoint_test.go が別プロセスで見ている
+// （段を決め打ちする・別の sink を渡す・別の writer を渡す変異は、そちらで落ちる）。
 func TestUsage_DefaultOffDoesNotEnterTheMeasuredPath(t *testing.T) {
 	for _, c := range usageOffCases {
 		t.Run(c.name, func(t *testing.T) {
