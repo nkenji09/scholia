@@ -235,11 +235,16 @@ func TestUsage_MaskedLineDoesNotContainProjectNamedArguments(t *testing.T) {
 // ⚠️ **ここに無い項目は、2 回の実行でバイト同一でなければならない。**
 // Field.NamesProject の手宣言（項目ごと・18 個）と違い、**新しい項目はここに足さない限り
 // 自動的に検査対象になる**——閉じ方がこちらのほうが強い。
+//
+// ⚠️ **必要だと確かめていない項目をここへ足さないこと。** この検査が「捕まえない項目の列挙」へ
+// 退化するとしたら、**必要な hold-out からではなく余分な hold-out から始まる。**
+// 実例がある——`stdoutBytes` を「長さ違いの対でだけ」hold-out していた版は、
+// 外しても緑だった（この検査が回す `rules --tag <id>` の出力は id を含まないので、
+// 出力長は id の長さに依存しない）。**その余分な 1 つが、ちょうど 1 本の漏洩経路を通していた**
+// ——マスクのときだけ id の長さを `stdoutBytes` に足す変異（N-2b）が全部緑で通り、条項 4 を破った。
 var usageNonInterferenceHoldOut = map[string]bool{
 	"ts":         true, // 時刻。実行ごとに進む
 	"durationUs": true, // 所要。実行ごとに揺れる
-	// stdoutBytes は「量」そのもの（正本がマスクで残すと決めた項目）で、原則は検査対象である。
-	// レコード id の長さが違えば出力の長さも変わるので、**長さ違いの対でだけ** hold-out する。
 }
 
 // TestUsage_MaskedLineIsNonInterferingWithProjectNames は、マスクの行が
@@ -255,7 +260,7 @@ var usageNonInterferenceHoldOut = map[string]bool{
 //
 // ⚠️ **この検査の射程**（CLAUDE.md 6）:
 //   - 言えるのは「**この 2 つの入力について行が同じ**」までで、すべての入力についての証明ではない。
-//   - hold-out（上の 3 つ）に載せた項目は見ていない。
+//   - hold-out（`ts` / `durationUs` の 2 つ）に載せた項目は見ていない。
 //   - **マスクの段だけを見る。** 通常・詳細はプロジェクトが名付けたものを載せると決めた段なので、
 //     この性質は成り立たないし、成り立ってはいけない。
 func TestUsage_MaskedLineIsNonInterferingWithProjectNames(t *testing.T) {
@@ -266,15 +271,16 @@ func TestUsage_MaskedLineIsNonInterferingWithProjectNames(t *testing.T) {
 		sameB   = "req.zzzzzzzzzzzzzzzz"
 	)
 	cases := []struct {
-		name       string
-		a, b       string
-		holdStdout bool
+		name string
+		a, b string
 	}{
-		{"同じ長さ・違う中身（値・先頭・ダイジェストの漏れを捕まえる）", sameA, sameB, false},
-		{"違う長さ（長さの漏れを捕まえる）", shortID, longID, true},
+		{"同じ長さ・違う中身（値・先頭・ダイジェストの漏れを捕まえる）", sameA, sameB},
+		// ⚠️ **stdoutBytes も検査対象のままにする。** ここで回す `rules --tag <id>` の出力は
+		// id を含まないので、id の長さが違っても出力長は変わらない。
+		{"違う長さ（長さの漏れを捕まえる）", shortID, longID},
 		// レコード id を同じにして、違うのはプロジェクトのパスだけ。
 		// 正本の「マスクでは複数プロジェクトを区別できない」が実装で成立していること。
-		{"プロジェクトのパスだけ違う", sameA, sameA, false},
+		{"プロジェクトのパスだけ違う", sameA, sameA},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -283,9 +289,6 @@ func TestUsage_MaskedLineIsNonInterferingWithProjectNames(t *testing.T) {
 			for _, m := range []map[string]any{la, lb} {
 				for k := range usageNonInterferenceHoldOut {
 					delete(m, k)
-				}
-				if c.holdStdout {
-					delete(m, "stdoutBytes")
 				}
 			}
 			ja, err := json.Marshal(la)
@@ -478,6 +481,12 @@ var usageOffCases = []usageOffCase{
 // **sink を呼ばずに writer を包むだけの変異は落ちない**——ただしそれは出力・exit code・生成物の
 // どれも変えないので、条項 10 が名指しする観測可能な差にはならない（変わるのは所要だけである）。
 // 「包んでいないこと」自体は TestUsage_PlainRootHandsCobraTheWritersUnwrapped が同一性で見ている。
+//
+// ⚠️ **本番の入口（Execute）そのものは、この検査も他のどの検査も通っていない。**
+// ここが呼ぶのは execute で、`Execute()` が「os.LookupEnv と usage.Record と os.Stdout/os.Stderr を
+// 渡して execute を呼ぶだけ」であることは検査していない——`Execute()` の中身を書き換える変異
+// （たとえば段を決め打ちする・別の sink を渡す）は、全部緑のまま通る。
+// **塞ぐには本物のバイナリを走らせる検査が要る**（いまは手で取った A/B しかない）。別単位。
 func TestUsage_DefaultOffDoesNotEnterTheMeasuredPath(t *testing.T) {
 	for _, c := range usageOffCases {
 		t.Run(c.name, func(t *testing.T) {

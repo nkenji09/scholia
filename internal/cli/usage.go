@@ -30,6 +30,10 @@ var (
 var usageProjectRoot string
 
 // Execute is the CLI entrypoint called from cmd/scholia/main.go.
+//
+// ⚠️ **この 1 行の委譲そのものには検査が届いていない。** 中身（execute）は
+// TestUsage_DefaultOffDoesNotEnterTheMeasuredPath 以下が値で見ているが、
+// ここで渡す 5 つを書き換える変異は全部緑のまま通る。塞ぐには本物のバイナリを走らせる検査が要る。
 func Execute() error {
 	return execute(os.LookupEnv, usage.Record, nil, os.Stdout, os.Stderr)
 }
