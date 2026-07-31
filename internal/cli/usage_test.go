@@ -70,33 +70,11 @@ usage_args.go の positionalSpecs に足すこと（最後の要素は残りの�
 	}
 }
 
-// TestUsage_EveryStringFlagIsClassified は、文字列を取るフラグで分類の無いものが無いこと。
-//
-// 真偽・数値のフラグは型から扱えるので宣言が要らない（structuralFlagValue）。
-// 宣言が要るのは、値がプロジェクトを指しうる文字列フラグだけである。
-func TestUsage_EveryStringFlagIsClassified(t *testing.T) {
-	found := map[string]bool{}
-	var unclassified []string
+// usageWalkCommands はコマンド木を歩く（help / completion / 隠しコマンドは除く）。
+func usageWalkCommands(visit func(*cobra.Command)) {
 	var walk func(c *cobra.Command)
 	walk = func(c *cobra.Command) {
-		c.LocalFlags().VisitAll(func(f *flag.Flag) {
-			if !isStringLikeFlag(f) {
-				return
-			}
-			found[f.Name] = true
-			if _, ok := stringFlagSpecs[f.Name]; !ok {
-				unclassified = append(unclassified, f.Name+" ("+c.CommandPath()+")")
-			}
-		})
-		c.PersistentFlags().VisitAll(func(f *flag.Flag) {
-			if !isStringLikeFlag(f) {
-				return
-			}
-			found[f.Name] = true
-			if _, ok := stringFlagSpecs[f.Name]; !ok {
-				unclassified = append(unclassified, f.Name+" ("+c.CommandPath()+")")
-			}
-		})
+		visit(c)
 		for _, k := range c.Commands() {
 			if k.Name() == "help" || k.Name() == "completion" || k.Hidden {
 				continue
@@ -105,20 +83,170 @@ func TestUsage_EveryStringFlagIsClassified(t *testing.T) {
 		}
 	}
 	walk(newRootCmd())
+}
 
+// usageStringFlagDeclarations は、コマンド木にある**文字列フラグの宣言**すべてを
+// 分類表のキー（(コマンド, フラグ名) の組）で返す。
+//
+// LocalFlags はそのコマンド自身の宣言（局所・永続とも）だけで、**親から継承した永続フラグを含まない**。
+// だから `--dir` の宣言は root の 1 つだけ数えられる。
+func usageStringFlagDeclarations() map[string]bool {
+	keys := map[string]bool{}
+	usageWalkCommands(func(c *cobra.Command) {
+		c.LocalFlags().VisitAll(func(f *flag.Flag) {
+			if isStringLikeFlag(f) {
+				keys[flagSpecKey(c.CommandPath(), f.Name)] = true
+			}
+		})
+	})
+	return keys
+}
+
+// TestUsage_EveryStringFlagIsClassified は、文字列を取るフラグで分類の無いものが無いこと。
+//
+// 真偽・数値のフラグは型から扱えるので宣言が要らない（structuralFlagValue）。
+// 宣言が要るのは、値がプロジェクトを指しうる文字列フラグだけである。
+//
+// ⚠️ **見るのは (コマンド, フラグ名) の組であって、フラグ名ではない。**
+// 名前だけを見る検査は、**新しいコマンドが既存の名前を再利用したときに素通りする**
+// ——`scholia export` に自由文のパスを取る `--to` を足すだけで、誰も何も宣言しないまま
+// classRecordID を継承し、通常の段の recordIds に自由文のパスが出た（正本 条項 3 違反）。
+// **「分類し忘れ」は名前でも捕まるが、「既存の分類の継承」は組でしか捕まらない。**
+//
+// 3 方向を見る:
+//  1. **宣言側** — 木にある宣言すべてが表にあること。
+//  2. **実行側** — 面から見えるフラグすべてが、実行時と同じ引き当て（lookupStringFlagSpec）で
+//     表に届くこと。検査だけが通って実行時は未宣言、という食い違いを塞ぐ。
+//  3. **逆向き** — 表にあるキーが実在すること。
+func TestUsage_EveryStringFlagIsClassified(t *testing.T) {
+	declared := usageStringFlagDeclarations()
+
+	// 1) 宣言側。
+	var unclassified []string
+	for key := range declared {
+		if _, ok := stringFlagSpecs[key]; !ok {
+			unclassified = append(unclassified, key)
+		}
+	}
 	sort.Strings(unclassified)
 	if len(unclassified) > 0 {
 		t.Fatalf(`分類の無い文字列フラグがある: %v
 
-usage_args.go の stringFlagSpecs に足すこと。
+usage_args.go の stringFlagSpecs に、**"<コマンドパス> --<フラグ名>" のキー**で足すこと。
+⚠️ 同じ名前のフラグが別のコマンドに既にあっても、それは別の宣言である。分類は引き継がれない。
 ・レコード id を取る → classRecordID ＋ 選択子の種類
 ・道具の側の閉じた集合 → classToolVocab ＋ values（集合の外の値は自由文へ倒れる）
 ・それ以外（自由文・config が宣言する値・パス） → classFreeText`, unclassified)
 	}
 
-	for name := range stringFlagSpecs {
-		if !found[name] {
-			t.Errorf("stringFlagSpecs に載っている %q は実在しない（改名・削除したなら分類も直す）", name)
+	// 2) 実行側。面から見えるフラグ（局所 ∪ 継承）を、実行時と同じ経路で引き当てる。
+	var unreachable []string
+	usageWalkCommands(func(c *cobra.Command) {
+		if !c.Runnable() {
+			return
+		}
+		seen := map[string]bool{}
+		check := func(f *flag.Flag) {
+			if !isStringLikeFlag(f) || seen[f.Name] {
+				return
+			}
+			seen[f.Name] = true
+			if _, ok := lookupStringFlagSpec(c, f.Name); !ok {
+				unreachable = append(unreachable,
+					c.CommandPath()+" --"+f.Name+" → "+flagSpecKey(flagDeclarationPath(c, f.Name), f.Name))
+			}
+		}
+		c.LocalFlags().VisitAll(check)
+		c.InheritedFlags().VisitAll(check)
+	})
+	sort.Strings(unreachable)
+	if len(unreachable) > 0 {
+		t.Errorf(`面から見えるのに実行時の引き当てが表に届かないフラグがある
+（宣言側は通っているので、届かないのは flagDeclarationPath の解決がずれている）: %v`, unreachable)
+	}
+
+	// 3) 逆向き。
+	for key := range stringFlagSpecs {
+		if !declared[key] {
+			t.Errorf("stringFlagSpecs に載っている %q は実在しない（改名・削除したなら分類も直す）", key)
+		}
+	}
+}
+
+// TestUsage_FlagNameAloneDoesNotClassify は、この単位の本体を**値**で見る。
+//
+// 既存の表にある名前（`--to`＝`scholia tx rename` ではレコード id）を、
+// **表に無いコマンドが**使っても、レコード id として扱われないこと。
+// 自由文のパスが recordIds に出た前回の実漏洩（レビュア変異 R-2）そのものである。
+func TestUsage_FlagNameAloneDoesNotClassify(t *testing.T) {
+	const freeTextPath = "/Users/someone/acme-confidential-roadmap-q4"
+	for _, name := range []string{"to", "id", "set", "add", "rm", "on", "tag"} {
+		t.Run("--"+name, func(t *testing.T) {
+			if _, ok := stringFlagSpecs[name]; ok {
+				t.Fatalf("表がフラグ名 %q だけで引ける形に戻っている", name)
+			}
+			cmd := &cobra.Command{Use: "brand-new", Run: func(*cobra.Command, []string) {}}
+			var v string
+			cmd.Flags().StringVar(&v, name, "", "既存の名前を再利用した新しいコマンドのフラグ")
+			if err := cmd.Flags().Parse([]string{"--" + name, freeTextPath}); err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+
+			shape := observeInvocation(cmd)
+
+			if len(shape.recordIDs) != 0 {
+				t.Errorf("未宣言の (コマンド, フラグ) が recordIds に入った: %v", shape.recordIDs)
+			}
+			if got, ok := shape.flagValues[name]; ok {
+				t.Errorf("未宣言の (コマンド, フラグ) の値が書かれた: %v", got)
+			}
+			if got := shape.freeTextLens[name]; got != len(freeTextPath) {
+				t.Errorf("長さへ倒れていない: %v", shape.freeTextLens)
+			}
+			if shape.selectorKind != "" {
+				t.Errorf("未宣言なのに選択子の種類を名乗った: %q", shape.selectorKind)
+			}
+		})
+	}
+}
+
+// TestFlagDeclarationPath は「どのコマンドの宣言か」の解決を、入力と出力の対で見る。
+//
+// 分類表のキーはここが返す名前で組まれるので、ここがずれると
+// 「検査は通るのに実行時は未宣言」あるいはその逆になる。
+func TestFlagDeclarationPath(t *testing.T) {
+	root := &cobra.Command{Use: "root"}
+	var s string
+	root.PersistentFlags().StringVar(&s, "inherited", "", "")
+	root.PersistentFlags().StringVar(&s, "shadowed", "", "")
+
+	mid := &cobra.Command{Use: "mid"}
+	root.AddCommand(mid)
+
+	leaf := &cobra.Command{Use: "leaf", Run: func(*cobra.Command, []string) {}}
+	leaf.Flags().StringVar(&s, "own", "", "")
+	leaf.Flags().StringVar(&s, "shadowed", "", "") // 親の同名を隠す
+	mid.AddCommand(leaf)
+
+	sibling := &cobra.Command{Use: "sibling", Run: func(*cobra.Command, []string) {}}
+	sibling.Flags().StringVar(&s, "own", "", "") // 同じ名前・別の宣言
+	root.AddCommand(sibling)
+
+	cases := []struct {
+		cmd  *cobra.Command
+		flag string
+		want string
+	}{
+		{leaf, "own", "root mid leaf"},
+		{sibling, "own", "root sibling"},    // 同名でも宣言が違えば別のキーになる
+		{leaf, "inherited", "root"},         // 継承した永続フラグは宣言元で引く
+		{leaf, "shadowed", "root mid leaf"}, // 隠したほうが勝つ
+		{sibling, "shadowed", "root"},       // 隠していない兄弟は宣言元のまま
+		{leaf, "nowhere", "root mid leaf"},  // どこにも無い＝実行されたコマンドの名前（＝未宣言へ倒れる）
+	}
+	for _, c := range cases {
+		if got := flagDeclarationPath(c.cmd, c.flag); got != c.want {
+			t.Errorf("flagDeclarationPath(%s, %q) = %q（want %q）", c.cmd.CommandPath(), c.flag, got, c.want)
 		}
 	}
 }
@@ -594,9 +722,9 @@ func TestUsage_CountingDoesNotChangeOutput(t *testing.T) {
 // TestUsage_ClosedSetValuesOnly は、閉じた集合の外の値が「道具の側の語彙」として
 // 書かれないこと。**分類を間違えても、書けるのは宣言した語彙だけ**という性質を見る。
 func TestUsage_ClosedSetValuesOnly(t *testing.T) {
-	spec := stringFlagSpecs["sort"]
+	spec := stringFlagSpecs["scholia rules --sort"]
 	if spec.class != classToolVocab {
-		t.Fatalf("--sort は道具の側の語彙のはず")
+		t.Fatalf("scholia rules --sort は道具の側の語彙のはず")
 	}
 	shape := invocationShape{flagValues: map[string]any{}, freeTextLens: map[string]int{}}
 	shape.apply("sort", "chrono", spec, map[string]bool{})
