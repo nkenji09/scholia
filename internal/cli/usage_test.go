@@ -3,12 +3,15 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
@@ -38,6 +41,53 @@ func usageRunnableSurfaces() []string {
 	return leaves
 }
 
+// --- 分類の宣言に対する歯止め ---
+//
+// ⚠️ **射程の名乗り**（CLAUDE.md 6）。下の「落ちる」はすべて、実際に変異を当てて赤を実見している。
+//
+// ⚠️ **「1 面で赤を実見した」は「どの面でも落ちる」ではない。**
+// 初版はここを取り違えた——`scholia spec` を名指しした検査で赤を見て「面全体の性質を守っている」と
+// 名乗ったが、`scholia show tag` へ移すと緑になり、実バイナリで自由文のパスが通常の段の recordIds に出た。
+// だから面に関わる項目は、**全面を回す検査**（EveryStringFlagIsClassified /
+// ExtraPositionIsNotRecordedOnAnyFace / PositionalDeclarationCoversEveryAcceptedPosition /
+// ClosedSetValuesOnly）で守り、変異も**別々の面**に当てて確かめてある。
+//
+// 落ちる:
+//   - 新しいコマンドが、**既に別のコマンドで使われている名前**の文字列フラグを宣言せずに足す
+//     （`scholia export --to` / `scholia version --id`）。**この単位の本体。**
+//   - 分類表のキーをフラグ名だけに戻す。
+//   - 継承した永続フラグの宣言元の解決を壊す（flagDeclarationPath）。
+//   - 未宣言の既定を classFreeText 以外にする。
+//   - 組で外れたら名前で引き直す形で継承を復活させる。**綴りを変えても捕まる**
+//     ——見ているのは書き方ではなく観測された値だからである（CLAUDE.md 2）。
+//   - 分類表から 1 行消す。
+//   - 新しい面を足して位置引数の宣言をしない。
+//   - 宣言を超えた位置に最後の分類を延ばす。**全 34 面で落ちる**（1 面の名指しではない）。
+//   - **既存の面が受け取る引数の個数を増やして、宣言を足さない。**
+//     `variadic: true` を名乗った面でも、`Args` が引数の中身を検査する面でも落ちる
+//     （初版はこの 2 つで落ちなかった。前者は実バイナリで漏れた）。
+//   - **`variadic: true` を、上限のある面が名乗る**（宣言を足さずに緑にする逃げ道を塞ぐ）。
+//   - **`variadic` が classRecordID を未宣言の位置へ延ばす**（延ばす先は安全側の分類に限る）。
+//   - 受け取る位置の検査が空振りに退化する。**2 通りとも**——1 面も見ない形と、
+//     面は見るが**受理個数の答えが 1 つも返らない**形（後者は初版で緑だった）。
+//   - 閉じた集合の外の値を語彙として書く。**全 12 宣言で落ちる**（1 つの名指しではない）。
+//
+// ⚠️ 落ちない（＝ここは守っていない）:
+//   - **宣言が「正しい」こと。** 自由文を classRecordID と宣言すれば、その値は通常の段に出る。
+//     ここが見るのは「宣言があるか」だけである。フラグの説明文に `id` が含まれるか、といった
+//     弱い一致検査なら書けるが、**同じ意味を別の綴りで書かれれば捕まらない**（CLAUDE.md 2）ので置いていない。
+//   - **cobra を通らない入力。** 環境変数・標準入力・`$EDITOR` に書かせた本文は表を通らない
+//     （`$EDITOR` 経由は正本が自ら射程の外に置いている）。
+//   - **真偽・数値のフラグ。** 型で扱うので表に載らない（structuralFlagValue）。
+//   - **`positionalSpecs` の at が空の面**は、受け取る位置の検査から外してある。
+//     そこに位置が増えても記録されない（漏れない）が、**黙って欠けることは落ちない。**
+//   - **本当に上限の無い面で、`variadic` が最後の宣言を延ばし続けること自体。**
+//     延ばす先が classFreeText / classToolVocab であることは検査するが、
+//     **その宣言自体が正しいか**（その位置が本当に自由文か）は上の 1 つ目と同じく見ていない。
+//   - **受理個数の問い合わせは 16 個までで打ち切る。** 17 個目からしか受理しない `Args` は
+//     「1 個も受理しない」と読まれる。⚠️ ただし**黙って素通りはしない**——宣言のある面が
+//     1 個も受理しないという答えは gap として報告される（＝落ちる）。読み違えても気づける。
+
 // TestUsage_EveryRunnableSurfaceIsClassified は、位置引数の分類に載っていない面が無いこと。
 //
 // ⚠️ CLAUDE.md 5「新しく作った面には、ガードを置き忘れる」。
@@ -53,10 +103,11 @@ func TestUsage_EveryRunnableSurfaceIsClassified(t *testing.T) {
 	if len(unclassified) > 0 {
 		t.Fatalf(`位置引数の分類が無い面がある: %v
 
-位置引数を取らないなら空スライス {} を、取るなら位置ごとの argSpec を
-usage_args.go の positionalSpecs に足すこと（最後の要素は残りの位置すべてに適用される）。
-レコード id を取る位置なら classRecordID と選択子の種類を、
-自由文なら classFreeText を宣言する。`, unclassified)
+位置引数を取らない（値を記録しない）なら {} を、取るなら {at: []argSpec{…}} を
+usage_args.go の positionalSpecs に足すこと。
+レコード id を取る位置なら classRecordID と選択子の種類を、自由文なら classFreeText を宣言する。
+⚠️ 個数が決まらない（可変長の）コマンドは variadic: true も名乗る。
+名乗らないと、宣言を超えた位置は「記録しない」へ倒れる。`, unclassified)
 	}
 
 	present := map[string]bool{}
@@ -70,33 +121,230 @@ usage_args.go の positionalSpecs に足すこと（最後の要素は残りの�
 	}
 }
 
-// TestUsage_EveryStringFlagIsClassified は、文字列を取るフラグで分類の無いものが無いこと。
+// TestPositionalSpecAt は、**宣言を超えた位置**の扱いを入力と出力の対で見る。
 //
-// 真偽・数値のフラグは型から扱えるので宣言が要らない（structuralFlagValue）。
-// 宣言が要るのは、値がプロジェクトを指しうる文字列フラグだけである。
-func TestUsage_EveryStringFlagIsClassified(t *testing.T) {
-	found := map[string]bool{}
-	var unclassified []string
+// フラグの表が「名前だけで引く」ことで既存の分類を継承していたのと同じ形の穴が、
+// 位置引数側では「最後の宣言を暗黙に残り全部へ延ばす」として出る
+// ——既存のコマンドの位置が 1 つ増えたときに、誰も何も宣言しないまま最後の分類が付く。
+// だから延ばすのは **variadic と名乗ったコマンドだけ**である。
+func TestPositionalSpecAt(t *testing.T) {
+	recTag := argSpec{class: classRecordID, selector: selTag}
+	free := argSpec{class: classFreeText}
+	cases := []struct {
+		name    string
+		spec    positionalSpec
+		i       int
+		want    argSpec
+		wantRec bool
+	}{
+		{"宣言のある位置", positionalSpec{at: []argSpec{recTag}}, 0, recTag, true},
+		{"可変長と名乗っていないコマンドの、宣言を超えた位置は記録しない",
+			positionalSpec{at: []argSpec{recTag}}, 1, argSpec{}, false},
+		{"可変長なら最後の宣言が延びる", positionalSpec{at: []argSpec{recTag, free}, variadic: true}, 5, free, true},
+		{"可変長でも位置ごとの宣言が優先", positionalSpec{at: []argSpec{recTag, free}, variadic: true}, 0, recTag, true},
+		{"宣言が無い面は記録しない", positionalSpec{}, 0, argSpec{}, false},
+		{"可変長と名乗っても延ばす元が無ければ記録しない", positionalSpec{variadic: true}, 0, argSpec{}, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, rec := positionalSpecAt(c.spec, c.i)
+			if rec != c.wantRec {
+				t.Fatalf("記録するか = %v（want %v）", rec, c.wantRec)
+			}
+			if rec && (got.class != c.want.class || got.selector != c.want.selector) {
+				t.Errorf("分類が %+v（want %+v）", got, c.want)
+			}
+		})
+	}
+}
+
+// usageSyntheticSurface は、与えたコマンドパスと同じ CommandPath を持つ空のコマンド木を作って
+// 末端を返す。分類表は CommandPath で引くので、これで**任意の面**の観測を組み立てられる。
+func usageSyntheticSurface(t *testing.T, path string) *cobra.Command {
+	t.Helper()
+	names := strings.Fields(path)
+	if len(names) == 0 {
+		t.Fatalf("面の名前が空")
+	}
+	cur := &cobra.Command{Use: names[0]}
+	for _, n := range names[1:] {
+		child := &cobra.Command{Use: n}
+		cur.AddCommand(child)
+		cur = child
+	}
+	cur.Run = func(*cobra.Command, []string) {}
+	if cur.CommandPath() != path {
+		t.Fatalf("組み立てた面の名前が %q（want %q）", cur.CommandPath(), path)
+	}
+	return cur
+}
+
+// TestUsage_ExtraPositionIsNotRecordedOnAnyFace は、宣言を超えた位置が記録されないことを
+// **分類表にあるすべての面について**、実際の観測で見る。
+//
+// ⚠️ **1 つの面を名指しした検査を、面全体の性質の歯止めと数えてはいけない。**
+// この検査の前身は `scholia spec` を名指しで固定していた。だから
+// 「`scholia show tag` に variadic を名乗らせて受理個数を増やす」変異は緑で通り、
+// 実バイナリで自由文のパスが通常の段の recordIds に出た。**面が違えば捕まらなかった。**
+// この repo はこの型（1 面の実例を性質の証明と読み違える）を繰り返している。
+func TestUsage_ExtraPositionIsNotRecordedOnAnyFace(t *testing.T) {
+	const marker = "/Users/someone/acme-confidential-roadmap-q4"
+	checked := 0
+	for path, spec := range positionalSpecs {
+		if len(spec.at) == 0 || spec.variadic {
+			continue // 記録しないと宣言した面／延ばすと宣言した面は、別の検査が見る
+		}
+		t.Run(path, func(t *testing.T) {
+			checked++
+			cmd := usageSyntheticSurface(t, path)
+			// 宣言のある位置は宣言どおりの値を、その次（＝宣言していない位置）に目印を置く。
+			args := make([]string, 0, len(spec.at)+1)
+			for i, a := range spec.at {
+				if a.class == classToolVocab && len(a.values) > 0 {
+					args = append(args, a.values[0])
+				} else {
+					args = append(args, fmt.Sprintf("declared-%d", i))
+				}
+			}
+			args = append(args, marker)
+			if err := cmd.Flags().Parse(args); err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+
+			shape := observeInvocation(cmd)
+
+			for _, id := range shape.recordIDs {
+				if id == marker {
+					t.Errorf("宣言していない位置が recordIds に入った: %v", shape.recordIDs)
+				}
+			}
+			for k, v := range shape.flagValues {
+				if s, ok := v.(string); ok && s == marker {
+					t.Errorf("宣言していない位置の値が %q として書かれた", k)
+				}
+			}
+			if _, ok := shape.freeTextLens["arg"+strconv.Itoa(len(spec.at))]; ok {
+				t.Errorf("宣言していない位置の長さが書かれた: %v", shape.freeTextLens)
+			}
+		})
+	}
+	if checked == 0 {
+		t.Fatal("この検査が 1 面も見ていない。空振りで緑になっている")
+	}
+}
+
+// usageMaxProbeArgs は、cobra の Args 検証に問い合わせる引数の個数の上限。
+// ここまで全部受理されたら「個数が決まらない（可変長）」と読む。
+const usageMaxProbeArgs = 16
+
+// usageProbeArgs は問い合わせに使う長さ k の引数列。
+//
+// ⚠️ **空文字で問い合わせてはいけない。** `Args` が引数の中身を検査する面では空文字が拒否され、
+// 「1 個も受理しない」と読まれる。すると下の検査はその面を**黙って素通り**する
+// ——答えが出ていないのに緑になる形である。
+func usageProbeArgs(k int) []string {
+	a := make([]string, k)
+	for i := range a {
+		a[i] = "x"
+	}
+	return a
+}
+
+// usageAcceptedArgCounts は、その面が受理する引数の**個数**を実際に問い合わせて返す。
+//
+// cobra の Args は関数なので「いくつ取るか」を宣言として読むことはできないが、
+// **呼べば分かる**——長さ k の引数列を渡して検証が通るかを k=0..usageMaxProbeArgs で見る。
+func usageAcceptedArgCounts(c *cobra.Command) (max int, unbounded bool) {
+	for k := 0; k <= usageMaxProbeArgs; k++ {
+		if c.ValidateArgs(usageProbeArgs(k)) == nil && k > max {
+			max = k
+		}
+	}
+	return max, c.ValidateArgs(usageProbeArgs(usageMaxProbeArgs)) == nil
+}
+
+// TestUsage_PositionalDeclarationCoversEveryAcceptedPosition は、
+// **そのコマンドが受け取れる位置すべてに宣言が届いている**こと。
+//
+// ⚠️ これが無いと、既存の面の位置が 1 つ増えたときに何も落ちない。
+// `scholia spec` を ExactArgs(1) → ExactArgs(2) にすれば、2 つ目の位置は
+// 宣言に届いていないのに、面の宣言（positionalSpecs にキーがある）は通ったままである。
+//
+// ⚠️ **`variadic` を名乗った面を検査から外してはいけない。** 外すと、
+// 「受理個数を増やす → 赤 → 言われたとおり variadic を名乗る → 緑」という経路ができ、
+// **最後の宣言が未宣言の位置へ延びて、この単位が潰したはずの穴が復活する。**
+// だから variadic の面も見て、(a) 本当に個数が決まらないか (b) 延ばす先が安全側か、の 2 つを確かめる。
+//
+// 値を記録しないと宣言した面（at が空）は対象外——増えた位置も記録されないので害が無い。
+func TestUsage_PositionalDeclarationCoversEveryAcceptedPosition(t *testing.T) {
+	var gaps []string
+	checked, answered := 0, 0
+	usageWalkCommands(func(c *cobra.Command) {
+		if !c.Runnable() {
+			return
+		}
+		spec := positionalSpecs[c.CommandPath()]
+		if len(spec.at) == 0 {
+			return
+		}
+		checked++
+		max, unbounded := usageAcceptedArgCounts(c)
+
+		// ⚠️ **問い合わせから答えが返ってきたことを見る。** 「面をいくつ見たか」だけを数える検査は、
+		// 問い合わせが黙っても（＝受理個数が常に 0 と読まれても）緑になる
+		// ——不在の主張しか積んでいないからである。
+		// at に宣言がある＝位置引数を取る面なので、「1 個も受理しない」という答えはありえない。
+		if !unbounded && max == 0 {
+			gaps = append(gaps, fmt.Sprintf("%s: 位置引数の宣言があるのに 1 個も受理しないと読めた。"+
+				"問い合わせが答えを返していないか（Args が \"x\" を拒む・上限 %d を超える）、宣言が古い",
+				c.CommandPath(), usageMaxProbeArgs))
+			return
+		}
+		answered++
+
+		if spec.variadic {
+			if !unbounded {
+				gaps = append(gaps, fmt.Sprintf("%s: variadic を名乗っているのに受理個数が %d で止まる"+
+					"（最後の宣言が、届かない位置ではなく**宣言していない位置**へ延びる）", c.CommandPath(), max))
+			}
+			// 延ばす先は、未宣言と同じ**安全側**に倒れる分類でなければならない。
+			// classRecordID を延ばすと、宣言していない位置の自由文がそのまま recordIds に出る。
+			if last := spec.at[len(spec.at)-1]; last.class == classRecordID {
+				gaps = append(gaps, fmt.Sprintf("%s: variadic が classRecordID を未宣言の位置へ延ばしている"+
+					"（自由文が recordIds に出うる）", c.CommandPath()))
+			}
+			return
+		}
+		if max > len(spec.at) {
+			gaps = append(gaps, fmt.Sprintf("%s: 引数を %d 個まで受け取るのに宣言は %d 位置しかない",
+				c.CommandPath(), max, len(spec.at)))
+		}
+	})
+	// ⚠️ 除外の条件が広がると、この検査は**1 面も見ずに緑**になる。空振りを緑と読まない。
+	if checked == 0 {
+		t.Fatal("この検査が 1 面も見ていない（at に宣言のある面が 1 つも無い）。空振りで緑になっている")
+	}
+	if answered == 0 {
+		t.Fatalf("%d 面を見たが、受理個数の答えが 1 つも返っていない。問い合わせが死んでいる", checked)
+	}
+	sort.Strings(gaps)
+	if len(gaps) > 0 {
+		t.Errorf(`受け取れる位置に宣言が届いていない面がある: %v
+
+usage_args.go の positionalSpecs で、その位置の argSpec を at に足すこと。
+⚠️ **variadic: true は「宣言を足さずに緑にする逃げ道」ではない。**
+名乗ってよいのは**受け取る個数に上限が無い面だけ**で、名乗ると最後の宣言が
+**宣言していない位置すべて**へ延びる。だから延ばす先は classFreeText か classToolVocab
+（＝未宣言と同じ安全側に倒れる分類）に限る。
+上限があるなら、その位置の argSpec を 1 つずつ at に書くこと。`, gaps)
+	}
+}
+
+// usageWalkCommands はコマンド木を歩く（help / completion / 隠しコマンドは除く）。
+func usageWalkCommands(visit func(*cobra.Command)) {
 	var walk func(c *cobra.Command)
 	walk = func(c *cobra.Command) {
-		c.LocalFlags().VisitAll(func(f *flag.Flag) {
-			if !isStringLikeFlag(f) {
-				return
-			}
-			found[f.Name] = true
-			if _, ok := stringFlagSpecs[f.Name]; !ok {
-				unclassified = append(unclassified, f.Name+" ("+c.CommandPath()+")")
-			}
-		})
-		c.PersistentFlags().VisitAll(func(f *flag.Flag) {
-			if !isStringLikeFlag(f) {
-				return
-			}
-			found[f.Name] = true
-			if _, ok := stringFlagSpecs[f.Name]; !ok {
-				unclassified = append(unclassified, f.Name+" ("+c.CommandPath()+")")
-			}
-		})
+		visit(c)
 		for _, k := range c.Commands() {
 			if k.Name() == "help" || k.Name() == "completion" || k.Hidden {
 				continue
@@ -105,20 +353,170 @@ func TestUsage_EveryStringFlagIsClassified(t *testing.T) {
 		}
 	}
 	walk(newRootCmd())
+}
 
+// usageStringFlagDeclarations は、コマンド木にある**文字列フラグの宣言**すべてを
+// 分類表のキー（(コマンド, フラグ名) の組）で返す。
+//
+// LocalFlags はそのコマンド自身の宣言（局所・永続とも）だけで、**親から継承した永続フラグを含まない**。
+// だから `--dir` の宣言は root の 1 つだけ数えられる。
+func usageStringFlagDeclarations() map[string]bool {
+	keys := map[string]bool{}
+	usageWalkCommands(func(c *cobra.Command) {
+		c.LocalFlags().VisitAll(func(f *flag.Flag) {
+			if isStringLikeFlag(f) {
+				keys[flagSpecKey(c.CommandPath(), f.Name)] = true
+			}
+		})
+	})
+	return keys
+}
+
+// TestUsage_EveryStringFlagIsClassified は、文字列を取るフラグで分類の無いものが無いこと。
+//
+// 真偽・数値のフラグは型から扱えるので宣言が要らない（structuralFlagValue）。
+// 宣言が要るのは、値がプロジェクトを指しうる文字列フラグだけである。
+//
+// ⚠️ **見るのは (コマンド, フラグ名) の組であって、フラグ名ではない。**
+// 名前だけを見る検査は、**新しいコマンドが既存の名前を再利用したときに素通りする**
+// ——`scholia export` に自由文のパスを取る `--to` を足すだけで、誰も何も宣言しないまま
+// classRecordID を継承し、通常の段の recordIds に自由文のパスが出た（正本 条項 3 違反）。
+// **「分類し忘れ」は名前でも捕まるが、「既存の分類の継承」は組でしか捕まらない。**
+//
+// 3 方向を見る:
+//  1. **宣言側** — 木にある宣言すべてが表にあること。
+//  2. **実行側** — 面から見えるフラグすべてが、実行時と同じ引き当て（lookupStringFlagSpec）で
+//     表に届くこと。検査だけが通って実行時は未宣言、という食い違いを塞ぐ。
+//  3. **逆向き** — 表にあるキーが実在すること。
+func TestUsage_EveryStringFlagIsClassified(t *testing.T) {
+	declared := usageStringFlagDeclarations()
+
+	// 1) 宣言側。
+	var unclassified []string
+	for key := range declared {
+		if _, ok := stringFlagSpecs[key]; !ok {
+			unclassified = append(unclassified, key)
+		}
+	}
 	sort.Strings(unclassified)
 	if len(unclassified) > 0 {
 		t.Fatalf(`分類の無い文字列フラグがある: %v
 
-usage_args.go の stringFlagSpecs に足すこと。
+usage_args.go の stringFlagSpecs に、**"<コマンドパス> --<フラグ名>" のキー**で足すこと。
+⚠️ 同じ名前のフラグが別のコマンドに既にあっても、それは別の宣言である。分類は引き継がれない。
 ・レコード id を取る → classRecordID ＋ 選択子の種類
 ・道具の側の閉じた集合 → classToolVocab ＋ values（集合の外の値は自由文へ倒れる）
 ・それ以外（自由文・config が宣言する値・パス） → classFreeText`, unclassified)
 	}
 
-	for name := range stringFlagSpecs {
-		if !found[name] {
-			t.Errorf("stringFlagSpecs に載っている %q は実在しない（改名・削除したなら分類も直す）", name)
+	// 2) 実行側。面から見えるフラグ（局所 ∪ 継承）を、実行時と同じ経路で引き当てる。
+	var unreachable []string
+	usageWalkCommands(func(c *cobra.Command) {
+		if !c.Runnable() {
+			return
+		}
+		seen := map[string]bool{}
+		check := func(f *flag.Flag) {
+			if !isStringLikeFlag(f) || seen[f.Name] {
+				return
+			}
+			seen[f.Name] = true
+			if _, ok := lookupStringFlagSpec(c, f.Name); !ok {
+				unreachable = append(unreachable,
+					c.CommandPath()+" --"+f.Name+" → "+flagSpecKey(flagDeclarationPath(c, f.Name), f.Name))
+			}
+		}
+		c.LocalFlags().VisitAll(check)
+		c.InheritedFlags().VisitAll(check)
+	})
+	sort.Strings(unreachable)
+	if len(unreachable) > 0 {
+		t.Errorf(`面から見えるのに実行時の引き当てが表に届かないフラグがある
+（宣言側は通っているので、届かないのは flagDeclarationPath の解決がずれている）: %v`, unreachable)
+	}
+
+	// 3) 逆向き。
+	for key := range stringFlagSpecs {
+		if !declared[key] {
+			t.Errorf("stringFlagSpecs に載っている %q は実在しない（改名・削除したなら分類も直す）", key)
+		}
+	}
+}
+
+// TestUsage_FlagNameAloneDoesNotClassify は、この単位の本体を**値**で見る。
+//
+// 既存の表にある名前（`--to`＝`scholia tx rename` ではレコード id）を、
+// **表に無いコマンドが**使っても、レコード id として扱われないこと。
+// 自由文のパスが recordIds に出た前回の実漏洩（レビュア変異 R-2）そのものである。
+func TestUsage_FlagNameAloneDoesNotClassify(t *testing.T) {
+	const freeTextPath = "/Users/someone/acme-confidential-roadmap-q4"
+	for _, name := range []string{"to", "id", "set", "add", "rm", "on", "tag"} {
+		t.Run("--"+name, func(t *testing.T) {
+			if _, ok := stringFlagSpecs[name]; ok {
+				t.Fatalf("表がフラグ名 %q だけで引ける形に戻っている", name)
+			}
+			cmd := &cobra.Command{Use: "brand-new", Run: func(*cobra.Command, []string) {}}
+			var v string
+			cmd.Flags().StringVar(&v, name, "", "既存の名前を再利用した新しいコマンドのフラグ")
+			if err := cmd.Flags().Parse([]string{"--" + name, freeTextPath}); err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+
+			shape := observeInvocation(cmd)
+
+			if len(shape.recordIDs) != 0 {
+				t.Errorf("未宣言の (コマンド, フラグ) が recordIds に入った: %v", shape.recordIDs)
+			}
+			if got, ok := shape.flagValues[name]; ok {
+				t.Errorf("未宣言の (コマンド, フラグ) の値が書かれた: %v", got)
+			}
+			if got := shape.freeTextLens[name]; got != utf8.RuneCountInString(freeTextPath) {
+				t.Errorf("長さへ倒れていない: %v", shape.freeTextLens)
+			}
+			if shape.selectorKind != "" {
+				t.Errorf("未宣言なのに選択子の種類を名乗った: %q", shape.selectorKind)
+			}
+		})
+	}
+}
+
+// TestFlagDeclarationPath は「どのコマンドの宣言か」の解決を、入力と出力の対で見る。
+//
+// 分類表のキーはここが返す名前で組まれるので、ここがずれると
+// 「検査は通るのに実行時は未宣言」あるいはその逆になる。
+func TestFlagDeclarationPath(t *testing.T) {
+	root := &cobra.Command{Use: "root"}
+	var s string
+	root.PersistentFlags().StringVar(&s, "inherited", "", "")
+	root.PersistentFlags().StringVar(&s, "shadowed", "", "")
+
+	mid := &cobra.Command{Use: "mid"}
+	root.AddCommand(mid)
+
+	leaf := &cobra.Command{Use: "leaf", Run: func(*cobra.Command, []string) {}}
+	leaf.Flags().StringVar(&s, "own", "", "")
+	leaf.Flags().StringVar(&s, "shadowed", "", "") // 親の同名を隠す
+	mid.AddCommand(leaf)
+
+	sibling := &cobra.Command{Use: "sibling", Run: func(*cobra.Command, []string) {}}
+	sibling.Flags().StringVar(&s, "own", "", "") // 同じ名前・別の宣言
+	root.AddCommand(sibling)
+
+	cases := []struct {
+		cmd  *cobra.Command
+		flag string
+		want string
+	}{
+		{leaf, "own", "root mid leaf"},
+		{sibling, "own", "root sibling"},    // 同名でも宣言が違えば別のキーになる
+		{leaf, "inherited", "root"},         // 継承した永続フラグは宣言元で引く
+		{leaf, "shadowed", "root mid leaf"}, // 隠したほうが勝つ
+		{sibling, "shadowed", "root"},       // 隠していない兄弟は宣言元のまま
+		{leaf, "nowhere", "root mid leaf"},  // どこにも無い＝実行されたコマンドの名前（＝未宣言へ倒れる）
+	}
+	for _, c := range cases {
+		if got := flagDeclarationPath(c.cmd, c.flag); got != c.want {
+			t.Errorf("flagDeclarationPath(%s, %q) = %q（want %q）", c.cmd.CommandPath(), c.flag, got, c.want)
 		}
 	}
 }
@@ -593,25 +991,51 @@ func TestUsage_CountingDoesNotChangeOutput(t *testing.T) {
 
 // TestUsage_ClosedSetValuesOnly は、閉じた集合の外の値が「道具の側の語彙」として
 // 書かれないこと。**分類を間違えても、書けるのは宣言した語彙だけ**という性質を見る。
+//
+// ⚠️ **表にある classToolVocab の宣言をすべて見る。** 前の版は `scholia rules --sort` 1 つを
+// 名指ししていた——1 面の実例を性質の歯止めと数えない（F3 を招いたのと同じ型）。
 func TestUsage_ClosedSetValuesOnly(t *testing.T) {
-	spec := stringFlagSpecs["sort"]
-	if spec.class != classToolVocab {
-		t.Fatalf("--sort は道具の側の語彙のはず")
-	}
-	shape := invocationShape{flagValues: map[string]any{}, freeTextLens: map[string]int{}}
-	shape.apply("sort", "chrono", spec, map[string]bool{})
-	shape.apply("sort", "プロジェクトが名付けた何か", spec, map[string]bool{})
-
-	if got := shape.flagValues["sort"]; got != "chrono" {
-		t.Errorf("閉じた集合の中の値は残るはず: %v", got)
-	}
-	if shape.freeTextLens["sort"] == 0 {
-		t.Errorf("閉じた集合の外の値は長さへ倒れるはず: %v", shape.freeTextLens)
-	}
-	for _, v := range shape.flagValues {
-		if s, ok := v.(string); ok && strings.Contains(s, "プロジェクト") {
-			t.Errorf("閉じた集合の外の値が書かれた: %v", v)
+	const outsider = "プロジェクトが名付けた何か"
+	checked := 0
+	check := func(t *testing.T, where string, spec argSpec) {
+		if spec.class != classToolVocab {
+			return
 		}
+		checked++
+		t.Run(where, func(t *testing.T) {
+			if len(spec.values) == 0 {
+				t.Fatalf("classToolVocab なのに閉じた集合が空（値が書かれることは無いが、宣言として誤り）")
+			}
+			shape := invocationShape{flagValues: map[string]any{}, freeTextLens: map[string]int{}}
+			shape.apply("v", spec.values[0], spec, map[string]bool{})
+			shape.apply("v", outsider, spec, map[string]bool{})
+
+			if got := shape.flagValues["v"]; got != spec.values[0] {
+				t.Errorf("閉じた集合の中の値は残るはず: %v", got)
+			}
+			if shape.freeTextLens["v"] == 0 {
+				t.Errorf("閉じた集合の外の値は長さへ倒れるはず: %v", shape.freeTextLens)
+			}
+			for _, v := range shape.flagValues {
+				if s, ok := v.(string); ok && s == outsider {
+					t.Errorf("閉じた集合の外の値が書かれた: %v", v)
+				}
+			}
+			if len(shape.recordIDs) != 0 {
+				t.Errorf("道具の側の語彙が recordIds に入った: %v", shape.recordIDs)
+			}
+		})
+	}
+	for key, spec := range stringFlagSpecs {
+		check(t, key, spec)
+	}
+	for path, ps := range positionalSpecs {
+		for i, spec := range ps.at {
+			check(t, fmt.Sprintf("%s arg%d", path, i), spec)
+		}
+	}
+	if checked == 0 {
+		t.Fatal("この検査が 1 つの宣言も見ていない（classToolVocab の宣言が表から消えた）。空振りで緑になっている")
 	}
 }
 
@@ -628,7 +1052,7 @@ func TestUsage_UnclassifiedStringFlagFallsBackToLength(t *testing.T) {
 	if _, ok := shape.flagValues["brand-new-flag"]; ok {
 		t.Errorf("未分類のフラグの値が書かれた: %v", shape.flagValues)
 	}
-	if got := shape.freeTextLens["brand-new-flag"]; got != len("req.secret") {
+	if got := shape.freeTextLens["brand-new-flag"]; got != utf8.RuneCountInString("req.secret") {
 		t.Errorf("長さへ倒れていない: %v", shape.freeTextLens)
 	}
 	if len(shape.recordIDs) != 0 {
