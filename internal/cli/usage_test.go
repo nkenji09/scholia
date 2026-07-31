@@ -128,9 +128,9 @@ usage_args.go の stringFlagSpecs に足すこと。
 // usageTestEnv はログの置き場所をテスト用に閉じ込め、パスを返す。
 func usageTestEnv(t *testing.T) string {
 	t.Helper()
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, "cache"))
+	t.Setenv("HOME", t.TempDir())
+	// ⚠️ 実環境の $XDG_STATE_HOME が漏れ込むと、設定している人の手元だけ別の場所を見る。
+	unsetUsageEnvVar(t, usage.StateHomeEnv)
 	// 呼び出し元の名乗りは環境に左右されるので、テストでは固定する。
 	t.Setenv("CLAUDE_CODE_ENTRYPOINT", "test-harness")
 	t.Setenv("CLAUDE_CODE_SESSION_ID", "session-under-test")
@@ -425,16 +425,16 @@ func TestResolveUsageLevel(t *testing.T) {
 
 // --- 既定 off の不変（正本 条項 10: オフのときは何もしない）---
 
-// unsetUsageEnv は SCHOLIA_USAGE_LEVEL を**未設定**にする。
+// unsetUsageEnvVar は環境変数を**未設定**にする。
 //
 // t.Setenv を一度通してから消すのは、テスト終了時に元の値へ戻す後始末を testing に登録するため
-// （t.Unsetenv は無い）。ここで os.LookupEnv を本番と同じまま使いたいので、
+// （t.Unsetenv は無い）。段の検査では os.LookupEnv を本番と同じまま使いたいので、
 // lookup を偽装せずに環境そのものを未設定にする。
-func unsetUsageEnv(t *testing.T) {
+func unsetUsageEnvVar(t *testing.T, key string) {
 	t.Helper()
-	t.Setenv(usage.EnvVar, "この値は Unsetenv で消える（後始末の登録のためだけに一度置く）")
-	if err := os.Unsetenv(usage.EnvVar); err != nil {
-		t.Fatalf("Unsetenv: %v", err)
+	t.Setenv(key, "この値は Unsetenv で消える（後始末の登録のためだけに一度置く）")
+	if err := os.Unsetenv(key); err != nil {
+		t.Fatalf("Unsetenv(%s): %v", key, err)
 	}
 }
 
@@ -482,7 +482,7 @@ func TestUsage_DefaultOffDoesNotEnterTheMeasuredPath(t *testing.T) {
 	for _, c := range usageOffCases {
 		t.Run(c.name, func(t *testing.T) {
 			logPath := usageTestEnv(t)
-			unsetUsageEnv(t)
+			unsetUsageEnvVar(t, usage.EnvVar)
 
 			// 1) 計測層をまったく通さない経路（＝計測を入れる前の Execute と同じこと）。
 			baseDir := seedStore(t, projectNamedArg)
