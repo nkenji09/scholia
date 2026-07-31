@@ -10,6 +10,33 @@ import (
 	"time"
 )
 
+// unsetEnv は環境変数を**未設定**にする。
+//
+// t.Setenv を一度通してから消すのは、テスト終了時に元の値へ戻す後始末を testing に登録するため
+// （t.Unsetenv は無い）。実環境の $XDG_STATE_HOME が検査へ漏れ込むのを止めるのにも要る。
+func unsetEnv(t *testing.T, key string) {
+	t.Helper()
+	t.Setenv(key, "この値は Unsetenv で消える（後始末の登録のためだけに一度置く）")
+	if err := os.Unsetenv(key); err != nil {
+		t.Fatalf("Unsetenv(%s): %v", key, err)
+	}
+}
+
+// usageLogEnv は計測ログの置き場所をテスト用に閉じ込め、そのパスを返す。
+//
+// ⚠️ **$XDG_STATE_HOME を明示的に未設定にする。** これをしないと、実環境で設定している人の
+// 手元だけ検査が別の場所を見る（＝手元では緑・CI では赤、あるいはその逆）。
+func usageLogEnv(t *testing.T) string {
+	t.Helper()
+	t.Setenv("HOME", t.TempDir())
+	unsetEnv(t, StateHomeEnv)
+	path, err := DefaultPath()
+	if err != nil {
+		t.Fatalf("DefaultPath: %v", err)
+	}
+	return path
+}
+
 // fullObservation は全項目に**互いに異なる非ゼロの値**を入れた観測。
 //
 // ゼロ値のままだと「記録していない（null）」と「記録したが空だった」の区別が
@@ -173,6 +200,10 @@ var projectNamedStrings = []string{
 // 本 repo のタグは 78 件しかなく、長さはほぼ一意なので、長さが出れば名前は指せてしまう。
 // だからマスクの境界は性質として「導いたものも書かない」と Records / NamesProject の側に書いてあり、
 // この検査はその一部しか担保しない。**ここを埋めたつもりになってはいけない。**
+//
+// 導いたものの側は cli の TestUsage_MaskedLineIsNonInterferingWithProjectNames が差分で見ている
+// （プロジェクトが名付けたものだけを変えて 2 回走らせ、行がバイト同一であること）。
+// あちらは配線した経路を実際に走らせる検査なので、Line だけを見るこちらでは代われない。
 func TestLine_MaskedDoesNotContainProjectNamedValues(t *testing.T) {
 	obs := fullObservation()
 	obs.RecordIDs = append([]string(nil), projectNamedStrings...)
@@ -240,16 +271,10 @@ func TestLine_RecordedButEmptyIsNotNull(t *testing.T) {
 }
 
 func TestRecord_OffWritesNothing(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("HOME", dir)
-	t.Setenv("XDG_CACHE_HOME", filepath.Join(dir, "cache"))
+	path := usageLogEnv(t)
 
 	Record(Off, fullObservation())
 
-	path, err := DefaultPath()
-	if err != nil {
-		t.Fatalf("DefaultPath: %v", err)
-	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Errorf("オフなのにファイルが作られた（%s・err=%v）", path, err)
 	}
@@ -260,17 +285,11 @@ func TestRecord_OffWritesNothing(t *testing.T) {
 }
 
 func TestRecord_AppendsOneLinePerCall(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("HOME", dir)
-	t.Setenv("XDG_CACHE_HOME", filepath.Join(dir, "cache"))
+	path := usageLogEnv(t)
 
 	Record(Normal, fullObservation())
 	Record(Detailed, fullObservation())
 
-	path, err := DefaultPath()
-	if err != nil {
-		t.Fatalf("DefaultPath: %v", err)
-	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("ログを読めない: %v", err)
@@ -297,14 +316,7 @@ func TestRecord_AppendsOneLinePerCall(t *testing.T) {
 // （正本 条項 11: 記録の失敗が本業を落とさない）。
 // 置き場所にファイルではなくディレクトリを置いて、書き込みを必ず失敗させる。
 func TestRecord_FailureDoesNotEscape(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("HOME", dir)
-	t.Setenv("XDG_CACHE_HOME", filepath.Join(dir, "cache"))
-
-	path, err := DefaultPath()
-	if err != nil {
-		t.Fatalf("DefaultPath: %v", err)
-	}
+	path := usageLogEnv(t)
 	if err := os.MkdirAll(path, 0o755); err != nil {
 		t.Fatalf("邪魔なディレクトリを作れない: %v", err)
 	}
@@ -331,23 +343,195 @@ func TestAppendLine_CreatesParentDirectories(t *testing.T) {
 	}
 }
 
+// seedProject は `.scholia` を持つ「プロジェクトらしいディレクトリ」を作って返す。
+// store の中身までは作らない（見たいのは置き場所がここに入らないことだけ）。
+func seedProject(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".scholia", "decisions"), 0o755); err != nil {
+		t.Fatalf("プロジェクトを作れない: %v", err)
+	}
+	return root
+}
+
+// TestDefaultPath_IsASingleFileOutsideTheProject は、正本 条項 8
+// 「置き場所はリポジトリの外の 1 ファイル。`.scholia/` 配下には置かない」を**値で**検査する。
+//
+// ⚠️ 以前の版は「パスに `.scholia` という文字列を含まない」しか見ていなかった。
+// **名乗り（プロジェクトの外）より狭い**——文字列が一致しなければ、プロジェクトの中に
+// 置いていても通ってしまう。ここでは「外である」ことそのものを 3 つの性質で見る。
+//
+// ⚠️ **この検査の射程**: 見ているのは「解決したパスがプロジェクトの位置に依存しない」ことで、
+// **どのディレクトリがプロジェクトかを知っているわけではない。** 利用者が state ディレクトリの
+// 中で `scholia init` すれば、そこはプロジェクトにもなる（そのときの置き場所は下の
+// TestDefaultPath_DoesNotCreateAStoreShapedDirectory が別の角度から見ている）。
 func TestDefaultPath_IsASingleFileOutsideTheProject(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("HOME", dir)
-	t.Setenv("XDG_CACHE_HOME", filepath.Join(dir, "cache"))
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	unsetEnv(t, StateHomeEnv)
+
+	project := seedProject(t)
+
+	// プロジェクトの中に降りて解決する。
+	t.Chdir(project)
+	inProject, err := DefaultPath()
+	if err != nil {
+		t.Fatalf("DefaultPath: %v", err)
+	}
+
+	// 別の場所（プロジェクトのさらに内側）へ移って、もう一度解決する。
+	deeper := filepath.Join(project, ".scholia", "decisions")
+	t.Chdir(deeper)
+	inDeeper, err := DefaultPath()
+	if err != nil {
+		t.Fatalf("DefaultPath: %v", err)
+	}
+
+	if filepath.Base(inProject) != "usage.jsonl" {
+		t.Errorf("ログのファイル名が %q", filepath.Base(inProject))
+	}
+	if !filepath.IsAbs(inProject) {
+		t.Errorf("絶対パスでない: %s", inProject)
+	}
+	// 1) cwd を変えても同じパスを返す ＝ プロジェクトの位置に依存しない。
+	if inProject != inDeeper {
+		t.Errorf(`cwd によって置き場所が変わる（プロジェクトの位置に依存している）
+  %s で解決: %s
+  %s で解決: %s`, project, inProject, deeper, inDeeper)
+	}
+	// 2) プロジェクトルートの下にいない。
+	if isUnder(inProject, project) {
+		t.Errorf("プロジェクトの中に置いている:\n  ログ: %s\n  プロジェクト: %s", inProject, project)
+	}
+	// 3) プロジェクトのストア（<root>/.scholia）の下にいない。
+	if store := filepath.Join(project, ".scholia"); isUnder(inProject, store) {
+		t.Errorf(".scholia 配下に置いている:\n  ログ: %s\n  ストア: %s", inProject, store)
+	}
+}
+
+// isUnder は path が root の下にあるかを、パスの成分単位で判定する。
+// 文字列の前方一致だと "/a/bc" が "/a/b" の下だと誤判定するので、Rel で見る。
+func isUnder(path, root string) bool {
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// TestDefaultPath_DoesNotCreateAStoreShapedDirectory は、置き場所の**どの段にも**
+// `.scholia` という名前のディレクトリが現れないことを見る。
+//
+// ⚠️ これは見た目の問題ではない。store.Discover は名前が `.scholia` のディレクトリを
+// **中身を見ずに**ストアとして拾うので、置き場所の途中に 1 つでもあると、
+// その親から下で走らせた scholia がそれをストアとして開こうとする——
+// **しかも計測をオフに戻しても消えない。**
+func TestDefaultPath_DoesNotCreateAStoreShapedDirectory(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	unsetEnv(t, StateHomeEnv)
 
 	path, err := DefaultPath()
 	if err != nil {
 		t.Fatalf("DefaultPath: %v", err)
 	}
-	if filepath.Base(path) != "usage.jsonl" {
-		t.Errorf("ログのファイル名が %q", filepath.Base(path))
+	rel, err := filepath.Rel(home, path)
+	if err != nil {
+		t.Fatalf("Rel: %v", err)
 	}
-	if strings.Contains(path, ".scholia") {
-		t.Errorf(".scholia 配下に置いている: %s", path)
+	for _, seg := range strings.Split(rel, string(filepath.Separator)) {
+		if seg == ".scholia" {
+			t.Errorf("置き場所の途中に `.scholia` というディレクトリを作っている（store.Discover が拾う）: %s", path)
+		}
 	}
-	if !filepath.IsAbs(path) {
-		t.Errorf("絶対パスでない: %s", path)
+}
+
+// TestDefaultPath_OneRuleForEveryOS は、置き場所を決める規則が 1 つであること
+// （$XDG_STATE_HOME か、無ければ $HOME/.local/state）を入力と出力の対で検査する。
+//
+// ⚠️ **OS で分岐しない。** os.UserConfigDir / os.UserCacheDir を使うと darwin と linux で
+// 別の場所になり、置き場所のガードも OS で分岐する。
+func TestDefaultPath_OneRuleForEveryOS(t *testing.T) {
+	home := t.TempDir()
+	abs := t.TempDir()
+
+	cases := []struct {
+		name     string
+		stateEnv string // "" は未設定を表す
+		want     func() string
+	}{
+		{"XDG_STATE_HOME があればそれ", abs,
+			func() string { return filepath.Join(abs, "scholia", "usage.jsonl") }},
+		{"未設定なら $HOME/.local/state", "",
+			func() string { return filepath.Join(home, ".local", "state", "scholia", "usage.jsonl") }},
+		// 相対パスは XDG の規定で無効。ここで使ってしまうと基点が cwd になり、
+		// ログがプロジェクトの中に落ちる（条項 8 違反）。
+		{"相対パスは無効として無視する", "relative/state",
+			func() string { return filepath.Join(home, ".local", "state", "scholia", "usage.jsonl") }},
+		{"空文字も無効として無視する", "",
+			func() string { return filepath.Join(home, ".local", "state", "scholia", "usage.jsonl") }},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Setenv("HOME", home)
+			if c.stateEnv == "" {
+				unsetEnv(t, StateHomeEnv)
+			} else {
+				t.Setenv(StateHomeEnv, c.stateEnv)
+			}
+			got, err := DefaultPath()
+			if err != nil {
+				t.Fatalf("DefaultPath: %v", err)
+			}
+			if want := c.want(); got != want {
+				t.Errorf("DefaultPath() = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+// TestDefaultPath_UnresolvableEnvironmentIsAnErrorNotAGuess は、基点が決まらないときに
+// **推測でどこかへ書かない**こと。
+//
+// ⚠️ ここでエラーを返すのは「記録しない」に倒すためである（条項 11: 記録の失敗が本業を落とさない）。
+// 相対パスや空文字を掴んで cwd 起点のパスを組み立てると、**プロジェクトの中に書いてしまう。**
+func TestDefaultPath_UnresolvableEnvironmentIsAnErrorNotAGuess(t *testing.T) {
+	unsetEnv(t, StateHomeEnv)
+	unsetEnv(t, "HOME")
+
+	path, err := DefaultPath()
+	if err == nil {
+		t.Fatalf("基点が決まらないのにパスを返した: %q", path)
+	}
+	if path != "" {
+		t.Errorf("エラーなのにパスも返している: %q", path)
+	}
+}
+
+// TestRecord_UnresolvableEnvironmentWritesNothingAndDoesNotPanic は、基点が決まらない環境で
+// **どの段でも**本業が落ちないこと（条項 11）。オフでも段が立っていても、外へは何も出ない。
+func TestRecord_UnresolvableEnvironmentWritesNothingAndDoesNotPanic(t *testing.T) {
+	cwd := t.TempDir()
+	t.Chdir(cwd)
+	unsetEnv(t, StateHomeEnv)
+	unsetEnv(t, "HOME")
+
+	for _, l := range AllLevels() {
+		Record(l, fullObservation())
+	}
+
+	// 推測で cwd 起点のどこかへ書いていないこと。
+	var wrote []string
+	if err := filepath.WalkDir(cwd, func(p string, d os.DirEntry, err error) error {
+		if err == nil && !d.IsDir() {
+			wrote = append(wrote, p)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("walk: %v", err)
+	}
+	if len(wrote) > 0 {
+		t.Errorf("基点が決まらないのに何かを書いた: %v", wrote)
 	}
 }
 

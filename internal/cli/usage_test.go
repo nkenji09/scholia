@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -127,9 +128,9 @@ usage_args.go の stringFlagSpecs に足すこと。
 // usageTestEnv はログの置き場所をテスト用に閉じ込め、パスを返す。
 func usageTestEnv(t *testing.T) string {
 	t.Helper()
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, "cache"))
+	t.Setenv("HOME", t.TempDir())
+	// ⚠️ 実環境の $XDG_STATE_HOME が漏れ込むと、設定している人の手元だけ別の場所を見る。
+	unsetUsageEnvVar(t, usage.StateHomeEnv)
 	// 呼び出し元の名乗りは環境に左右されるので、テストでは固定する。
 	t.Setenv("CLAUDE_CODE_ENTRYPOINT", "test-harness")
 	t.Setenv("CLAUDE_CODE_SESSION_ID", "session-under-test")
@@ -147,7 +148,7 @@ func runMeasured(t *testing.T, level usage.Level, args ...string) (out string, l
 	t.Helper()
 	path := usageTestEnv(t)
 	var stdout, stderr bytes.Buffer
-	_ = executeWithUsage(level, args, &stdout, &stderr)
+	_ = executeWithUsage(level, usage.Record, args, &stdout, &stderr)
 
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -188,6 +189,9 @@ const projectNamedArg = "req.acme-confidential-billing"
 // 本 repo のタグは 78 件しかなく長さはほぼ一意なので、長さが出れば名前は指せてしまう。
 // マスクの境界は性質として usage.Records / Field.NamesProject の側に書いてあり、
 // **ここはその一部しか担保しない。ここを埋めたつもりになってはいけない。**
+//
+// 導いたものの側は TestUsage_MaskedLineIsNonInterferingWithProjectNames が差分で見ている
+// （2 つの入力についてバイト同一であること）。**両方合わせても「すべての入力の証明」にはならない。**
 func TestUsage_MaskedLineDoesNotContainProjectNamedArguments(t *testing.T) {
 	dir := seedStore(t, projectNamedArg)
 
@@ -223,6 +227,99 @@ func TestUsage_MaskedLineDoesNotContainProjectNamedArguments(t *testing.T) {
 			t.Errorf("マスクの行で %q が null でない: %v", key, line[key])
 		}
 	}
+}
+
+// usageNonInterferenceHoldOut は「プロジェクトが名付けたものと無関係に、あるいは量そのものとして
+// 実行ごとに変わってよい」と**明示的に宣言した**項目。
+//
+// ⚠️ **ここに無い項目は、2 回の実行でバイト同一でなければならない。**
+// Field.NamesProject の手宣言（項目ごと・18 個）と違い、**新しい項目はここに足さない限り
+// 自動的に検査対象になる**——閉じ方がこちらのほうが強い。
+//
+// ⚠️ **必要だと確かめていない項目をここへ足さないこと。** この検査が「捕まえない項目の列挙」へ
+// 退化するとしたら、**必要な hold-out からではなく余分な hold-out から始まる。**
+// 実例がある——`stdoutBytes` を「長さ違いの対でだけ」hold-out していた版は、
+// 外しても緑だった（この検査が回す `rules --tag <id>` の出力は id を含まないので、
+// 出力長は id の長さに依存しない）。**その余分な 1 つが、ちょうど 1 本の漏洩経路を通していた**
+// ——マスクのときだけ id の長さを `stdoutBytes` に足す変異（N-2b）が全部緑で通り、条項 4 を破った。
+var usageNonInterferenceHoldOut = map[string]bool{
+	"ts":         true, // 時刻。実行ごとに進む
+	"durationUs": true, // 所要。実行ごとに揺れる
+}
+
+// TestUsage_MaskedLineIsNonInterferingWithProjectNames は、マスクの行が
+// **プロジェクトが名付けた入力の関数になっていない**ことを差分で見る。
+//
+// 正本の歯止め 3 の値検査（TestUsage_MaskedLineDoesNotContainProjectNamedArguments /
+// TestLine_MaskedDoesNotContainProjectNamedValues）が捕まえるのは「値がそのまま出ること」だけで、
+// 値から**導いたもの**——長さ・先頭数文字・ダイジェスト——は捕まえない。
+// こちらはプロジェクトが名付けたものだけを変えて 2 回走らせ、行がバイト同一であることを見るので、
+// 導いたものが 1 ビットでも行に漏れれば落ちる。
+//
+// **これは「捕まえられない綴りの列挙」ではなく 1 つの性質である**（CLAUDE.md 2）。
+//
+// ⚠️ **この検査の射程**（CLAUDE.md 6）:
+//   - 言えるのは「**この 2 つの入力について行が同じ**」までで、すべての入力についての証明ではない。
+//   - hold-out（`ts` / `durationUs` の 2 つ）に載せた項目は見ていない。
+//   - **マスクの段だけを見る。** 通常・詳細はプロジェクトが名付けたものを載せると決めた段なので、
+//     この性質は成り立たないし、成り立ってはいけない。
+func TestUsage_MaskedLineIsNonInterferingWithProjectNames(t *testing.T) {
+	const (
+		shortID = "req.a"
+		longID  = "req.bbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+		sameA   = "req.aaaaaaaaaaaaaaaa"
+		sameB   = "req.zzzzzzzzzzzzzzzz"
+	)
+	cases := []struct {
+		name string
+		a, b string
+	}{
+		{"同じ長さ・違う中身（値・先頭・ダイジェストの漏れを捕まえる）", sameA, sameB},
+		// ⚠️ **stdoutBytes も検査対象のままにする。** ここで回す `rules --tag <id>` の出力は
+		// id を含まないので、id の長さが違っても出力長は変わらない。
+		{"違う長さ（長さの漏れを捕まえる）", shortID, longID},
+		// レコード id を同じにして、違うのはプロジェクトのパスだけ。
+		// 正本の「マスクでは複数プロジェクトを区別できない」が実装で成立していること。
+		{"プロジェクトのパスだけ違う", sameA, sameA},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			la := maskedLineFor(t, c.a)
+			lb := maskedLineFor(t, c.b)
+			for _, m := range []map[string]any{la, lb} {
+				for k := range usageNonInterferenceHoldOut {
+					delete(m, k)
+				}
+			}
+			ja, err := json.Marshal(la)
+			if err != nil {
+				t.Fatalf("再符号化できない: %v", err)
+			}
+			jb, err := json.Marshal(lb)
+			if err != nil {
+				t.Fatalf("再符号化できない: %v", err)
+			}
+			if string(ja) != string(jb) {
+				t.Errorf(`マスクの行がプロジェクトが名付けたものに依存している（＝導いたものが漏れている）
+  %q の行: %s
+  %q の行: %s`, c.a, ja, c.b, jb)
+			}
+			// 空の行どうしを比べても同一になるので、「残るべきものが残る」も同時に見る。
+			if la["level"] != "masked" || la["command"] != "scholia rules" {
+				t.Errorf("比べた行が空になっている: %s", ja)
+			}
+		})
+	}
+}
+
+// maskedLineFor は、プロジェクトが名付けたレコード 1 件だけを置いた新しい store に対して
+// マスクで 1 回走らせ、その行を返す。**store は呼び出しごとに別の場所に作られる**ので、
+// レコード id とプロジェクトのパスの両方が呼び出しごとに変わる。
+func maskedLineFor(t *testing.T, tagID string) map[string]any {
+	t.Helper()
+	dir := seedStore(t, tagID)
+	_, line := runMeasured(t, usage.Masked, "--dir", dir, "rules", "--tag", tagID)
+	return line
 }
 
 // TestUsage_NormalLineNamesTheRecordAndTheProject は、通常が
@@ -329,6 +426,149 @@ func TestResolveUsageLevel(t *testing.T) {
 	}
 }
 
+// --- 既定 off の不変（正本 条項 10: オフのときは何もしない）---
+
+// unsetUsageEnvVar は環境変数を**未設定**にする。
+//
+// t.Setenv を一度通してから消すのは、テスト終了時に元の値へ戻す後始末を testing に登録するため
+// （t.Unsetenv は無い）。段の検査では os.LookupEnv を本番と同じまま使いたいので、
+// lookup を偽装せずに環境そのものを未設定にする。
+func unsetUsageEnvVar(t *testing.T, key string) {
+	t.Helper()
+	t.Setenv(key, "この値は Unsetenv で消える（後始末の登録のためだけに一度置く）")
+	if err := os.Unsetenv(key); err != nil {
+		t.Fatalf("Unsetenv(%s): %v", key, err)
+	}
+}
+
+// usageOffCase は「既定 off で何も変わらない」を確かめる 1 つの起動。
+type usageOffCase struct {
+	name string
+	args func(dir string) []string
+}
+
+// usageOffCases は起動の並び。
+//
+// ⚠️ **読み取りだけを並べない。** 単位AI の手測り 16 通りは全部読み取り系で、
+// 書き込み系が 1 つも無かった（レビュアが 22 通りへ広げて埋めた軸）。
+// 書き込み・失敗する起動・引数不足・`--help`・store を開かない起動を入れてある。
+var usageOffCases = []usageOffCase{
+	{"読み取り（出力がある）", func(dir string) []string {
+		return []string{"--dir", dir, "rules", "--tag", projectNamedArg}
+	}},
+	{"読み取り（一覧）", func(dir string) []string { return []string{"--dir", dir, "list"} }},
+	{"書き込み", func(dir string) []string {
+		return []string{"--dir", dir, "tag", "create", "req.written-while-off", "--name", "オフで書く", "--kind", "requirement"}
+	}},
+	{"失敗する起動", func(dir string) []string { return []string{"--dir", dir, "no-such-command"} }},
+	{"引数が足りない起動", func(dir string) []string { return []string{"--dir", dir, "show"} }},
+	{"--help", func(string) []string { return []string{"--help"} }},
+	{"store を開かない起動", func(string) []string { return []string{"version"} }},
+}
+
+// TestUsage_DefaultOffDoesNotEnterTheMeasuredPath は、正本で**最も重い不変**
+// （条項 10: 環境変数が未設定なら出力・exit code・生成物のいずれも変わらない）を自動で守る。
+//
+// 2 つを**対で**見る。
+//
+//  1. **計測経路に入らないこと**——sink が 1 度も呼ばれない。
+//     ⚠️ 「ログのファイルが作られない」だけでは足りない。usage.Record 自身がオフを弾くので、
+//     オフで計測経路を通ってしまう変異（レビュアの R-1: off 分岐を丸ごと消す）でもファイルは増えない。
+//  2. **出力が計測層を通さない経路とバイト同一であること**——注記の混入・writer の非素通しを捕まえる。
+//
+// ⚠️ **この検査の射程**（CLAUDE.md 6）:
+// 落ちるのは「オフなのに観測を組み立てて sink へ渡すこと」と「オフなのに出力・エラー・生成物が変わること」である。
+// **sink を呼ばずに writer を包むだけの変異は落ちない**——ただしそれは出力・exit code・生成物の
+// どれも変えないので、条項 10 が名指しする観測可能な差にはならない（変わるのは所要だけである）。
+// 「包んでいないこと」自体は TestUsage_PlainRootHandsCobraTheWritersUnwrapped が同一性で見ている。
+//
+// ⚠️ **本番の入口（Execute）そのものは、この検査も他のどの検査も通っていない。**
+// ここが呼ぶのは execute で、`Execute()` が「os.LookupEnv と usage.Record と os.Stdout/os.Stderr を
+// 渡して execute を呼ぶだけ」であることは検査していない——`Execute()` の中身を書き換える変異
+// （たとえば段を決め打ちする・別の sink を渡す）は、全部緑のまま通る。
+// **塞ぐには本物のバイナリを走らせる検査が要る**（いまは手で取った A/B しかない）。別単位。
+func TestUsage_DefaultOffDoesNotEnterTheMeasuredPath(t *testing.T) {
+	for _, c := range usageOffCases {
+		t.Run(c.name, func(t *testing.T) {
+			logPath := usageTestEnv(t)
+			unsetUsageEnvVar(t, usage.EnvVar)
+
+			// 1) 計測層をまったく通さない経路（＝計測を入れる前の Execute と同じこと）。
+			baseDir := seedStore(t, projectNamedArg)
+			var baseOut bytes.Buffer
+			baseRoot := newRootCmd()
+			baseRoot.SetArgs(c.args(baseDir))
+			baseRoot.SetOut(&baseOut)
+			baseRoot.SetErr(&baseOut)
+			baseErr := baseRoot.Execute()
+
+			// 2) 環境変数が未設定のまま、本番の入口（Execute の中身）を通す。
+			offDir := seedStore(t, projectNamedArg)
+			var offOut bytes.Buffer
+			sinkCalls := 0
+			sink := func(l usage.Level, _ usage.Observation) {
+				sinkCalls++
+				t.Errorf("環境変数が未設定なのに計測経路を通り、sink が段 %s で呼ばれた", l)
+			}
+			offErr := execute(os.LookupEnv, sink, c.args(offDir), &offOut, &offOut)
+
+			if sinkCalls != 0 {
+				t.Errorf("sink が %d 回呼ばれた（オフでは 0 回）", sinkCalls)
+			}
+			if _, err := os.Stat(logPath); !os.IsNotExist(err) {
+				t.Errorf("オフなのに計測ログが作られた（%s・err=%v）", logPath, err)
+			}
+			if _, err := os.Stat(filepath.Dir(logPath)); !os.IsNotExist(err) {
+				t.Errorf("オフなのに計測ログのディレクトリが作られた: %s", filepath.Dir(logPath))
+			}
+
+			// プロジェクトルートが違うので、そこだけ正規化してからバイト比較する。
+			want := strings.ReplaceAll(baseOut.String(), baseDir, "<DIR>")
+			got := strings.ReplaceAll(offOut.String(), offDir, "<DIR>")
+			if got != want {
+				t.Errorf("オフで出力が変わった\n計測層なし: %q\nオフ経路  : %q", want, got)
+			}
+			if (baseErr == nil) != (offErr == nil) {
+				t.Errorf("オフでエラーの有無が変わった: 計測層なし=%v / オフ経路=%v", baseErr, offErr)
+			}
+			if baseErr != nil && offErr != nil {
+				wantErr := strings.ReplaceAll(baseErr.Error(), baseDir, "<DIR>")
+				gotErr := strings.ReplaceAll(offErr.Error(), offDir, "<DIR>")
+				if gotErr != wantErr {
+					t.Errorf("オフでエラーが変わった\n計測層なし: %q\nオフ経路  : %q", wantErr, gotErr)
+				}
+			}
+		})
+	}
+}
+
+// TestUsage_PlainRootHandsCobraTheWritersUnwrapped は、オフ経路が cobra へ渡す writer が
+// **渡されたものそのもの**であること——包んでいない＝観測していないこと——を同一性で見る。
+func TestUsage_PlainRootHandsCobraTheWritersUnwrapped(t *testing.T) {
+	var out, errw bytes.Buffer
+	root := newPlainRoot(nil, &out, &errw)
+	if got := root.OutOrStdout(); got != io.Writer(&out) {
+		t.Errorf("オフ経路が標準出力を包んでいる: %T", got)
+	}
+	if got := root.ErrOrStderr(); got != io.Writer(&errw) {
+		t.Errorf("オフ経路が標準エラーを包んでいる: %T", got)
+	}
+}
+
+// TestUsage_RootSilencesUsageOnError は、オフ経路で SetOut していることが振る舞いを変えない
+// **前提**を固定する。
+//
+// cobra の `cmd.Print*` と既定の UsageFunc は `OutOrStderr()` へ書く——SetOut していなければ
+// 標準エラー、していれば標準出力である。計測を入れる前のオフ経路は SetOut していなかったので、
+// **失敗した起動で usage が出ないこと**が「オフで出力が変わらない」の前提になっている。
+// SilenceUsage が false に戻ると、この前提が崩れて宛先が stderr → stdout に動く。
+func TestUsage_RootSilencesUsageOnError(t *testing.T) {
+	if root := newRootCmd(); !root.SilenceUsage {
+		t.Errorf("SilenceUsage が false。オフ経路は SetOut しているので、" +
+			"失敗した起動の usage が標準エラーではなく標準出力へ出るようになる（計測前との差になる）")
+	}
+}
+
 // TestUsage_CountingDoesNotChangeOutput は、計測を入れた経路と入れない経路で
 // 標準出力のバイト列が同一であること（計数 writer が素通しであること）。
 func TestUsage_CountingDoesNotChangeOutput(t *testing.T) {
@@ -341,7 +581,7 @@ func TestUsage_CountingDoesNotChangeOutput(t *testing.T) {
 
 	usageTestEnv(t)
 	var stdout, stderr bytes.Buffer
-	if err := executeWithUsage(usage.Detailed, []string{"--dir", dir, "rules", "--tag", projectNamedArg}, &stdout, &stderr); err != nil {
+	if err := executeWithUsage(usage.Detailed, usage.Record, []string{"--dir", dir, "rules", "--tag", projectNamedArg}, &stdout, &stderr); err != nil {
 		t.Fatalf("計測ありの実行が失敗: %v", err)
 	}
 	if got := stdout.String() + stderr.String(); got != plain {
