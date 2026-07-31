@@ -8,8 +8,10 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
@@ -137,31 +139,78 @@ func TestPositionalSpecAt(t *testing.T) {
 	}
 }
 
-// TestUsage_ExtraPositionDoesNotInheritTheLastDeclaration は、上の性質を
-// **実際の分類表を通した観測**で見る。`scholia spec` は位置引数 1 つ（タグ id）の宣言しかない。
-func TestUsage_ExtraPositionDoesNotInheritTheLastDeclaration(t *testing.T) {
-	root := &cobra.Command{Use: "scholia"}
-	child := &cobra.Command{Use: "spec", Run: func(*cobra.Command, []string) {}}
-	root.AddCommand(child)
-	if child.CommandPath() != "scholia spec" {
-		t.Fatalf("面の名前が %q（分類表のキーと合っていない）", child.CommandPath())
+// usageSyntheticSurface は、与えたコマンドパスと同じ CommandPath を持つ空のコマンド木を作って
+// 末端を返す。分類表は CommandPath で引くので、これで**任意の面**の観測を組み立てられる。
+func usageSyntheticSurface(t *testing.T, path string) *cobra.Command {
+	t.Helper()
+	names := strings.Fields(path)
+	if len(names) == 0 {
+		t.Fatalf("面の名前が空")
 	}
-	if err := child.Flags().Parse([]string{"req.declared-tag", "/Users/someone/acme-confidential"}); err != nil {
-		t.Fatalf("parse: %v", err)
+	cur := &cobra.Command{Use: names[0]}
+	for _, n := range names[1:] {
+		child := &cobra.Command{Use: n}
+		cur.AddCommand(child)
+		cur = child
 	}
+	cur.Run = func(*cobra.Command, []string) {}
+	if cur.CommandPath() != path {
+		t.Fatalf("組み立てた面の名前が %q（want %q）", cur.CommandPath(), path)
+	}
+	return cur
+}
 
-	shape := observeInvocation(child)
-
-	if len(shape.recordIDs) != 1 || shape.recordIDs[0] != "req.declared-tag" {
-		t.Errorf("宣言していない 2 つ目の位置が recordIds に入った: %v", shape.recordIDs)
-	}
-	for _, v := range shape.flagValues {
-		if s, ok := v.(string); ok && strings.Contains(s, "acme-confidential") {
-			t.Errorf("宣言していない位置の値が書かれた: %v", shape.flagValues)
+// TestUsage_ExtraPositionIsNotRecordedOnAnyFace は、宣言を超えた位置が記録されないことを
+// **分類表にあるすべての面について**、実際の観測で見る。
+//
+// ⚠️ **1 つの面を名指しした検査を、面全体の性質の歯止めと数えてはいけない。**
+// この検査の前身は `scholia spec` を名指しで固定していた。だから
+// 「`scholia show tag` に variadic を名乗らせて受理個数を増やす」変異は緑で通り、
+// 実バイナリで自由文のパスが通常の段の recordIds に出た。**面が違えば捕まらなかった。**
+// この repo はこの型（1 面の実例を性質の証明と読み違える）を繰り返している。
+func TestUsage_ExtraPositionIsNotRecordedOnAnyFace(t *testing.T) {
+	const marker = "/Users/someone/acme-confidential-roadmap-q4"
+	checked := 0
+	for path, spec := range positionalSpecs {
+		if len(spec.at) == 0 || spec.variadic {
+			continue // 記録しないと宣言した面／延ばすと宣言した面は、別の検査が見る
 		}
+		t.Run(path, func(t *testing.T) {
+			checked++
+			cmd := usageSyntheticSurface(t, path)
+			// 宣言のある位置は宣言どおりの値を、その次（＝宣言していない位置）に目印を置く。
+			args := make([]string, 0, len(spec.at)+1)
+			for i, a := range spec.at {
+				if a.class == classToolVocab && len(a.values) > 0 {
+					args = append(args, a.values[0])
+				} else {
+					args = append(args, fmt.Sprintf("declared-%d", i))
+				}
+			}
+			args = append(args, marker)
+			if err := cmd.Flags().Parse(args); err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+
+			shape := observeInvocation(cmd)
+
+			for _, id := range shape.recordIDs {
+				if id == marker {
+					t.Errorf("宣言していない位置が recordIds に入った: %v", shape.recordIDs)
+				}
+			}
+			for k, v := range shape.flagValues {
+				if s, ok := v.(string); ok && s == marker {
+					t.Errorf("宣言していない位置の値が %q として書かれた", k)
+				}
+			}
+			if _, ok := shape.freeTextLens["arg"+strconv.Itoa(len(spec.at))]; ok {
+				t.Errorf("宣言していない位置の長さが書かれた: %v", shape.freeTextLens)
+			}
+		})
 	}
-	if _, ok := shape.freeTextLens["arg1"]; ok {
-		t.Errorf("宣言していない位置の長さが書かれた: %v", shape.freeTextLens)
+	if checked == 0 {
+		t.Fatal("この検査が 1 面も見ていない。空振りで緑になっている")
 	}
 }
 
@@ -402,7 +451,7 @@ func TestUsage_FlagNameAloneDoesNotClassify(t *testing.T) {
 			if got, ok := shape.flagValues[name]; ok {
 				t.Errorf("未宣言の (コマンド, フラグ) の値が書かれた: %v", got)
 			}
-			if got := shape.freeTextLens[name]; got != len(freeTextPath) {
+			if got := shape.freeTextLens[name]; got != utf8.RuneCountInString(freeTextPath) {
 				t.Errorf("長さへ倒れていない: %v", shape.freeTextLens)
 			}
 			if shape.selectorKind != "" {
@@ -923,25 +972,51 @@ func TestUsage_CountingDoesNotChangeOutput(t *testing.T) {
 
 // TestUsage_ClosedSetValuesOnly は、閉じた集合の外の値が「道具の側の語彙」として
 // 書かれないこと。**分類を間違えても、書けるのは宣言した語彙だけ**という性質を見る。
+//
+// ⚠️ **表にある classToolVocab の宣言をすべて見る。** 前の版は `scholia rules --sort` 1 つを
+// 名指ししていた——1 面の実例を性質の歯止めと数えない（F3 を招いたのと同じ型）。
 func TestUsage_ClosedSetValuesOnly(t *testing.T) {
-	spec := stringFlagSpecs["scholia rules --sort"]
-	if spec.class != classToolVocab {
-		t.Fatalf("scholia rules --sort は道具の側の語彙のはず")
-	}
-	shape := invocationShape{flagValues: map[string]any{}, freeTextLens: map[string]int{}}
-	shape.apply("sort", "chrono", spec, map[string]bool{})
-	shape.apply("sort", "プロジェクトが名付けた何か", spec, map[string]bool{})
-
-	if got := shape.flagValues["sort"]; got != "chrono" {
-		t.Errorf("閉じた集合の中の値は残るはず: %v", got)
-	}
-	if shape.freeTextLens["sort"] == 0 {
-		t.Errorf("閉じた集合の外の値は長さへ倒れるはず: %v", shape.freeTextLens)
-	}
-	for _, v := range shape.flagValues {
-		if s, ok := v.(string); ok && strings.Contains(s, "プロジェクト") {
-			t.Errorf("閉じた集合の外の値が書かれた: %v", v)
+	const outsider = "プロジェクトが名付けた何か"
+	checked := 0
+	check := func(t *testing.T, where string, spec argSpec) {
+		if spec.class != classToolVocab {
+			return
 		}
+		checked++
+		t.Run(where, func(t *testing.T) {
+			if len(spec.values) == 0 {
+				t.Fatalf("classToolVocab なのに閉じた集合が空（値が書かれることは無いが、宣言として誤り）")
+			}
+			shape := invocationShape{flagValues: map[string]any{}, freeTextLens: map[string]int{}}
+			shape.apply("v", spec.values[0], spec, map[string]bool{})
+			shape.apply("v", outsider, spec, map[string]bool{})
+
+			if got := shape.flagValues["v"]; got != spec.values[0] {
+				t.Errorf("閉じた集合の中の値は残るはず: %v", got)
+			}
+			if shape.freeTextLens["v"] == 0 {
+				t.Errorf("閉じた集合の外の値は長さへ倒れるはず: %v", shape.freeTextLens)
+			}
+			for _, v := range shape.flagValues {
+				if s, ok := v.(string); ok && s == outsider {
+					t.Errorf("閉じた集合の外の値が書かれた: %v", v)
+				}
+			}
+			if len(shape.recordIDs) != 0 {
+				t.Errorf("道具の側の語彙が recordIds に入った: %v", shape.recordIDs)
+			}
+		})
+	}
+	for key, spec := range stringFlagSpecs {
+		check(t, key, spec)
+	}
+	for path, ps := range positionalSpecs {
+		for i, spec := range ps.at {
+			check(t, fmt.Sprintf("%s arg%d", path, i), spec)
+		}
+	}
+	if checked == 0 {
+		t.Fatal("この検査が 1 つの宣言も見ていない（classToolVocab の宣言が表から消えた）。空振りで緑になっている")
 	}
 }
 
@@ -958,7 +1033,7 @@ func TestUsage_UnclassifiedStringFlagFallsBackToLength(t *testing.T) {
 	if _, ok := shape.flagValues["brand-new-flag"]; ok {
 		t.Errorf("未分類のフラグの値が書かれた: %v", shape.flagValues)
 	}
-	if got := shape.freeTextLens["brand-new-flag"]; got != len("req.secret") {
+	if got := shape.freeTextLens["brand-new-flag"]; got != utf8.RuneCountInString("req.secret") {
 		t.Errorf("長さへ倒れていない: %v", shape.freeTextLens)
 	}
 	if len(shape.recordIDs) != 0 {
