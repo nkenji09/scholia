@@ -169,17 +169,30 @@ func TestUsage_ExtraPositionDoesNotInheritTheLastDeclaration(t *testing.T) {
 // ここまで全部受理されたら「個数が決まらない（可変長）」と読む。
 const usageMaxProbeArgs = 16
 
+// usageProbeArgs は問い合わせに使う長さ k の引数列。
+//
+// ⚠️ **空文字で問い合わせてはいけない。** `Args` が引数の中身を検査する面では空文字が拒否され、
+// 「1 個も受理しない」と読まれる。すると下の検査はその面を**黙って素通り**する
+// ——答えが出ていないのに緑になる形である。
+func usageProbeArgs(k int) []string {
+	a := make([]string, k)
+	for i := range a {
+		a[i] = "x"
+	}
+	return a
+}
+
 // usageAcceptedArgCounts は、その面が受理する引数の**個数**を実際に問い合わせて返す。
 //
 // cobra の Args は関数なので「いくつ取るか」を宣言として読むことはできないが、
 // **呼べば分かる**——長さ k の引数列を渡して検証が通るかを k=0..usageMaxProbeArgs で見る。
 func usageAcceptedArgCounts(c *cobra.Command) (max int, unbounded bool) {
 	for k := 0; k <= usageMaxProbeArgs; k++ {
-		if c.ValidateArgs(make([]string, k)) == nil && k > max {
+		if c.ValidateArgs(usageProbeArgs(k)) == nil && k > max {
 			max = k
 		}
 	}
-	return max, c.ValidateArgs(make([]string, usageMaxProbeArgs)) == nil
+	return max, c.ValidateArgs(usageProbeArgs(usageMaxProbeArgs)) == nil
 }
 
 // TestUsage_PositionalDeclarationCoversEveryAcceptedPosition は、
@@ -189,25 +202,52 @@ func usageAcceptedArgCounts(c *cobra.Command) (max int, unbounded bool) {
 // `scholia spec` を ExactArgs(1) → ExactArgs(2) にすれば、2 つ目の位置は
 // 宣言に届いていないのに、面の宣言（positionalSpecs にキーがある）は通ったままである。
 //
+// ⚠️ **`variadic` を名乗った面を検査から外してはいけない。** 外すと、
+// 「受理個数を増やす → 赤 → 言われたとおり variadic を名乗る → 緑」という経路ができ、
+// **最後の宣言が未宣言の位置へ延びて、この単位が潰したはずの穴が復活する。**
+// だから variadic の面も見て、(a) 本当に個数が決まらないか (b) 延ばす先が安全側か、の 2 つを確かめる。
+//
 // 値を記録しないと宣言した面（at が空）は対象外——増えた位置も記録されないので害が無い。
 func TestUsage_PositionalDeclarationCoversEveryAcceptedPosition(t *testing.T) {
 	var gaps []string
-	checked := 0
+	checked, answered := 0, 0
 	usageWalkCommands(func(c *cobra.Command) {
 		if !c.Runnable() {
 			return
 		}
 		spec := positionalSpecs[c.CommandPath()]
-		if len(spec.at) == 0 || spec.variadic {
+		if len(spec.at) == 0 {
 			return
 		}
 		checked++
 		max, unbounded := usageAcceptedArgCounts(c)
-		switch {
-		case unbounded:
-			gaps = append(gaps, fmt.Sprintf("%s: 個数が決まらないのに variadic を名乗っていない（宣言は %d 位置）",
-				c.CommandPath(), len(spec.at)))
-		case max > len(spec.at):
+
+		// ⚠️ **問い合わせから答えが返ってきたことを見る。** 「面をいくつ見たか」だけを数える検査は、
+		// 問い合わせが黙っても（＝受理個数が常に 0 と読まれても）緑になる
+		// ——不在の主張しか積んでいないからである。
+		// at に宣言がある＝位置引数を取る面なので、「1 個も受理しない」という答えはありえない。
+		if !unbounded && max == 0 {
+			gaps = append(gaps, fmt.Sprintf("%s: 位置引数の宣言があるのに 1 個も受理しないと読めた。"+
+				"問い合わせが答えを返していないか（Args が \"x\" を拒む・上限 %d を超える）、宣言が古い",
+				c.CommandPath(), usageMaxProbeArgs))
+			return
+		}
+		answered++
+
+		if spec.variadic {
+			if !unbounded {
+				gaps = append(gaps, fmt.Sprintf("%s: variadic を名乗っているのに受理個数が %d で止まる"+
+					"（最後の宣言が、届かない位置ではなく**宣言していない位置**へ延びる）", c.CommandPath(), max))
+			}
+			// 延ばす先は、未宣言と同じ**安全側**に倒れる分類でなければならない。
+			// classRecordID を延ばすと、宣言していない位置の自由文がそのまま recordIds に出る。
+			if last := spec.at[len(spec.at)-1]; last.class == classRecordID {
+				gaps = append(gaps, fmt.Sprintf("%s: variadic が classRecordID を未宣言の位置へ延ばしている"+
+					"（自由文が recordIds に出うる）", c.CommandPath()))
+			}
+			return
+		}
+		if max > len(spec.at) {
 			gaps = append(gaps, fmt.Sprintf("%s: 引数を %d 個まで受け取るのに宣言は %d 位置しかない",
 				c.CommandPath(), max, len(spec.at)))
 		}
@@ -216,13 +256,19 @@ func TestUsage_PositionalDeclarationCoversEveryAcceptedPosition(t *testing.T) {
 	if checked == 0 {
 		t.Fatal("この検査が 1 面も見ていない（at に宣言のある面が 1 つも無い）。空振りで緑になっている")
 	}
+	if answered == 0 {
+		t.Fatalf("%d 面を見たが、受理個数の答えが 1 つも返っていない。問い合わせが死んでいる", checked)
+	}
 	sort.Strings(gaps)
 	if len(gaps) > 0 {
 		t.Errorf(`受け取れる位置に宣言が届いていない面がある: %v
 
 usage_args.go の positionalSpecs で、その位置の argSpec を at に足すこと。
-個数が決まらないなら variadic: true を名乗る（最後の宣言が残りの位置すべてに適用される）。
-⚠️ 宣言を足さずに放置すると、増えた位置は「記録しない」へ倒れる（漏れはしないが黙って欠ける）。`, gaps)
+⚠️ **variadic: true は「宣言を足さずに緑にする逃げ道」ではない。**
+名乗ってよいのは**受け取る個数に上限が無い面だけ**で、名乗ると最後の宣言が
+**宣言していない位置すべて**へ延びる。だから延ばす先は classFreeText か classToolVocab
+（＝未宣言と同じ安全側に倒れる分類）に限る。
+上限があるなら、その位置の argSpec を 1 つずつ at に書くこと。`, gaps)
 	}
 }
 
