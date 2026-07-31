@@ -164,6 +164,7 @@ func usageAcceptedArgCounts(c *cobra.Command) (max int, unbounded bool) {
 // 値を記録しないと宣言した面（at が空）は対象外——増えた位置も記録されないので害が無い。
 func TestUsage_PositionalDeclarationCoversEveryAcceptedPosition(t *testing.T) {
 	var gaps []string
+	checked := 0
 	usageWalkCommands(func(c *cobra.Command) {
 		if !c.Runnable() {
 			return
@@ -172,6 +173,7 @@ func TestUsage_PositionalDeclarationCoversEveryAcceptedPosition(t *testing.T) {
 		if len(spec.at) == 0 || spec.variadic {
 			return
 		}
+		checked++
 		max, unbounded := usageAcceptedArgCounts(c)
 		switch {
 		case unbounded:
@@ -182,6 +184,10 @@ func TestUsage_PositionalDeclarationCoversEveryAcceptedPosition(t *testing.T) {
 				c.CommandPath(), max, len(spec.at)))
 		}
 	})
+	// ⚠️ 除外の条件が広がると、この検査は**1 面も見ずに緑**になる。空振りを緑と読まない。
+	if checked == 0 {
+		t.Fatal("この検査が 1 面も見ていない（at に宣言のある面が 1 つも無い）。空振りで緑になっている")
+	}
 	sort.Strings(gaps)
 	if len(gaps) > 0 {
 		t.Errorf(`受け取れる位置に宣言が届いていない面がある: %v
