@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -53,10 +54,11 @@ func TestUsage_EveryRunnableSurfaceIsClassified(t *testing.T) {
 	if len(unclassified) > 0 {
 		t.Fatalf(`位置引数の分類が無い面がある: %v
 
-位置引数を取らないなら空スライス {} を、取るなら位置ごとの argSpec を
-usage_args.go の positionalSpecs に足すこと（最後の要素は残りの位置すべてに適用される）。
-レコード id を取る位置なら classRecordID と選択子の種類を、
-自由文なら classFreeText を宣言する。`, unclassified)
+位置引数を取らない（値を記録しない）なら {} を、取るなら {at: []argSpec{…}} を
+usage_args.go の positionalSpecs に足すこと。
+レコード id を取る位置なら classRecordID と選択子の種類を、自由文なら classFreeText を宣言する。
+⚠️ 個数が決まらない（可変長の）コマンドは variadic: true も名乗る。
+名乗らないと、宣言を超えた位置は「記録しない」へ倒れる。`, unclassified)
 	}
 
 	present := map[string]bool{}
@@ -132,6 +134,61 @@ func TestUsage_ExtraPositionDoesNotInheritTheLastDeclaration(t *testing.T) {
 	}
 	if _, ok := shape.freeTextLens["arg1"]; ok {
 		t.Errorf("宣言していない位置の長さが書かれた: %v", shape.freeTextLens)
+	}
+}
+
+// usageMaxProbeArgs は、cobra の Args 検証に問い合わせる引数の個数の上限。
+// ここまで全部受理されたら「個数が決まらない（可変長）」と読む。
+const usageMaxProbeArgs = 16
+
+// usageAcceptedArgCounts は、その面が受理する引数の**個数**を実際に問い合わせて返す。
+//
+// cobra の Args は関数なので「いくつ取るか」を宣言として読むことはできないが、
+// **呼べば分かる**——長さ k の引数列を渡して検証が通るかを k=0..usageMaxProbeArgs で見る。
+func usageAcceptedArgCounts(c *cobra.Command) (max int, unbounded bool) {
+	for k := 0; k <= usageMaxProbeArgs; k++ {
+		if c.ValidateArgs(make([]string, k)) == nil && k > max {
+			max = k
+		}
+	}
+	return max, c.ValidateArgs(make([]string, usageMaxProbeArgs)) == nil
+}
+
+// TestUsage_PositionalDeclarationCoversEveryAcceptedPosition は、
+// **そのコマンドが受け取れる位置すべてに宣言が届いている**こと。
+//
+// ⚠️ これが無いと、既存の面の位置が 1 つ増えたときに何も落ちない。
+// `scholia spec` を ExactArgs(1) → ExactArgs(2) にすれば、2 つ目の位置は
+// 宣言に届いていないのに、面の宣言（positionalSpecs にキーがある）は通ったままである。
+//
+// 値を記録しないと宣言した面（at が空）は対象外——増えた位置も記録されないので害が無い。
+func TestUsage_PositionalDeclarationCoversEveryAcceptedPosition(t *testing.T) {
+	var gaps []string
+	usageWalkCommands(func(c *cobra.Command) {
+		if !c.Runnable() {
+			return
+		}
+		spec := positionalSpecs[c.CommandPath()]
+		if len(spec.at) == 0 || spec.variadic {
+			return
+		}
+		max, unbounded := usageAcceptedArgCounts(c)
+		switch {
+		case unbounded:
+			gaps = append(gaps, fmt.Sprintf("%s: 個数が決まらないのに variadic を名乗っていない（宣言は %d 位置）",
+				c.CommandPath(), len(spec.at)))
+		case max > len(spec.at):
+			gaps = append(gaps, fmt.Sprintf("%s: 引数を %d 個まで受け取るのに宣言は %d 位置しかない",
+				c.CommandPath(), max, len(spec.at)))
+		}
+	})
+	sort.Strings(gaps)
+	if len(gaps) > 0 {
+		t.Errorf(`受け取れる位置に宣言が届いていない面がある: %v
+
+usage_args.go の positionalSpecs で、その位置の argSpec を at に足すこと。
+個数が決まらないなら variadic: true を名乗る（最後の宣言が残りの位置すべてに適用される）。
+⚠️ 宣言を足さずに放置すると、増えた位置は「記録しない」へ倒れる（漏れはしないが黙って欠ける）。`, gaps)
 	}
 }
 
