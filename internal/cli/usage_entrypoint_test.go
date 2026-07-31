@@ -123,6 +123,8 @@ func runRealEntrypoint(t *testing.T, extra map[string]string, args ...string) us
 
 	// ⚠️ **入口を走らせるはずのプロセスがテストを走らせている**なら、ここで止める。
 	// 止めないと、この関数が孫プロセスを産み続ける（TestMain の入口分岐を外す変異で実際に起きる）。
+	// この歯止めがあると、その変異は**テスト一式を 1 回だけ余分に走らせてから赤になる**
+	// ——遅い（実測 29 秒）が、増えるのは 1 世代までである。
 	if _, ok := os.LookupEnv(usageEntrypointEnv); ok {
 		t.Fatalf("%s が置かれているのにテストが走っている。TestMain の入口分岐が効いていない", usageEntrypointEnv)
 	}
