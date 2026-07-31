@@ -70,6 +70,71 @@ usage_args.go の positionalSpecs に足すこと（最後の要素は残りの�
 	}
 }
 
+// TestPositionalSpecAt は、**宣言を超えた位置**の扱いを入力と出力の対で見る。
+//
+// フラグの表が「名前だけで引く」ことで既存の分類を継承していたのと同じ形の穴が、
+// 位置引数側では「最後の宣言を暗黙に残り全部へ延ばす」として出る
+// ——既存のコマンドの位置が 1 つ増えたときに、誰も何も宣言しないまま最後の分類が付く。
+// だから延ばすのは **variadic と名乗ったコマンドだけ**である。
+func TestPositionalSpecAt(t *testing.T) {
+	recTag := argSpec{class: classRecordID, selector: selTag}
+	free := argSpec{class: classFreeText}
+	cases := []struct {
+		name    string
+		spec    positionalSpec
+		i       int
+		want    argSpec
+		wantRec bool
+	}{
+		{"宣言のある位置", positionalSpec{at: []argSpec{recTag}}, 0, recTag, true},
+		{"可変長と名乗っていないコマンドの、宣言を超えた位置は記録しない",
+			positionalSpec{at: []argSpec{recTag}}, 1, argSpec{}, false},
+		{"可変長なら最後の宣言が延びる", positionalSpec{at: []argSpec{recTag, free}, variadic: true}, 5, free, true},
+		{"可変長でも位置ごとの宣言が優先", positionalSpec{at: []argSpec{recTag, free}, variadic: true}, 0, recTag, true},
+		{"宣言が無い面は記録しない", positionalSpec{}, 0, argSpec{}, false},
+		{"可変長と名乗っても延ばす元が無ければ記録しない", positionalSpec{variadic: true}, 0, argSpec{}, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, rec := positionalSpecAt(c.spec, c.i)
+			if rec != c.wantRec {
+				t.Fatalf("記録するか = %v（want %v）", rec, c.wantRec)
+			}
+			if rec && (got.class != c.want.class || got.selector != c.want.selector) {
+				t.Errorf("分類が %+v（want %+v）", got, c.want)
+			}
+		})
+	}
+}
+
+// TestUsage_ExtraPositionDoesNotInheritTheLastDeclaration は、上の性質を
+// **実際の分類表を通した観測**で見る。`scholia spec` は位置引数 1 つ（タグ id）の宣言しかない。
+func TestUsage_ExtraPositionDoesNotInheritTheLastDeclaration(t *testing.T) {
+	root := &cobra.Command{Use: "scholia"}
+	child := &cobra.Command{Use: "spec", Run: func(*cobra.Command, []string) {}}
+	root.AddCommand(child)
+	if child.CommandPath() != "scholia spec" {
+		t.Fatalf("面の名前が %q（分類表のキーと合っていない）", child.CommandPath())
+	}
+	if err := child.Flags().Parse([]string{"req.declared-tag", "/Users/someone/acme-confidential"}); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	shape := observeInvocation(child)
+
+	if len(shape.recordIDs) != 1 || shape.recordIDs[0] != "req.declared-tag" {
+		t.Errorf("宣言していない 2 つ目の位置が recordIds に入った: %v", shape.recordIDs)
+	}
+	for _, v := range shape.flagValues {
+		if s, ok := v.(string); ok && strings.Contains(s, "acme-confidential") {
+			t.Errorf("宣言していない位置の値が書かれた: %v", shape.flagValues)
+		}
+	}
+	if _, ok := shape.freeTextLens["arg1"]; ok {
+		t.Errorf("宣言していない位置の長さが書かれた: %v", shape.freeTextLens)
+	}
+}
+
 // usageWalkCommands はコマンド木を歩く（help / completion / 隠しコマンドは除く）。
 func usageWalkCommands(visit func(*cobra.Command)) {
 	var walk func(c *cobra.Command)

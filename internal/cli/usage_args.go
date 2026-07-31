@@ -188,72 +188,88 @@ var stringFlagSpecs = map[string]argSpec{
 	"scholia vocab edit --ref":               {class: classFreeText},
 }
 
-// positionalSpecs はコマンドごとの**位置引数**の分類。キーは cobra の CommandPath()。
+// positionalSpec は 1 つのコマンドの**位置引数**の宣言。
+type positionalSpec struct {
+	// at は位置ごとの宣言（0 番から順に）。空なら位置引数の値を記録しない。
+	at []argSpec
+	// variadic は「at の最後の宣言が、それより後ろの位置すべてに適用される」ことを示す。
+	//
+	// ⚠️ **可変長のコマンドだけが宣言する。** ここを既定（暗黙に最後の宣言を延ばす）にすると、
+	// 既存のコマンドに位置が 1 つ増えたときに、**誰も何も宣言しないまま最後の分類を継承する**
+	// ——フラグの表がフラグ名だけで引いていたのと同じ形の穴になる。
+	// 宣言していないコマンドでは、宣言を超えた位置は「記録しない」（安全側）へ倒れる。
+	variadic bool
+}
+
+// positionalSpecs はコマンドごとの位置引数の分類。キーは cobra の CommandPath()。
 //
-// スライスの各要素が位置に対応し、**最後の要素は残りの位置すべてに適用する**（可変長引数）。
-// 空スライスは「位置引数を取らない」の宣言である。
+// ⚠️ **キーは初めからコマンドパスなので、フラグの表にあった「名前だけで引く」穴はここには無い。**
+// 新しいコマンドは必ず未宣言から始まる。
 //
 // ⚠️ ここに無いコマンドは位置引数の値を一切記録しない（安全側）。
 // TestUsage_EveryRunnableSurfaceIsClassified が未分類の面を落とす
 // （CLAUDE.md 5: 新しく作った面には、ガードを置き忘れる）。
-var positionalSpecs = map[string][]argSpec{
-	"scholia config get":             {{class: classFreeText}},
+var positionalSpecs = map[string]positionalSpec{
+	"scholia config get":             {at: []argSpec{{class: classFreeText}}},
 	"scholia config infer-id-policy": {},
-	"scholia config set":             {{class: classFreeText}, {class: classFreeText}},
+	"scholia config set":             {at: []argSpec{{class: classFreeText}, {class: classFreeText}}},
 	"scholia decide":                 {},
-	"scholia decision add-commit":    {{class: classRecordID, selector: selDecision}, {class: classFreeText}},
-	"scholia decision link":          {{class: classRecordID, selector: selDecision}},
-	"scholia decision list":          {},
-	"scholia decision show":          {{class: classRecordID, selector: selDecision}},
-	"scholia diff":                   {{class: classFreeText}}, // git の ref
-	"scholia export":                 {},
-	"scholia flow":                   {{class: classRecordID, selector: selVocab}},
-	"scholia gaps":                   {{class: classRecordID, selector: selVocab}},
-	"scholia init":                   {},
-	"scholia kind get":               {{class: classToolVocab, values: categoryValues}},
-	"scholia kind list":              {},
-	"scholia kind set":               {{class: classToolVocab, values: categoryValues}, {class: classFreeText}},
-	"scholia lint":                   {},
-	"scholia lint baseline update":   {},
-	"scholia list":                   {},
-	"scholia refs rewrite":           {{class: classRecordID, selector: selRecord}, {class: classRecordID, selector: selRecord}},
-	"scholia refs scan":              {},
-	"scholia retrofit":               {},
-	"scholia review add":             {},
-	"scholia review adopt":           {{class: classRecordID, selector: selReview}},
-	"scholia review list":            {},
-	"scholia review reject":          {{class: classRecordID, selector: selReview}},
-	"scholia review rm":              {{class: classRecordID, selector: selReview}},
-	"scholia rules":                  {},
-	"scholia search":                 {{class: classFreeText}}, // 検索語は自由文
-	"scholia show decision":          {{class: classRecordID, selector: selDecision}},
-	"scholia show tag":               {{class: classRecordID, selector: selTag}},
-	"scholia show tx":                {{class: classRecordID, selector: selTransition}},
-	"scholia show vocab":             {{class: classRecordID, selector: selVocab}},
-	"scholia skills install":         {},
-	"scholia skills ls":              {},
-	"scholia skills show":            {{class: classFreeText}},
-	"scholia spec":                   {{class: classRecordID, selector: selTag}},
-	"scholia tag create":             {{class: classRecordID, selector: selTag}},
-	"scholia tag edit":               {{class: classRecordID, selector: selTag}},
-	"scholia tag list":               {},
-	"scholia tag rename":             {{class: classRecordID, selector: selTag}, {class: classRecordID, selector: selTag}},
-	"scholia tag rm":                 {{class: classRecordID, selector: selTag}},
-	"scholia tx add":                 {{class: classRecordID, selector: selTransition}},
-	"scholia tx edit":                {{class: classRecordID, selector: selTransition}},
-	"scholia tx merge":               {{class: classRecordID, selector: selTransition}},
-	"scholia tx rename":              {{class: classRecordID, selector: selTransition}},
-	"scholia tx rm":                  {{class: classRecordID, selector: selTransition}},
-	"scholia tx tag":                 {{class: classRecordID, selector: selTransition}},
-	"scholia update":                 {},
-	"scholia version":                {},
-	"scholia view":                   {},
-	"scholia vocab add":              {{class: classToolVocab, values: categoryValues}, {class: classRecordID, selector: selVocab}},
-	"scholia vocab edit":             {{class: classRecordID, selector: selVocab}},
-	"scholia vocab owner-migrate":    {},
-	"scholia vocab rename":           {{class: classRecordID, selector: selVocab}},
-	"scholia vocab rm":               {{class: classRecordID, selector: selVocab}},
-	"scholia vocab tag":              {{class: classRecordID, selector: selVocab}},
+	// 2 つ目以降は commit hash の並び（cobra.MinimumNArgs(2)）。
+	"scholia decision add-commit": {at: []argSpec{{class: classRecordID, selector: selDecision}, {class: classFreeText}}, variadic: true},
+	"scholia decision link":       {at: []argSpec{{class: classRecordID, selector: selDecision}}},
+	"scholia decision list":       {},
+	"scholia decision show":       {at: []argSpec{{class: classRecordID, selector: selDecision}}},
+	// git の ref を 2 つまで（cobra.MaximumNArgs(2)）。**位置ごとに書く**——可変長ではない。
+	"scholia diff":                 {at: []argSpec{{class: classFreeText}, {class: classFreeText}}},
+	"scholia export":               {},
+	"scholia flow":                 {at: []argSpec{{class: classRecordID, selector: selVocab}}},
+	"scholia gaps":                 {at: []argSpec{{class: classRecordID, selector: selVocab}}},
+	"scholia init":                 {},
+	"scholia kind get":             {at: []argSpec{{class: classToolVocab, values: categoryValues}}},
+	"scholia kind list":            {},
+	"scholia kind set":             {at: []argSpec{{class: classToolVocab, values: categoryValues}, {class: classFreeText}}},
+	"scholia lint":                 {},
+	"scholia lint baseline update": {},
+	"scholia list":                 {},
+	"scholia refs rewrite":         {at: []argSpec{{class: classRecordID, selector: selRecord}, {class: classRecordID, selector: selRecord}}},
+	"scholia refs scan":            {},
+	"scholia retrofit":             {},
+	"scholia review add":           {},
+	"scholia review adopt":         {at: []argSpec{{class: classRecordID, selector: selReview}}},
+	"scholia review list":          {},
+	"scholia review reject":        {at: []argSpec{{class: classRecordID, selector: selReview}}},
+	"scholia review rm":            {at: []argSpec{{class: classRecordID, selector: selReview}}},
+	"scholia rules":                {},
+	// 検索語は自由文で、いくつでも取る（cobra.MinimumNArgs(1)）。
+	"scholia search":              {at: []argSpec{{class: classFreeText}}, variadic: true},
+	"scholia show decision":       {at: []argSpec{{class: classRecordID, selector: selDecision}}},
+	"scholia show tag":            {at: []argSpec{{class: classRecordID, selector: selTag}}},
+	"scholia show tx":             {at: []argSpec{{class: classRecordID, selector: selTransition}}},
+	"scholia show vocab":          {at: []argSpec{{class: classRecordID, selector: selVocab}}},
+	"scholia skills install":      {},
+	"scholia skills ls":           {},
+	"scholia skills show":         {at: []argSpec{{class: classFreeText}}},
+	"scholia spec":                {at: []argSpec{{class: classRecordID, selector: selTag}}},
+	"scholia tag create":          {at: []argSpec{{class: classRecordID, selector: selTag}}},
+	"scholia tag edit":            {at: []argSpec{{class: classRecordID, selector: selTag}}},
+	"scholia tag list":            {},
+	"scholia tag rename":          {at: []argSpec{{class: classRecordID, selector: selTag}, {class: classRecordID, selector: selTag}}},
+	"scholia tag rm":              {at: []argSpec{{class: classRecordID, selector: selTag}}},
+	"scholia tx add":              {at: []argSpec{{class: classRecordID, selector: selTransition}}},
+	"scholia tx edit":             {at: []argSpec{{class: classRecordID, selector: selTransition}}},
+	"scholia tx merge":            {at: []argSpec{{class: classRecordID, selector: selTransition}}},
+	"scholia tx rename":           {at: []argSpec{{class: classRecordID, selector: selTransition}}},
+	"scholia tx rm":               {at: []argSpec{{class: classRecordID, selector: selTransition}}},
+	"scholia tx tag":              {at: []argSpec{{class: classRecordID, selector: selTransition}}},
+	"scholia update":              {},
+	"scholia version":             {},
+	"scholia view":                {},
+	"scholia vocab add":           {at: []argSpec{{class: classToolVocab, values: categoryValues}, {class: classRecordID, selector: selVocab}}},
+	"scholia vocab edit":          {at: []argSpec{{class: classRecordID, selector: selVocab}}},
+	"scholia vocab owner-migrate": {},
+	"scholia vocab rename":        {at: []argSpec{{class: classRecordID, selector: selVocab}}},
+	"scholia vocab rm":            {at: []argSpec{{class: classRecordID, selector: selVocab}}},
+	"scholia vocab tag":           {at: []argSpec{{class: classRecordID, selector: selVocab}}},
 }
 
 // flagSpecKey は分類表のキー。**(コマンド, フラグ名) の組**で引く。
@@ -360,15 +376,18 @@ func observeInvocation(executed *cobra.Command) invocationShape {
 	return shape
 }
 
-// positionalSpecAt は i 番目の位置引数の分類を返す。最後の宣言は残り全部に適用する。
-func positionalSpecAt(specs []argSpec, i int) (argSpec, bool) {
-	if len(specs) == 0 {
-		return argSpec{}, false
+// positionalSpecAt は i 番目の位置引数の分類を返す。
+//
+// ⚠️ 宣言を超えた位置は、**可変長と名乗ったコマンドでだけ**最後の宣言を延ばす。
+// 名乗っていなければ「記録しない」へ倒れる——位置が 1 つ増えたときに黙って分類を継承させないため。
+func positionalSpecAt(spec positionalSpec, i int) (argSpec, bool) {
+	if i < len(spec.at) {
+		return spec.at[i], true
 	}
-	if i >= len(specs) {
-		return specs[len(specs)-1], true
+	if spec.variadic && len(spec.at) > 0 {
+		return spec.at[len(spec.at)-1], true
 	}
-	return specs[i], true
+	return argSpec{}, false
 }
 
 // apply は 1 つの値を分類に従って観測へ積む。
