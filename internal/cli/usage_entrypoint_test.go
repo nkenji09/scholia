@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -32,6 +33,23 @@ import (
 // **CI（ubuntu）でも手元でも同じ 1 本が必ず走る。** その代わり `cmd/scholia/main.go` は通らない
 // ——下の「落ちない」で名乗る。
 //
+// ⚠️ **なぜ環境変数ではなく argv の先頭で合図するのか。**
+// 初版は環境変数（`SCHOLIA_TEST_REAL_ENTRYPOINT`）を目印にしていた。それだと
+// **その名前が実環境に立っているだけで、このパッケージは 0 本のテストで緑になる**
+// ——`go test` がテストバイナリへ渡す `-test.timeout=10m0s` の形（`-` 1 個 ＋ `=`）を
+// cobra は help を出して **nil** で受けるので、入口分岐が exit 0 で終わり `m.Run()` に到達しない。
+// 下の非空振りの歯止めも、そのとき**原理的に発火できない。**
+// 初版はここに「黙って緑になることはない」と書いていた——**レビュアの実測で反証された**
+// （`-v` なのにテスト名が 1 つも出ずに 0.255 秒で ok。手元でも再現した）。
+// 合図を argv の先頭へ移すと、この条件は**検出ではなく構造で消える**——`go test` は
+// テストバイナリの argv を自分で組み立て、先頭は `-test.*` で、`-args` で足した値は後ろに付く
+// （実測済み）。**しかも入口分岐は 2 つの合図が揃ったときだけ通る**ので、
+// **環境に何が立っていても、`go test` からこの分岐へ入る道は無い。**
+// ⚠️ **「名前を衝突しにくくする」形は採らなかった。** それは確率を下げるだけで、
+// **唯一の無効化条件は残る**。残さない形を選んだ。
+// ⚠️ 残余: テストバイナリを**直に**叩き、合図を先頭に置き、かつ環境変数も立てれば入口分岐は通る。
+// それは意図してやらないと起きない（`go test` からは組み立てられない）。
+//
 // ⚠️ **射程の名乗り**（CLAUDE.md 6）。下の「落ちる」はすべて、実際に変異を当てて赤を実見している。
 //
 // 落ちる:
@@ -43,8 +61,13 @@ import (
 //   - `os.Stderr` を別の writer に差し替える。
 //   - 引数の `nil` を `[]string{}` に差し替える（cobra が `os.Args[1:]` を読まなくなる）。
 //   - 段が立っていないのに計測経路へ入る（＝既定で計測ログが生える。条項 10）。
-//   - **この仕組み自身の空振り 2 通り**——TestMain の入口分岐が効かない（子がテストを走らせる）／
-//     入口を 1 度も走らせないまま全体が緑になる。
+//   - **この仕組み自身の空振り 4 通り**——
+//     (a) TestMain の入口分岐が効かない（子がテストを走らせる）。
+//     (b) 入口の検査を**1 本でも**消す・スキップする。⚠️ 初版はパッケージ全体で「1 回以上走ったか」しか
+//     見ていなかったので、**3 本のうち 1 本を消しても残り 2 本が数を埋めて沈黙した**
+//     （消えたのは条項 10 を本番の入口で見る唯一の検査だった）。いまは下の表と名前で突き合わせる。
+//     (c) 1 本の中の**再実行を 1 回でも**減らす（表は回数まで宣言している）。
+//     (d) 入口の検査を足して表に載せない（表に無い名前が走ったら落ちる）。
 //
 // ⚠️ 落ちない（＝ここは守っていない）:
 //   - **`cmd/scholia/main.go` の 3 行。** 走らせているのは `Execute()` であって `main()` ではない。
@@ -55,30 +78,63 @@ import (
 //     全コマンドの配線ではない。⚠️ **1 面で赤を見たことを面全体の性質と読まないこと**
 //     ——ただしここで見ているのは面ごとの分類ではなく**入口が渡す 5 つ**なので、面を増やしても
 //     捕まえるものは増えない（面の側の性質は usage_test.go の全面を回す検査が持つ）。
-//   - **`-run` で絞ったときの空振り。** 下の非空振りの歯止めは、全体実行のときだけ効く。
+//   - **`-run` / `-skip` で絞ったときに、宣言した検査が走らないこと。** 絞ったのは人の意図なので見ない。
+//     絞り込みがあっても (d)（表に無い名前が走る）は見る。CI は絞らないので両向き効く。
+//   - ⚠️ **表そのものを空にし、かつ入口の検査を全部消すこと。** そこまでやると要求も申告も無くなるので
+//     沈黙する。**片方だけでは沈黙しない**——表を空にすれば (d) が、検査を消せば (b) が落ちる。
+//     これは表を持つ歯止めに共通の残余で、この形では閉じられない。
 
-// usageEntrypointEnv は、テストバイナリを**「本番の入口を 1 回走らせるだけのプロセス」**として
-// 再実行するための目印。
+// usageEntrypointArg / usageEntrypointDepthEnv は、テストバイナリを
+// **「本番の入口を 1 回走らせるだけのプロセス」**にする 2 つの合図。
 //
-// ⚠️ この名前が実環境に置かれていると `go test ./internal/cli` がテストではなく scholia を走らせる。
-// そのときは cobra が `-test.timeout` 等を未知のフラグとして拒み **exit 1** になるので、
-// 黙って全テストが緑になることはない。
-const usageEntrypointEnv = "SCHOLIA_TEST_REAL_ENTRYPOINT"
+// ⚠️ **立てるのは AND、止めるのは OR。**
+// 入口分岐へ入るのは**両方揃ったときだけ**（＝乗っ取りに対して安全側）。
+// 再実行を断るのは**どちらか 1 つでもあるとき**（＝暴走に対して安全側）。
+// 2 つを別の経路（argv と環境変数）に置いたのは、片方を落とす変異でも
+// **入れ子の上限が消えない**ようにするためである。
+//
+// ⚠️ argv 側は**先頭に置いたときだけ**効く。`go test` はテストバイナリの argv を自分で組み立て、
+// 先頭は `-test.*`（`-test.paniconexit0` は `-timeout 0` でも付く）で、
+// **`-args` で足した値は後ろに付く**——実測で確かめた。
+// だから `go test` から argv 側の合図が先頭に来る道が無く、そのうえ環境変数側も要る。
+const (
+	usageEntrypointArg      = "--scholia-real-entrypoint"
+	usageEntrypointDepthEnv = "SCHOLIA_TEST_ENTRYPOINT_DEPTH"
+)
 
-// usageEntrypointRuns は、本番の入口を実際に走らせた回数。
+// usageEntrypointSignals は、いまのプロセスに立っている合図を返す。
+func usageEntrypointSignals() (arg bool, depth bool) {
+	arg = len(os.Args) > 1 && os.Args[1] == usageEntrypointArg
+	_, depth = os.LookupEnv(usageEntrypointDepthEnv)
+	return arg, depth
+}
+
+// usageEntrypointRequired は、**本番の入口を走らせる検査と、その再実行の回数**の表。
 //
-// ⚠️ **不在の主張だけを積む検査は、規則が死んでいても緑になる。** この repo が繰り返している型で、
-// この仕組みも例外ではない——入口を 1 度も走らせなくても、他が緑なら全体は緑になりうる。
-// だから TestMain が走った回数を見て、0 回なら落とす。
-var usageEntrypointRuns int
+// ⚠️ **「1 回以上走ったか」では足りない。** 初版はパッケージ全体の回数だけを見ていたので、
+// 3 本のうち 1 本を消しても残りが数を埋めて沈黙した。この repo が繰り返している
+// 「表から 1 行消すと黙って検査が消える」型（CLAUDE.md 5）が、**ガードを主題にしたこの単位で
+// 新設した面にも開いていた。** だから名前と回数の対で突き合わせる。
+var usageEntrypointRequired = map[string]int{
+	"TestUsage_RealEntrypointRecordsWhatItHandedToTheRealStdout": 1,
+	"TestUsage_RealEntrypointRecordsWhatItHandedToTheRealStderr": 1,
+	// ⚠️ 既定（オフ）と段を立てた対で見るので 2 回。**対照の 1 回を落とすと
+	// 「ログが無い」が空振りかどうか分からなくなる**ので、回数まで宣言する。
+	"TestUsage_RealEntrypointStaysOffByDefault": 2,
+}
+
+// usageEntrypointRan は、実際に本番の入口を走らせた検査と、その回数。
+var usageEntrypointRan = map[string]int{}
 
 // TestMain は 2 つの顔を持つ。
 //
-//  1. usageEntrypointEnv が置かれていれば、**本番の入口を 1 回走らせて終わる**。
+//  1. 合図が**2 つとも**立っていれば、**本番の入口を 1 回走らせて終わる**。
 //     ここは `cmd/scholia/main.go` と同じことをする——⚠️ **写しであって、main の検査ではない。**
-//  2. そうでなければ通常どおりテストを走らせ、**入口を 1 度も走らせずに緑になること**を拒む。
+//  2. そうでなければ通常どおりテストを走らせ、**入口の検査が表のとおり走ったか**を突き合わせる。
 func TestMain(m *testing.M) {
-	if _, ok := os.LookupEnv(usageEntrypointEnv); ok {
+	if arg, depth := usageEntrypointSignals(); arg && depth {
+		// 合図を取り除いてから渡す。Execute は cobra の既定で os.Args[1:] を読む。
+		os.Args = append(os.Args[:1], os.Args[2:]...)
 		// cmd/scholia/main.go と同じ: cobra がエラーを標準エラーへ出すので、ここは exit code だけ。
 		if err := Execute(); err != nil {
 			os.Exit(1)
@@ -87,23 +143,55 @@ func TestMain(m *testing.M) {
 	}
 
 	code := m.Run()
-	if code == 0 && usageEntrypointRuns == 0 && usageEntrypointGuardRequired() {
-		fmt.Fprintf(os.Stderr, `本番の入口（Execute）を 1 度も走らせないまま緑になった。
-検査が消された・スキップされた・再実行が届いていないのいずれかである。
-%s を参照。
-`, "usage_entrypoint_test.go")
-		code = 1
+	if code == 0 {
+		if problems := usageEntrypointShortfall(); len(problems) > 0 {
+			fmt.Fprintf(os.Stderr, `本番の入口（Execute）を走らせる検査が、宣言（usageEntrypointRequired）と合わない:
+  %s
+検査が消された・スキップされた・回数が変わった・表に載せずに足したのいずれかである。
+usage_entrypoint_test.go を参照。
+`, strings.Join(problems, "\n  "))
+			code = 1
+		}
 	}
 	os.Exit(code)
 }
 
-// usageEntrypointGuardRequired は、非空振りの歯止めを効かせる実行かを返す。
-//
-// `-run` で 1 本だけ走らせたときにまで落とすと、開発中に単体で走らせられなくなる。
-// CI は `go test ./...`（＝絞り込み無し）なので、そこでは必ず効く。
-func usageEntrypointGuardRequired() bool {
-	f := flag.Lookup("test.run")
-	return f == nil || f.Value.String() == ""
+// usageEntrypointShortfall は、走った検査を表と突き合わせて食い違いを返す。
+func usageEntrypointShortfall() []string {
+	var problems []string
+
+	// 1) 表に無い名前が走った——入口の検査を足して表に載せていない。
+	//    ⚠️ こちらは**絞り込みの有無に関わらず**見る（絞っても、走ったものは走ったので）。
+	for name, n := range usageEntrypointRan {
+		if _, ok := usageEntrypointRequired[name]; !ok {
+			problems = append(problems,
+				fmt.Sprintf("%s: 本番の入口を %d 回走らせたが、表に無い", name, n))
+		}
+	}
+
+	// 2) 表にある検査が宣言どおり走っていない——消された・スキップされた・回数が減った。
+	//    ⚠️ `-run` / `-skip` で絞ったときは人が意図して減らしているので見ない。CI は絞らない。
+	if !usageEntrypointNarrowed() {
+		for name, want := range usageEntrypointRequired {
+			if got := usageEntrypointRan[name]; got != want {
+				problems = append(problems,
+					fmt.Sprintf("%s: 本番の入口を %d 回走らせた（表の宣言は %d 回）", name, got, want))
+			}
+		}
+	}
+
+	sort.Strings(problems)
+	return problems
+}
+
+// usageEntrypointNarrowed は、走らせる検査が絞り込まれているかを返す。
+func usageEntrypointNarrowed() bool {
+	for _, name := range []string{"test.run", "test.skip"} {
+		if f := flag.Lookup(name); f != nil && f.Value.String() != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // usageEntrypointResult は本番の入口を 1 回走らせた結果。
@@ -124,9 +212,13 @@ func runRealEntrypoint(t *testing.T, extra map[string]string, args ...string) us
 	// ⚠️ **入口を走らせるはずのプロセスがテストを走らせている**なら、ここで止める。
 	// 止めないと、この関数が孫プロセスを産み続ける（TestMain の入口分岐を外す変異で実際に起きる）。
 	// この歯止めがあると、その変異は**テスト一式を 1 回だけ余分に走らせてから赤になる**
-	// ——遅い（実測 29 秒）が、増えるのは 1 世代までである。
-	if _, ok := os.LookupEnv(usageEntrypointEnv); ok {
-		t.Fatalf("%s が置かれているのにテストが走っている。TestMain の入口分岐が効いていない", usageEntrypointEnv)
+	// ——遅いが、増えるのは 1 世代までである。
+	//
+	// ⚠️ **止めるのは OR**——合図がどちらか 1 つでも立っていたら断る。
+	// 片方を落とす変異（合図を argv から外す・環境から外す）でも上限が消えないようにするため。
+	if arg, depth := usageEntrypointSignals(); arg || depth {
+		t.Fatalf("再実行の合図（argv=%v・%s=%v）が立ったプロセスがテストを走らせている。"+
+			"TestMain の入口分岐か、合図の受け渡しが壊れている", arg, usageEntrypointDepthEnv, depth)
 	}
 
 	exe, err := os.Executable()
@@ -134,11 +226,11 @@ func runRealEntrypoint(t *testing.T, extra map[string]string, args ...string) us
 		t.Fatalf("テストバイナリのパスを取れない: %v", err)
 	}
 
-	env := map[string]string{usageEntrypointEnv: "1"}
+	env := map[string]string{usageEntrypointDepthEnv: "1"}
 	for k, v := range extra {
 		env[k] = v
 	}
-	cmd := exec.Command(exe, args...)
+	cmd := exec.Command(exe, append([]string{usageEntrypointArg}, args...)...)
 	cmd.Dir = t.TempDir()
 	cmd.Env = usageEntrypointEnviron(env)
 	var stdout, stderr bytes.Buffer
@@ -153,7 +245,10 @@ func runRealEntrypoint(t *testing.T, extra map[string]string, args ...string) us
 	default:
 		t.Fatalf("本番の入口を走らせられない: %v\nstderr:\n%s", e, stderr.String())
 	}
-	usageEntrypointRuns++
+	// どの検査が何回走らせたかを申告する（TestMain が表と突き合わせる）。
+	// 部分検査（t.Run）から呼ばれても、申告するのは**その検査の名前**である。
+	top, _, _ := strings.Cut(t.Name(), "/")
+	usageEntrypointRan[top]++
 	return usageEntrypointResult{stdout: stdout.String(), stderr: stderr.String(), exitCode: code}
 }
 
@@ -266,7 +361,10 @@ func TestUsage_RealEntrypointRecordsWhatItHandedToTheRealStderr(t *testing.T) {
 	logPath := usageTestEnv(t)
 	unsetUsageEnvVar(t, usage.EnvVar)
 
-	res := runRealEntrypoint(t, map[string]string{usage.EnvVar: "detailed"}, "no-such-command")
+	// --dir を渡すのは他の 2 本と揃えるため。渡さないと、$TMPDIR が scholia プロジェクトの
+	// 内側に置かれた端末で、cwd からの上方探索が偶然どこかの .scholia を拾いうる。
+	res := runRealEntrypoint(t, map[string]string{usage.EnvVar: "detailed"},
+		"--dir", t.TempDir(), "no-such-command")
 
 	if res.exitCode != 1 {
 		t.Fatalf("失敗する起動が exit %d で終わった（入口が返したエラーが exit code になっていない）"+
