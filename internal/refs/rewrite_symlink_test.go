@@ -105,18 +105,26 @@ func TestInspectLink(t *testing.T) {
 // harm itself, checked the only way that can't be faked: stat the path
 // afterwards and see whether it is still a link.
 //
-// It fails against the pre-fix code, where writeFileAtomic's rename landed on
-// the candidate path: every row below came back as a regular file, with nothing
-// in the output saying the link was gone.
+// What it catches, measured by removing the rule (writing every candidate path
+// directly, i.e. the pre-fix code): alias.ts, outside.ts and uprel.ts all come
+// back as regular files with nothing in the output saying the link was gone.
 //
-// The rows are the link shapes that reach the write step at all, and every one
-// of them has to have content to rewrite or it proves nothing — a link that
-// never produces a match is never written even by the broken code, so it would
-// sit in this list looking like coverage while discriminating nothing. That is
-// why the relative-escape row points at a real file rather than at nothing:
-// verified by mutation, a broken link in its place stays a symlink either way.
-// Symlinks to directories and broken symlinks are read-side skips (not-regular
-// and unreadable) and belong in files_test.go, not here.
+// What it does NOT catch, measured the same way, and the reason each row is
+// spelled out rather than counted:
+//
+//   - chain.ts stays a symlink even with the rule removed. Its target alias.ts
+//     is visited first and clobbered *with the rewritten content*, so by
+//     chain.ts's turn there is nothing left to match and no write is attempted.
+//     Whether a link survives can therefore depend on visit order alone — which
+//     is exactly why "I tried a symlink and it was fine" is not evidence here.
+//     The chain shape is pinned for real in TestInspectLink, which goes red when
+//     resolution stops at the next hop instead of the final target.
+//   - a *broken* link is inert in this table: it never reaches the write step
+//     (read-side unreadable skip), so it stays a symlink either way. The
+//     relative-escape row points at a real file for that reason.
+//
+// Symlinks to directories are likewise a read-side skip (not-regular) and
+// belong in files_test.go, not here.
 func TestExecute_ApplyNeverReplacesASymlinkWithARegularFile(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("symlink creation needs elevation on windows")
