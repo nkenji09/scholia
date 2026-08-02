@@ -359,6 +359,44 @@ func TestCLI_EveryApplyFaceLeavesSymlinksIntact(t *testing.T) {
 	}
 }
 
+// TestCLI_CoveredLinkLineNamesTheResolvedTarget is the other half of the
+// refusal guard in internal/refs, and it lives here because this line exists
+// only in the human output — nothing in refs' own tests reads it.
+//
+// Both lines describe a link by two different values, and both can go false the
+// same way: the literal link text says where the user pointed, the resolved
+// target says what was actually rewritten. For chain -> alias -> real/impl.go
+// they differ, and saying "the link target was rewritten" about `alias.go` is
+// false — alias.go was left alone, real/impl.go is what changed.
+//
+// Guarding one line and not the other is how the previous rounds of this repo
+// lost coverage: the omission was measured here too, by reverting this line to
+// the link text and watching every test stay green.
+func TestCLI_CoveredLinkLineNamesTheResolvedTarget(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink creation needs elevation on windows")
+	}
+	dir := t.TempDir()
+	mustRun(t, dir, "init")
+	writeSourceFile(t, dir, "real/impl.go", "// see req.foo here\n")
+	linkSourceFile(t, dir, "alias.go", "real/impl.go")
+	linkSourceFile(t, dir, "chain.go", "alias.go")
+
+	out := mustRun(t, dir, "refs", "rewrite", "req.foo", "req.bar", "--apply")
+
+	for _, line := range strings.Split(out, "\n") {
+		if !strings.HasPrefix(strings.TrimSpace(line), "link: chain.go") {
+			continue
+		}
+		if !strings.Contains(line, "real/impl.go") {
+			t.Fatalf("the covered link line must name the resolved target that was "+
+				"actually rewritten, not just the link text: %q", line)
+		}
+		return
+	}
+	t.Fatalf("expected a covered link line for chain.go, got:\n%s", out)
+}
+
 // linkSourceFile creates a symlink at dir/rel pointing at target (relative to
 // dir, or absolute).
 func linkSourceFile(t *testing.T, dir, rel, target string) {
