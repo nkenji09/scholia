@@ -1,6 +1,7 @@
 package refs
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -23,13 +24,30 @@ type Match struct {
 	New  string `json:"new"`
 }
 
-// FailedFile is a file Execute could not write back when apply is true.
-// Source rewriting is best-effort: a write failure here does not unwind
-// the `.scholia` rename that already committed. The file can be retried later
-// via a fresh Execute/rewrite call, which is idempotent.
+// FailedFile is a file Execute could not write back when apply is true —
+// either the write itself failed, or Execute declined to write because the
+// candidate path is a symlink and following it would leave the enumerated,
+// in-scope set (see writeRefused). Source rewriting is best-effort: a failure
+// here does not unwind the `.scholia` rename that already committed. The file
+// can be retried later via a fresh Execute/rewrite call, which is idempotent.
 type FailedFile struct {
 	Path string `json:"path"`
 	Err  string `json:"err"`
+}
+
+// LinkNote records a candidate whose own path is a symlink and that an apply
+// run therefore did not write through — Execute writes only to enumerated,
+// in-scope candidate paths themselves (see writeDecision).
+//
+// Covered says whether that refusal cost anything. When the link fully
+// resolves to a path that is itself a candidate of the same run, the target is
+// rewritten on its own turn, so the ids do get fixed and the link survives —
+// this note is informational and the run stays a success. When it is false the
+// old ids are still there and the same path also appears in Report.Failed.
+type LinkNote struct {
+	Path    string `json:"path"`
+	Target  string `json:"target"`
+	Covered bool   `json:"covered"`
 }
 
 // Report summarizes one Execute call.
@@ -38,6 +56,7 @@ type Report struct {
 	RewrittenFiles []string     `json:"rewrittenFiles,omitempty"`
 	Failed         []FailedFile `json:"failed,omitempty"`
 	Skipped        []SkipNote   `json:"skipped,omitempty"`
+	Links          []LinkNote   `json:"links,omitempty"`
 }
 
 // UnreadableSkips returns the skips that mean unfinished work rather than a
@@ -88,6 +107,13 @@ func (r Report) UnreadableSkips() []SkipNote {
 // NewID: "b"} and {OldID: "b", NewID: "c"} could see a value rewritten
 // twice in one apply pass; nothing here validates pairs are disjoint.
 //
+// Applying is confined to the candidate paths themselves: a candidate whose
+// own path is a symlink is read like any other file but never written — see
+// writeDecision for why, and Report.Links/Report.Failed for how each such path
+// is reported. This is the one way a dry-run's Matches can list an occurrence
+// that a following apply does not rewrite; the apply says so per path rather
+// than passing over it quietly.
+//
 // opts is optional (variadic so every pre-existing call site keeps
 // compiling and behaving identically): passing none, or the zero value,
 // scans the whole project root exactly as before this parameter existed.
@@ -100,6 +126,10 @@ func Execute(root string, pairs []Pair, apply bool, opts ...Options) (Report, er
 	}
 	if len(opts) > 0 {
 		files = filterScope(files, opts[0])
+	}
+	candidates := make(map[string]bool, len(files))
+	for _, f := range files {
+		candidates[f] = true
 	}
 	sorted := make([]Pair, len(pairs))
 	copy(sorted, pairs)
@@ -141,12 +171,25 @@ func Execute(root string, pairs []Pair, apply bool, opts ...Options) (Report, er
 		report.Matches = append(report.Matches, fileMatches...)
 
 		if apply && changed {
-			absPath := filepath.Join(root, filepath.FromSlash(relPath))
-			if err := writeFileAtomic(absPath, content); err != nil {
-				report.Failed = append(report.Failed, FailedFile{Path: relPath, Err: err.Error()})
-				continue
+			link := inspectLink(root, relPath)
+			switch classifyWrite(link, candidates) {
+			case writeDeferred:
+				report.Links = append(report.Links, LinkNote{Path: relPath, Target: link.shown, Covered: true})
+			case writeRefused:
+				report.Links = append(report.Links, LinkNote{Path: relPath, Target: link.shown, Covered: false})
+				report.Failed = append(report.Failed, FailedFile{
+					Path: relPath,
+					Err: fmt.Sprintf("symlink のため書き戻していません（リンク先 %s は走査候補ではないため、旧 id が残っています）",
+						link.shown),
+				})
+			default:
+				absPath := filepath.Join(root, filepath.FromSlash(relPath))
+				if err := writeFileAtomic(absPath, content); err != nil {
+					report.Failed = append(report.Failed, FailedFile{Path: relPath, Err: err.Error()})
+					continue
+				}
+				report.RewrittenFiles = append(report.RewrittenFiles, relPath)
 			}
-			report.RewrittenFiles = append(report.RewrittenFiles, relPath)
 		}
 	}
 	sort.Strings(report.RewrittenFiles)
@@ -207,10 +250,135 @@ func replaceAt(content []byte, old, new string, offsets []int) []byte {
 	return out
 }
 
+// writeDecision is what an apply run does with a file it has already rewritten
+// in memory and is about to write back.
+//
+// The rule behind the three values is one sentence: *write back only to an
+// enumerated, in-scope candidate path itself — never follow a symlink to write
+// somewhere else.* That single invariant closes three holes at once, which is
+// why it is stated as a property rather than as a list of link shapes:
+//
+//   - writeFileAtomic replaces a path via rename, so writing *to* a symlink
+//     replaces the link with a regular file. The link target the user wrote is
+//     gone and cannot be reconstructed.
+//   - writing *through* the link instead would put bytes on a path that
+//     enumeration never produced — possibly another repository entirely.
+//   - filterScope narrows candidate paths, never resolved targets (see
+//     scope.go), so following a link would let one symlink carry a write into a
+//     directory config.sourceRefs.exclude deliberately shut out.
+//
+// Reading is deliberately not held to this rule: readSourceFile follows a
+// symlink to a regular file on purpose (decision 01KYSG9QEE36VPSR020WV81JWW).
+// The asymmetry is the point — reading across the boundary changes nothing,
+// writing across it destroys something.
+type writeDecision int
+
+const (
+	// writeDirect: the candidate path is not a symlink. Write it.
+	writeDirect writeDecision = iota
+	// writeDeferred: the candidate path is a symlink that resolves to a path
+	// which is itself a candidate of this same run. The target is rewritten on
+	// its own turn, so declining here costs nothing — the ids get fixed and the
+	// link survives. Order does not matter: whichever of the two is visited
+	// first does the rewrite, and the other then finds no matches at all.
+	writeDeferred
+	// writeRefused: the candidate path is a symlink whose resolved target is
+	// not a candidate of this run (outside root, .gitignore'd, or cut by
+	// config.sourceRefs). Nothing is written, so the old ids stay — counted as
+	// a failed rewrite, which is the third outcome decision
+	// 01KYSG9QEE36VPSR020WV81JWW already reserves for "read but could not be
+	// written back". Rerunning converges once the user edits the target by hand
+	// or widens the scan scope.
+	writeRefused
+)
+
+// linkState is what Execute learned about a write target before writing.
+// Splitting it out keeps classifyWrite a pure decision over stated facts,
+// checkable by input/output pairs without a filesystem.
+type linkState struct {
+	// symlink is whether the candidate path itself (not its target) is a symlink.
+	symlink bool
+	// targetRel is the fully-resolved target as a root-relative, "/"-separated
+	// path — empty when the link resolves outside root, is broken, or could not
+	// be resolved at all.
+	targetRel string
+	// shown is the target as reported to the user: the literal link text, which
+	// is what they wrote and can act on.
+	shown string
+}
+
+// classifyWrite decides whether an apply run may write back to a candidate,
+// given what inspectLink found about the path and the set of candidate paths
+// this run enumerated (root-relative, as EnumerateFiles returns them).
+func classifyWrite(st linkState, candidates map[string]bool) writeDecision {
+	if !st.symlink {
+		return writeDirect
+	}
+	if st.targetRel != "" && candidates[st.targetRel] {
+		return writeDeferred
+	}
+	return writeRefused
+}
+
+// inspectLink answers, for one candidate path, the questions classifyWrite
+// needs: is this path a symlink, and where does it fully resolve to.
+//
+// It resolves the whole chain (EvalSymlinks), so a link to a link to a regular
+// file is judged by its final target, not the next hop. root is resolved too,
+// because the project root may itself sit under a symlinked directory
+// (/tmp -> /private/tmp on macOS); without that, every candidate would look
+// like it resolves outside root.
+//
+// A path whose Lstat fails is reported as "not a symlink" and left to the write
+// to fail on. That is a real limit, shared with any check of this shape: the
+// mode is read before the write, so a path swapped for a symlink in between is
+// not caught.
+func inspectLink(root, relPath string) linkState {
+	absPath := filepath.Join(root, filepath.FromSlash(relPath))
+	info, err := os.Lstat(absPath)
+	if err != nil || info.Mode()&os.ModeSymlink == 0 {
+		return linkState{}
+	}
+	st := linkState{symlink: true, shown: relPath}
+	if target, err := os.Readlink(absPath); err == nil {
+		st.shown = filepath.ToSlash(target)
+	}
+	resolved, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		return st
+	}
+	realRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		realRoot = root
+	}
+	rel, err := filepath.Rel(realRoot, resolved)
+	if err != nil {
+		return st
+	}
+	rel = filepath.ToSlash(rel)
+	if rel == ".." || strings.HasPrefix(rel, "../") {
+		return st
+	}
+	st.targetRel = rel
+	return st
+}
+
 // writeFileAtomic writes data to path via a temp file in the same
 // directory followed by rename, mirroring store.writeJSONAtomic's
 // tmp-then-rename convention for the plain-text case, and preserving the
 // original file's permissions.
+//
+// Callers must have cleared path through classifyWrite first: rename replaces
+// whatever name it is given, so handing this a symlink destroys the link.
+//
+// Hard links are outside what this preserves, and knowingly so. Rename gives
+// the new content a new inode, so other names for the old inode keep the old
+// content. Holding them together would mean writing in place (open + truncate),
+// trading away the atomicity this function exists for — a regression on a
+// different axis. Unlike a clobbered symlink the loss is also recoverable in
+// practice: every hard-linked name still exists, and each one that is itself a
+// candidate is rewritten on its own turn, so only the sharing is lost, not the
+// content.
 func writeFileAtomic(path string, data []byte) error {
 	dir := filepath.Dir(path)
 	tmp, err := os.CreateTemp(dir, ".refs-rewrite-*.tmp")
