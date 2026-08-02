@@ -106,44 +106,53 @@ func TestInspectLink(t *testing.T) {
 // afterwards and see whether it is still a link.
 //
 // It fails against the pre-fix code, where writeFileAtomic's rename landed on
-// the candidate path — every row below came back as a regular file, and the
-// link text the user wrote was gone with nothing in the output saying so.
+// the candidate path: every row below came back as a regular file, with nothing
+// in the output saying the link was gone.
 //
-// The rows are the shapes that reach the write step at all. A symlink to a
-// directory and a broken symlink never do (they are read-side skips,
-// not-regular and unreadable), so they are covered in files_test.go, not here.
+// The rows are the link shapes that reach the write step at all, and every one
+// of them has to have content to rewrite or it proves nothing — a link that
+// never produces a match is never written even by the broken code, so it would
+// sit in this list looking like coverage while discriminating nothing. That is
+// why the relative-escape row points at a real file rather than at nothing:
+// verified by mutation, a broken link in its place stays a symlink either way.
+// Symlinks to directories and broken symlinks are read-side skips (not-regular
+// and unreadable) and belong in files_test.go, not here.
 func TestExecute_ApplyNeverReplacesASymlinkWithARegularFile(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("symlink creation needs elevation on windows")
 	}
-	root := t.TempDir()
+	// root and outsideDir are siblings under one temp dir so that a relative
+	// "../" link out of root has a real file to land on.
+	base := t.TempDir()
+	root := filepath.Join(base, "proj")
+	outsideDir := filepath.Join(base, "other")
 	writeFile(t, root, "real/impl.ts", "// see req.foo\n")
-	outsideDir := t.TempDir()
-	outside := filepath.Join(outsideDir, "far.ts")
-	if err := os.WriteFile(outside, []byte("// see req.foo\n"), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-	symlink(t, "real/impl.ts", filepath.Join(root, "alias.ts"))  // target is a candidate
-	symlink(t, "alias.ts", filepath.Join(root, "chain.ts"))      // chain to a candidate
-	symlink(t, outside, filepath.Join(root, "outside.ts"))       // target outside root
-	symlink(t, "../far-rel.ts", filepath.Join(root, "uprel.ts")) // relative escape, broken
-	if err := os.WriteFile(filepath.Join(outsideDir, "unused.ts"), nil, 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
+	writeFile(t, outsideDir, "far.ts", "// see req.foo\n")
+	writeFile(t, outsideDir, "far-rel.ts", "// see req.foo\n")
+
+	symlink(t, "real/impl.ts", filepath.Join(root, "alias.ts")) // target is a candidate
+	symlink(t, "alias.ts", filepath.Join(root, "chain.ts"))     // chain to a candidate
+	symlink(t, filepath.Join(outsideDir, "far.ts"),             // absolute, outside root
+		filepath.Join(root, "outside.ts"))
+	symlink(t, "../other/far-rel.ts", filepath.Join(root, "uprel.ts")) // relative escape, outside root
 
 	if _, err := Execute(root, []Pair{{OldID: "req.foo", NewID: "req.bar"}}, true); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
 
+	// One subtest per row, so a mutation run shows which shapes actually
+	// discriminate instead of stopping at the first one.
 	for _, rel := range []string{"alias.ts", "chain.ts", "outside.ts", "uprel.ts"} {
-		info, err := os.Lstat(filepath.Join(root, rel))
-		if err != nil {
-			t.Fatalf("Lstat %s: %v", rel, err)
-		}
-		if info.Mode()&os.ModeSymlink == 0 {
-			t.Fatalf("apply replaced the symlink %s with a regular file (mode %v): "+
-				"the link target the user wrote is unrecoverable", rel, info.Mode())
-		}
+		t.Run(rel, func(t *testing.T) {
+			info, err := os.Lstat(filepath.Join(root, rel))
+			if err != nil {
+				t.Fatalf("Lstat %s: %v", rel, err)
+			}
+			if info.Mode()&os.ModeSymlink == 0 {
+				t.Fatalf("apply replaced the symlink %s with a regular file (mode %v): "+
+					"the link target the user wrote is unrecoverable", rel, info.Mode())
+			}
+		})
 	}
 }
 
