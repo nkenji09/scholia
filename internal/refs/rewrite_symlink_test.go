@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -240,6 +241,81 @@ func TestExecute_ApplyRefusesALinkOutOfTheCandidateSet(t *testing.T) {
 	if len(report.Links) != 1 || report.Links[0].Covered {
 		t.Fatalf("expected one uncovered link note, got %+v", report.Links)
 	}
+}
+
+// TestExecute_RefusalNamesTheResolvedTargetNotTheFirstHop guards a way the
+// report can be false while every behavioral test stays green: describing a
+// refusal by the link's literal text. For a chain a -> b -> (outside), b is
+// itself a candidate — it appears in the same report — so "b is not a
+// candidate" is a false sentence attached to a correct decision, and review
+// caught exactly that.
+//
+// Scope, stated precisely: this pins the structured fields (Target is the
+// literal first hop, Resolved is the end of the chain, and they differ here)
+// and that the human-facing Err carries the resolved target. It does not parse
+// the sentence, so a message that named both values but put them in each
+// other's roles would still pass. What it does make impossible is the report
+// carrying only the first hop, which is what went wrong.
+func TestExecute_RefusalNamesTheResolvedTargetNotTheFirstHop(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink creation needs elevation on windows")
+	}
+	base := t.TempDir()
+	root := filepath.Join(base, "proj")
+	writeFile(t, root, "keep.ts", "// unrelated\n")
+	writeFile(t, filepath.Join(base, "other"), "far.ts", "// see req.foo\n")
+	symlink(t, "../other/far.ts", filepath.Join(root, "b.ts")) // candidate, resolves outside
+	symlink(t, "b.ts", filepath.Join(root, "a.ts"))            // chain through b.ts
+
+	report, err := Execute(root, []Pair{{OldID: "req.foo", NewID: "req.bar"}}, true)
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	var note *LinkNote
+	for i := range report.Links {
+		if report.Links[i].Path == "a.ts" {
+			note = &report.Links[i]
+		}
+	}
+	if note == nil {
+		t.Fatalf("expected a link note for a.ts, got %+v", report.Links)
+	}
+	if note.Target != "b.ts" {
+		t.Fatalf("Target must stay the literal link text the user wrote, got %q", note.Target)
+	}
+	if note.Resolved == "" || note.Resolved == note.Target {
+		t.Fatalf("Resolved must name the end of the chain, not the first hop: %+v", *note)
+	}
+	// b.ts really is a candidate, which is what makes naming it as the
+	// non-candidate a false statement rather than merely an imprecise one.
+	if !hasFailed(report, "b.ts") {
+		t.Fatalf("this test only bites while b.ts is itself a candidate; got %+v", report.Failed)
+	}
+	failed := failedErrFor(t, report, "a.ts")
+	if !strings.Contains(failed, note.Resolved) {
+		t.Fatalf("the refusal message must name the resolved target %q, got %q", note.Resolved, failed)
+	}
+}
+
+func hasFailed(report Report, path string) bool {
+	for _, f := range report.Failed {
+		if f.Path == path {
+			return true
+		}
+	}
+	return false
+}
+
+func failedErrFor(t *testing.T, report Report, path string) string {
+	t.Helper()
+	for _, f := range report.Failed {
+		if f.Path == path {
+			return f.Err
+		}
+	}
+	t.Fatalf("expected a failed entry for %s, got %+v", path, report.Failed)
+	return ""
 }
 
 // TestExecute_ApplyDoesNotWriteThroughAnExcludedTarget is why the rule is about

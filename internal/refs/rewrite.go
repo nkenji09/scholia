@@ -44,10 +44,18 @@ type FailedFile struct {
 // rewritten on its own turn, so the ids do get fixed and the link survives —
 // this note is informational and the run stays a success. When it is false the
 // old ids are still there and the same path also appears in Report.Failed.
+//
+// Target and Resolved are both carried because they answer different questions
+// and are not interchangeable: Target is the literal link text (what the user
+// wrote, and would edit), Resolved is where the whole chain ends up (what
+// Covered is actually about). For a chain a -> b -> c they differ, and using
+// Target where Resolved belongs states something false — b can be a candidate
+// while c is not.
 type LinkNote struct {
-	Path    string `json:"path"`
-	Target  string `json:"target"`
-	Covered bool   `json:"covered"`
+	Path     string `json:"path"`
+	Target   string `json:"target"`
+	Resolved string `json:"resolved"`
+	Covered  bool   `json:"covered"`
 }
 
 // Report summarizes one Execute call.
@@ -174,13 +182,18 @@ func Execute(root string, pairs []Pair, apply bool, opts ...Options) (Report, er
 			link := inspectLink(root, relPath)
 			switch classifyWrite(link, candidates) {
 			case writeDeferred:
-				report.Links = append(report.Links, LinkNote{Path: relPath, Target: link.shown, Covered: true})
+				report.Links = append(report.Links, LinkNote{
+					Path: relPath, Target: link.shown, Resolved: link.targetLabel(), Covered: true,
+				})
 			case writeRefused:
-				report.Links = append(report.Links, LinkNote{Path: relPath, Target: link.shown, Covered: false})
+				report.Links = append(report.Links, LinkNote{
+					Path: relPath, Target: link.shown, Resolved: link.targetLabel(), Covered: false,
+				})
 				report.Failed = append(report.Failed, FailedFile{
 					Path: relPath,
-					Err: fmt.Sprintf("symlink のため書き戻していません（リンク先 %s は走査候補ではないため、旧 id が残っています）",
-						link.shown),
+					Err: fmt.Sprintf("symlink（-> %s）の解決先 %s が走査候補ではないため、書き戻していません"+
+						"（解決先を直接直すか、走査範囲に含めてください）",
+						link.shown, link.targetLabel()),
 				})
 			default:
 				absPath := filepath.Join(root, filepath.FromSlash(relPath))
@@ -302,9 +315,29 @@ type linkState struct {
 	// path — empty when the link resolves outside root, is broken, or could not
 	// be resolved at all.
 	targetRel string
-	// shown is the target as reported to the user: the literal link text, which
-	// is what they wrote and can act on.
+	// resolved is the fully-resolved target as an absolute path, "" when the
+	// link could not be resolved. It exists so a message can name the resolved
+	// target even when targetRel is empty because it lies outside root — which
+	// is exactly the case a refusal has to explain.
+	resolved string
+	// shown is the literal link text: what the user wrote, and the string they
+	// would edit. For a chain it is only the first hop, so it is never the
+	// thing a write decision is about — see targetLabel.
 	shown string
+}
+
+// targetLabel names the *resolved* target, which is what classifyWrite judges.
+// Messages must not put st.shown in that role: for a chain a -> b -> c, b can
+// be a candidate while c is not, so "b is not a candidate" would be false while
+// the refusal it explains is correct.
+func (st linkState) targetLabel() string {
+	if st.targetRel != "" {
+		return st.targetRel
+	}
+	if st.resolved != "" {
+		return st.resolved
+	}
+	return "(解決先を辿れません)"
 }
 
 // classifyWrite decides whether an apply run may write back to a candidate,
@@ -347,6 +380,7 @@ func inspectLink(root, relPath string) linkState {
 	if err != nil {
 		return st
 	}
+	st.resolved = filepath.ToSlash(resolved)
 	realRoot, err := filepath.EvalSymlinks(root)
 	if err != nil {
 		realRoot = root
