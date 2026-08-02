@@ -102,8 +102,22 @@ func printRenameRefsReport(cmd *cobra.Command, report *refs.Report, rewrite bool
 	}
 	if rewrite {
 		fmt.Fprintf(out, "ソース参照を書き換えました（%d 箇所・%d ファイル）\n", len(report.Matches), len(report.RewrittenFiles))
+		// Only the covered links are printed here. An uncovered one is unfinished
+		// work, so it is already named — with its target — by the 失敗 line below,
+		// and printing it twice would just pad the output.
+		// The arrow shows the literal link text (what the user wrote); the
+		// sentence names the resolved target, because that — not the first hop —
+		// is what actually got rewritten.
+		for _, l := range report.Links {
+			if l.Covered {
+				fmt.Fprintf(out, "  link: %s -> %s（symlink は保持しました。解決先 %s が走査候補なので、そちらを書き換えます）\n",
+					l.Path, l.Target, l.Resolved)
+			}
+		}
+		// "原因を除いてから" is not boilerplate: a plain rerun cannot finish a
+		// symlink refusal, because the obstruction is the scan scope itself.
 		for _, f := range report.Failed {
-			fmt.Fprintf(out, "  失敗: %s: %s（rename 自体は確定済み・scholia refs rewrite で再実行可）\n", f.Path, f.Err)
+			fmt.Fprintf(out, "  失敗: %s: %s（rename 自体は確定済み・原因を除いてから scholia refs rewrite --apply で再実行可）\n", f.Path, f.Err)
 		}
 		return
 	}
@@ -146,6 +160,18 @@ func uniqueRewriteSuggestions(matches []refs.Match) []refs.Pair {
 // Both leave old ids in source, and both are retryable with
 // `scholia refs rewrite --apply` once the obstruction is gone.
 //
+// A symlink candidate refs declined to write through arrives here as a
+// refs.FailedFile, needing nothing new on this side: it is the same outcome
+// (read fine, not written back, old ids still there). The remedy is not the
+// same, though, and neither message may say "just run it again": a write that
+// failed on permissions succeeds once the permissions change, but a symlink
+// refusal is a decision about scan scope, so an unchanged rerun refuses again
+// forever. Both messages therefore name the precondition ("原因を除いてから")
+// and the per-file Err says what removing it means for that kind. Only
+// the uncovered ones are turned into FailedFiles by refs — a link whose target
+// is itself a candidate leaves nothing undone, so it must not exit non-zero, or
+// a rerun would fail forever with no obstruction to remove.
+//
 // applied says whether this run was actually meant to change source. It has to
 // be a parameter rather than something inferred from the report: a dry-run and
 // an apply see exactly the same unreadable candidate, and only for the apply is
@@ -168,7 +194,7 @@ func refsFailedErr(report *refs.Report, applied bool) error {
 	case len(report.Failed) == 0 && len(unreadable) == 0:
 		return nil
 	case len(unreadable) == 0:
-		return fmt.Errorf("ソース書換に失敗したファイルがあります（%d 件。rename 自体は確定済み・scholia refs rewrite --apply で再実行可）", len(report.Failed))
+		return fmt.Errorf("ソース書換に失敗したファイルがあります（%d 件・上の 失敗 行参照。rename 自体は確定済み・原因を除いてから scholia refs rewrite --apply で再実行可）", len(report.Failed))
 	case len(report.Failed) == 0:
 		return fmt.Errorf("読めなかったソースファイルがあり、旧 id が残っている可能性があります（%d 件・上の skip (unreadable) 参照。原因を除いてから scholia refs rewrite --apply で再実行可）", len(unreadable))
 	default:

@@ -301,6 +301,127 @@ func TestCLI_EveryApplyFaceExitsNonZeroWhenACandidateCouldNotBeRead(t *testing.T
 	}
 }
 
+// TestCLI_EveryApplyFaceLeavesSymlinksIntact holds all five source-rewriting
+// commands to the write-target rule, for the same reason the table exists at
+// all: the rule lives in one place (refs.Execute), but "one place" is exactly
+// what the previous three rounds of this repo also believed while a face went
+// unguarded. The stakes here are higher than an exit code — writing to a
+// symlink path replaces the link with a regular file, and the link text the
+// user wrote cannot be reconstructed from what is left.
+//
+// Both halves of the rule are checked per face, because passing one and failing
+// the other are different bugs: a link whose target this run also scans must
+// come out fixed and exit 0 (or a rerun could never converge), and a link whose
+// target it does not scan must come out untouched and exit non-zero (or the run
+// would claim success with the old id still there).
+func TestCLI_EveryApplyFaceLeavesSymlinksIntact(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink creation needs elevation on windows")
+	}
+	for _, face := range refsApplyFaces {
+		t.Run(face.name, func(t *testing.T) {
+			// (1) target inside the scanned set: fixed, link intact, exit 0.
+			dir := face.setup(t)
+			writeSourceFile(t, dir, "real/impl.go", "// see "+face.oldID+" here\n")
+			linkSourceFile(t, dir, "alias.go", "real/impl.go")
+
+			out, err := run(t, dir, face.applyArgs...)
+			if err != nil {
+				t.Fatalf("a link whose target is scanned leaves nothing undone, so this "+
+					"must exit 0: %v\n%s", err, out)
+			}
+			assertStillSymlink(t, dir, "alias.go")
+			if got := readSourceFile(t, dir, "real/impl.go"); got != "// see "+face.newID+" here\n" {
+				t.Fatalf("expected the link target to be rewritten on its own turn, got %q", got)
+			}
+
+			// (2) target outside the scanned set: untouched, link intact, non-zero.
+			outDir := face.setup(t)
+			outside := filepath.Join(t.TempDir(), "far.go")
+			if err := os.WriteFile(outside, []byte("// see "+face.oldID+" here\n"), 0o644); err != nil {
+				t.Fatalf("WriteFile: %v", err)
+			}
+			linkSourceFile(t, outDir, "outside.go", outside)
+
+			outOut, outErr := run(t, outDir, face.applyArgs...)
+			if outErr == nil {
+				t.Fatalf("a link this run cannot follow leaves the old id in place, so this "+
+					"must exit non-zero:\n%s", outOut)
+			}
+			if !strings.Contains(outOut, "outside.go") {
+				t.Fatalf("expected the refused link to be named in output, got:\n%s", outOut)
+			}
+			assertStillSymlink(t, outDir, "outside.go")
+			if got, readErr := os.ReadFile(outside); readErr != nil || string(got) != "// see "+face.oldID+" here\n" {
+				t.Fatalf("a target outside the scanned set must not be written: %q (%v)", got, readErr)
+			}
+		})
+	}
+}
+
+// TestCLI_CoveredLinkLineNamesTheResolvedTarget is the other half of the
+// refusal guard in internal/refs, and it lives here because this line exists
+// only in the human output — nothing in refs' own tests reads it.
+//
+// Both lines describe a link by two different values, and both can go false the
+// same way: the literal link text says where the user pointed, the resolved
+// target says what was actually rewritten. For chain -> alias -> real/impl.go
+// they differ, and saying "the link target was rewritten" about `alias.go` is
+// false — alias.go was left alone, real/impl.go is what changed.
+//
+// Guarding one line and not the other is how the previous rounds of this repo
+// lost coverage: the omission was measured here too, by reverting this line to
+// the link text and watching every test stay green.
+func TestCLI_CoveredLinkLineNamesTheResolvedTarget(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink creation needs elevation on windows")
+	}
+	dir := t.TempDir()
+	mustRun(t, dir, "init")
+	writeSourceFile(t, dir, "real/impl.go", "// see req.foo here\n")
+	linkSourceFile(t, dir, "alias.go", "real/impl.go")
+	linkSourceFile(t, dir, "chain.go", "alias.go")
+
+	out := mustRun(t, dir, "refs", "rewrite", "req.foo", "req.bar", "--apply")
+
+	for _, line := range strings.Split(out, "\n") {
+		if !strings.HasPrefix(strings.TrimSpace(line), "link: chain.go") {
+			continue
+		}
+		if !strings.Contains(line, "real/impl.go") {
+			t.Fatalf("the covered link line must name the resolved target that was "+
+				"actually rewritten, not just the link text: %q", line)
+		}
+		return
+	}
+	t.Fatalf("expected a covered link line for chain.go, got:\n%s", out)
+}
+
+// linkSourceFile creates a symlink at dir/rel pointing at target (relative to
+// dir, or absolute).
+func linkSourceFile(t *testing.T, dir, rel, target string) {
+	t.Helper()
+	path := filepath.Join(dir, filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.Symlink(filepath.FromSlash(target), path); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+}
+
+func assertStillSymlink(t *testing.T, dir, rel string) {
+	t.Helper()
+	info, err := os.Lstat(filepath.Join(dir, filepath.FromSlash(rel)))
+	if err != nil {
+		t.Fatalf("Lstat %s: %v", rel, err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("apply replaced the symlink %s with a regular file (mode %v): "+
+			"the link the user wrote is gone and cannot be reconstructed", rel, info.Mode())
+	}
+}
+
 // lockSourceFile writes a source file and makes it unreadable for the rest of
 // the test (restored on cleanup so the temp dir can be removed).
 func lockSourceFile(t *testing.T, dir, rel, content string) {
