@@ -361,7 +361,7 @@ effective(transition) = 展開祖先( transition.tags ∪ ⋃ tags(参照して�
 | **unit / "spec"** | `subject.*` タグ（または任意のタグ）で遷移を束ねた**レポート**。`scholia spec <subjectTag>` で描画 |
 | **タグ階層（統一ツリー）** | browse ナビ（viewer）は全タグを `parentIds` で入れ子にした**1 本の木**（kind 非依存・`GET /api/facets` の `roots`・`index.TagForest`）。**kind は木を分割する軸ではなくノードの属性**（バッジ/色）＋「その kind だけ表示」フィルタ。cross-kind の入れ子（例: `subject` 配下に `requirement`）や `kind` 未設定のタグも `parentIds` 通りに出る＝ CLI `tag list --tree`（無フィルタ）と木形が一致。多親は複数箇所に出現・循環はパス単位ガード |
 | **facet 別グルーピング（kind スコープ）** | `scholia list --facet <tagKind>` は**その kind だけ**のタグ入れ子を木にして遷移を葉に並べる（`index.FacetTree`・kind スコープ）。要件トレーサビリティ（§7）も同じ per-kind 木を使う。統一ツリーとは別経路で、kind を横断しない |
-| **rules（守る規則）** | 対象（tag／transition／vocab／facet）に関わる `decisions` を横断集約（cross-cutting 不変条件を含む・vocab は own∪ vocab.tags＋祖先・#45 D10b）。per-record governs（`GET /api/governs`）と同一の query コアを共有（§9.1 面間整合） |
+| **rules（守る規則）** | 対象（tag／transition／vocab／facet）に関わる `decisions` を横断集約（cross-cutting 不変条件を含む・vocab は own∪ vocab.tags＋祖先・#45 D10b）。per-record governs（`GET /api/governs`）と同一の query コアを共有（§9.1 面間整合）。**既定で本文を出すのは、その記録自身を対象とする decision だけ**——タグ経由で届く分（祖先展開・遷移や語彙が直接持つタグ）は存在・経由タグ・引き方だけを出し、`--all` で本文ごと開く（`01KZ06SYP12ZFDG1WPNYM529D8`。本文が書かれた場所は 1 つなので、読む場所も 1 つにする） |
 | **フロー図** | 共有状態の語彙から derive（手書きしない）。viewer は mermaid のみ。入口は nav「フロー」タブ・action 語彙カード・spec ケバブの3系統（#45 D10b-5） |
 | **検索** | 4型（tag/vocab/transition/decision）横断の単一コア（`index.SearchRecords`）。transition は実効タグ・kind・語彙 label もヒット。CLI `scholia search` と viewer `GET /api/search` が同コアを共有（§9.1 面間整合・#45 D10b-3） |
 
@@ -390,7 +390,7 @@ spec ファイルも proposal ファイルも無い。**提案 = 作業ツリー
 # 提案する側（AI/人）: 作業ツリーで transition/vocab/tag を編集し、対でコメント（why）を配送
 scholia review add --on transition:<id> --body "<why・提案コメント>"   # AI コメントのサイドカー配送（§8.4）
 scholia diff [<ref1> [<ref2>]]  # 現在 vs <ref1>（既定 HEAD）＝pending diff（主線）、または <ref1> vs <ref2>（両方 git ref・landed 監査用）
-scholia rules --tag <id>        # その提案が触るタグの過去 decisions（守る規則）と照合
+scholia rules --tag <id>        # その提案が触るタグの過去 decisions（守る規則）と照合（既定は自身への分の本文だけ・経由分は存在と引き方・全部は --all）
 
 # 評価する側の結着（どちらも decision を残す）
 #   adopt  = 変更を採用 ＋「採用」decision を append（viewer のドロワーから `POST /api/decision`・§7）
@@ -554,7 +554,7 @@ scholia show tx <id> [--resolve] [--json]                    # 遷移 1 件（�
 scholia show vocab <id> [--json]                             # 語彙 1 件 + 使用箇所（参照 transition の逆引き）+ establishes 双方向逆引き + vocab 宛 decision + ref/altLabels（#45 D5・§3.3）
 scholia spec <subjectTag> [--all] [--json]                   # 主題タグで束ねた"仕様"レポート（派生）。失効の扱いは rules と同じ（既定は畳む・--all で本文ごと）
 scholia list [--facet <tagKind>] [--tag <id>] [--kind <k>] [--json]   # faceted 一覧・グルーピング
-scholia rules [--tag <id> | --tx <id> | --vocab <id> | --facet <k>] [--sort chrono|target] [--all] [--json]   # --vocab=own∪ vocab.tags＋祖先（#45 D10b・面間整合で viewer governs と同コア）。既定で失効(mode=supersede)を畳む＝本文は出さず「取り下げられた規則 N件」として存在と行き先を出す。--all は本文ごと（失効には [失効: supersede 済] の印）。--current は既定と同義で受理（後方互換・--all との同時指定はエラー）
+scholia rules [--tag <id> | --tx <id> | --vocab <id> | --facet <k>] [--sort chrono|target] [--all] [--json]   # --vocab=own∪ vocab.tags＋祖先（#45 D10b・面間整合で viewer governs と同コア）。既定で本文を出すのは**その記録自身を対象とする decision だけ**——(a) タグ経由で届く分（祖先展開・直接持つタグ）は存在・経由タグ・経由の種別・著者見出しを出す、(b) 失効(mode=supersede)は「取り下げられた規則 N件」として存在と行き先を出す（01KZ06SYP12ZFDG1WPNYM529D8・01KYNYG2WBC5QRGDQN2VS5WPQ8）。--all は畳んだもの全部を本文ごと（失効には [失効: supersede 済] の印）。--facet は経由の概念を持たないので (a) は当たらない。--current は既定と同義で受理（後方互換・--all との同時指定はエラー）
 scholia flow <action> [--json] [--verbose]                    # きっかけ(action)の給条件×遷移マトリクス＋証明可能な gap 検出（honesty-first・派生・§3.4・#39）。--verbose は評価順で解決済みの重なり/subset-shadow と derive した else も開示（#45 D8）
 scholia gaps <action> [--json] [--verbose]                    # flow と同じ解析の gap-only ビュー（抜け・重なり・subset-shadow＋scope-disclosure のみ・§3.4・#39）
 scholia lint [--json] [--ci]                                 # --ci は歯止め（ratchet）: error 常時 exit 1・baseline に無い新規 warn のみ exit 1（不在は非活性・#45 U4）

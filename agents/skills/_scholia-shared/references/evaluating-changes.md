@@ -40,7 +40,8 @@ input が触る挙動を、どの decision と transition が支配している�
 
 ```
 scholia search <keyword> [--type tag|transition|vocab|decision] [--tag <id>]… [--json]   # id/領域が未確定なら逆引きの入口（read-only）。--tag は候補タグのサブツリーへ絞り込み（繰り返し可＝OR）
-scholia rules --tag <領域>            # そのタグ自身＋祖先タグへの decisions＝守るべき規則の全集合（既定は効いているものだけ。取り下げは存在と行き先だけ出る・全文は --all）
+scholia rules --tag <領域>            # そのタグ自身への decisions を本文で。祖先タグ経由の分は存在・経由タグ・引き方だけ（全文は --all）
+scholia rules --tag <領域> --all      # 畳んでいるもの（経由分・取り下げ）も本文ごと＝守るべき規則の全集合
 scholia show tag <id>                 # タグ（要件）の現状
 scholia show tx <id> --resolve        # transition の現契約（action→given→then・vocab を解決して読む）
 scholia decision list --on tag:<id>            # その対象ちょうどに付いた decision（完全一致・祖先展開なし）
@@ -48,15 +49,20 @@ scholia decision list --on transition:<id>
 scholia list --tag <領域>             # その領域に属する transition を横断列挙（input が跨る先を把握）
 ```
 
-- **`rules --tag` と `decision list --on` の違いを意識する**——`rules` は**祖先タグへの決定まで含める**
-  （cross-cutting invariant を漏らさないため）。`decision list --on` は**その対象ちょうど**の決定だけ（完全一致）。
-  「守るべき規則の全集合」を見たいなら `rules`、「この 1 レコードの履歴」を見たいなら `decision list --on`。
+- **`rules` の既定は「その記録自身への決定の本文」だけ**（`01KZ06SYP12ZFDG1WPNYM529D8`）。
+  タグ経由で届く決定（祖先展開・遷移が持つタグ）は**存在・経由タグ・引き方**だけが出る。
+  ⚠️ **cross-cutting invariant はそちら側にある。** 既定の出力だけを読んで「守る規則を確認した」と言わないこと——
+  出力に「経由で支配している N 件」が出ていたら、**引くか、引いていないことを自覚した上で進む**かのどちらかである。
+  **全集合が要るなら `--all`。**
+- **`rules --tag` と `decision list --on` の違いを意識する**——`rules --all` は**祖先タグへの決定まで含める**。
+  `decision list --on` は**その対象ちょうど**の決定だけ（完全一致）。
+  「守るべき規則の全集合」を見たいなら `rules --all`、「この 1 レコードの履歴」を見たいなら `decision list --on`。
 - **`scholia search` は id/領域が未確定なときの逆引きの入口**——tag/transition/vocab/decision を横断し、大小無視の
   部分一致で keyword から候補レコードを出す（0 件は「該当なし」に縮退・read-only）。ただし横断に抜けがある——
   **transition が持つ tags は検索対象外**（そのタグを持つ transition は transition 型としては出ない。タグ自身は
   tag 型で出る）／**decision の対象（`--on` の tag/tx）も対象外**（`why`/`changed` の文面だけが対象）。よって
   「そのタグを消費する transition の集合」は `scholia list --tag <id>`、「その対象への decision 履歴」は
-  `scholia decision list --on ...`、「守る規則の全集合（祖先展開込み）」は `scholia rules --tag ...` が正確に担う——
+  `scholia decision list --on ...`、「守る規則の全集合（祖先展開込み）」は `scholia rules --tag ... --all` が正確に担う——
   **search で入口を見つけ、正確な集合は既存コマンドで詰める**という使い分け。
 - **複数コンポが同じ概念語を共有していて結果が広がるときは `--tag <候補subject>` で絞る**——対象コンポの id が
   分かっているなら直接指定、まだ分からなければ一旦 `--tag` 無しで広く search し、各ヒットに注記される owning

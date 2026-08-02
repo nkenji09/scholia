@@ -54,7 +54,7 @@ spec ファイルも proposal ファイルも無い。**提案 = 作業ツリー
 scholia diff [<ref1> [<ref2>]]  # 現在 vs <ref1>（既定 HEAD）＝pending diff（主線）
                               # <ref1> vs <ref2>（両方 git ref）は landed 監査用（例: <commit>^ <commit>）
                               # semantic diff（語彙± / 遷移± / then 順序 / decisions±）
-scholia rules --tag <id>        # その提案が触るタグの過去 decisions（守る規則）と照合。既定は効いているものだけ（取り下げは存在と行き先だけ出る・全文は --all）
+scholia rules --tag <id>        # その提案が触るタグの過去 decisions（守る規則）と照合。既定はそのタグ自身への分の本文だけ（経由分・取り下げは存在と引き方・全文は --all）
 scholia decide --on transition:<id> --why "評価: 取り込まない。<理由>" --ref <PR/URL> [--commit <hash>…]
                               # adopt = 変更を採用 ＋「採用」decision を append
                               # reject = 採用しない ＋「取り込まない・理由」decision を append
@@ -206,7 +206,7 @@ scholia review list [--on <transition|vocab|tag>:<id>] [--json]
 scholia show tx <id> [--resolve] [--json]
 scholia spec <subjectTag> [--all] [--json]                    # rules と同じ扱い（既定は効いている規則だけ・--all で本文ごと）
 scholia list [--facet <tagKind>] [--tag <id>] [--kind <k>] [--json]
-scholia rules [--tag <id> | --tx <id> | --vocab <id> | --facet <k>] [--sort chrono|target] [--all] [--json]  # --vocab=own∪ vocab.tags＋祖先（#45 D10b）。既定は効いている規則だけ（取り下げは存在と行き先だけ出る）・--all で本文ごと
+scholia rules [--tag <id> | --tx <id> | --vocab <id> | --facet <k>] [--sort chrono|target] [--all] [--json]  # --vocab=own∪ vocab.tags＋祖先（#45 D10b）。既定は**その記録自身への decision の本文だけ**（タグ経由の分と取り下げは存在・経由タグ・引き方だけ）・--all で畳んだもの全部を本文ごと（01KZ06SYP12ZFDG1WPNYM529D8）
 scholia search <keyword> [--type tag|transition|vocab|decision] [--tag <id>]… [--json]   # keyword で横断逆引き（id 未確定な入口）。transition は実効タグ・action kind でもヒット（viewer 検索と同一コア・#45 D10b）。--tag は候補タグのサブツリー（実効タグ包含・list --tag と同義）へ絞り込み（繰り返し可＝OR・#1）
 scholia lint [--json]
 scholia retrofit [--rule <id>] [--json]                       # advisory 規則で store を read-only 走査し是正候補を棚卸し（--fix なし・exit 0）

@@ -142,7 +142,8 @@ scholia view   # http://127.0.0.1:4577 で開く
 
 `scholia rules` で「守るべき規則」を、`scholia decision list` で過去の判断を、機械可読な形で引ける。
 `scholia show vocab <id>` は、その語彙を参照している遷移を逆引きする（安全にリファクタするための、真の影響集合）。
-`scholia rules` と `scholia spec` は、いま効いている規則だけを出す。取り下げられた（supersede された）decision は黙って消えるのではなく、**存在とどこへ置き換わったかが出力に残り**、全文は `--all` で読める。`scholia search` は何も畳まない——取り下げ済みのヒットに印を付けるので、取り下げた記録にも辿り着ける。JSON はどの面でも `effect`（`in-force` / `replaced`）を持つので、消費側が逆リンクを組み直さなくても効力が分かる。`scholia decision list --unlinked` は commit がまだ結線されていない decision を洗い出す（フォローアップの棚卸しに使える）。
+`scholia rules` と `scholia spec` は、いま効いている規則だけを出す。取り下げられた（supersede された）decision は黙って消えるのではなく、**存在とどこへ置き換わったかが出力に残り**、全文は `--all` で読める。
+`scholia rules` が既定で**本文**を出すのは、**その記録自身を対象とする decision だけ**。タグ経由で届く規則（祖先タグへの決定・遷移が属する要件への決定）は、**存在・経由タグ・引き方**が出る——本文が書かれた場所は 1 つなので、読む場所も 1 つにしている。自身への決定が 0 件でも「該当なし」とは言わず、経由で支配している件数と引き方を返す。**全部を本文で読むなら `--all`。**`scholia search` は何も畳まない——取り下げ済みのヒットに印を付けるので、取り下げた記録にも辿り着ける。JSON はどの面でも `effect`（`in-force` / `replaced`）を持つので、消費側が逆リンクを組み直さなくても効力が分かる。`scholia decision list --unlinked` は commit がまだ結線されていない decision を洗い出す（フォローアップの棚卸しに使える）。
 
 Claude Code 向けのスキル（`scholia` / `scholia-change` / `scholia-triage` / `scholia-config-setup`）を `agents/skills/` に同梱している。導入経路は 2 つある。
 

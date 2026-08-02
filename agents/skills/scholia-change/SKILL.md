@@ -76,7 +76,7 @@ adopt/reject できることが目的。深リンクの route 一覧は [scholia
    - retrospective なら、Case 1/2 の提案→レビュー→adopt の踊りは不要。
      `scholia decide --on <対象> --why "<why>" --ref <landing commit>`（または `--commit <hash>`）で直行してよい。
    - 完了ゲートも軽量にする: **landing commit を結線**（`decide --commit` または `decision add-commit`）＋
-     **`scholia rules` で矛盾する既存 decision が無いか 1 回照合**するだけでよい。波及検索・兄弟ゲートは
+     **`scholia rules --all` で矛盾する既存 decision が無いか 1 回照合**するだけでよい。波及検索・兄弟ゲートは
      省略できる（後から波及に気づいたら、そのときは改めて Case 1/2 の手順で対応する）。
    - 後追いは特定のプロジェクトや用途に限った例外ではなく、scholia-change の一般的なルートの 1 つ。
 
@@ -99,7 +99,9 @@ desc に書かない。正典＝[`../_scholia-shared/references/modeling-princip
 提供体験・要件そのものが変わったとき。
 
 1. **入口理解** — コメントを読み、`scholia show tag <id>` と `scholia rules --tag <id>`（過去 decision＝守る規則）で
-   現状を把握する。`rules` の既定は効いている規則だけで、取り下げられたものは存在と行き先だけ出る（全文は `--all`）。
+   現状を把握する。`rules` の既定は**そのタグ自身への決定の本文だけ**で、タグ経由で届く分と取り下げは
+   存在・経由タグ・引き方だけが出る（全文は `--all`）。
+   ⚠️ **要件変更は cross-cutting なので、祖先タグ経由の規則と衝突しやすい。ここは `--all` で読むこと。**
 2. **Tag に decide** — 人と対話し、要件変更の why を確定してから記録する（cross-cutting 不変条件の更新）:
    ```
    scholia decide --on tag:<id> --why "<要件変更の理由>" --ref <PR/URL>
@@ -107,7 +109,8 @@ desc に書かない。正典＝[`../_scholia-shared/references/modeling-princip
 3. **波及検索（核心）** — そのタグが波及する範囲を洗う:
    ```
    scholia list --tag <id>          # 実効タグにこの tag を含む transition を列挙（子タグ経由のヒットも拾う）
-   scholia rules --tag <id>         # 既存 decision と照合（矛盾は却下寄り・矛盾する decision の id を引用）
+   scholia rules --tag <id> --all   # 既存 decision と照合（矛盾は却下寄り・矛盾する decision の id を引用）
+                                    # ⚠️ 波及の照合は --all。既定は自身への決定の本文だけで、経由分は畳まれる
    ```
    vocab 側の波及は `vocab` に一覧コマンドが無いため `grep -l '"tags"' .scholia/vocab/*.json` のように直接
    確認して補う。**影響先は全部同じ task に集約する。**
@@ -185,7 +188,7 @@ desc に書かない。正典＝[`../_scholia-shared/references/modeling-princip
 要件"内容"の変更でも Transition の修正でもなく、**設計原理・横断的な選択（why）を記録したい**とき
 （例:「vocab の分類軸は intrinsic category×kind、tag は二次フィルタ」）。手順は軽量:
 
-1. **理解** — `scholia show <対象>` と `scholia rules --tag <対象>` で、矛盾する既存 decision が無いか照合する。
+1. **理解** — `scholia show <対象>` と `scholia rules --tag <対象> --all` で、矛盾する既存 decision が無いか照合する。
 2. **decide** — 対象は多くが `concern.*`（横断関心）や要件 tag:
    ```
    scholia decide --on <tag/concern> --why "<設計原理>" --ref <実装 commit>
@@ -247,10 +250,10 @@ Case 3 パターン（本スキルで名前を付けて正規化する趣旨）�
   人がレビュー・承認済みである（設計メモのレビューでは代替できない）。
 - adopt 前に、**合意の重さ**に応じた対話（重い＝1項目ずつ変更前/変更後/観測例/トレードオフ/推奨・軽い＝
   サマリー＋Adopt）を経ている。
-- Case 1: `scholia rules --tag` で守る規則を確認し、`scholia list --tag` の波及検索で影響先を洗い出している。
+- Case 1: `scholia rules --tag --all` で守る規則を確認し、`scholia list --tag` の波及検索で影響先を洗い出している。
 - Case 2: 完了ゲート（同じ主題タグの兄弟 transition との整合・手順 6）を通している。
-- Case 3: 波及検索・兄弟ゲートは課さず、`scholia rules` で矛盾する既存 decision が無いことだけ確認している。
-- 後追い（retrospective）: landing commit を結線し、`scholia rules` で矛盾する既存 decision が無いか
+- Case 3: 波及検索・兄弟ゲートは課さず、`scholia rules --all` で矛盾する既存 decision が無いことだけ確認している。
+- 後追い（retrospective）: landing commit を結線し、`scholia rules --all` で矛盾する既存 decision が無いか
   1 回照合している（波及検索・兄弟ゲートは省略可）。
 - adopt/reject いずれも decision を why 付きで記録し、着地 commit が `commits[]` に結ばれている
   （`decide --commit` または `decision add-commit`）。
