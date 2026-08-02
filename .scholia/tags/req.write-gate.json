@@ -2,5 +2,5 @@
   "id": "req.write-gate",
   "name": "書き込みゲート二層（保存拒否＋同一ターン advisory）",
   "kind": "requirement",
-  "description": "**As a** scholia に記録を書く AI エージェント／人\n**I want** store を自己矛盾させる書き込みと、保存後に是正できない欄の形式違反は保存の瞬間に拒否され、あとから直せる書き方規律の違反は同じターンに警告されてほしい\n**so that** 別ターンの lint を待たず、是正コストが最小の時点で記録の品質が守られる"
+  "description": "**As a** scholia に記録を書く AI エージェント／人\n**I want** 保存を止めるべき違反は保存の瞬間に拒否され、それ以外の書き方の乱れは同じターンに警告されてほしい\n**so that** 別ターンの lint を待たず、是正コストが最小の時点で記録の品質が守られる\n\n### 受け入れ基準\n- 拒否は**保存しない**（レコードを書かずエラーで終わる）。advisory は**保存したうえで**同じターンに出す\n- 逃し弁は `--allow \u003crule\u003e --reason \u003c理由\u003e`（理由必須）。使用は stdout と `--json` の `allowed[]` に残る\n- `--dry-run` は保存せず検査結果だけ返す（append-only の欄は保存後に直せないので、書く前に見られること）\n- **どの違反を拒否に置くかを決める一般規則は、正本に置かない**（`01KZ06SYR3APGF3JD4NQRFTEEN`）。拒否規則は1本ずつ、それを置いた decision が根拠を持つ\n- ⚠️ **拒否規則の一覧を正本に書き写さない。** 一覧の正本は `lint.GateRejectRuleNames()` である。写した一覧は実装とずれる（`01KZ06SYR3APGF3JD4NQRFTEEN` に実測がある）"
 }
