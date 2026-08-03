@@ -395,7 +395,11 @@ scholia rules --tag <id>        # その提案が触るタグの過去 decisions
 # 評価する側の結着（どちらも decision を残す）
 #   adopt  = 変更を採用 ＋「採用」decision を append（viewer のドロワーから `POST /api/decision`・§7）
 #   reject = 採用しない ＋「取り込まない・理由」decision を append（次回同じ提案が来ても即・既決）
-scholia decide --on transition:<id> --why "評価: 取り込まない。<理由>" --ref <PR/URL>
+scholia decide --on transition:<id> --ref <PR/URL> \
+  --why "# 評価: 取り込まない — <結論を1行で>
+
+<なぜ取り込まないか。矛盾する既決があるならその id を引用する>"
+# ⚠️ --why の1行目は見出し（`# ` ＋1〜80字）・2行目以降に本文。満たさないと保存されない（decision-heading）
 ```
 
 - 判定材料: **(a) 複雑性 diff**（語彙±・遷移±・then 順序）／ **(b) 既存 decision と矛盾するか**（衝突＝却下寄り・id 引用）／
@@ -539,7 +543,7 @@ scholia tx merge <dupId> --into <survivorId> [--rewrite-refs] [--no-refs]  # 重
 scholia tx rm <id> --why <理由> --force                      # 破壊的（decisions も道連れ）
 
 # 意思決定（transition か tag に付く）
-scholia decide --on <transition|tag|vocab>:<id> --why <t> [--changed <s>] [--ref <s>] [--commit <hash>…] [--acknowledges <ruleId,…>] [--supersedes <ulid>[:<mode>]…]  # vocab は #45 D5。acknowledges=容認する finding の rule id（実在照合・#45 D6）／supersedes=置き換える旧 decision（mode=supersede|amend|exception・既定 amend・#45 D7）
+scholia decide --on <transition|tag|vocab>:<id> --why <見出し＋本文> [--changed <s>] [--ref <s>] [--commit <hash>…] [--acknowledges <ruleId,…>] [--supersedes <ulid>[:<mode>]…] [--allow <rule> --reason <t>]  # vocab は #45 D5。why の1行目は見出し必須（`# ` ＋1〜80 rune・2行目以降に本文・満たさないと保存拒否 decision-heading・01KZ06SYR3APGF3JD4NQRFTEEN）。acknowledges=容認する finding の rule id（実在照合・#45 D6）／supersedes=置き換える旧 decision（mode=supersede|amend|exception・既定 amend・#45 D7）
 scholia decision add-commit <decisionId> <hash> [<hash>...] [--json]  # 既存 decision の commits[] に追記専用（§3.5）
 scholia decision link <newId> --supersedes <oldUlid>[:<mode>] [--json]  # 現行性リンクの後付け backfill・追記専用・id実在/自己参照禁止/循環禁止（#45 D7）
 scholia decision list [--on <transition|tag|vocab>:<id>] [--unlinked] [--current] [--json]  # decision をフラット一覧（--on は完全一致・祖先展開なし。rules=対象別集約とは別）。--unlinked=commits未結線の棚卸し／--current=失効(mode=supersede)を畳んで現行のみ（#45 D7）

@@ -82,8 +82,13 @@ scholia tx add T-login-submit-valid \
   --tags   subject.auth
 
 # 5. 意思決定（why）を記録する（append-only）
-scholia decide --on transition:T-login-submit-valid \
-  --why "トークンは httpOnly cookie で発行（XSS 対策）" --ref "PR#42"
+#    --why の1行目は見出しにする（`#` ＋ 1〜80 字）。2行目以降に本文を書く。
+#    見出しが無い why は保存時に拒否される——append-only で後から直せないため。
+scholia decide --on transition:T-login-submit-valid --ref "PR#42" \
+  --why "# トークンは httpOnly cookie で発行する
+
+httpOnly cookie は JavaScript から読めないので、XSS を踏んでもセッションを持ち出されない。
+代わりに SPA 自身もトークンを読めなくなる——「自分が誰か」はサーバに聞く形にして、この不便を受け入れる。"
 
 # 6. 記録が自己矛盾していないか検査する
 scholia lint
