@@ -21,8 +21,9 @@ type decisionListOutput struct {
 }
 
 // newDecisionListCmd は decision レコードをフラットに一覧する（§3.8）。
-// `scholia rules` は対象への守る規則を祖先展開込みで集約するのに対し、
-// こちらは decision レコードそのものの棚卸し（--on は完全一致・祖先展開なし）。
+// `scholia rules` は対象を**支配している**規則を祖先展開込みで集める（ただし
+// 既定で本文を渡すのはその記録自身への分だけ・01KZ06SYP12ZFDG1WPNYM529D8）のに
+// 対し、こちらは decision レコードそのものの棚卸し（--on は完全一致・祖先展開なし）。
 func newDecisionListCmd() *cobra.Command {
 	var on string
 	var asJSON, unlinked, current bool

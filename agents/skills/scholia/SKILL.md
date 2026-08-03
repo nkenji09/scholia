@@ -66,7 +66,7 @@ scholia decide --on transition:<id> --why "評価: 取り込まない。<理由>
 判定材料:
 - **(a) 複雑性 diff**（語彙±・遷移±・then 順序）
 - **(b) 既存 decision と矛盾するか**（衝突＝却下寄り。矛盾する decision の id を引用する）
-- **(c) 既に検討済みか**（`scholia rules` で過去の結着を確認）
+- **(c) 既に検討済みか**（`scholia rules --tag <領域> --all` で過去の結着を確認。⚠️ **素の `rules` では足りない**——既定はその記録自身への decision しか本文で返さず、cross-cutting な既決は畳まれた側にある）
 
 decision は **append-only**（過去を消す提案＝取り込み拒否の最有力根拠）。「却下」を一言で済ませず、
 **なぜ取り込まないかを decision に根拠つきで残す**——それが次回同じ提案が来たときの既決になる。
@@ -102,7 +102,8 @@ decision は **append-only**（過去を消す提案＝取り込み拒否の最�
 1. 書き込みコマンドの出力（`--json` は応答封筒 `{ record, advisories }`）を読む。
 2. **advisory がゼロになるまで是正する**（是正が正。容認は理由必須で稀な例外）。
 3. `decide` は**必ず `--dry-run` を先に打つ**（decision は append-only・保存後の why は直せない）。
-4. 保存拒否（reject: `exclusive-violation`／`total-kind-mismatch`／`id-policy`）を `--allow <rule> --reason <理由>` で破るのは、自己矛盾でないと確信できるときだけ。**--allow の使用例を手本（few-shot）として他レコードに写さない**。
+4. 保存拒否（reject）を `--allow <rule> --reason <理由>` で破るのは、**稀な例外だけ**。規則の一覧は書き写さない——`--allow` に渡せる名前はエラー文言が列挙する（実装が正）。**--allow の使用例を手本（few-shot）として他レコードに写さない**。
+   - 拒否には**機械判定できる不変条件**（矛盾する given・kind 不一致など）と、**保存後に是正できない欄の形式要件**（`decide --why` の見出し）の両方が入る。後者は「あとで直す」ができないので、警告ではなく拒否になっている。是正は `--allow` ではなく **why の側を直す**。
 
 以下はその上での網羅の勘所:
 
@@ -204,7 +205,7 @@ scholia review list [--on <transition|vocab|tag>:<id>] [--json]
 
 # 読み取り / 派生ビュー
 scholia show tx <id> [--resolve] [--json]
-scholia spec <subjectTag> [--all] [--json]                    # rules と同じ扱い（既定は効いている規則だけ・--all で本文ごと）
+scholia spec <subjectTag> [--all] [--json]                    # 取り下げの扱いだけ rules と同じ（既定は畳む・--all で本文ごと）。⚠️ spec はタグ経由の decision を集めていないので、rules の「経由分を畳む」既定は当たらない
 scholia list [--facet <tagKind>] [--tag <id>] [--kind <k>] [--json]
 scholia rules [--tag <id> | --tx <id> | --vocab <id> | --facet <k>] [--sort chrono|target] [--all] [--json]  # --vocab=own∪ vocab.tags＋祖先（#45 D10b）。既定は**その記録自身への decision の本文だけ**（タグ経由の分と取り下げは存在・経由タグ・引き方だけ）・--all で畳んだもの全部を本文ごと（01KZ06SYP12ZFDG1WPNYM529D8）
 scholia search <keyword> [--type tag|transition|vocab|decision] [--tag <id>]… [--json]   # keyword で横断逆引き（id 未確定な入口）。transition は実効タグ・action kind でもヒット（viewer 検索と同一コア・#45 D10b）。--tag は候補タグのサブツリー（実効タグ包含・list --tag と同義）へ絞り込み（繰り返し可＝OR・#1）
