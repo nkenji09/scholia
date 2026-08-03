@@ -120,9 +120,16 @@ desc に書かない。正典＝[`../_scholia-shared/references/modeling-princip
 4. **`.scholia/` を編集** — 影響先の transition／vocab をブランチ上で変更する。
    **AI が変更したら、対で提案コメント（why）を配送する**（viewer で見えるようにする・DESIGN §8.4）:
    ```
-   scholia review add --on tag:<id> --body "<この変更の why・提案理由>"
-   scholia review add --on transition:<id> --body "<why>"   # 影響先ごとに
+   scholia review add --on tag:<id> \
+     --body "# 未入力は null と空文字を区別しない
+
+   入力欄を空のまま送るブラウザと、値を消して送るブラウザで表現が割れる。
+   どちらも「入力されていない」として扱いたい。"
+   scholia review add --on transition:<id> --body "<見出し＋本文>"   # 影響先ごとに
    ```
+   ⚠️ **本文の1行目は decision の見出しの形で書く**（`# ` ＋1〜80字・2行目以降に本文）。
+   `adopt` はこの本文をそのまま `why` にするので、見出しが無いと**昇格の時点で**拒否される
+   ——書いた本人ではなく採用する人が、一番遅い時点で踏むことになる。
 5. **提案 diff を出す**:
    ```
    scholia diff                     # 作業ツリー vs base（pending task の diff）
@@ -160,7 +167,8 @@ desc に書かない。正典＝[`../_scholia-shared/references/modeling-princip
 1. **入口** — Transition を指すコメント（要件 vs 実際の transition の齟齬）を読む。
 2. **読解** — `scholia show tx <id> --resolve` と実装コードを読み、人と対話して変更提案を固める。
 3. **`.scholia/` を編集** — transition（`given`/`then`/`tags` 等）を変更する。
-   **AI が変更したら対で提案コメントを配送**: `scholia review add --on transition:<id> --body "<why>"`（DESIGN §8.4）。
+   **AI が変更したら対で提案コメントを配送**: `scholia review add --on transition:<id> --body "<見出し＋本文>"`（DESIGN §8.4）。
+   ⚠️ 本文の1行目は decision の見出しの形（`# ` ＋1〜80字・2行目以降に本文）で書く——`adopt` がこの本文をそのまま `why` にするので、見出しが無いと昇格時に落ちる。
 4. **提案 diff を出す** — `scholia diff`（作業ツリー vs base）。viewer では当該 transition のドロワーに差分カードが出る。
 5. **人がレビュー** — AI は対象 transition を開いた `scholia view` の深リンク URL を渡し、人はそこで
    提案・コメントを見比べる（viewer の語彙ピッカーで vocab-only 手直しも可）。調整があれば手順 3〜4 に戻る。

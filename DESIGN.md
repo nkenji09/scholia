@@ -388,7 +388,13 @@ spec ファイルも proposal ファイルも無い。**提案 = 作業ツリー
 
 ```
 # 提案する側（AI/人）: 作業ツリーで transition/vocab/tag を編集し、対でコメント（why）を配送
-scholia review add --on transition:<id> --body "<why・提案コメント>"   # AI コメントのサイドカー配送（§8.4）
+scholia review add --on transition:<id> \
+  --body "# 起動時に使用中ポートを引き継がず、空きポートへ退避する
+
+同じポートを2つのプロセスが取り合うと、後から起動した側が黙って別の画面を出す。
+空きへ退避して実際に使ったポートを stdout に出す形にしたい。"   # AI コメントのサイドカー配送（§8.4）
+# ⚠️ 本文の1行目は decision の見出しの形（`# ` ＋1〜80字・2行目以降に本文）で書く。
+#    adopt はこの本文をそのまま why にするので、見出しが無いと**昇格の時点で**落ちる。
 scholia diff [<ref1> [<ref2>]]  # 現在 vs <ref1>（既定 HEAD）＝pending diff（主線）、または <ref1> vs <ref2>（両方 git ref・landed 監査用）
 scholia rules --tag <id>        # その提案が触るタグの過去 decisions（守る規則）と照合（既定は自身への分の本文だけ・経由分は存在と引き方・全部は --all）
 
@@ -550,7 +556,7 @@ scholia decision list [--on <transition|tag|vocab>:<id>] [--unlinked] [--current
 scholia decision show <id> [--json]                                    # decision 1件 + derive した superseded-by/superseded/acknowledges（#45 D7）
 
 # 提案コメント（レビュー）— AI コメント配送のサイドカー（§8.4・read-only オーバーレイ）
-scholia review add --on <transition|vocab|tag>:<id> --body <why> [--source ai] [--json]  # .scholia/reviews/<ulid>.json を書く
+scholia review add --on <transition|vocab|tag>:<id> --body <見出し＋本文> [--source ai] [--json]  # .scholia/reviews/<ulid>.json を書く。本文は adopt でそのまま why になるので decision の見出しの形で書く（見出し無しは昇格時に拒否・01KZ06SYR3APGF3JD4NQRFTEEN）
 scholia review list [--on <transition|vocab|tag>:<id>] [--json]                          # 提案コメントを一覧
 
 # 読み取り / 派生ビュー

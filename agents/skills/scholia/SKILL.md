@@ -225,7 +225,8 @@ scholia decision show <id> [--json]                                   # 詳細�
 scholia tag edit <id> --fulfillment property|transitions              # 性質型要件の宣言（#45 D6・property は decision 必須）
 
 # 提案コメント（レビュー）— AI コメント配送のサイドカー（DESIGN §8.4・変更評価は scholia-change へ）
-scholia review add --on <transition|vocab|tag>:<id> --body <why> [--source ai] [--json]
+scholia review add --on <transition|vocab|tag>:<id> --body <見出し＋本文> [--source ai] [--json]
+                                                                      # ⚠️ 本文は adopt でそのまま why になる。decision の見出しの形（`# ` ＋1〜80字・2行目以降に本文）で書かないと昇格時に落ちる
 scholia review list [--on <transition|vocab|tag>:<id>] [--json]
 
 # 読み取り / 派生ビュー
