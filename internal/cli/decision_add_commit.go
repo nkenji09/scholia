@@ -46,7 +46,7 @@ func newDecisionAddCommitCmd() *cobra.Command {
 			// desc 現在形ゲート三点配線の第3点（#45 D7）: 実装結線（add-commit）と
 			// 同一ターンに、対象 desc の鮮度（stale-tense）を advisory で気づかせる。
 			advisories = append(advisories, lint.TargetDescStaleTense(snap, d.Target)...)
-			if err := s.SaveDecision(d); err != nil {
+			if err := s.UpdateDecision(d); err != nil {
 				return err
 			}
 			saved, err := s.LoadDecision(id)

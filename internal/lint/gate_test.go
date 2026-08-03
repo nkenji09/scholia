@@ -265,7 +265,7 @@ func TestCheckWriteDecisionWhyFileLineAdvisory(t *testing.T) {
 
 	d := model.Decision{ID: "01TESTULID0000000000000000",
 		Target: model.DecisionTarget{Type: model.DecisionTargetTransition, ID: "T-existing"},
-		Why:    "internal/foo.go:12 の分岐に合わせた", At: "2026-01-01T00:00:00Z"}
+		Why:    "# 実装の分岐に合わせる\n\ninternal/foo.go:12 の分岐に合わせた", At: "2026-01-01T00:00:00Z"}
 	res := CheckWrite(snap, WriteOp{Decision: &d, IsNew: true})
 	if got := advisoryRulesOf(res); len(got) != 1 || got[0] != "why-file-line" {
 		t.Fatalf("why の file:line は why-file-line advisory のはず: %+v", res.Advisories)
@@ -274,7 +274,7 @@ func TestCheckWriteDecisionWhyFileLineAdvisory(t *testing.T) {
 		t.Fatalf("decision 判断欄位由来は acknowledge-only 区分のはず: %+v", res.Advisories[0])
 	}
 	if len(res.Rejections) != 0 {
-		t.Fatalf("decision に reject 規則は無いはず: %+v", res.Rejections)
+		t.Fatalf("見出しのある decision に reject 規則は無いはず: %+v", res.Rejections)
 	}
 }
 
@@ -284,7 +284,7 @@ func TestCheckWriteRejectsUnknownAcknowledges(t *testing.T) {
 	snap := gateSnap()
 	d := model.Decision{ID: "01TESTULID0000000000000000",
 		Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.x"},
-		Why:    "意図的に容認する", At: "2026-01-01T00:00:00Z",
+		Why:    "# 意図的に容認する\n\n本文", At: "2026-01-01T00:00:00Z",
 		Acknowledges: []string{"requirement-gap", "not-a-real-rule"}}
 	res := CheckWrite(snap, WriteOp{Decision: &d, IsNew: true})
 	if len(res.Rejections) != 1 || res.Rejections[0].Rule != GateUnknownAcknowledges {
@@ -303,7 +303,7 @@ func TestCheckWriteAllowsKnownAcknowledges(t *testing.T) {
 	snap := gateSnap()
 	d := model.Decision{ID: "01TESTULID0000000000000001",
 		Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.x"},
-		Why:    "意図的に容認する", At: "2026-01-01T00:00:00Z",
+		Why:    "# 意図的に容認する\n\n本文", At: "2026-01-01T00:00:00Z",
 		Acknowledges: []string{"requirement-gap", "total-gap", "overlap"}}
 	res := CheckWrite(snap, WriteOp{Decision: &d, IsNew: true})
 	for _, f := range res.Rejections {

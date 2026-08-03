@@ -279,7 +279,10 @@ func dedupeSorted(sorted []string) []string {
 	return out
 }
 
-func (s *Store) SaveDecision(d model.Decision) error {
+// writeDecision は decision ファイルを書く実処理。**外へは出さない。**
+// 出入口は CreateDecision（新規）と UpdateDecision（既存）の 2 つだけで、
+// どちらを通ったかが型として残る（decision_write.go）。
+func (s *Store) writeDecision(d model.Decision) error {
 	if err := writeJSONAtomic(s.decisionPath(d.ID), d); err != nil {
 		return &RecordWriteError{Category: "decision", Err: err}
 	}

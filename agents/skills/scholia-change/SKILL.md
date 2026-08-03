@@ -74,7 +74,7 @@ adopt/reject できることが目的。深リンクの route 一覧は [scholia
 4. この decision が **prospective（変更を先導する）** か **retrospective（既に landing 済みの実装を
    後から記録する）** かを確認する。
    - retrospective なら、Case 1/2 の提案→レビュー→adopt の踊りは不要。
-     `scholia decide --on <対象> --why "<why>" --ref <landing commit>`（または `--commit <hash>`）で直行してよい。
+     `scholia decide --on <対象> --why "<見出し＋本文>" --ref <landing commit>`（または `--commit <hash>`）で直行してよい。
    - 完了ゲートも軽量にする: **landing commit を結線**（`decide --commit` または `decision add-commit`）＋
      **`scholia rules --all` で矛盾する既存 decision が無いか 1 回照合**するだけでよい。波及検索・兄弟ゲートは
      省略できる（後から波及に気づいたら、そのときは改めて Case 1/2 の手順で対応する）。
@@ -104,7 +104,10 @@ desc に書かない。正典＝[`../_scholia-shared/references/modeling-princip
    ⚠️ **要件変更は cross-cutting なので、祖先タグ経由の規則と衝突しやすい。ここは `--all` で読むこと。**
 2. **Tag に decide** — 人と対話し、要件変更の why を確定してから記録する（cross-cutting 不変条件の更新）:
    ```
-   scholia decide --on tag:<id> --why "<要件変更の理由>" --ref <PR/URL>
+   scholia decide --on tag:<id> --ref <PR/URL> \
+     --why "# <要件をどう変えるかを1行で>
+
+   <なぜ変えるか。変える前の要件が何を守っていて、それをどう引き取るか>"
    ```
 3. **波及検索（核心）** — そのタグが波及する範囲を洗う:
    ```
@@ -117,9 +120,16 @@ desc に書かない。正典＝[`../_scholia-shared/references/modeling-princip
 4. **`.scholia/` を編集** — 影響先の transition／vocab をブランチ上で変更する。
    **AI が変更したら、対で提案コメント（why）を配送する**（viewer で見えるようにする・DESIGN §8.4）:
    ```
-   scholia review add --on tag:<id> --body "<この変更の why・提案理由>"
-   scholia review add --on transition:<id> --body "<why>"   # 影響先ごとに
+   scholia review add --on tag:<id> \
+     --body "# 未入力は null と空文字を区別しない
+
+   入力欄を空のまま送るブラウザと、値を消して送るブラウザで表現が割れる。
+   どちらも「入力されていない」として扱いたい。"
+   scholia review add --on transition:<id> --body "<見出し＋本文>"   # 影響先ごとに
    ```
+   ⚠️ **本文の1行目は decision の見出しの形で書く**（`# ` ＋1〜80字・2行目以降に本文）。
+   `adopt` はこの本文をそのまま `why` にするので、見出しが無いと**昇格の時点で**拒否される
+   ——書いた本人ではなく採用する人が、一番遅い時点で踏むことになる。
 5. **提案 diff を出す**:
    ```
    scholia diff                     # 作業ツリー vs base（pending task の diff）
@@ -130,7 +140,10 @@ desc に書かない。正典＝[`../_scholia-shared/references/modeling-princip
    （viewer では語彙ピッカーで vocab-only の手直しも可）。
 7. **確定したら decide** — 影響先の transition／tag それぞれに:
    ```
-   scholia decide --on transition:<id> --why "<変更の理由>" --changed "<変更内容>" --ref <PR/URL>
+   scholia decide --on transition:<id> --changed "<変更内容>" --ref <PR/URL> \
+     --why "# <この遷移をどう変えるかを1行で>
+
+   <なぜ変えるか。兄弟遷移との整合をどう取ったか>"
    ```
    - **過去 decision を更新するなら「全文置換か？」を必ず1問確認**（#45 D7）: 全文置換なら `--supersedes <old>:supersede`、
      除外条項の精緻化なら `--supersedes <old>:amend`（既定）、一般則への意識的例外なら `--supersedes <old>:exception`。
@@ -154,7 +167,8 @@ desc に書かない。正典＝[`../_scholia-shared/references/modeling-princip
 1. **入口** — Transition を指すコメント（要件 vs 実際の transition の齟齬）を読む。
 2. **読解** — `scholia show tx <id> --resolve` と実装コードを読み、人と対話して変更提案を固める。
 3. **`.scholia/` を編集** — transition（`given`/`then`/`tags` 等）を変更する。
-   **AI が変更したら対で提案コメントを配送**: `scholia review add --on transition:<id> --body "<why>"`（DESIGN §8.4）。
+   **AI が変更したら対で提案コメントを配送**: `scholia review add --on transition:<id> --body "<見出し＋本文>"`（DESIGN §8.4）。
+   ⚠️ 本文の1行目は decision の見出しの形（`# ` ＋1〜80字・2行目以降に本文）で書く——`adopt` がこの本文をそのまま `why` にするので、見出しが無いと昇格時に落ちる。
 4. **提案 diff を出す** — `scholia diff`（作業ツリー vs base）。viewer では当該 transition のドロワーに差分カードが出る。
 5. **人がレビュー** — AI は対象 transition を開いた `scholia view` の深リンク URL を渡し、人はそこで
    提案・コメントを見比べる（viewer の語彙ピッカーで vocab-only 手直しも可）。調整があれば手順 3〜4 に戻る。
@@ -175,7 +189,10 @@ desc に書かない。正典＝[`../_scholia-shared/references/modeling-princip
    「AI review を viewer で adopt」ケースが漏れていた——分岐を数えて初めて気づけた。
 7. **確定したら decide** — 変更した transition ごとに:
    ```
-   scholia decide --on transition:<id> --why "<変更の理由>" --changed "<変更内容>" --ref <PR/URL>
+   scholia decide --on transition:<id> --changed "<変更内容>" --ref <PR/URL> \
+     --why "# <この遷移をどう変えるかを1行で>
+
+   <なぜ変えるか。兄弟遷移との整合をどう取ったか>"
    ```
 8. **commit → 結線**:
    ```
@@ -191,7 +208,10 @@ desc に書かない。正典＝[`../_scholia-shared/references/modeling-princip
 1. **理解** — `scholia show <対象>` と `scholia rules --tag <対象> --all` で、矛盾する既存 decision が無いか照合する。
 2. **decide** — 対象は多くが `concern.*`（横断関心）や要件 tag:
    ```
-   scholia decide --on <tag/concern> --why "<設計原理>" --ref <実装 commit>
+   scholia decide --on <tag/concern> --ref <実装 commit> \
+     --why "# <設計原理を1行で>
+
+   <なぜその原理を採るか。何を諦めるか>"
    ```
 3. 終わり。**波及検索（`scholia list --tag`）・兄弟 transition との整合（Case 2 の完了ゲート）は課さない**
    （設計原理そのものは兄弟に波及しない・実際の影響は実装 commit に `--ref` で結ばれている）。
@@ -206,7 +226,7 @@ Case 3 パターン（本スキルで名前を付けて正規化する趣旨）�
 
 語彙の desc に散文で埋まっている why・契約・別表記・状態連鎖を、専用スロット／vocab-target decision に着地させるとき（DESIGN §3.3／§5.5 表現域）。
 
-1. **why を desc から decision へ** — 語彙の新設理由・時点依存の想定は `scholia decide --on vocab:<id> --why "…" --dry-run`（→ advisory ゼロ確認 → 本番）へ移し、desc は「これは何か」1行に痩せさせる（`scholia vocab edit <id> --description "<要約>"`）。長文契約 desc は `desc-length` advisory が検出する。
+1. **why を desc から decision へ** — 語彙の新設理由・時点依存の想定は `scholia decide --on vocab:<id> --why "<見出し＋本文>" --dry-run`（→ advisory ゼロ確認 → 本番）へ移し、desc は「これは何か」1行に痩せさせる（`scholia vocab edit <id> --description "<要約>"`）。長文契約 desc は `desc-length` advisory が検出する。
 2. **契約全文は desc に書かず `ref` で結線** — API 契約・開示契約は versioned 文書（DESIGN の § 参照・OpenAPI 等の外部正本）に置き、`scholia vocab edit <id> --ref "<アンカー>"` でその1行だけを持つ。`file:line` は `ref-freshness` で腐ると警告される。
 3. **`altLabel` を付与して重複新設を防ぐ** — 同じ概念を別表記で呼ぶ入口があれば `scholia vocab edit <id> --alt-label "<表記>"`（繰返し可）。新規語彙を足す前に `scholia search <別表記>` で既存に無いか確認する（別名が検索で拾えるのは編入後）。
 4. **`establishes` は他遷移の given が実際に読む condition だけ宣言する** — effect が成立させる前提条件を `scholia vocab edit <eff> --establishes <condId>`（繰返し可）で辺にする。宣言してよいのは、**別の遷移の given が実際にその condition を読む**ものだけ（命名の察しで繋がっていた状態連鎖の明示化。無関係な condition を宣言しない）。存在しない id・effect 以外は書込時に reject される。`scholia show vocab <id>` で双方向逆引き（自 establishes／逆引き effect）を確認する。

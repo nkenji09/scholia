@@ -10,8 +10,10 @@ import { Icon } from '../shared/Icon';
 // 一覧のタグ絞り込みは decision の**実効タグ集合**（own タグの祖先クロージャ・
 // 01KXZK5BWEX3HH15B78E4Z3BXK）に対する一致なので、`dt=T` が返すのは
 // 「T 自身と、その**配下**に付いた意思決定」で、支配する方向とは**逆**である。
-// 実測（本 repo・2026-07-28 再実測。支配側は当時の `scholia rules --tag <T> --current`＝
-// 現在の `scholia rules --tag <T>` の既定と同じ集合、
+// 実測（本 repo・2026-07-28 再実測。支配側は当時の `scholia rules --tag <T> --current`
+// が返した集合＝現在の `scholia rules --tag <T>` が**集める**集合と同じ
+// （01KZ06SYP12ZFDG1WPNYM529D8 以後、既定で本文が出るのはそのうち自身への分だけに
+// なったが、集合そのものは変わっていない）。
 // 一覧側は decision の実効タグ集合への包含を数えたもの）:
 //
 //   req.atoms-derive.no-spec-file : dt= のヒット  0 件 / 支配する規則 3 件

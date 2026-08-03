@@ -50,10 +50,10 @@ func seedExportStore(t *testing.T) *store.Store {
 	must(s.SaveTransition(model.Transition{
 		ID: "T-login", Action: "act.user.login", Then: []string{"eff.session.issue"}, Tags: []string{"req.auth-happy"},
 	}))
-	must(s.SaveDecision(model.Decision{
+	must(s.CreateDecision(model.Decision{
 		ID: "d1", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.auth"},
-		Why: "認証は httpOnly cookie で発行", Ref: "PR#1", At: "2026-01-01T00:00:00Z",
-	}))
+		Why: "# 認証は httpOnly cookie で発行\n\n提案の本文", Ref: "PR#1", At: "2026-01-01T00:00:00Z",
+	}, store.DecisionCreateOptions{}))
 
 	return s
 }

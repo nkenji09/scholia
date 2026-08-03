@@ -17,8 +17,13 @@ import (
 )
 
 // gateFlags は reject の逃し弁（--allow は理由必須・稀な例外）。reject が
-// 起き得ないコマンド（vocab edit/tag・decide・decision add-commit）には
-// 付けない——フラグの常在は --allow の常用化を招く。
+// 起き得ないコマンド（vocab edit/tag・decision add-commit）には付けない
+// ——フラグの常在は --allow の常用化を招く。
+//
+// ⚠️ decide は当初この理由で除外していたが、decision-heading（
+// 01KZ06SYR3APGF3JD4NQRFTEEN）を足した時点で reject が起きうる口になったので
+// 付けている。**常用を手本にしない**——本 repo 自身のテストは --allow ではなく
+// why の側を直してある（公開プロダクトの repo が逃し弁の常用を配らないため）。
 type gateFlags struct {
 	allow  []string
 	reason string
@@ -26,8 +31,12 @@ type gateFlags struct {
 
 func addGateAllowFlags(cmd *cobra.Command) *gateFlags {
 	g := &gateFlags{}
+	// 受理名は lint.GateRejectRuleNames() から組む。ここに名前を書き写すと、
+	// 規則を足したときに一覧と実装が黙ってずれる（この repo が正本・配布物・
+	// 実装コメントの三箇所で実際にやった型）。
 	cmd.Flags().StringArrayVar(&g.allow, "allow", nil,
-		"reject 規則を明示に破って保存する（exclusive-violation|total-kind-mismatch|id-policy・複数指定可・--reason 必須。使用は stdout と --json に記録される）")
+		fmt.Sprintf("reject 規則を明示に破って保存する（%s・複数指定可・--reason 必須。使用は stdout と --json に記録される）",
+			strings.Join(lint.GateRejectRuleNames(), "|")))
 	cmd.Flags().StringVar(&g.reason, "reason", "", "--allow の理由（--allow 指定時は必須）")
 	return g
 }

@@ -37,9 +37,29 @@ scholia init                                    # .scholia/ を作成
 scholia vocab add <condition|action|effect> <id> --label <l>   # 語彙を先に登録
 scholia tag create <id> --name <n> [--parent <tagId>…]         # 主題・要件などのタグ
 scholia tx add <id> --action <a> [--given <c,…>] --then <e,…> [--tags <t,…>]
-scholia decide --on <transition|tag>:<id> --why <t> [--commit <hash>…]   # なぜそうしたかを残す（実装 commit も結べる）
+scholia decide --on <transition|tag>:<id> --why <見出し＋本文> [--commit <hash>…]   # なぜそうしたかを残す（実装 commit も結べる）
 scholia lint                                     # 記録の自己矛盾チェック（緑＝網羅の証明ではない）
 ```
+
+### ⚠️ `--why` の 1 行目は見出しにする（満たさないと保存されない）
+
+保存時に拒否される（`decision-heading`）。`why` は append-only で保存後に直せないので、警告ではなく拒否である。
+
+1. 1 行目が `#` で始まる
+2. `#` と空白を除いた本体が **1 字以上 80 字以内**
+3. **2 行目以降に本文がある**（見出しだけの `why` は通らない）
+
+```sh
+scholia decide --on tag:req.auth \
+  --why "# 未入力は null と空文字を区別しない
+
+入力欄を空のまま送るブラウザと、値を消して送るブラウザで表現が割れる。
+どちらも「入力されていない」として扱い、区別が要る場面が出たらそのとき別の表現を足す。"
+```
+
+見出しは**畳んだ規則一覧に出る唯一の手がかり**である（`scholia rules` の既定は、経由で届く規則を
+存在・経由タグ・見出しだけで返す）。「対応した」「修正」のような、読んでも何の話か分からない見出しは、
+規則としては通っても一覧では役に立たない。
 
 CLI 全体は `scholia <cmd> --help` が真値。全書き込み系コマンドに `--json` あり（エージェント駆動用）。
 書き込み系の `--json` は応答封筒 `{ record, advisories }` を返す（保存したレコード＋同一ターンの書き方規律警告。
@@ -55,9 +75,13 @@ scholia diff [<ref1> [<ref2>]]  # 現在 vs <ref1>（既定 HEAD）＝pending di
                               # <ref1> vs <ref2>（両方 git ref）は landed 監査用（例: <commit>^ <commit>）
                               # semantic diff（語彙± / 遷移± / then 順序 / decisions±）
 scholia rules --tag <id>        # その提案が触るタグの過去 decisions（守る規則）と照合。既定はそのタグ自身への分の本文だけ（経由分・取り下げは存在と引き方・全文は --all）
-scholia decide --on transition:<id> --why "評価: 取り込まない。<理由>" --ref <PR/URL> [--commit <hash>…]
+scholia decide --on transition:<id> --ref <PR/URL> [--commit <hash>…] \
+  --why "# 評価: 取り込まない — <結論を1行で>
+
+<なぜ取り込まないか。矛盾する既決があるならその id を引用する>"
                               # adopt = 変更を採用 ＋「採用」decision を append
                               # reject = 採用しない ＋「取り込まない・理由」decision を append
+                              # ⚠️ --why の1行目は見出し（上記「--why の1行目は見出しにする」）
 ```
 
 変更評価はビューアのコメントドロワーにインラインで行える（提案＝変更を持つレコードのコメント・本文＝why・
@@ -66,7 +90,7 @@ scholia decide --on transition:<id> --why "評価: 取り込まない。<理由>
 判定材料:
 - **(a) 複雑性 diff**（語彙±・遷移±・then 順序）
 - **(b) 既存 decision と矛盾するか**（衝突＝却下寄り。矛盾する decision の id を引用する）
-- **(c) 既に検討済みか**（`scholia rules` で過去の結着を確認）
+- **(c) 既に検討済みか**（`scholia rules --tag <領域> --all` で過去の結着を確認。⚠️ **素の `rules` では足りない**——既定はその記録自身への decision しか本文で返さず、cross-cutting な既決は畳まれた側にある）
 
 decision は **append-only**（過去を消す提案＝取り込み拒否の最有力根拠）。「却下」を一言で済ませず、
 **なぜ取り込まないかを decision に根拠つきで残す**——それが次回同じ提案が来たときの既決になる。
@@ -102,7 +126,8 @@ decision は **append-only**（過去を消す提案＝取り込み拒否の最�
 1. 書き込みコマンドの出力（`--json` は応答封筒 `{ record, advisories }`）を読む。
 2. **advisory がゼロになるまで是正する**（是正が正。容認は理由必須で稀な例外）。
 3. `decide` は**必ず `--dry-run` を先に打つ**（decision は append-only・保存後の why は直せない）。
-4. 保存拒否（reject: `exclusive-violation`／`total-kind-mismatch`／`id-policy`）を `--allow <rule> --reason <理由>` で破るのは、自己矛盾でないと確信できるときだけ。**--allow の使用例を手本（few-shot）として他レコードに写さない**。
+4. 保存拒否（reject）を `--allow <rule> --reason <理由>` で破るのは、**稀な例外だけ**。規則の一覧は書き写さない——`--allow` に渡せる名前はエラー文言が列挙する（実装が正）。**--allow の使用例を手本（few-shot）として他レコードに写さない**。
+   - 拒否には**機械判定できる不変条件**（矛盾する given・kind 不一致など）と、**保存後に是正できない欄の形式要件**（`decide --why` の見出し）の両方が入る。後者は「あとで直す」ができないので、警告ではなく拒否になっている。是正は `--allow` ではなく **why の側を直す**。
 
 以下はその上での網羅の勘所:
 
@@ -138,8 +163,8 @@ decision は **append-only**（過去を消す提案＝取り込み拒否の最�
 
 「意図的に残す gap/finding」は **rule id を指名して**容認する。祖先 decision による untyped 容認（無関係な decision で緑になる）は禁止。
 
-- **finding を容認するときは rule 名を acknowledges に書く** — `scholia decide --on <対象> --acknowledges <rule>[,<rule>…] --why "…"`。有効 rule id は lint 規則名（`requirement-gap` 等）と flow finding 名（`subset-shadow`・`total-gap`・`overlap`）。typo は同一ターンで弾かれる。畳むのは**当該 target 宛て**の decision だけ（祖先では畳まない）。**同じ穴が複数 rule で出る場合は出る rule を全列挙**する。
-- **性質型要件（遷移で充足されない非機能要件）は `fulfillment=property`＋decision 必須** — `scholia tag edit <id> --fulfillment property` で宣言し、**かつ** `scholia decide --on tag:<id> --acknowledges requirement-gap --why "…"` を足す。**property 宣言だけでは畳まない**（宣言のみ・decision 無しは warn のまま）。
+- **finding を容認するときは rule 名を acknowledges に書く** — `scholia decide --on <対象> --acknowledges <rule>[,<rule>…] --why "<見出し＋本文>"`（形は上記「`--why` の 1 行目は見出しにする」）。有効 rule id は lint 規則名（`requirement-gap` 等）と flow finding 名（`subset-shadow`・`total-gap`・`overlap`）。typo は同一ターンで弾かれる。畳むのは**当該 target 宛て**の decision だけ（祖先では畳まない）。**同じ穴が複数 rule で出る場合は出る rule を全列挙**する。
+- **性質型要件（遷移で充足されない非機能要件）は `fulfillment=property`＋decision 必須** — `scholia tag edit <id> --fulfillment property` で宣言し、**かつ** `scholia decide --on tag:<id> --acknowledges requirement-gap --why "<見出し＋本文>"`（形は上記「`--why` の 1 行目は見出しにする」）を足す。**property 宣言だけでは畳まない**（宣言のみ・decision 無しは warn のまま）。
 - rule を改名すると acknowledges が宙吊りになる（`dangling-acknowledges` info が警告）。decision は append-only なので直せない——新しい decision で正しい rule 名を acknowledge し直す。
 
 ### 現行性リンク（#45 D7・supersedes）— decide 時に「全文置換か？」を必ず1問
@@ -188,8 +213,9 @@ scholia tx rename <id> --to <newId>
 scholia tx rm <id> --why <理由> --force
 
 # 意思決定
-scholia decide --on <transition|tag|vocab>:<id> --why <t> --dry-run    # 保存せず advisory をプレビュー（decide の前に必ず打つ）
-scholia decide --on <transition|tag|vocab>:<id> --why <t> [--changed <s>] [--ref <s>] [--commit <hash>…]   # vocab は #45 D5
+scholia decide --on <transition|tag|vocab>:<id> --why <見出し＋本文> --dry-run    # 保存せず advisory をプレビュー（decide の前に必ず打つ）
+scholia decide --on <transition|tag|vocab>:<id> --why <見出し＋本文> [--changed <s>] [--ref <s>] [--commit <hash>…]   # vocab は #45 D5
+                                                                      # ⚠️ --why の1行目は見出し必須（`# ` ＋1〜80字・2行目以降に本文）。満たさないと保存されない
 scholia decide … --acknowledges <rule>[,<rule>…]                      # finding を型付き容認（#45 D6・rule 実在照合）
 scholia decide … --supersedes <old>[:<mode>]                          # 旧 decision を置換/改訂/例外化（mode=supersede|amend|exception・既定 amend・#45 D7）
 scholia decision add-commit <decisionId> <hash> [<hash>...] [--json]   # 既存 decision の commits[] に追記専用
@@ -199,12 +225,13 @@ scholia decision show <id> [--json]                                   # 詳細�
 scholia tag edit <id> --fulfillment property|transitions              # 性質型要件の宣言（#45 D6・property は decision 必須）
 
 # 提案コメント（レビュー）— AI コメント配送のサイドカー（DESIGN §8.4・変更評価は scholia-change へ）
-scholia review add --on <transition|vocab|tag>:<id> --body <why> [--source ai] [--json]
+scholia review add --on <transition|vocab|tag>:<id> --body <見出し＋本文> [--source ai] [--json]
+                                                                      # ⚠️ 本文は adopt でそのまま why になる。decision の見出しの形（`# ` ＋1〜80字・2行目以降に本文）で書かないと昇格時に落ちる
 scholia review list [--on <transition|vocab|tag>:<id>] [--json]
 
 # 読み取り / 派生ビュー
 scholia show tx <id> [--resolve] [--json]
-scholia spec <subjectTag> [--all] [--json]                    # rules と同じ扱い（既定は効いている規則だけ・--all で本文ごと）
+scholia spec <subjectTag> [--all] [--json]                    # 取り下げの扱いだけ rules と同じ（既定は畳む・--all で本文ごと）。⚠️ spec はタグ経由の decision を集めていないので、rules の「経由分を畳む」既定は当たらない
 scholia list [--facet <tagKind>] [--tag <id>] [--kind <k>] [--json]
 scholia rules [--tag <id> | --tx <id> | --vocab <id> | --facet <k>] [--sort chrono|target] [--all] [--json]  # --vocab=own∪ vocab.tags＋祖先（#45 D10b）。既定は**その記録自身への decision の本文だけ**（タグ経由の分と取り下げは存在・経由タグ・引き方だけ）・--all で畳んだもの全部を本文ごと（01KZ06SYP12ZFDG1WPNYM529D8）
 scholia search <keyword> [--type tag|transition|vocab|decision] [--tag <id>]… [--json]   # keyword で横断逆引き（id 未確定な入口）。transition は実効タグ・action kind でもヒット（viewer 検索と同一コア・#45 D10b）。--tag は候補タグのサブツリー（実効タグ包含・list --tag と同義）へ絞り込み（繰り返し可＝OR・#1）

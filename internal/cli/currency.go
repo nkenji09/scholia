@@ -5,6 +5,7 @@ import (
 	"io"
 	"sort"
 
+	"github.com/nkenji09/scholia/internal/index"
 	"github.com/nkenji09/scholia/internal/model"
 )
 
@@ -155,6 +156,27 @@ func (v currencyView) withdrawnOuts(decisions []model.Decision) []withdrawnOut {
 			At:           d.At,
 			Effect:       v.effectOf(d.ID),
 			ReplacedBy:   replaced,
+			SupersededBy: v.supersededByOut(d.ID),
+		})
+	}
+	return out
+}
+
+// inheritedOuts は経由で届く群を「存在・出自・経由タグ」だけの出力形へ落とす
+// （01KZ06SYP12ZFDG1WPNYM529D8 変更6）。本文は載せない。
+func (v currencyView) inheritedOuts(entries []index.GovernsEntry) []inheritedOut {
+	out := make([]inheritedOut, 0, len(entries))
+	for _, e := range entries {
+		d := e.Decision
+		heading, _ := model.DecisionHeadingOf(d.Why)
+		out = append(out, inheritedOut{
+			ID:           d.ID,
+			Target:       d.Target,
+			At:           d.At,
+			Provenance:   e.Provenance,
+			ViaTag:       e.ViaTag,
+			Heading:      heading,
+			Effect:       v.effectOf(d.ID),
 			SupersededBy: v.supersededByOut(d.ID),
 		})
 	}

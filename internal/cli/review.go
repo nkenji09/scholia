@@ -236,7 +236,7 @@ func newReviewDecideCmd(kind reviewDecideKind) *cobra.Command {
 			w := why
 			if w == "" {
 				if kind == reviewDecideReject {
-					w = fmt.Sprintf("却下: %s", r.Body)
+					w = rejectionWhy(r.Body)
 				} else {
 					w = r.Body
 				}
@@ -270,7 +270,12 @@ func newReviewDecideCmd(kind reviewDecideKind) *cobra.Command {
 			}
 			// eff.storage.append-decision — 先に昇格。ここで失敗したら review
 			// はまだ在るので why を失わない（下の delete-review へ進まない）。
-			if err := s.SaveDecision(d); err != nil {
+			//
+			// 新規作成の口を通す（01KZ06SYR3APGF3JD4NQRFTEEN 変更3）。逃し弁は
+			// 渡さない——review 本文が見出しを満たさないなら、`--why "# …"` で
+			// 見出しを付けて昇格する。落ちても review は消えないので、書いた
+			// 本文は失われない。
+			if err := s.CreateDecision(d, store.DecisionCreateOptions{}); err != nil {
 				return err
 			}
 
@@ -319,6 +324,24 @@ func newReviewDecideCmd(kind reviewDecideKind) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, "作成した decision を JSON で出力する")
 	return cmd
+}
+
+// rejectionWhy は却下の why を review 本文から組む。
+//
+// **「却下: 」を素で前置きしない。** 前置きすると 1 行目が `#` で始まらなくなり、
+// 見出しのある提案を却下しただけで保存時ゲート（01KZ06SYR3APGF3JD4NQRFTEEN）に
+// 落ちる。加えて、畳んだ規則一覧に出るはずの見出しがそこで消える——
+// 却下という結論こそ、深掘りするかを決める材料である。
+//
+// ⚠️ 見出しの無い本文は前置きしても見出しにならない（そのまま落ちる）。
+// そのときは `--why "# …"` で見出しを付けて却下する。
+func rejectionWhy(body string) string {
+	h, ok := model.DecisionHeadingOf(body)
+	if !ok {
+		return fmt.Sprintf("却下: %s", body)
+	}
+	_, rest, _ := strings.Cut(body, "\n")
+	return fmt.Sprintf("# 却下: %s\n%s", h, rest)
 }
 
 // adoptSupersedeLinks は review の結線宣言（r.Supersedes）に --supersedes の指定を

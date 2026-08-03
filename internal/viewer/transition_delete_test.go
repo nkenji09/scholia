@@ -6,6 +6,7 @@ import (
 
 	"github.com/nkenji09/scholia/internal/lint"
 	"github.com/nkenji09/scholia/internal/model"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 // TestDeleteTransition_RemovesFile locks in §8.8 P5's「削除」write: the
@@ -97,12 +98,12 @@ func TestDeleteTransition_InvalidIDRejected(t *testing.T) {
 // survives.
 func TestDeleteTransition_ReferencedByDecisionConflict(t *testing.T) {
 	h, s := newTestHandler(t)
-	if err := s.SaveDecision(model.Decision{
+	if err := s.CreateDecision(model.Decision{
 		ID:     "d-tx",
 		Target: model.DecisionTarget{Type: model.DecisionTargetTransition, ID: "T-login"},
-		Why:    "この遷移は現行仕様のまま維持する",
+		Why:    "# テスト用の見出し\n\nこの遷移は現行仕様のまま維持する",
 		At:     "2026-01-01T00:00:00Z",
-	}); err != nil {
+	}, store.DecisionCreateOptions{}); err != nil {
 		t.Fatalf("seed decision targeting T-login: %v", err)
 	}
 

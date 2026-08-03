@@ -204,7 +204,7 @@ func TestLoadAllSnapshotsEverythingAndFlagsIDMismatch(t *testing.T) {
 	if err := s.SaveTransition(model.Transition{ID: "T-1", Action: "act.x", Then: []string{"eff.x"}}); err != nil {
 		t.Fatalf("SaveTransition: %v", err)
 	}
-	if err := s.SaveDecision(model.Decision{ID: "01D1", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.x"}, Why: "why", At: "2026-01-01T00:00:00Z"}); err != nil {
+	if err := s.CreateDecision(model.Decision{ID: "01D1", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.x"}, Why: "# テスト用の見出し\n\nwhy", At: "2026-01-01T00:00:00Z"}, DecisionCreateOptions{}); err != nil {
 		t.Fatalf("SaveDecision: %v", err)
 	}
 

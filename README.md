@@ -103,9 +103,16 @@ scholia tx add T-login-submit-valid \
   --then   eff.session.issue-token \
   --tags   subject.auth
 
-# 5. Record a decision (why) — append-only
-scholia decide --on transition:T-login-submit-valid \
-  --why "Issue the token as an httpOnly cookie (XSS mitigation)" --ref "PR#42"
+# 5. Record a decision (why) — append-only.
+#    The first line of --why must be a heading: "#" plus 1-80 characters, then the body
+#    on the following lines. A why without one is refused at save time, because `why`
+#    is append-only and cannot be corrected afterwards.
+scholia decide --on transition:T-login-submit-valid --ref "PR#42" \
+  --why "# Issue the session token as an httpOnly cookie
+
+JavaScript cannot read an httpOnly cookie, so an XSS payload cannot exfiltrate the
+session. The cost is that the SPA cannot read the token either — we accept that and
+let the server answer 'who am I' instead."
 
 # 6. Check the records for self-contradiction
 scholia lint

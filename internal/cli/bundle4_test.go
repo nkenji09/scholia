@@ -26,12 +26,12 @@ func TestCLIDecideAcknowledges(t *testing.T) {
 	dir := setupBundle4(t)
 
 	if out, err := run(t, dir, "decide", "--on", "tag:req.standalone",
-		"--why", "遷移では充足されない性質型要件", "--acknowledges", "requirement-gap"); err != nil {
+		"--why", "# テスト用の見出し\n\n遷移では充足されない性質型要件", "--acknowledges", "requirement-gap"); err != nil {
 		t.Fatalf("decide --acknowledges requirement-gap should succeed: %v\n%s", err, out)
 	}
 	// 未知 rule id は reject。
 	if _, err := run(t, dir, "decide", "--on", "tag:req.standalone",
-		"--why", "typo", "--acknowledges", "not-a-real-rule"); err == nil {
+		"--why", "# テスト用の見出し\n\ntypo", "--acknowledges", "not-a-real-rule"); err == nil {
 		t.Fatalf("decide with unknown acknowledges rule id must fail")
 	}
 }
@@ -55,7 +55,7 @@ func TestCLITagFulfillmentPropertyFoldsWithDecision(t *testing.T) {
 
 	// acknowledges:[requirement-gap] decision を足す → 容認済みに畳む。
 	if out, err := run(t, dir, "decide", "--on", "tag:req.standalone",
-		"--why", "単一バイナリは遷移で充足されない", "--acknowledges", "requirement-gap"); err != nil {
+		"--why", "# テスト用の見出し\n\n単一バイナリは遷移で充足されない", "--acknowledges", "requirement-gap"); err != nil {
 		t.Fatalf("decide: %v\n%s", err, out)
 	}
 	out, err = run(t, dir, "lint", "--json")
@@ -99,14 +99,14 @@ func TestCLIDecisionSupersedeLifecycle(t *testing.T) {
 	dir := setupBundle4(t)
 
 	// 旧 decision を作る。
-	out, err := run(t, dir, "decide", "--on", "tag:req.standalone", "--why", "旧判断", "--json")
+	out, err := run(t, dir, "decide", "--on", "tag:req.standalone", "--why", "# テスト用の見出し\n\n旧判断", "--json")
 	if err != nil {
 		t.Fatalf("decide old: %v\n%s", err, out)
 	}
 	oldID := decisionIDFromJSON(t, out)
 
 	// 新 decision が旧を supersede（全文置換）。
-	out, err = run(t, dir, "decide", "--on", "tag:req.standalone", "--why", "新判断（旧を置換）",
+	out, err = run(t, dir, "decide", "--on", "tag:req.standalone", "--why", "# テスト用の見出し\n\n新判断（旧を置換）",
 		"--supersedes", oldID+":supersede", "--json")
 	if err != nil {
 		t.Fatalf("decide new --supersedes: %v\n%s", err, out)
@@ -114,7 +114,7 @@ func TestCLIDecisionSupersedeLifecycle(t *testing.T) {
 	newID := decisionIDFromJSON(t, out)
 
 	// 実在しない旧 id は弾く。
-	if _, err := run(t, dir, "decide", "--on", "tag:req.standalone", "--why", "x", "--supersedes", "01NONEXISTENT0000000000000"); err == nil {
+	if _, err := run(t, dir, "decide", "--on", "tag:req.standalone", "--why", "# テスト用の見出し\n\nx", "--supersedes", "01NONEXISTENT0000000000000"); err == nil {
 		t.Fatalf("supersede of nonexistent decision must fail")
 	}
 
@@ -163,9 +163,9 @@ func TestCLIDecisionSupersedeLifecycle(t *testing.T) {
 func TestCLIDecisionLink(t *testing.T) {
 	dir := setupBundle4(t)
 
-	out, _ := run(t, dir, "decide", "--on", "tag:req.standalone", "--why", "A", "--json")
+	out, _ := run(t, dir, "decide", "--on", "tag:req.standalone", "--why", "# テスト用の見出し\n\nA", "--json")
 	aID := decisionIDFromJSON(t, out)
-	out, _ = run(t, dir, "decide", "--on", "tag:req.standalone", "--why", "B", "--json")
+	out, _ = run(t, dir, "decide", "--on", "tag:req.standalone", "--why", "# テスト用の見出し\n\nB", "--json")
 	bID := decisionIDFromJSON(t, out)
 
 	// B が A を後付けで supersede。
@@ -254,7 +254,7 @@ func TestCLIDecisionStale(t *testing.T) {
 
 	// 対象レコード宛て acknowledges:[decision-stale] decision で容認 → 畳む。
 	if out, err := run(t, dir, "decide", "--on", "tag:subject.x",
-		"--why", "一括マイグレーションのため decision 非同伴を容認",
+		"--why", "# テスト用の見出し\n\n一括マイグレーションのため decision 非同伴を容認",
 		"--acknowledges", "decision-stale"); err != nil {
 		t.Fatalf("decide acknowledges decision-stale: %v\n%s", err, out)
 	}

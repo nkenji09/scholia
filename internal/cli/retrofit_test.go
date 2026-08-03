@@ -69,12 +69,12 @@ func setupRetrofitStore(t *testing.T) string {
 		}
 	}
 	// why-file-line＋dangling-id（判断欄位＝acknowledge-only）
-	if err := s.SaveDecision(model.Decision{
+	if err := s.CreateDecision(model.Decision{
 		ID:     "01AAAAAAAAAAAAAAAAAAAAAAAA",
 		Target: model.DecisionTarget{Type: model.DecisionTargetTransition, ID: "T-d1"},
-		Why:    "internal/a.go:12 を見て T-gone を廃止した",
+		Why:    "# テスト用の見出し\n\ninternal/a.go:12 を見て T-gone を廃止した",
 		At:     "2026-07-17T00:00:00Z",
-	}); err != nil {
+	}, store.DecisionCreateOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	return dir

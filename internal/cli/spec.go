@@ -50,8 +50,12 @@ func newSpecCmd() *cobra.Command {
 				return err
 			}
 
-			// 仕様レポートは「守る規則を引く」面なので rules と同じ扱いにする。
-			// 取り下げられた規則を無印で混ぜるのが一番害が大きい面でもある。
+			// 取り下げの扱いは rules と同じにする（取り下げられた規則を無印で
+			// 混ぜるのが一番害が大きい面でもある）。
+			// ⚠️ **経由分の畳み込みは spec には当たらない**——spec は
+			// decisionsForTarget（完全一致）で集めており、タグ経由の decision を
+			// 集めていないので、01KZ06SYP12ZFDG1WPNYM529D8 の判断は spec を
+			// 明示的に対象外にしている（同 結論6）。
 			view := newCurrencyView(snap.Decisions)
 			split := decisionSplitter{view: view, all: all}
 

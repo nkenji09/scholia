@@ -27,15 +27,24 @@ func TestCLISmoke_Phase1FullFlow(t *testing.T) {
 		"--tags", "req.auth-happy-path",
 	)
 
-	txDecide := mustRun(t, dir, "decide", "--on", "transition:T-login-submit-valid", "--why", "トークンは httpOnly cookie で発行（XSS対策）", "--ref", "https://example.com/pr/42", "--json")
+	txDecide := mustRun(t, dir, "decide", "--on", "transition:T-login-submit-valid", "--why", "# テスト用の見出し\n\nトークンは httpOnly cookie で発行（XSS対策）", "--ref", "https://example.com/pr/42", "--json")
 	if !strings.Contains(txDecide, `"id"`) {
 		t.Fatalf("expected decide --json to emit the created record, got %s", txDecide)
 	}
-	mustRun(t, dir, "decide", "--on", "tag:subject.auth", "--why", "認証まわりの共通不変条件")
+	mustRun(t, dir, "decide", "--on", "tag:subject.auth", "--why", "# 認証まわりの共通不変条件\n\n本文")
 
+	// 既定は自身への decision の本文だけ。vocab タグ経由で届くものは存在と
+	// 引き方で出る（01KZ06SYP12ZFDG1WPNYM529D8）。集合は落とさない。
 	rulesOut := mustRun(t, dir, "rules", "--tx", "T-login-submit-valid")
-	if !strings.Contains(rulesOut, "httpOnly cookie") || !strings.Contains(rulesOut, "共通不変条件") {
-		t.Fatalf("expected rules --tx to surface both the direct and the vocab-tag-derived decision, got:\n%s", rulesOut)
+	if !strings.Contains(rulesOut, "httpOnly cookie") {
+		t.Fatalf("自身への decision は本文で出るべき:\n%s", rulesOut)
+	}
+	if !strings.Contains(rulesOut, "# 認証まわりの共通不変条件") {
+		t.Fatalf("vocab タグ経由の decision の所在が出るべき:\n%s", rulesOut)
+	}
+	allOut := mustRun(t, dir, "rules", "--tx", "T-login-submit-valid", "--all")
+	if !strings.Contains(allOut, "httpOnly cookie") || !strings.Contains(allOut, "認証まわりの共通不変条件") {
+		t.Fatalf("--all は両方を本文で返すべき:\n%s", allOut)
 	}
 
 	if _, err := run(t, dir, "lint"); err != nil {

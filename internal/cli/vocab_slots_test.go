@@ -109,20 +109,20 @@ func TestCLI_DecideOnVocab(t *testing.T) {
 
 	// dry-run first (advisory preview, append-only recommended flow).
 	dry := mustRun(t, dir, "decide", "--on", "vocab:cond.view-scroll-in-session",
-		"--why", "スクロール復元遷移の前提条件として materialize する", "--dry-run")
+		"--why", "# テスト用の見出し\n\nスクロール復元遷移の前提条件として materialize する", "--dry-run")
 	if !strings.Contains(dry, "dry-run") {
 		t.Fatalf("dry-run output unexpected: %s", dry)
 	}
 
 	// real decide on a vocab.
 	out := mustRun(t, dir, "decide", "--on", "vocab:cond.view-scroll-in-session",
-		"--why", "スクロール復元遷移の前提条件として materialize する", "--json")
+		"--why", "# テスト用の見出し\n\nスクロール復元遷移の前提条件として materialize する", "--json")
 	if !strings.Contains(out, `"vocab"`) {
 		t.Fatalf("decide --on vocab JSON should record vocab target: %s", out)
 	}
 
 	// decide on a missing vocab is rejected.
-	if _, err := run(t, dir, "decide", "--on", "vocab:cond.missing", "--why", "x"); err == nil {
+	if _, err := run(t, dir, "decide", "--on", "vocab:cond.missing", "--why", "# テスト用の見出し\n\nx"); err == nil {
 		t.Fatalf("expected decide on missing vocab to be rejected")
 	}
 
@@ -136,7 +136,7 @@ func TestCLI_DecideOnVocab(t *testing.T) {
 func TestCLI_ShowVocabBidirectionalEstablishesAndDecisions(t *testing.T) {
 	dir := t.TempDir()
 	setupScrollFixture(t, dir)
-	mustRun(t, dir, "decide", "--on", "vocab:cond.view-scroll-in-session", "--why", "前提条件の正本")
+	mustRun(t, dir, "decide", "--on", "vocab:cond.view-scroll-in-session", "--why", "# テスト用の見出し\n\n前提条件の正本")
 
 	// The effect side shows what it establishes.
 	effOut := mustRun(t, dir, "show", "vocab", "eff.state.save-scroll-to-session")

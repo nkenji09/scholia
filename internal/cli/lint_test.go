@@ -26,7 +26,7 @@ func setupLintCoverageStore(t *testing.T) string {
 		{"tag", "create", "req.a", "--name", "要件A", "--kind", "requirement"},
 		{"tx", "add", "T-covered", "--action", "act.a", "--then", "eff.a", "--tags", "req.a"},
 		{"tx", "add", "T-bare", "--action", "act.a", "--then", "eff.b"},
-		{"decide", "--on", "tag:req.a", "--why", "タグ側の決定"},
+		{"decide", "--on", "tag:req.a", "--why", "# テスト用の見出し\n\nタグ側の決定"},
 	}
 	for _, s := range steps {
 		if out, err := run(t, dir, s...); err != nil {
@@ -55,7 +55,7 @@ func TestLintDefaultShowsOnlyNoneCoverageWithSummary(t *testing.T) {
 	}
 
 	// direct 化: T-bare に own decision を付けると none が消え direct が増える。
-	if o, err := run(t, dir, "decide", "--on", "transition:T-bare", "--why", "遷移固有の決定"); err != nil {
+	if o, err := run(t, dir, "decide", "--on", "transition:T-bare", "--why", "# テスト用の見出し\n\n遷移固有の決定"); err != nil {
 		t.Fatalf("decide on transition failed: %v\noutput:\n%s", err, o)
 	}
 	out, err = run(t, dir, "lint")
@@ -308,7 +308,7 @@ func TestLintBaseline_ExcludesAcknowledgedWarns(t *testing.T) {
 	// 当該タグ宛てに acknowledges:[requirement-gap] の decision を置くと、その warn は
 	// AcknowledgedBy で畳まれる（typed 容認）。
 	if out, err := run(t, dir, "decide", "--on", "tag:req.gap",
-		"--acknowledges", "requirement-gap", "--why", "意図して残す gap（テスト）"); err != nil {
+		"--acknowledges", "requirement-gap", "--why", "# テスト用の見出し\n\n意図して残す gap（テスト）"); err != nil {
 		t.Fatalf("decide --acknowledges: %v\n%s", err, out)
 	}
 

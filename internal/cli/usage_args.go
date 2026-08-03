@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
 
+	"github.com/nkenji09/scholia/internal/lint"
 	"github.com/nkenji09/scholia/internal/model"
 )
 
@@ -63,7 +64,9 @@ type argSpec struct {
 var categoryValues = []string{"condition", "action", "effect"}
 
 // lint の抑止キー（--allow）も道具の側の閉じた集合。
-var lintAllowValues = []string{"exclusive-violation", "total-kind-mismatch", "id-policy"}
+// **列挙は lint 側から引く。** ここに名前を書き写すと、拒否規則を足したときに
+// 黙ってずれる（実際、書き写した 3 本のままで unknown-acknowledges が抜けていた）。
+var lintAllowValues = lint.GateRejectRuleNames()
 
 // stringFlagSpecs は**文字列を取るフラグ**の分類。
 //
@@ -121,6 +124,7 @@ var stringFlagSpecs = map[string]argSpec{
 	// --- 道具の側の閉じた集合（詳細で値を残す） ---
 	"scholia rules --sort":           {class: classToolVocab, values: []string{"chrono", "target"}},
 	"scholia search --type":          {class: classToolVocab, values: []string{"tag", "transition", "vocab", "decision"}},
+	"scholia decide --allow":         {class: classToolVocab, values: lintAllowValues},
 	"scholia tag create --allow":     {class: classToolVocab, values: lintAllowValues},
 	"scholia tag edit --allow":       {class: classToolVocab, values: lintAllowValues},
 	"scholia tag edit --fulfillment": {class: classToolVocab, values: []string{model.FulfillmentTransitions, model.FulfillmentProperty}},
@@ -152,6 +156,7 @@ var stringFlagSpecs = map[string]argSpec{
 	"scholia review reject --ref":            {class: classFreeText},
 	"scholia review reject --why":            {class: classFreeText},
 	"scholia rules --facet":                  {class: classFreeText, selector: "facet"},
+	"scholia decide --reason":                {class: classFreeText},
 	"scholia tag create --color":             {class: classFreeText},
 	"scholia tag create --desc":              {class: classFreeText},
 	"scholia tag create --desc-file":         {class: classFreeText},

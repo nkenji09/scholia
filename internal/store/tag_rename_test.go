@@ -38,7 +38,7 @@ func TestRenameTag_RepointsAllFourReferenceSites(t *testing.T) {
 	if err := s.SaveVocab(model.VocabEntry{ID: "act.a", Category: model.CategoryAction, Label: "a", Tags: []string{"subject.old"}}); err != nil {
 		t.Fatalf("SaveVocab: %v", err)
 	}
-	if err := s.SaveDecision(model.Decision{ID: "01D1", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.old"}, Why: "w", At: "2026-01-01T00:00:00Z"}); err != nil {
+	if err := s.CreateDecision(model.Decision{ID: "01D1", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.old"}, Why: "# テスト用の見出し\n\nw", At: "2026-01-01T00:00:00Z"}, DecisionCreateOptions{}); err != nil {
 		t.Fatalf("SaveDecision: %v", err)
 	}
 

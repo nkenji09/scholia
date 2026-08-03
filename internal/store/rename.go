@@ -122,7 +122,7 @@ func (s *Store) RenameVocab(oldID, newID string) (VocabRenameResult, error) {
 			continue
 		}
 		d.Target.ID = newID
-		if err := s.SaveDecision(d); err != nil {
+		if err := s.UpdateDecision(d); err != nil {
 			return VocabRenameResult{}, err
 		}
 		updatedDecisions = append(updatedDecisions, d.ID)
@@ -190,7 +190,7 @@ func (s *Store) RenameTransition(oldID, newID string) (TxRenameResult, error) {
 			continue
 		}
 		d.Target.ID = newID
-		if err := s.SaveDecision(d); err != nil {
+		if err := s.UpdateDecision(d); err != nil {
 			return TxRenameResult{}, err
 		}
 		updated = append(updated, d.ID)
@@ -552,7 +552,7 @@ func (tx *fileTxn) saveDecision(s *Store, d model.Decision) error {
 	if err := tx.track(s.decisionPath(d.ID)); err != nil {
 		return err
 	}
-	return s.SaveDecision(d)
+	return s.UpdateDecision(d)
 }
 
 // renameTagFiles moves each renamed tag's file to its new id in three passes —

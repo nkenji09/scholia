@@ -24,7 +24,7 @@ func setupMergeStore(t *testing.T) string {
 		{"tx", "add", "T-surv", "--action", "act.a", "--given", "cond.a", "--then", "eff.a", "--tags", "subject.x"},
 		{"tx", "add", "T-dup", "--action", "act.a", "--given", "cond.a", "--then", "eff.a", "--tags", "subject.y"},
 		{"tx", "add", "T-other", "--action", "act.a", "--then", "eff.b"},
-		{"decide", "--on", "transition:T-dup", "--why", "dup 側に付いた判断"},
+		{"decide", "--on", "transition:T-dup", "--why", "# テスト用の見出し\n\ndup 側に付いた判断"},
 	}
 	for _, s := range steps {
 		if out, err := run(t, dir, s...); err != nil {

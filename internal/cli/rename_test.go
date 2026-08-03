@@ -8,7 +8,7 @@ import (
 func TestCLI_VocabRenameThenLintGreen(t *testing.T) {
 	dir := t.TempDir()
 	setupAuthFixture(t, dir)
-	mustRun(t, dir, "decide", "--on", "transition:T-login", "--why", "初期実装")
+	mustRun(t, dir, "decide", "--on", "transition:T-login", "--why", "# テスト用の見出し\n\n初期実装")
 
 	mustRun(t, dir, "vocab", "rename", "act.user.submit-login", "--to", "act.user.login-submit")
 
@@ -26,7 +26,7 @@ func TestCLI_VocabRenameThenLintGreen(t *testing.T) {
 func TestCLI_TxRenameThenLintGreenAndDecisionFollowsTarget(t *testing.T) {
 	dir := t.TempDir()
 	setupAuthFixture(t, dir)
-	mustRun(t, dir, "decide", "--on", "transition:T-login", "--why", "初期実装")
+	mustRun(t, dir, "decide", "--on", "transition:T-login", "--why", "# テスト用の見出し\n\n初期実装")
 
 	mustRun(t, dir, "tx", "rename", "T-login", "--to", "T-login-submit")
 

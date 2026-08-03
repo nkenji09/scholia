@@ -5,8 +5,11 @@
 // add/edit/tag・decide・decision add-commit）と viewer POST /api/transition
 // が保存前にこれを呼ぶ。
 //
-// 【reject（保存せず exit 1）】store を自己矛盾させる機械検証可能な不変条件
-// のみの 3 件（決定③・拒否規則の恣意的増殖はしない）:
+// 【reject（保存せず exit 1）】機械判定できる不変条件と形式要件。
+// **一覧の正は GateRejectRuleNames（下）であって、このコメントではない。**
+// 数を名乗る記述は正本でも実装コメントでも守られなかった実績がある
+// （01KXS75QCYM500CZ42H977A01X は「3 規則ちょうど」「追加は amend を要する」と
+// 書いたが、実装は 4 本になり amend は 0 件だった・01KZ06SYR3APGF3JD4NQRFTEEN）。
 //
 //	(a) exclusive-violation — 同一 axis kind タグの2値 condition を同一 given
 //	    に名指しする transition（全軸対象・total 限定にしない。既存 lint 規則
@@ -14,8 +17,21 @@
 //	(b) total-kind-mismatch — axis 挙動を持たない kind のタグへの total=true
 //	(c) id-policy — config.idPolicy 宣言に反する新規 id（新規のみ・既存 id の
 //	    edit は対象外）
+//	(d) unknown-acknowledges — 新規 decision の acknowledges が有効な rule id に
+//	    解決しない（#45 D6）
+//	(e) decision-heading — 新規 decision の why の 1 行目が見出しでない
+//	    （01KZ06SYR3APGF3JD4NQRFTEEN・判定は model.CheckDecisionHeading）
+//
+// ⚠️ (e) は「store を自己矛盾させる不変条件」ではなく**書き方の規律**である。
+// 拒否側をそこへ広げたのは 01KZ06SYR3APGF3JD4NQRFTEEN で、`why` が append-only
+// ＝保存後に是正できないため advisory が原理的に効かないことを根拠にしている
+// （(c) id-policy が既に開けた側の 2 本目）。
 //
 // 逃し弁 --allow（理由必須・記録）は CLI 層（internal/cli）が担う。
+//
+// ⚠️ **(e) の最終的な歯止めは、この層ではなく store.CreateDecision にある。**
+// ここは `decide --dry-run` のプレビューと `--allow` の受理名のために同じ判定を
+// 呼ぶ配線で、面が増えたときに効き続けるのは口の側（store）である。
 //
 // 【advisory（保存する・同一ターン警告）】curated set＝U2 の advisory 規則の
 // うち 1,2,3,4,6,8（derived-value-in-desc・stale-tense・prose-ref・
@@ -62,11 +78,15 @@ const (
 	// 書き込み時のみ検査する（既存 decision の再検査はしない——rule 改名で後から
 	// 宙吊りになるのは lint dangling-acknowledges の領分）。
 	GateUnknownAcknowledges = "unknown-acknowledges"
+	// GateDecisionHeading（01KZ06SYR3APGF3JD4NQRFTEEN）: 新規 decision の why の
+	// 1 行目が見出しでない。id は store 側の定数と同一のものを指す——`--allow` に
+	// 渡せる名前と、新規作成の口が見る名前が別物になってはいけない。
+	GateDecisionHeading = store.RuleDecisionHeading
 )
 
 // GateRejectRuleNames は reject 規則 id の全列挙（--allow の検証用）。
 func GateRejectRuleNames() []string {
-	return []string{GateExclusiveViolation, GateTotalKindMismatch, GateIDPolicy, GateUnknownAcknowledges}
+	return []string{GateExclusiveViolation, GateTotalKindMismatch, GateIDPolicy, GateUnknownAcknowledges, GateDecisionHeading}
 }
 
 // DescLengthThreshold は write-time advisory「desc 長」の閾値（字数・rune）。
@@ -177,9 +197,30 @@ func checkRejections(after store.Snapshot, op WriteOp) []Finding {
 		// 再検査はしない（append-only なので後付けの宙吊りは lint が拾う）。
 		if op.Decision != nil {
 			out = append(out, unknownAcknowledgesViolations(*op.Decision)...)
+			// (e) decision-heading（01KZ06SYR3APGF3JD4NQRFTEEN 変更1）。
+			// 「新規のみ」は id-policy と同型——既存 decision の更新
+			// （add-commit・link・改名追随）は why を作っていない。
+			out = append(out, decisionHeadingViolations(*op.Decision)...)
 		}
 	}
 	return out
+}
+
+// decisionHeadingViolations は新規 decision の why の 1 行目が見出しでなければ
+// reject を返す。判定は model.CheckDecisionHeading——store.CreateDecision が
+// 見るのと**同じ述語**で、ここに 2 つ目の「見出しとは何か」を書かない。
+func decisionHeadingViolations(d model.Decision) []Finding {
+	r := model.CheckDecisionHeading(d.Why)
+	if r.OK {
+		return nil
+	}
+	return []Finding{{
+		Rule: GateDecisionHeading, Severity: SeverityError,
+		Target: d.ID, TargetType: targetDecision,
+		Field: "why",
+		Message: fmt.Sprintf("decision %s: why の 1 行目を見出しにしてください（%s）——`# <1〜%d 字>` に続けて空行、そして本文。why は append-only で保存後に直せません",
+			d.ID, r.Reason, model.DecisionHeadingMaxRunes),
+	}}
 }
 
 // unknownAcknowledgesViolations は decision.acknowledges の各 rule id が有効な

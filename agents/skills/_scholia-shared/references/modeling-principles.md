@@ -144,7 +144,8 @@ vocab と tag は形が近い（id・label・kind）が役割が直交する。*
 
 1. **外部に実仕様がある**（「定義されたらリンクする」旨）
 2. **不採用**（タイトルに `【不採用】` を明記＋不採用理由）
-3. **構造制約 = 性質型要件**（action→effect でない・「〜しない」系・単一バイナリ等の非機能要件）。これは `scholia tag edit <id> --fulfillment property` で性質型と宣言し、**かつ** `scholia decide --on tag:<id> --acknowledges requirement-gap --why "…"` を足す。**property 宣言だけでは畳まない**（宣言のみ・decision 無しは warn のまま＝怠慢な宣言を許さない）。
+3. **構造制約 = 性質型要件**（action→effect でない・「〜しない」系・単一バイナリ等の非機能要件）。これは `scholia tag edit <id> --fulfillment property` で性質型と宣言し、**かつ** `scholia decide --on tag:<id> --acknowledges requirement-gap --why "<見出し＋本文>"` を足す。**property 宣言だけでは畳まない**（宣言のみ・decision 無しは warn のまま＝怠慢な宣言を許さない）。
+   ⚠️ `--why` は **1 行目が `#` ＋ 1〜80 字の見出し・2 行目以降に本文**でないと保存時に拒否される（`decision-heading`。`why` は append-only で後から直せないため）。
 
 flow の finding（`subset-shadow`・`total-gap`・`overlap`）も同様に typed 容認する: 対象（total-gap は軸タグ/欠落値 condition・shadow/overlap は関与 transition）宛てで `--acknowledges <rule>` を付けた decision があれば畳む。**同じ穴が複数 rule で出る場合は出る rule を全列挙して acknowledges に書く**。
 
