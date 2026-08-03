@@ -9,12 +9,14 @@ import (
 
 	"github.com/nkenji09/scholia/internal/lint"
 	"github.com/nkenji09/scholia/internal/model"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 func newDecideCmd() *cobra.Command {
 	var on, why, changed, ref string
 	var commits, acknowledges, supersedes []string
 	var asJSON, dryRun bool
+	var gate *gateFlags
 	cmd := &cobra.Command{
 		Use:   "decide",
 		Short: "意思決定を 1 件記録する（transition・tag・vocab に付く・append-only・§3.5）",
@@ -85,7 +87,7 @@ func newDecideCmd() *cobra.Command {
 			// 書き込みゲート二層（#45 U3）: decision に unknown-acknowledges reject が
 			// あり、why/changed/ref への advisory を保存前に検査できる。append-only
 			// のため「保存後に直す」が効かない——--dry-run はここで止まる。
-			advisories, allowed, gateErr := runWriteGate(cmd, snap, lint.WriteOp{Decision: &d, IsNew: true}, nil)
+			advisories, allowed, gateErr := runWriteGate(cmd, snap, lint.WriteOp{Decision: &d, IsNew: true}, gate)
 			if gateErr != nil {
 				return gateErr
 			}
@@ -106,7 +108,10 @@ func newDecideCmd() *cobra.Command {
 				return nil
 			}
 
-			if err := s.SaveDecision(d); err != nil {
+			// 新規作成の口（store.CreateDecision）。runWriteGate は既に同じ拒否規則を
+			// 当てているが、通す/通さないの最終判断は口の側にある——面ごとの配線が
+			// 抜けても、口を通る限り拒否は効く（01KZ06SYR3APGF3JD4NQRFTEEN 変更3）。
+			if err := s.CreateDecision(d, store.DecisionCreateOptions{AllowRules: gate.allow}); err != nil {
 				return err
 			}
 
@@ -127,6 +132,12 @@ func newDecideCmd() *cobra.Command {
 	cmd.Flags().StringArrayVar(&supersedes, "supersedes", nil, "置き換える旧 decision <ulid>[:<mode>]（mode=supersede|amend|exception・既定 amend・繰り返し可・#45 D7）")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "作成したレコードを応答封筒 { record, advisories } の JSON で出力する")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "保存せず advisory だけプレビューする（decision は append-only・保存後の why は直せない。decide の前に必ず打つ）")
+	// 逃し弁 --allow/--reason（01KZ06SYR3APGF3JD4NQRFTEEN 変更4）。
+	// ⚠️ 以前は「decide には付けない——フラグの常在は --allow の常用化を招く」と
+	// 判断していたが、decide に効く拒否規則（decision-heading）を足した以上、
+	// 逃し弁が無い口になる。**常用を手本にしない**——本 repo のテストは
+	// --allow ではなく why の側を直してある。
+	gate = addGateAllowFlags(cmd)
 	return cmd
 }
 

@@ -119,7 +119,7 @@ func TestCLI_ShowDecision(t *testing.T) {
 	if _, err := run(t, dir, "tag", "create", "subject.auth", "--name", "認証", "--kind", "subject"); err != nil {
 		t.Fatalf("tag create: %v", err)
 	}
-	decideOut, err := run(t, dir, "decide", "--on", "tag:subject.auth", "--why", "認証方式を決定", "--json")
+	decideOut, err := run(t, dir, "decide", "--on", "tag:subject.auth", "--why", "# テスト用の見出し\n\n認証方式を決定", "--json")
 	if err != nil {
 		t.Fatalf("decide: %v\noutput:\n%s", err, decideOut)
 	}

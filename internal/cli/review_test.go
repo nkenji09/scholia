@@ -27,7 +27,7 @@ func TestCLI_ReviewAddAndList(t *testing.T) {
 		t.Fatalf("tx add: %v", err)
 	}
 
-	addOut, err := run(t, dir, "review", "add", "--on", "transition:T-1", "--body", "AI: これはテスト提案の理由", "--json")
+	addOut, err := run(t, dir, "review", "add", "--on", "transition:T-1", "--body", "# AI: これはテスト提案の理由\n\n提案の本文", "--json")
 	if err != nil {
 		t.Fatalf("review add failed: %v\noutput:\n%s", err, addOut)
 	}
@@ -147,7 +147,7 @@ func setupReviewFixture(t *testing.T, dir string) (reviewID string) {
 	if _, err := run(t, dir, "tx", "add", "T-1", "--action", "act.a", "--then", "eff.a", "--tags", "subject.auth"); err != nil {
 		t.Fatalf("tx add: %v", err)
 	}
-	addOut, err := run(t, dir, "review", "add", "--on", "transition:T-1", "--body", "AI: これは提案理由です", "--json")
+	addOut, err := run(t, dir, "review", "add", "--on", "transition:T-1", "--body", "# AI: これは提案理由です\n\n提案の本文", "--json")
 	if err != nil {
 		t.Fatalf("review add failed: %v\noutput:\n%s", err, addOut)
 	}
@@ -184,7 +184,7 @@ func TestCLI_ReviewAdopt(t *testing.T) {
 	if d.Target.Type != "transition" || d.Target.ID != "T-1" {
 		t.Fatalf("decision target = %+v, want transition:T-1", d.Target)
 	}
-	if d.Why != "AI: これは提案理由です" {
+	if d.Why != "# AI: これは提案理由です\n\n提案の本文" {
 		t.Fatalf("decision why = %q, want review body verbatim", d.Why)
 	}
 
@@ -225,7 +225,7 @@ func TestCLI_ReviewAdopt_WhyOverride(t *testing.T) {
 	dir := t.TempDir()
 	id := setupReviewFixture(t, dir)
 
-	out, err := run(t, dir, "review", "adopt", id, "--why", "編集後の確定 why", "--json")
+	out, err := run(t, dir, "review", "adopt", id, "--why", "# テスト用の見出し\n\n編集後の確定 why", "--json")
 	if err != nil {
 		t.Fatalf("review adopt failed: %v\noutput:\n%s", err, out)
 	}
@@ -235,7 +235,7 @@ func TestCLI_ReviewAdopt_WhyOverride(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &d); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if d.Why != "編集後の確定 why" {
+	if d.Why != "# テスト用の見出し\n\n編集後の確定 why" {
 		t.Fatalf("decision why = %q, want override", d.Why)
 	}
 }
@@ -289,7 +289,7 @@ func TestCLI_ReviewAdopt_VocabTargetIsError(t *testing.T) {
 	if _, err := run(t, dir, "vocab", "add", "action", "act.a", "--label", "a"); err != nil {
 		t.Fatalf("vocab add: %v", err)
 	}
-	addOut, err := run(t, dir, "review", "add", "--on", "vocab:act.a", "--body", "AI: 語彙への提案", "--json")
+	addOut, err := run(t, dir, "review", "add", "--on", "vocab:act.a", "--body", "# AI: 語彙への提案\n\n提案の本文", "--json")
 	if err != nil {
 		t.Fatalf("review add: %v\noutput:\n%s", err, addOut)
 	}
@@ -324,7 +324,7 @@ func supersedeFixture(t *testing.T, dir string) (oldDecisionID string) {
 	if _, err := run(t, dir, "tx", "add", "T-1", "--action", "act.a", "--then", "eff.a", "--tags", "subject.auth"); err != nil {
 		t.Fatalf("tx add: %v", err)
 	}
-	out, err := run(t, dir, "decide", "--on", "transition:T-1", "--why", "旧: A とする", "--json")
+	out, err := run(t, dir, "decide", "--on", "transition:T-1", "--why", "# テスト用の見出し\n\n旧: A とする", "--json")
 	if err != nil {
 		t.Fatalf("decide: %v\noutput:\n%s", err, out)
 	}
@@ -356,7 +356,7 @@ type adoptedDecision struct {
 
 func addReviewWithSupersedes(t *testing.T, dir string, specs ...string) string {
 	t.Helper()
-	args := []string{"review", "add", "--on", "transition:T-1", "--body", "AI: 改訂: A ではなく B とする", "--json"}
+	args := []string{"review", "add", "--on", "transition:T-1", "--body", "# AI: 改訂: A ではなく B とする\n\n提案の本文", "--json"}
 	for _, s := range specs {
 		args = append(args, "--supersedes", s)
 	}
@@ -436,7 +436,7 @@ func TestCLI_ReviewAdopt_DefaultModeIsAmend(t *testing.T) {
 func TestCLI_ReviewAdopt_FlagAddsToDeclaration(t *testing.T) {
 	dir := t.TempDir()
 	oldA := supersedeFixture(t, dir)
-	out, err := run(t, dir, "decide", "--on", "transition:T-1", "--why", "旧B", "--json")
+	out, err := run(t, dir, "decide", "--on", "transition:T-1", "--why", "# テスト用の見出し\n\n旧B", "--json")
 	if err != nil {
 		t.Fatalf("decide B: %v\noutput:\n%s", err, out)
 	}

@@ -120,7 +120,17 @@ func postDecisionHandler(s *store.Store) http.HandlerFunc {
 			Commits:    dedupeAppend(body.Commits),
 			Supersedes: links,
 		}
-		if err := s.SaveDecision(d); err != nil {
+		// 新規作成の口を通す（01KZ06SYR3APGF3JD4NQRFTEEN 変更3）。
+		// **逃し弁は置かない** — viewer からの書き込みでエスケープを許さないのは
+		// transition_write.go の先例どおり（エスケープは CLI の --allow --reason
+		// 経由のみ）。422 で返し、ドロワーは入力中の why を保持したままエラーを
+		// 表示する（保存できなかっただけで、書いたものは消えない）。
+		if err := s.CreateDecision(d, store.DecisionCreateOptions{}); err != nil {
+			var rej *store.DecisionRejectError
+			if errors.As(err, &rej) {
+				writeErrorCode(w, http.StatusUnprocessableEntity, decisionRejectViewerMessage(rej), "reject-"+rej.Rule)
+				return
+			}
 			writeStoreError(w, err)
 			return
 		}
@@ -138,6 +148,21 @@ func postDecisionHandler(s *store.Store) http.HandlerFunc {
 			Advisories []lint.Finding `json:"advisories,omitempty"`
 		}{Decision: d, Advisories: advisories})
 	}
+}
+
+// decisionRejectViewerMessage は保存時拒否を、生 ULID を含まない文言で返す
+// （01KYCC2TF3NW3JRSSRK9ZHN078: viewer は生レコード id を表示しない）。
+// store 側の文言は「どの id を直せばよいか」を含む CLI 向けなので、ここで
+// 組み直す。理由（何を満たしていないか）は落とさない——落とすと、書き手は
+// 何を直せば保存できるのか分からないまま入力欄の前で止まる。
+func decisionRejectViewerMessage(rej *store.DecisionRejectError) string {
+	if rej.Rule == store.RuleDecisionHeading {
+		return fmt.Sprintf(
+			"「なぜ」の 1 行目を見出しにしてください（%s）。`# ` に続けて %d 字以内の見出しを書き、空行をはさんで本文を続けます。"+
+				"保存後は書き換えられない欄なので、保存の前に止めています",
+			rej.Reason, model.DecisionHeadingMaxRunes)
+	}
+	return fmt.Sprintf("保存できませんでした（%s）", rej.Reason)
 }
 
 // writeSupersedeError は現行性リンクの検証違反を、生 ULID を含まない文言と

@@ -80,19 +80,19 @@ func setupWithdrawFixture(t *testing.T, dir string) withdrawFixture {
 	var f withdrawFixture
 
 	f.oldTag = decisionIDFromJSON(t, mustRun(t, dir, "decide", "--on", "tag:req.auth",
-		"--why", "旧タグ判断ホンブンA", "--json"))
+		"--why", "# テスト用の見出し\n\n旧タグ判断ホンブンA", "--json"))
 	f.newTag = decisionIDFromJSON(t, mustRun(t, dir, "decide", "--on", "tag:req.auth",
-		"--why", "新タグ判断ホンブンB", "--supersedes", f.oldTag+":supersede", "--json"))
+		"--why", "# テスト用の見出し\n\n新タグ判断ホンブンB", "--supersedes", f.oldTag+":supersede", "--json"))
 
 	f.oldTx = decisionIDFromJSON(t, mustRun(t, dir, "decide", "--on", "transition:T-login",
-		"--why", "旧遷移判断ホンブンC", "--json"))
+		"--why", "# テスト用の見出し\n\n旧遷移判断ホンブンC", "--json"))
 	f.newTx = decisionIDFromJSON(t, mustRun(t, dir, "decide", "--on", "transition:T-login",
-		"--why", "新遷移判断ホンブンD", "--supersedes", f.oldTx+":supersede", "--json"))
+		"--why", "# テスト用の見出し\n\n新遷移判断ホンブンD", "--supersedes", f.oldTx+":supersede", "--json"))
 
 	f.oldVocab = decisionIDFromJSON(t, mustRun(t, dir, "decide", "--on", "vocab:act.user.submit-login",
-		"--why", "旧語彙判断ホンブンE", "--json"))
+		"--why", "# テスト用の見出し\n\n旧語彙判断ホンブンE", "--json"))
 	f.newVocab = decisionIDFromJSON(t, mustRun(t, dir, "decide", "--on", "vocab:act.user.submit-login",
-		"--why", "新語彙判断ホンブンF", "--supersedes", f.oldVocab+":supersede", "--json"))
+		"--why", "# テスト用の見出し\n\n新語彙判断ホンブンF", "--supersedes", f.oldVocab+":supersede", "--json"))
 
 	// 取り下げしか無い対象。**祖先を持たせない**（祖先の decision が本文側へ入ると
 	// この枝を通らなくなる）。置き換えた側は別の対象（req.auth）に置く——supersede は
@@ -100,9 +100,9 @@ func setupWithdrawFixture(t *testing.T, dir string) withdrawFixture {
 	// 起こる形である。
 	mustRun(t, dir, "tag", "create", "req.onlywd", "--name", "取り下げのみ", "--kind", "requirement")
 	f.oldOnly = decisionIDFromJSON(t, mustRun(t, dir, "decide", "--on", "tag:req.onlywd",
-		"--why", "旧単独判断ホンブンG", "--json"))
+		"--why", "# テスト用の見出し\n\n旧単独判断ホンブンG", "--json"))
 	f.newOnly = decisionIDFromJSON(t, mustRun(t, dir, "decide", "--on", "tag:req.auth",
-		"--why", "別対象へ移した判断ホンブンH", "--supersedes", f.oldOnly+":supersede", "--json"))
+		"--why", "# テスト用の見出し\n\n別対象へ移した判断ホンブンH", "--supersedes", f.oldOnly+":supersede", "--json"))
 	return f
 }
 
@@ -885,12 +885,12 @@ func TestCurrency_AdviceDoesNotTeachOldDefault(t *testing.T) {
 	setupAuthFixture(t, dir)
 
 	// 既存 decision がある対象へ提案を出して adopt すると、結線を促す advisory が出る。
-	mustRun(t, dir, "decide", "--on", "tag:req.auth", "--why", "先にある判断")
+	mustRun(t, dir, "decide", "--on", "tag:req.auth", "--why", "# テスト用の見出し\n\n先にある判断")
 	var rv struct {
 		ID string `json:"id"`
 	}
 	mustUnmarshal(t, mustRun(t, dir, "review", "add", "--on", "tag:req.auth",
-		"--body", "あとから来た提案", "--source", "ai", "--json"), &rv)
+		"--body", "# あとから来た提案\n\n提案の本文", "--source", "ai", "--json"), &rv)
 	out := mustRun(t, dir, "review", "adopt", rv.ID)
 
 	if !strings.Contains(out, "supersede-unlinked") {

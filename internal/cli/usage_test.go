@@ -752,9 +752,12 @@ func TestUsage_NormalLineNamesTheRecordAndTheProject(t *testing.T) {
 func TestUsage_DetailedRecordsFreeTextLengthNotValue(t *testing.T) {
 	dir := seedStore(t, projectNamedArg)
 	body := strings.Repeat("秘", 137)
+	// 見出しは保存時ゲート（01KZ06SYR3APGF3JD4NQRFTEEN）を通すための足場。
+	// 自由文の本体は body のままなので、「値が写っていないか」の検査は変わらない。
+	why := "# テスト用の見出し\n\n" + body
 
 	_, line := runMeasured(t, usage.Detailed,
-		"--dir", dir, "decide", "--on", "tag:"+projectNamedArg, "--why", body, "--json")
+		"--dir", dir, "decide", "--on", "tag:"+projectNamedArg, "--why", why, "--json")
 
 	raw, err := json.Marshal(line)
 	if err != nil {
@@ -764,8 +767,9 @@ func TestUsage_DetailedRecordsFreeTextLengthNotValue(t *testing.T) {
 		t.Errorf("詳細の行に自由文の値が写っている:\n%s", raw)
 	}
 	lens, _ := line["freeTextLens"].(map[string]any)
-	if got, _ := lens["why"].(float64); int(got) != 137 {
-		t.Errorf("自由文の長さが %v（137 文字のはず）: %v", lens["why"], lens)
+	got, _ := lens["why"].(float64)
+	if want := len([]rune(why)); int(got) != want {
+		t.Errorf("自由文の長さが %v（%d 文字のはず）: %v", lens["why"], want, lens)
 	}
 	values, _ := line["flagValues"].(map[string]any)
 	if values["json"] != true {

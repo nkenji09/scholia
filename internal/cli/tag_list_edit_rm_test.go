@@ -108,7 +108,7 @@ func TestCLI_TagRmForceDetachesFromAllReferencesAndLintStaysGreen(t *testing.T) 
 func TestCLI_TagRmRejectsWhenTagIsDecisionTarget(t *testing.T) {
 	dir := t.TempDir()
 	setupAuthFixture(t, dir)
-	mustRun(t, dir, "decide", "--on", "tag:subject.auth", "--why", "cross-cutting rule")
+	mustRun(t, dir, "decide", "--on", "tag:subject.auth", "--why", "# テスト用の見出し\n\ncross-cutting rule")
 
 	if _, err := run(t, dir, "tag", "rm", "subject.auth", "--force"); err == nil {
 		t.Fatalf("expected error removing a tag that is a decision target, even with --force")

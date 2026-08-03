@@ -100,8 +100,8 @@ func TestCLI_TxRmRequiresWhyAndForce(t *testing.T) {
 func TestCLI_TxRmCascadesTargetingDecisionsAndStaysLintGreen(t *testing.T) {
 	dir := t.TempDir()
 	setupAuthFixture(t, dir)
-	mustRun(t, dir, "decide", "--on", "transition:T-login", "--why", "初期実装")
-	mustRun(t, dir, "decide", "--on", "tag:subject.auth", "--why", "共通規則")
+	mustRun(t, dir, "decide", "--on", "transition:T-login", "--why", "# テスト用の見出し\n\n初期実装")
+	mustRun(t, dir, "decide", "--on", "tag:subject.auth", "--why", "# テスト用の見出し\n\n共通規則")
 
 	out := mustRun(t, dir, "tx", "rm", "T-login", "--why", "not needed anymore", "--force", "--json")
 	if !strings.Contains(out, "removedDecisions") {

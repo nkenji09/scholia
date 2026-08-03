@@ -285,7 +285,7 @@ func TestPostDecision_WriteFailureCarriesNoULID(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
 
-	rec := doRequest(t, h, http.MethodPost, "/api/decision", []byte(`{"on":"tag:subject.auth","why":"x","commits":[]}`))
+	rec := doRequest(t, h, http.MethodPost, "/api/decision", []byte(`{"on":"tag:subject.auth","why":"# テスト用の見出し\n\nx","commits":[]}`))
 	if rec.Code != http.StatusInternalServerError {
 		t.Skipf("保存が失敗しなかった（root 実行等）: status=%d", rec.Code)
 	}

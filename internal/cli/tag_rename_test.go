@@ -24,7 +24,7 @@ func TestCLI_TagRenameThenLintGreen(t *testing.T) {
 	dir := t.TempDir()
 	setupTagTree(t, dir)
 	// decision on the tag so the decision-target ref site is exercised too.
-	mustRun(t, dir, "decide", "--on", "tag:subject.comp", "--why", "初期")
+	mustRun(t, dir, "decide", "--on", "tag:subject.comp", "--why", "# テスト用の見出し\n\n初期")
 
 	mustRun(t, dir, "tag", "rename", "subject.comp", "subject.widget")
 

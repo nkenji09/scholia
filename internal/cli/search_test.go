@@ -61,11 +61,11 @@ func seedSearchFixture(t *testing.T, dir string) {
 		"--then", "eff.other.noop",
 	)
 
-	decideOut, err := run(t, dir, "decide", "--on", "tag:subject.login", "--why", "login フローの決定理由", "--json")
+	decideOut, err := run(t, dir, "decide", "--on", "tag:subject.login", "--why", "# テスト用の見出し\n\nlogin フローの決定理由", "--json")
 	if err != nil {
 		t.Fatalf("decide: %v\n%s", err, decideOut)
 	}
-	must("decide", "--on", "tag:subject.other", "--why", "無関係な決定理由")
+	must("decide", "--on", "tag:subject.other", "--why", "# テスト用の見出し\n\n無関係な決定理由")
 }
 
 func TestSearch_MatchesAcrossAllFourTypes(t *testing.T) {
@@ -220,8 +220,8 @@ func seedTagScopeFixture(t *testing.T, dir string) {
 		"--then", "eff.swap-days",
 		"--tags", "subject.calendar",
 	)
-	must("decide", "--on", "tag:req.picker-swap", "--why", "picker の swap 決定")
-	must("decide", "--on", "tag:subject.calendar", "--why", "calendar の swap 決定")
+	must("decide", "--on", "tag:req.picker-swap", "--why", "# テスト用の見出し\n\npicker の swap 決定")
+	must("decide", "--on", "tag:subject.calendar", "--why", "# テスト用の見出し\n\ncalendar の swap 決定")
 }
 
 func TestSearch_TagFlagNarrowsToSubtree(t *testing.T) {

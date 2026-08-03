@@ -50,7 +50,7 @@ func TestCLI_DecideWithCommitFlags(t *testing.T) {
 		t.Fatalf("tag create: %v", err)
 	}
 
-	out, err := run(t, dir, "decide", "--on", "tag:t1", "--why", "理由", "--commit", "a", "--commit", "b", "--json")
+	out, err := run(t, dir, "decide", "--on", "tag:t1", "--why", "# テスト用の見出し\n\n理由", "--commit", "a", "--commit", "b", "--json")
 	if err != nil {
 		t.Fatalf("decide --commit failed: %v\noutput:\n%s", err, out)
 	}
@@ -90,7 +90,7 @@ func TestCLI_DecisionAddCommit(t *testing.T) {
 	if _, err := run(t, dir, "tag", "create", "t1", "--name", "t1", "--kind", "concern"); err != nil {
 		t.Fatalf("tag create: %v", err)
 	}
-	decideOut, err := run(t, dir, "decide", "--on", "tag:t1", "--why", "元の理由", "--changed", "元の変更", "--ref", "PR#1", "--commit", "a", "--json")
+	decideOut, err := run(t, dir, "decide", "--on", "tag:t1", "--why", "# テスト用の見出し\n\n元の理由", "--changed", "元の変更", "--ref", "PR#1", "--commit", "a", "--json")
 	if err != nil {
 		t.Fatalf("decide: %v\noutput:\n%s", err, decideOut)
 	}
@@ -149,10 +149,10 @@ func TestCLI_DecisionList(t *testing.T) {
 	if _, err := run(t, dir, "tag", "create", "subject.child", "--name", "子", "--kind", "subject", "--parent", "subject.parent"); err != nil {
 		t.Fatalf("tag create child: %v", err)
 	}
-	if _, err := run(t, dir, "decide", "--on", "tag:subject.parent", "--why", "親への決定"); err != nil {
+	if _, err := run(t, dir, "decide", "--on", "tag:subject.parent", "--why", "# テスト用の見出し\n\n親への決定"); err != nil {
 		t.Fatalf("decide parent: %v", err)
 	}
-	if _, err := run(t, dir, "decide", "--on", "tag:subject.child", "--why", "子への決定"); err != nil {
+	if _, err := run(t, dir, "decide", "--on", "tag:subject.child", "--why", "# テスト用の見出し\n\n子への決定"); err != nil {
 		t.Fatalf("decide child: %v", err)
 	}
 

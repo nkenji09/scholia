@@ -60,10 +60,10 @@ func TestRemoveVocab_RejectsDecisionTargetAndEstablishesReference(t *testing.T) 
 	if err := s.SaveVocab(model.VocabEntry{ID: "cond.a", Category: model.CategoryCondition, Label: "a"}); err != nil {
 		t.Fatalf("SaveVocab: %v", err)
 	}
-	if err := s.SaveDecision(model.Decision{
+	if err := s.CreateDecision(model.Decision{
 		ID: "01DV", Target: model.DecisionTarget{Type: model.DecisionTargetVocab, ID: "cond.a"},
-		Why: "w", At: "2026-01-01T00:00:00Z",
-	}); err != nil {
+		Why: "# テスト用の見出し\n\nw", At: "2026-01-01T00:00:00Z",
+	}, DecisionCreateOptions{}); err != nil {
 		t.Fatalf("SaveDecision: %v", err)
 	}
 	if _, err := s.RemoveVocab("cond.a"); err == nil {
@@ -187,10 +187,10 @@ func TestRemoveTag_RejectsDecisionTargetEvenWithForce(t *testing.T) {
 	if err := s.SaveTag(model.Tag{ID: "t1", Name: "t1"}); err != nil {
 		t.Fatalf("SaveTag: %v", err)
 	}
-	if err := s.SaveDecision(model.Decision{
+	if err := s.CreateDecision(model.Decision{
 		ID: "01D1", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "t1"},
-		Why: "w", At: "2026-01-01T00:00:00Z",
-	}); err != nil {
+		Why: "# テスト用の見出し\n\nw", At: "2026-01-01T00:00:00Z",
+	}, DecisionCreateOptions{}); err != nil {
 		t.Fatalf("SaveDecision: %v", err)
 	}
 
@@ -211,16 +211,16 @@ func TestRemoveTransition_CascadesOnlyItsOwnDecisions(t *testing.T) {
 	if err := s.SaveTransition(model.Transition{ID: "T-1", Action: "act.a", Then: []string{"eff.a"}}); err != nil {
 		t.Fatalf("SaveTransition: %v", err)
 	}
-	if err := s.SaveDecision(model.Decision{
+	if err := s.CreateDecision(model.Decision{
 		ID: "01D1", Target: model.DecisionTarget{Type: model.DecisionTargetTransition, ID: "T-1"},
-		Why: "w", At: "2026-01-01T00:00:00Z",
-	}); err != nil {
+		Why: "# テスト用の見出し\n\nw", At: "2026-01-01T00:00:00Z",
+	}, DecisionCreateOptions{}); err != nil {
 		t.Fatalf("SaveDecision: %v", err)
 	}
-	if err := s.SaveDecision(model.Decision{
+	if err := s.CreateDecision(model.Decision{
 		ID: "01D2", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.x"},
-		Why: "w", At: "2026-01-01T00:00:00Z",
-	}); err != nil {
+		Why: "# テスト用の見出し\n\nw", At: "2026-01-01T00:00:00Z",
+	}, DecisionCreateOptions{}); err != nil {
 		t.Fatalf("SaveDecision: %v", err)
 	}
 
@@ -262,10 +262,10 @@ func TestRemoveTransitionUnlinked_DeletesOnlyWhenUnreferenced(t *testing.T) {
 	if err := s.SaveTransition(model.Transition{ID: "T-1", Action: "act.a", Then: []string{"eff.a"}}); err != nil {
 		t.Fatalf("SaveTransition: %v", err)
 	}
-	if err := s.SaveDecision(model.Decision{
+	if err := s.CreateDecision(model.Decision{
 		ID: "01D1", Target: model.DecisionTarget{Type: model.DecisionTargetTransition, ID: "T-1"},
-		Why: "w", At: "2026-01-01T00:00:00Z",
-	}); err != nil {
+		Why: "# テスト用の見出し\n\nw", At: "2026-01-01T00:00:00Z",
+	}, DecisionCreateOptions{}); err != nil {
 		t.Fatalf("SaveDecision: %v", err)
 	}
 

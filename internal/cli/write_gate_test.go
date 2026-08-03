@@ -234,7 +234,7 @@ func TestCLI_DecideDryRunPreviewsWithoutSaving(t *testing.T) {
 	mustRun(t, dir, "tx", "add", "T-x", "--action", "act.user.run", "--then", "eff.state.apply")
 
 	out := mustRun(t, dir, "decide", "--on", "transition:T-x",
-		"--why", "internal/foo.go:12 の分岐に合わせた", "--dry-run")
+		"--why", "# テスト用の見出し\n\ninternal/foo.go:12 の分岐に合わせた", "--dry-run")
 	if !strings.Contains(out, "dry-run") || !strings.Contains(out, "advisory(why-file-line)") {
 		t.Fatalf("dry-run は保存せず advisory を出すはず:\n%s", out)
 	}
@@ -249,13 +249,13 @@ func TestCLI_DecideDryRunPreviewsWithoutSaving(t *testing.T) {
 	}
 
 	// advisory ゼロの dry-run はその旨を明示する。
-	out = mustRun(t, dir, "decide", "--on", "transition:T-x", "--why", "分岐仕様を確定", "--dry-run")
+	out = mustRun(t, dir, "decide", "--on", "transition:T-x", "--why", "# テスト用の見出し\n\n分岐仕様を確定", "--dry-run")
 	if !strings.Contains(out, "advisory: なし") {
 		t.Fatalf("advisory ゼロの dry-run は「なし」を明示するはず:\n%s", out)
 	}
 
 	// 本番 decide は保存し、保存後にも advisory を表示する。
-	out = mustRun(t, dir, "decide", "--on", "transition:T-x", "--why", "internal/foo.go:12 の分岐に合わせた")
+	out = mustRun(t, dir, "decide", "--on", "transition:T-x", "--why", "# テスト用の見出し\n\ninternal/foo.go:12 の分岐に合わせた")
 	if !strings.Contains(out, "を記録しました") || !strings.Contains(out, "advisory(why-file-line)") {
 		t.Fatalf("通常 decide も保存後に advisory を表示するはず:\n%s", out)
 	}
@@ -307,7 +307,7 @@ func TestCLI_WriteJSONEnvelopeShape(t *testing.T) {
 
 	// decide --dry-run の封筒は dryRun: true。
 	mustRun(t, dir, "tx", "add", "T-x", "--action", "act.user.run", "--then", "eff.state.apply")
-	out = mustRun(t, dir, "decide", "--on", "transition:T-x", "--why", "理由", "--dry-run", "--json")
+	out = mustRun(t, dir, "decide", "--on", "transition:T-x", "--why", "# テスト用の見出し\n\n理由", "--dry-run", "--json")
 	var env3 struct {
 		Record     model.Decision `json:"record"`
 		Advisories []lint.Finding `json:"advisories"`

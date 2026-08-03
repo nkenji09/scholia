@@ -2,17 +2,20 @@ package viewer
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/nkenji09/scholia/internal/model"
+	"github.com/nkenji09/scholia/internal/store"
 )
 
 func TestPostDecision_CreatesDecisionFile(t *testing.T) {
 	h, s := newTestHandler(t)
-	body := []byte(`{"on":"transition:T-login","why":"dangling 参照だけでなく commit の実在性も検証する","commits":[]}`)
+	body := []byte(`{"on":"transition:T-login","why":"# テスト用の見出し\n\ndangling 参照だけでなく commit の実在性も検証する","commits":[]}`)
 	rec := doRequest(t, h, http.MethodPost, "/api/decision", body)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status = %d, want 201: %s", rec.Code, rec.Body.String())
@@ -24,7 +27,7 @@ func TestPostDecision_CreatesDecisionFile(t *testing.T) {
 	if d.Target.Type != model.DecisionTargetTransition || d.Target.ID != "T-login" {
 		t.Fatalf("Target = %+v, want transition:T-login", d.Target)
 	}
-	if d.Why != "dangling 参照だけでなく commit の実在性も検証する" {
+	if d.Why != "# テスト用の見出し\n\ndangling 参照だけでなく commit の実在性も検証する" {
 		t.Fatalf("Why = %q, want the posted body", d.Why)
 	}
 	if len(d.Commits) != 0 {
@@ -42,7 +45,7 @@ func TestPostDecision_CreatesDecisionFile(t *testing.T) {
 
 func TestPostDecision_OnTag(t *testing.T) {
 	h, s := newTestHandler(t)
-	body := []byte(`{"on":"tag:subject.auth","why":"認証まわりの方針を決めた","commits":[]}`)
+	body := []byte(`{"on":"tag:subject.auth","why":"# テスト用の見出し\n\n認証まわりの方針を決めた","commits":[]}`)
 	rec := doRequest(t, h, http.MethodPost, "/api/decision", body)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status = %d, want 201: %s", rec.Code, rec.Body.String())
@@ -67,7 +70,7 @@ func TestPostDecision_AppendOnly(t *testing.T) {
 		t.Fatalf("LoadDecision(d1) before: %v", err)
 	}
 
-	body := []byte(`{"on":"tag:subject.auth","why":"別の判断を追加する","commits":[]}`)
+	body := []byte(`{"on":"tag:subject.auth","why":"# テスト用の見出し\n\n別の判断を追加する","commits":[]}`)
 	rec := doRequest(t, h, http.MethodPost, "/api/decision", body)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status = %d, want 201: %s", rec.Code, rec.Body.String())
@@ -88,7 +91,7 @@ func TestPostDecision_AppendOnly(t *testing.T) {
 
 func TestPostDecision_UnknownTransitionRejected(t *testing.T) {
 	h, _ := newTestHandler(t)
-	body := []byte(`{"on":"transition:T-does-not-exist","why":"存在しない対象","commits":[]}`)
+	body := []byte(`{"on":"transition:T-does-not-exist","why":"# テスト用の見出し\n\n存在しない対象","commits":[]}`)
 	rec := doRequest(t, h, http.MethodPost, "/api/decision", body)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
@@ -97,7 +100,7 @@ func TestPostDecision_UnknownTransitionRejected(t *testing.T) {
 
 func TestPostDecision_UnknownTagRejected(t *testing.T) {
 	h, _ := newTestHandler(t)
-	body := []byte(`{"on":"tag:does-not-exist","why":"存在しない対象","commits":[]}`)
+	body := []byte(`{"on":"tag:does-not-exist","why":"# テスト用の見出し\n\n存在しない対象","commits":[]}`)
 	rec := doRequest(t, h, http.MethodPost, "/api/decision", body)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
@@ -106,7 +109,7 @@ func TestPostDecision_UnknownTagRejected(t *testing.T) {
 
 func TestPostDecision_MalformedOnRejected(t *testing.T) {
 	h, _ := newTestHandler(t)
-	body := []byte(`{"on":"bogus","why":"形式が不正","commits":[]}`)
+	body := []byte(`{"on":"bogus","why":"# テスト用の見出し\n\n形式が不正","commits":[]}`)
 	rec := doRequest(t, h, http.MethodPost, "/api/decision", body)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
@@ -124,7 +127,7 @@ func TestPostDecision_EmptyWhyRejected(t *testing.T) {
 
 func TestPostDecision_UnknownFieldRejected(t *testing.T) {
 	h, _ := newTestHandler(t)
-	body := []byte(`{"on":"transition:T-login","why":"…","commits":[],"bogusField":1}`)
+	body := []byte(`{"on":"transition:T-login","why":"# テスト用の見出し\n\n…","commits":[],"bogusField":1}`)
 	rec := doRequest(t, h, http.MethodPost, "/api/decision", body)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
@@ -138,7 +141,7 @@ func TestPostDecision_UnknownFieldRejected(t *testing.T) {
 // 構造的に結線できない。
 func TestPostDecision_AcceptsSupersedes(t *testing.T) {
 	h, s := newTestHandler(t)
-	body := []byte(`{"on":"tag:subject.auth","why":"改訂: cookie ではなく header で運ぶ","commits":[],"supersedes":[{"id":"d1","mode":"supersede"}]}`)
+	body := []byte(`{"on":"tag:subject.auth","why":"# テスト用の見出し\n\n改訂: cookie ではなく header で運ぶ","commits":[],"supersedes":[{"id":"d1","mode":"supersede"}]}`)
 	rec := doRequest(t, h, http.MethodPost, "/api/decision", body)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status = %d, want 201: %s", rec.Code, rec.Body.String())
@@ -159,7 +162,7 @@ func TestPostDecision_AcceptsSupersedes(t *testing.T) {
 // mode 省略は既定 amend として保存される（保存値は書かれたまま＝空）。
 func TestPostDecision_SupersedesDefaultMode(t *testing.T) {
 	h, _ := newTestHandler(t)
-	body := []byte(`{"on":"tag:subject.auth","why":"部分改訂","commits":[],"supersedes":[{"id":"d1"}]}`)
+	body := []byte(`{"on":"tag:subject.auth","why":"# テスト用の見出し\n\n部分改訂","commits":[],"supersedes":[{"id":"d1"}]}`)
 	rec := doRequest(t, h, http.MethodPost, "/api/decision", body)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status = %d, want 201: %s", rec.Code, rec.Body.String())
@@ -173,7 +176,7 @@ func TestPostDecision_SupersedesDefaultMode(t *testing.T) {
 // 未知フィールドは従来どおり弾く（supersedes を足しても DisallowUnknownFields は緩めない）。
 func TestPostDecision_StillRejectsUnknownFields(t *testing.T) {
 	h, _ := newTestHandler(t)
-	body := []byte(`{"on":"tag:subject.auth","why":"x","commits":[],"superseeds":[{"id":"d1"}]}`)
+	body := []byte(`{"on":"tag:subject.auth","why":"# テスト用の見出し\n\nx","commits":[],"superseeds":[{"id":"d1"}]}`)
 	rec := doRequest(t, h, http.MethodPost, "/api/decision", body)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400（typo フィールドは弾く）: %s", rec.Code, rec.Body.String())
@@ -186,10 +189,10 @@ func TestPostDecision_SupersedesValidation(t *testing.T) {
 		name string
 		body string
 	}{
-		{"実在しない旧 decision", `{"on":"tag:subject.auth","why":"x","commits":[],"supersedes":[{"id":"nope"}]}`},
-		{"重複指定", `{"on":"tag:subject.auth","why":"x","commits":[],"supersedes":[{"id":"d1","mode":"amend"},{"id":"d1","mode":"supersede"}]}`},
-		{"不正な mode", `{"on":"tag:subject.auth","why":"x","commits":[],"supersedes":[{"id":"d1","mode":"replace"}]}`},
-		{"空の id", `{"on":"tag:subject.auth","why":"x","commits":[],"supersedes":[{"id":""}]}`},
+		{"実在しない旧 decision", `{"on":"tag:subject.auth","why":"# テスト用の見出し\n\nx","commits":[],"supersedes":[{"id":"nope"}]}`},
+		{"重複指定", `{"on":"tag:subject.auth","why":"# テスト用の見出し\n\nx","commits":[],"supersedes":[{"id":"d1","mode":"amend"},{"id":"d1","mode":"supersede"}]}`},
+		{"不正な mode", `{"on":"tag:subject.auth","why":"# テスト用の見出し\n\nx","commits":[],"supersedes":[{"id":"d1","mode":"replace"}]}`},
+		{"空の id", `{"on":"tag:subject.auth","why":"# テスト用の見出し\n\nx","commits":[],"supersedes":[{"id":""}]}`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -206,7 +209,7 @@ func TestPostDecision_SupersedesValidation(t *testing.T) {
 func TestPostDecision_UnlinkedAdvisory(t *testing.T) {
 	h, _ := newTestHandler(t)
 	// subject.auth には既存 decision "d1" がある。
-	rec := doRequest(t, h, http.MethodPost, "/api/decision", []byte(`{"on":"tag:subject.auth","why":"宣言なしで採用","commits":[]}`))
+	rec := doRequest(t, h, http.MethodPost, "/api/decision", []byte(`{"on":"tag:subject.auth","why":"# テスト用の見出し\n\n宣言なしで採用","commits":[]}`))
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("未宣言でもブロックしないべき: status = %d: %s", rec.Code, rec.Body.String())
 	}
@@ -226,7 +229,7 @@ func TestPostDecision_UnlinkedAdvisory(t *testing.T) {
 	}
 
 	// 既存 decision の無い対象では出ない（純粋な新規追加は正当）。
-	rec = doRequest(t, h, http.MethodPost, "/api/decision", []byte(`{"on":"transition:T-login","why":"新規","commits":[]}`))
+	rec = doRequest(t, h, http.MethodPost, "/api/decision", []byte(`{"on":"transition:T-login","why":"# テスト用の見出し\n\n新規","commits":[]}`))
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status = %d, want 201: %s", rec.Code, rec.Body.String())
 	}
@@ -255,10 +258,10 @@ func TestPostDecision_SupersedeErrorsCarryNoULID(t *testing.T) {
 		t.Helper()
 		h, s := newTestHandler(t)
 		old := "01KYHZZZZZZZZZZZZZZZZZZZZZ"
-		if err := s.SaveDecision(model.Decision{
+		if err := s.CreateDecision(model.Decision{
 			ID: old, Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.auth"},
-			Why: "旧", At: "2026-01-01T00:00:00Z",
-		}); err != nil {
+			Why: "# テスト用の見出し\n\n旧", At: "2026-01-01T00:00:00Z",
+		}, store.DecisionCreateOptions{}); err != nil {
 			t.Fatalf("seed decision: %v", err)
 		}
 		return h, old
@@ -272,28 +275,28 @@ func TestPostDecision_SupersedeErrorsCarryNoULID(t *testing.T) {
 		{
 			name: "実在しない旧 decision",
 			body: func(string) string {
-				return `{"on":"tag:subject.auth","why":"x","commits":[],"supersedes":[{"id":"01KYHYYYYYYYYYYYYYYYYYYYYY"}]}`
+				return `{"on":"tag:subject.auth","why":"# テスト用の見出し\n\nx","commits":[],"supersedes":[{"id":"01KYHYYYYYYYYYYYYYYYYYYYYY"}]}`
 			},
 			wantCode: "supersedes-missing-target",
 		},
 		{
 			name: "3値でない mode",
 			body: func(o string) string {
-				return `{"on":"tag:subject.auth","why":"x","commits":[],"supersedes":[{"id":"` + o + `","mode":"bogus"}]}`
+				return `{"on":"tag:subject.auth","why":"# テスト用の見出し\n\nx","commits":[],"supersedes":[{"id":"` + o + `","mode":"bogus"}]}`
 			},
 			wantCode: "supersedes-invalid-mode",
 		},
 		{
 			name: "同一 id の重複",
 			body: func(o string) string {
-				return `{"on":"tag:subject.auth","why":"x","commits":[],"supersedes":[{"id":"` + o + `","mode":"amend"},{"id":"` + o + `","mode":"supersede"}]}`
+				return `{"on":"tag:subject.auth","why":"# テスト用の見出し\n\nx","commits":[],"supersedes":[{"id":"` + o + `","mode":"amend"},{"id":"` + o + `","mode":"supersede"}]}`
 			},
 			wantCode: "supersedes-duplicate",
 		},
 		{
 			name: "空 id",
 			body: func(string) string {
-				return `{"on":"tag:subject.auth","why":"x","commits":[],"supersedes":[{"id":""}]}`
+				return `{"on":"tag:subject.auth","why":"# テスト用の見出し\n\nx","commits":[],"supersedes":[{"id":""}]}`
 			},
 			wantCode: "supersedes-empty-id",
 		},
@@ -330,4 +333,41 @@ func TestSupersedeError_CLIMessageKeepsID(t *testing.T) {
 	if ulidPattern.MatchString(supersedeViewerMessage(err)) {
 		t.Fatalf("viewer 向け文言は id を含まないべき: %q", supersedeViewerMessage(err))
 	}
+}
+
+// 面3: viewer の保存系エンドポイント（01KZ06SYR3APGF3JD4NQRFTEEN 変更3）。
+// **逃し弁は置かない**（エスケープは CLI の --allow --reason 経由のみ・
+// transition_write.go の先例どおり）。422 で返し、ドロワーは入力中の why を
+// 保持したままエラーを表示できる。
+func TestPostDecision_RejectsMissingHeading(t *testing.T) {
+	h, s := newTestHandler(t)
+	body := []byte(`{"on":"tag:subject.auth","why":"見出しの無い why\n\n本文","commits":[]}`)
+	rec := doRequest(t, h, http.MethodPost, "/api/decision", body)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422: %s", rec.Code, rec.Body.String())
+	}
+	got := rec.Body.String()
+	if !strings.Contains(got, "見出し") {
+		t.Fatalf("何を直せばよいかが body にあるべき: %s", got)
+	}
+	// viewer は生 ULID を表示しない（01KYCC2TF3NW3JRSSRK9ZHN078）。
+	if ulidPattern.MatchString(got) {
+		t.Fatalf("拒否の body に生 ULID が出ている: %s", got)
+	}
+	if !strings.Contains(got, "reject-decision-heading") {
+		t.Fatalf("機械可読な code を返すべき: %s", got)
+	}
+	// 保存されていない（fixture の d1 以外に decision が増えていない）。
+	if n := countDecisionFiles(t, s); n != 1 {
+		t.Fatalf("拒んだのに decision が増えた: %d 件", n)
+	}
+}
+
+func countDecisionFiles(t *testing.T, s *store.Store) int {
+	t.Helper()
+	entries, err := os.ReadDir(filepath.Join(s.Dir, "decisions"))
+	if err != nil {
+		t.Fatalf("read decisions dir: %v", err)
+	}
+	return len(entries)
 }

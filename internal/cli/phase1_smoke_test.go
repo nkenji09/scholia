@@ -27,11 +27,11 @@ func TestCLISmoke_Phase1FullFlow(t *testing.T) {
 		"--tags", "req.auth-happy-path",
 	)
 
-	txDecide := mustRun(t, dir, "decide", "--on", "transition:T-login-submit-valid", "--why", "トークンは httpOnly cookie で発行（XSS対策）", "--ref", "https://example.com/pr/42", "--json")
+	txDecide := mustRun(t, dir, "decide", "--on", "transition:T-login-submit-valid", "--why", "# テスト用の見出し\n\nトークンは httpOnly cookie で発行（XSS対策）", "--ref", "https://example.com/pr/42", "--json")
 	if !strings.Contains(txDecide, `"id"`) {
 		t.Fatalf("expected decide --json to emit the created record, got %s", txDecide)
 	}
-	mustRun(t, dir, "decide", "--on", "tag:subject.auth", "--why", "認証まわりの共通不変条件")
+	mustRun(t, dir, "decide", "--on", "tag:subject.auth", "--why", "# テスト用の見出し\n\n認証まわりの共通不変条件")
 
 	rulesOut := mustRun(t, dir, "rules", "--tx", "T-login-submit-valid")
 	if !strings.Contains(rulesOut, "httpOnly cookie") || !strings.Contains(rulesOut, "共通不変条件") {

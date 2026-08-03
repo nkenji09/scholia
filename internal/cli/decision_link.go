@@ -65,7 +65,7 @@ func newDecisionLinkCmd() *cobra.Command {
 			}
 
 			d.Supersedes = merged
-			if err := s.SaveDecision(d); err != nil {
+			if err := s.UpdateDecision(d); err != nil {
 				return err
 			}
 			saved, err := s.LoadDecision(newID)

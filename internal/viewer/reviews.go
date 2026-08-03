@@ -152,11 +152,22 @@ func decisionTargetName(snap store.Snapshot, target model.DecisionTarget) string
 // summarizeWhy は why の1行目を上限付きで返す（ドロワーのカードに載る要約。
 // 全文は deep-link 先の decision 詳細が持つ）。
 func summarizeWhy(why string) string {
+	// 見出しがあるなら見出し本体（`#` は表示に持ち込まない）。新規 decision は
+	// 保存時ゲート（01KZ06SYR3APGF3JD4NQRFTEEN）で必ず見出しを持つので、
+	// これが通常の経路になる。判定は端末側の畳んだ一覧と同じ述語。
+	if h, ok := model.DecisionHeadingOf(why); ok {
+		return truncateSummary(h)
+	}
+	// 見出しの無い既存 decision（保存時ゲート以前の 173 件）は 1 行目のまま。
 	line := why
 	if i := strings.IndexAny(line, "\r\n"); i >= 0 {
 		line = line[:i]
 	}
 	line = strings.TrimSpace(line)
+	return truncateSummary(line)
+}
+
+func truncateSummary(line string) string {
 	const max = 120
 	r := []rune(line)
 	if len(r) > max {

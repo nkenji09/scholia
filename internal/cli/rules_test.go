@@ -36,12 +36,12 @@ func TestCLI_DecideThenRulesSurfacesTxAndTagDecisions(t *testing.T) {
 	setupAuthFixture(t, dir)
 
 	// T-login の実効タグは {req.auth, subject.auth}（vocab 経路＋祖先展開）。
-	txDecide := mustRun(t, dir, "decide", "--on", "transition:T-login", "--why", "httpOnly cookie でトークン発行", "--json")
+	txDecide := mustRun(t, dir, "decide", "--on", "transition:T-login", "--why", "# テスト用の見出し\n\nhttpOnly cookie でトークン発行", "--json")
 	if !strings.Contains(txDecide, `"transition"`) {
 		t.Fatalf("expected transition target in decide output, got %s", txDecide)
 	}
 
-	tagDecide := mustRun(t, dir, "decide", "--on", "tag:subject.auth", "--why", "null と空文字は同一の未入力として扱う", "--json")
+	tagDecide := mustRun(t, dir, "decide", "--on", "tag:subject.auth", "--why", "# テスト用の見出し\n\nnull と空文字は同一の未入力として扱う", "--json")
 	if !strings.Contains(tagDecide, `"subject.auth"`) {
 		t.Fatalf("expected tag target in decide output, got %s", tagDecide)
 	}
@@ -58,7 +58,7 @@ func TestCLI_DecideThenRulesSurfacesTxAndTagDecisions(t *testing.T) {
 func TestCLI_RulesTagSelectorIncludesAncestors(t *testing.T) {
 	dir := t.TempDir()
 	setupAuthFixture(t, dir)
-	mustRun(t, dir, "decide", "--on", "tag:subject.auth", "--why", "認証まわりの共通規則")
+	mustRun(t, dir, "decide", "--on", "tag:subject.auth", "--why", "# テスト用の見出し\n\n認証まわりの共通規則")
 
 	out := mustRun(t, dir, "rules", "--tag", "req.auth")
 	if !strings.Contains(out, "認証まわりの共通規則") {
@@ -69,7 +69,7 @@ func TestCLI_RulesTagSelectorIncludesAncestors(t *testing.T) {
 func TestCLI_RulesFacetSelector(t *testing.T) {
 	dir := t.TempDir()
 	setupAuthFixture(t, dir)
-	mustRun(t, dir, "decide", "--on", "tag:req.auth", "--why", "要件 facet の規則")
+	mustRun(t, dir, "decide", "--on", "tag:req.auth", "--why", "# テスト用の見出し\n\n要件 facet の規則")
 
 	out := mustRun(t, dir, "rules", "--facet", "requirement")
 	if !strings.Contains(out, "要件 facet の規則") {
@@ -93,8 +93,8 @@ func TestCLI_RulesVocabSelector(t *testing.T) {
 	setupAuthFixture(t, dir)
 	// act.user.submit-login は subject.auth タグを直接持つ（vocab tag 経路）。
 	// own の vocab-target decision と、vocab.tags 経由の tag decision の両方が出る。
-	mustRun(t, dir, "decide", "--on", "vocab:act.user.submit-login", "--why", "この語彙固有の規則")
-	mustRun(t, dir, "decide", "--on", "tag:subject.auth", "--why", "subject.auth の共通規則")
+	mustRun(t, dir, "decide", "--on", "vocab:act.user.submit-login", "--why", "# テスト用の見出し\n\nこの語彙固有の規則")
+	mustRun(t, dir, "decide", "--on", "tag:subject.auth", "--why", "# テスト用の見出し\n\nsubject.auth の共通規則")
 
 	out := mustRun(t, dir, "rules", "--vocab", "act.user.submit-login")
 	if !strings.Contains(out, "この語彙固有の規則") {
@@ -108,10 +108,10 @@ func TestCLI_RulesVocabSelector(t *testing.T) {
 func TestCLI_DecideRejectsMissingTarget(t *testing.T) {
 	dir := t.TempDir()
 	mustRun(t, dir, "init")
-	if _, err := run(t, dir, "decide", "--on", "transition:T-missing", "--why", "x"); err == nil {
+	if _, err := run(t, dir, "decide", "--on", "transition:T-missing", "--why", "# テスト用の見出し\n\nx"); err == nil {
 		t.Fatalf("expected error for decide on a nonexistent transition")
 	}
-	if _, err := run(t, dir, "decide", "--on", "bogus:foo", "--why", "x"); err == nil {
+	if _, err := run(t, dir, "decide", "--on", "bogus:foo", "--why", "# テスト用の見出し\n\nx"); err == nil {
 		t.Fatalf("expected error for an unrecognized --on target type")
 	}
 }
