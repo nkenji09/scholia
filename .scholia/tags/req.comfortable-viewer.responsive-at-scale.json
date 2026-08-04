@@ -1,0 +1,9 @@
+{
+  "id": "req.comfortable-viewer.responsive-at-scale",
+  "name": "件数が増えても画面が開ける",
+  "kind": "requirement",
+  "parentIds": [
+    "req.comfortable-viewer"
+  ],
+  "description": "画面を1枚開くのにサーバが行う仕事量が、レコード件数に対してどう伸びるかの要件。"
+}
