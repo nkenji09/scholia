@@ -424,7 +424,7 @@ scholia decide --on transition:<id> --ref <PR/URL> \
 lint は**二層**。**error/warn＝記録の自己矛盾**の検査（従来定義そのまま・不変。error は保存拒否/exit 1・warn は CI ratchet の対象）。
 **advisory＝authoring 規律（書き方規律）の改善提案**（`tier=advisory`・severity=info・保存も CI も止めない）。
 advisory は「自己矛盾」ではなく「読みが重い・腐りやすい書き方」を検出し、書いた同じターンに警告して是正コストが最小の時点で直せるようにする。
-decision の判断欄位（why/changed/ref/at）由来の advisory は append-only により是正が原理的に不能なので **acknowledge-only** 区分とし、是正リスト・残件バッジの分母から別掲する。
+decision の判断欄位（why/changed/ref/at）由来の advisory は append-only により是正が原理的に不能なので **acknowledge-only** 区分とし、是正リスト・残件バッジの分母から別掲する。テキスト出力では既定は**件数のサマリ行 1 行のみ**（明細は `--verbose`・修正候補つきの棚卸しは `scholia retrofit`）で、`--json` は全件を透過する。exit code には関与しない（severity=info ゆえ `--ci` の ratchet の対象外）。
 
 | rule | 重大度 | 何を守るか |
 | --- | --- | --- |
@@ -567,7 +567,7 @@ scholia list [--facet <tagKind>] [--tag <id>] [--kind <k>] [--json]   # faceted 
 scholia rules [--tag <id> | --tx <id> | --vocab <id> | --facet <k>] [--sort chrono|target] [--all] [--json]   # --vocab=own∪ vocab.tags＋祖先（#45 D10b・面間整合で viewer governs と同コア）。既定で本文を出すのは**その記録自身を対象とする decision だけ**——(a) タグ経由で届く分（祖先展開・直接持つタグ）は存在・経由タグ・経由の種別・著者見出しを出す、(b) 失効(mode=supersede)は「取り下げられた規則 N件」として存在と行き先を出す（01KZ06SYP12ZFDG1WPNYM529D8・01KYNYG2WBC5QRGDQN2VS5WPQ8）。--all は畳んだもの全部を本文ごと（失効には [失効: supersede 済] の印）。--facet は経由の概念を持たないので (a) は当たらない。--current は既定と同義で受理（後方互換・--all との同時指定はエラー）
 scholia flow <action> [--json] [--verbose]                    # きっかけ(action)の給条件×遷移マトリクス＋証明可能な gap 検出（honesty-first・派生・§3.4・#39）。--verbose は評価順で解決済みの重なり/subset-shadow と derive した else も開示（#45 D8）
 scholia gaps <action> [--json] [--verbose]                    # flow と同じ解析の gap-only ビュー（抜け・重なり・subset-shadow＋scope-disclosure のみ・§3.4・#39）
-scholia lint [--json] [--ci]                                 # --ci は歯止め（ratchet）: error 常時 exit 1・baseline に無い新規 warn のみ exit 1（不在は非活性・#45 U4）
+scholia lint [--json] [--verbose] [--ci]                     # --ci は歯止め（ratchet）: error 常時 exit 1・baseline に無い新規 warn のみ exit 1（不在は非活性・#45 U4）。--verbose は既定で件数へ畳んでいる区分（acknowledge-only・typed 容認・decision-coverage via-tag の内訳）の明細を出す
 scholia lint baseline update [--json]                        # .scholia/lint-baseline.json（rule+target キー）を warn 集合で全置換（この経路以外で書かない）
 scholia retrofit [--rule <id>] [--json]                      # advisory 規則で store を read-only 走査し「record×rule×該当引用×修正候補」を棚卸し（--fix なし・exit 0・acknowledge-only を別掲・#45 U2）
 scholia diff [<ref1> [<ref2>]] [--json] [--check] [--allow-decision-retrofit <理由>]  # 現在 vs ref1、または ref1 vs ref2 の semantic diff（変更評価。ref1 vs ref2 で `<commit>^ <commit>` = 1コミット分の変更）。--check は CI ゲート（decision の欄位単位 append-only 判定のみ・違反 exit 1・#45 U4）

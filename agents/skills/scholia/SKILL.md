@@ -183,7 +183,7 @@ decision は append-only ゆえ「今どれが正か」は `supersedes` リン�
 `scholia retrofit` の差分レポート（改定で新たに violation になる既存レコードの一覧）を添付する。
 AI は既存 store を few-shot の手本として読むため、古い違反レコードを掃除しない限り違反様式が再生産される。
 是正は提案フロー（pending 変更＋review コメント→adopt）に乗せる（`scholia retrofit` は read-only・`--fix` を持たない・exit 0）。
-decision の判断欄位（why/changed/ref）由来の finding は append-only により是正不能なので acknowledge-only として別掲される。
+decision の判断欄位（why/changed/ref）由来の finding は append-only により是正不能なので acknowledge-only として別掲される——`scholia lint` の既定では**件数 1 行のみ**で、明細は `--verbose`、修正候補つきの棚卸しは `scholia retrofit`。
 
 ## CLI コマンド表（DESIGN §6 要約。真値は `scholia <cmd> --help`）
 
@@ -235,7 +235,7 @@ scholia spec <subjectTag> [--all] [--json]                    # 取り下げの�
 scholia list [--facet <tagKind>] [--tag <id>] [--kind <k>] [--json]
 scholia rules [--tag <id> | --tx <id> | --vocab <id> | --facet <k>] [--sort chrono|target] [--all] [--json]  # --vocab=own∪ vocab.tags＋祖先（#45 D10b）。既定は**その記録自身への decision の本文だけ**（タグ経由の分と取り下げは存在・経由タグ・引き方だけ）・--all で畳んだもの全部を本文ごと（01KZ06SYP12ZFDG1WPNYM529D8）
 scholia search <keyword> [--type tag|transition|vocab|decision] [--tag <id>]… [--json]   # keyword で横断逆引き（id 未確定な入口）。transition は実効タグ・action kind でもヒット（viewer 検索と同一コア・#45 D10b）。--tag は候補タグのサブツリー（実効タグ包含・list --tag と同義）へ絞り込み（繰り返し可＝OR・#1）
-scholia lint [--json]
+scholia lint [--json] [--verbose] [--ci]                      # 既定は acknowledge-only・typed 容認・decision-coverage via-tag を件数へ畳む（明細は --verbose・修正候補つきの棚卸しは retrofit）。--ci は歯止め（error 常時 exit 1・baseline に無い新規 warn のみ exit 1）
 scholia retrofit [--rule <id>] [--json]                       # advisory 規則で store を read-only 走査し是正候補を棚卸し（--fix なし・exit 0）
 scholia diff [<ref1> [<ref2>]] [--json]                       # 現在 vs ref1、または ref1 vs ref2（landed 監査）
 
