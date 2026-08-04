@@ -5,11 +5,10 @@ import (
 
 	"github.com/nkenji09/scholia/internal/index"
 	"github.com/nkenji09/scholia/internal/model"
-	"github.com/nkenji09/scholia/internal/store"
 )
 
-func registerRulesRoute(mux *http.ServeMux, s *store.Store) {
-	mux.HandleFunc("GET /api/rules", getRulesHandler(s))
+func registerRulesRoute(mux *http.ServeMux, c *indexCache) {
+	mux.HandleFunc("GET /api/rules", getRulesHandler(c))
 }
 
 type rulesResponse struct {
@@ -24,7 +23,7 @@ type rulesResponse struct {
 // (it takes the tail of the list; see .concierge/decision.md §F). That mode
 // needed no new query-selection logic, only this doc comment plus
 // TestGetRules_NoSelector locking the behavior in with a test.
-func getRulesHandler(s *store.Store) http.HandlerFunc {
+func getRulesHandler(c *indexCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		tagID, txID, facet := q.Get("tag"), q.Get("tx"), q.Get("facet")
@@ -40,7 +39,7 @@ func getRulesHandler(s *store.Store) http.HandlerFunc {
 			return
 		}
 
-		snap, _, err := loadIndexed(s)
+		snap, _, err := c.load()
 		if err != nil {
 			writeStoreError(w, err)
 			return

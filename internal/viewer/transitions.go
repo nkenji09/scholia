@@ -10,9 +10,9 @@ import (
 	"github.com/nkenji09/scholia/internal/store"
 )
 
-func registerTransitionRoutes(mux *http.ServeMux, s *store.Store) {
-	mux.HandleFunc("GET /api/transitions", listTransitionsHandler(s))
-	mux.HandleFunc("GET /api/transitions/{id}", getTransitionHandler(s))
+func registerTransitionRoutes(mux *http.ServeMux, s *store.Store, c *indexCache) {
+	mux.HandleFunc("GET /api/transitions", listTransitionsHandler(s, c))
+	mux.HandleFunc("GET /api/transitions/{id}", getTransitionHandler(c))
 	mux.HandleFunc("DELETE /api/transitions/{id}", deleteTransitionHandler(s))
 }
 
@@ -41,9 +41,9 @@ func buildTransitionsResponse(ix *index.Index, facet, tagID, kind string) transi
 	return out
 }
 
-func listTransitionsHandler(s *store.Store) http.HandlerFunc {
+func listTransitionsHandler(s *store.Store, c *indexCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		snap, ix, err := loadIndexed(s)
+		snap, ix, err := c.load()
 		if err != nil {
 			writeStoreError(w, err)
 			return
@@ -69,10 +69,10 @@ func listTransitionsHandler(s *store.Store) http.HandlerFunc {
 	}
 }
 
-func getTransitionHandler(s *store.Store) http.HandlerFunc {
+func getTransitionHandler(c *indexCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
-		snap, ix, err := loadIndexed(s)
+		snap, ix, err := c.load()
 		if err != nil {
 			writeStoreError(w, err)
 			return

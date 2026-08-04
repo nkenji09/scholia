@@ -7,8 +7,8 @@ import (
 	"github.com/nkenji09/scholia/internal/store"
 )
 
-func registerGovernsRoutes(mux *http.ServeMux, s *store.Store) {
-	mux.HandleFunc("GET /api/governs", getGovernsHandler(s))
+func registerGovernsRoutes(mux *http.ServeMux, c *indexCache) {
+	mux.HandleFunc("GET /api/governs", getGovernsHandler(c))
 }
 
 // governsResponse is the per-record governs payload (#45 D10b-1): the set of
@@ -28,7 +28,7 @@ type governsResponse struct {
 	Entries []index.GovernsRef `json:"entries"`
 }
 
-func getGovernsHandler(s *store.Store) http.HandlerFunc {
+func getGovernsHandler(c *indexCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		tagID, txID, vocabID := q.Get("tag"), q.Get("tx"), q.Get("vocab")
@@ -44,7 +44,7 @@ func getGovernsHandler(s *store.Store) http.HandlerFunc {
 			return
 		}
 
-		snap, _, err := loadIndexed(s)
+		snap, _, err := c.load()
 		if err != nil {
 			writeStoreError(w, err)
 			return

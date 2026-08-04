@@ -10,8 +10,8 @@ import (
 	"github.com/nkenji09/scholia/internal/store"
 )
 
-func registerReviewsRoute(mux *http.ServeMux, s *store.Store) {
-	mux.HandleFunc("GET /api/reviews", getReviewsHandler(s))
+func registerReviewsRoute(mux *http.ServeMux, s *store.Store, c *indexCache) {
+	mux.HandleFunc("GET /api/reviews", getReviewsHandler(s, c))
 	mux.HandleFunc("DELETE /api/reviews/{id}", deleteReviewHandler(s))
 }
 
@@ -24,7 +24,7 @@ func registerReviewsRoute(mux *http.ServeMux, s *store.Store) {
 // is the one write this file has: it only ever removes an overlay comment
 // the frontend has already folded into a decision (§35 tx.review.adopt/
 // -reject cleanup step), never adds or edits one.
-func getReviewsHandler(s *store.Store) http.HandlerFunc {
+func getReviewsHandler(s *store.Store, c *indexCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		reviews, err := review.List(s.Dir)
 		if err != nil {
@@ -33,7 +33,7 @@ func getReviewsHandler(s *store.Store) http.HandlerFunc {
 		}
 		out := make([]reviewResponse, 0, len(reviews))
 		if len(reviews) > 0 {
-			snap, err := s.LoadAll()
+			snap, _, err := c.load()
 			if err != nil {
 				writeStoreError(w, err)
 				return

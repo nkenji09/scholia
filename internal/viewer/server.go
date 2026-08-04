@@ -27,17 +27,24 @@ func NewHandler(s *store.Store) (http.Handler, error) {
 	// the SPA's "/" handler — jsonAPIHandler then re-emits that outcome as
 	// JSON instead of stdlib's plain-text body (§7: /api/ is a JSON
 	// contract, not part of the SPA's route space).
+	// 派生 index は**起動時に1回**建て、`.scholia/` が変わったときだけ建て直す
+	// （decision 01KZ5N5CJ2VFMZAGSFPSCZAMTZ 条項2・語彙 cond.index-built）。
+	// 読み取り系のハンドラは全部これを共有する——1本ずつが毎回ストア全体を
+	// 読み直していたのが、画面あたり O(N²) の片方の因子だった。
+	c := newIndexCache(s)
+	c.prime()
+
 	apiMux := http.NewServeMux()
 	registerConfigRoutes(apiMux, s)
-	registerFacetRoutes(apiMux, s)
-	registerTransitionRoutes(apiMux, s)
+	registerFacetRoutes(apiMux, c)
+	registerTransitionRoutes(apiMux, s, c)
 	registerTransitionWriteRoutes(apiMux, s)
-	registerRulesRoute(apiMux, s)
-	registerGovernsRoutes(apiMux, s)
-	registerDerivedRoutes(apiMux, s)
-	registerTraceabilityRoute(apiMux, s)
-	registerSearchRoute(apiMux, s)
-	registerReviewsRoute(apiMux, s)
+	registerRulesRoute(apiMux, c)
+	registerGovernsRoutes(apiMux, c)
+	registerDerivedRoutes(apiMux, s, c)
+	registerTraceabilityRoute(apiMux, c)
+	registerSearchRoute(apiMux, c)
+	registerReviewsRoute(apiMux, s, c)
 	registerDecisionRoutes(apiMux, s)
 
 	root := http.NewServeMux()

@@ -4,11 +4,10 @@ import (
 	"net/http"
 
 	"github.com/nkenji09/scholia/internal/index"
-	"github.com/nkenji09/scholia/internal/store"
 )
 
-func registerSearchRoute(mux *http.ServeMux, s *store.Store) {
-	mux.HandleFunc("GET /api/search", getSearchHandler(s))
+func registerSearchRoute(mux *http.ServeMux, c *indexCache) {
+	mux.HandleFunc("GET /api/search", getSearchHandler(c))
 }
 
 // searchResponse is GET /api/search's envelope (#45 D10b-3). It keeps the
@@ -27,9 +26,9 @@ type searchResponse struct {
 
 // getSearchHandler serves the cross-record search. An empty q returns an empty
 // result the same way the UI skips the call for an empty search box.
-func getSearchHandler(s *store.Store) http.HandlerFunc {
+func getSearchHandler(c *indexCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		_, ix, err := loadIndexed(s)
+		_, ix, err := c.load()
 		if err != nil {
 			writeStoreError(w, err)
 			return
