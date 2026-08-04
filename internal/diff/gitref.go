@@ -81,9 +81,19 @@ func verifyRef(repoRoot, ref string) error {
 }
 
 // loadRefSnapshot は `git ls-tree -r <ref> -- <relDir>` で relDir 以下のファイル一覧を取り、
-// 各ファイルを `git show <ref>:<path>` で読んで unmarshal する。relDir は repoRoot からの
-// 相対パス（"/" 区切り）で、通常は ".scholia"。
+// 各ファイルの中身を読んで unmarshal する。relDir は repoRoot からの相対パス
+// （"/" 区切り）で、通常は ".scholia"。
+//
+// 中身の読み方は blobReader に委ねてある（gitblob.go）。既定は `git cat-file --batch`
+// 1プロセスで、以前の「1ファイルにつき `git show` を1プロセス」と同じ中身・同じ
+// エラーを返す。
 func loadRefSnapshot(repoRoot, relDir, ref string) (refSnapshot, error) {
+	return loadRefSnapshotWith(repoRoot, relDir, ref, newBatchBlobReader)
+}
+
+// loadRefSnapshotWith は読み手を差し替えられる loadRefSnapshot。テストが新旧の
+// 読み方を同じ ref・同じファイル集合に対して並べ、結果とエラーを突き合わせるための口。
+func loadRefSnapshotWith(repoRoot, relDir, ref string, open blobOpener) (refSnapshot, error) {
 	if err := verifyRef(repoRoot, ref); err != nil {
 		return refSnapshot{}, err
 	}
@@ -103,20 +113,19 @@ func loadRefSnapshot(repoRoot, relDir, ref string) (refSnapshot, error) {
 		return refSnapshot{}, &baselineMissingError{msg: fmt.Sprintf("%s に %s が見つかりません（gitref・パスを確認してください）", ref, relDir)}
 	}
 
+	reader := open(repoRoot, ref)
+	defer reader.close()
+
 	var snap refSnapshot
-	prefix := relDir + "/"
 	for _, path := range paths {
-		if !strings.HasSuffix(path, ".json") {
+		// config.json など category 直下でないもの・.json でないものは
+		// diff の対象外（§4）。振り分けは blobTarget（gitblob.go）。
+		category, want := blobTarget(relDir, path)
+		if !want {
 			continue
 		}
-		rest := strings.TrimPrefix(path, prefix)
-		parts := strings.SplitN(rest, "/", 2)
-		if len(parts) != 2 {
-			continue // config.json など category 直下でないものは diff の対象外（§4）
-		}
-		category := parts[0]
 
-		content, err := runGit(repoRoot, "show", ref+":"+path)
+		content, err := reader.read(path)
 		if err != nil {
 			return refSnapshot{}, err
 		}
