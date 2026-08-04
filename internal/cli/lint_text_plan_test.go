@@ -565,15 +565,23 @@ func TestLintJSON_FindingsAreIdenticalAcrossFaces(t *testing.T) {
 		return payload.Findings
 	}
 
+	// ⚠️ 面どうしの一致だけでは、**全部の面から等しく欠ける**変異が取れない。
+	// 畳んだ区分それぞれについて、fixture が決めた件数を値で押さえる。
 	base := decode("lint", "--json")
-	nAck := 0
+	nAck, nTyped := 0, 0
 	for _, f := range base {
-		if f.AcknowledgeOnly {
+		if f.AcknowledgeOnly && f.AcknowledgedBy == "" {
 			nAck++
+		}
+		if f.AcknowledgedBy != "" {
+			nTyped++
 		}
 	}
 	if nAck != 5 {
-		t.Fatalf("--json の acknowledge-only = %d 件, want 5", nAck)
+		t.Errorf("--json の acknowledge-only = %d 件, want 5", nAck)
+	}
+	if nTyped != 1 {
+		t.Errorf("--json の typed 容認 = %d 件, want 1", nTyped)
 	}
 	for _, args := range [][]string{
 		{"lint", "--json", "--verbose"},
