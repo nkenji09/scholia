@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 	"testing"
 
@@ -228,14 +229,20 @@ func TestBulkAtFullScale_NotTruncated(t *testing.T) {
 	if want := len(tags) + len(vocab) + len(txs.Transitions); len(governs.ByRef) != want {
 		t.Errorf("この規模で一括 governs がレコードを落としている: %d 件（%d 件のはず）", len(governs.ByRef), want)
 	}
-	maxRefs := 0
-	for _, refs := range governs.ByRef {
-		if len(refs) > maxRefs {
-			maxRefs = len(refs)
+	// ⚠️ **レコード種別ごとに見る。** 全体の最大で見ると、**1種別だけ切り詰める**
+	// 変異が素通りする（実見: tag の分だけ切り詰めても、transition/vocab に
+	// 3件以上のレコードが残っているので全体の最大は 3 のままだった）。
+	maxByKind := map[string]int{"tag": 0, "transition": 0, "vocab": 0}
+	for ref, refs := range governs.ByRef {
+		kind := ref[:strings.Index(ref, ":")]
+		if len(refs) > maxByKind[kind] {
+			maxByKind[kind] = len(refs)
 		}
 	}
-	if maxRefs < 3 {
-		t.Errorf("この規模で1レコードあたりの規則が最大 %d 件しか無い（切り詰めているか、fixture が弱い）", maxRefs)
+	for kind, got := range maxByKind {
+		if got < 3 {
+			t.Errorf("この規模で %s の1レコードあたりの規則が最大 %d 件しか無い（切り詰めているか、fixture が弱い）", kind, got)
+		}
 	}
 
 	spec := getJSON[specAllResponse](t, h, "/api/spec")
