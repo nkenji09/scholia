@@ -146,7 +146,59 @@ func TestIndexCache_RebuildsOnChange(t *testing.T) {
 		}
 	})
 
-	t.Run("レコードの新設", func(t *testing.T) {
+	// 🔴 **4カテゴリを1つも欠かさず踏む。** 1カテゴリだけ見る形にすると、
+	// 指紋がそのカテゴリしか見ていない変異が素通りする（実見: tags/ だけを
+	// 見る指紋で、vocab と decisions の新設が緑のまま通った）。
+	for _, tc := range []struct {
+		category string
+		add      func() error
+		// probe は「新設したものが見えるか」をキャッシュを材料にする口で見る。
+		probe  string
+		expect string
+	}{
+		{
+			category: "tag",
+			add:      func() error { return s.SaveTag(model.Tag{ID: "subject.fresh", Name: "新設タグ", Kind: "subject"}) },
+			probe:    "/api/tags", expect: "subject.fresh",
+		},
+		{
+			category: "vocab",
+			add: func() error {
+				return s.SaveVocab(model.VocabEntry{ID: "act.user.fresh", Category: model.CategoryAction, Label: "新設語彙", Kind: "user"})
+			},
+			probe: "/api/vocab", expect: "act.user.fresh",
+		},
+		{
+			category: "transition",
+			add: func() error {
+				return s.SaveTransition(model.Transition{ID: "T-fresh", Action: "act.user.login", Then: []string{"eff.session.issue"}, Tags: []string{"req.auth-happy"}})
+			},
+			probe: "/api/transitions", expect: "T-fresh",
+		},
+		{
+			category: "decision",
+			add: func() error {
+				return s.CreateDecision(model.Decision{
+					ID:     "01FRESHDECISION000000000001",
+					Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.auth"},
+					Why:    "# 新設の意思決定\n\n本文。\n", At: "2026-02-01T00:00:00Z",
+				}, store.DecisionCreateOptions{})
+			},
+			probe: "/api/rules", expect: "01FRESHDECISION000000000001",
+		},
+	} {
+		t.Run("レコードの新設/"+tc.category, func(t *testing.T) {
+			if err := tc.add(); err != nil {
+				t.Fatalf("新設に失敗: %v", err)
+			}
+			rec := doRequest(t, h, http.MethodGet, tc.probe, nil)
+			if !strings.Contains(rec.Body.String(), tc.expect) {
+				t.Errorf("新設した %s が %s に出ない（指紋がこのカテゴリを見ていない）", tc.category, tc.probe)
+			}
+		})
+	}
+
+	t.Run("レコードの新設（削除の前提）", func(t *testing.T) {
 		if err := s.SaveTag(model.Tag{ID: "subject.new", Name: "新設", Kind: "subject"}); err != nil {
 			t.Fatalf("SaveTag: %v", err)
 		}
@@ -167,18 +219,24 @@ func TestIndexCache_RebuildsOnChange(t *testing.T) {
 		}
 	})
 
-	t.Run("config の書き換え", func(t *testing.T) {
+	// ⚠️ **config は `/api/config` で見ない。** あの口はキャッシュを通らず毎回
+	// LoadConfig するので、指紋が config.json を見ていない変異でも緑になる
+	// （実見: 指紋から config を外す変異が、この subtest では素通りした）。
+	// 見るのは**キャッシュ側の Snapshot.Config を材料にしている口**——
+	// `/api/facets` の facetKinds はそれである。
+	t.Run("config の書き換え（キャッシュ側の材料）", func(t *testing.T) {
 		cfg, err := s.LoadConfig()
 		if err != nil {
 			t.Fatalf("LoadConfig: %v", err)
 		}
-		cfg.Display.ProductName = "改名した"
+		cfg.FacetKinds = []string{"requirement"}
 		if err := s.SaveConfig(cfg); err != nil {
 			t.Fatalf("SaveConfig: %v", err)
 		}
-		rec := doRequest(t, h, http.MethodGet, "/api/config", nil)
-		if !strings.Contains(rec.Body.String(), "改名した") {
-			t.Errorf("config の書き換えが次の要求に反映されない: %s", rec.Body.String())
+		rec := doRequest(t, h, http.MethodGet, "/api/facets", nil)
+		got := decodeJSON[facetsResponse](t, rec)
+		if len(got.FacetKinds) != 1 || got.FacetKinds[0] != "requirement" {
+			t.Errorf("config の書き換えが、キャッシュを材料にする口に反映されない: facetKinds=%v", got.FacetKinds)
 		}
 	})
 }
