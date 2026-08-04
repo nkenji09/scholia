@@ -310,10 +310,21 @@ func TestLintJSON_CarriesFoldedSections(t *testing.T) {
 	}
 }
 
-// 畳んだ区分は exit code に一切関与しない（どのモードでも同じ exit）。
-func TestLintExitCode_UnaffectedByFoldedSections(t *testing.T) {
+// 畳んだ区分（typed 容認 / acknowledge-only）と info は --ci の ratchet に載らない
+// ＝ exit code を動かさない。
+//
+// ⚠️ 射程: **baseline を張った状態でしか意味を持たない。** baseline 不在だと
+// evaluateCI が BaselinePresent==false で早期 return するので ratchet 自体が非活性
+// になり、「info を ratchet 対象にする」変異を入れても exit 0 のまま＝この検査は
+// 空振りする（実際に一度そうなった）。空振りしていないことは、末尾の対照
+// 「baseline に無い warn を足すと --ci だけ exit 1 になる」で示す。
+func TestLintExitCode_FoldedSectionsDoNotAffectRatchet(t *testing.T) {
 	dir := setupAckOnlyStore(t)
+	if out, err := run(t, dir, "lint", "baseline", "update"); err != nil {
+		t.Fatalf("baseline update failed: %v\n%s", err, out)
+	}
 
+	// acknowledge-only と info が残ったまま、どのモードでも exit 0。
 	for _, args := range [][]string{
 		{"lint"}, {"lint", "--verbose"}, {"lint", "--ci"},
 		{"lint", "--json"}, {"lint", "--json", "--verbose"}, {"lint", "--json", "--ci"},
@@ -322,5 +333,17 @@ func TestLintExitCode_UnaffectedByFoldedSections(t *testing.T) {
 			t.Errorf("%v が exit 非0 になった（acknowledge-only は info で exit に関与しないはず）: %v\n%s",
 				args, err, out)
 		}
+	}
+
+	// 対照: baseline に無い warn を 1 件足すと --ci だけ exit 1 になる。
+	// これが落ちるなら、上の exit 0 は「ratchet が動いていないから」ではない。
+	if out, err := run(t, dir, "tag", "create", "req.fresh", "--name", "新しい未充足要件", "--kind", "requirement"); err != nil {
+		t.Fatalf("tag create failed: %v\n%s", err, out)
+	}
+	if out, err := run(t, dir, "lint", "--ci"); err == nil {
+		t.Fatalf("baseline に無い warn を足したのに --ci が exit 0 のまま＝ratchet が動いていない\n%s", out)
+	}
+	if out, err := run(t, dir, "lint"); err != nil {
+		t.Fatalf("既定の lint は warn で exit 0 のはず: %v\n%s", err, out)
 	}
 }
