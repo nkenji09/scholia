@@ -424,7 +424,7 @@ scholia decide --on transition:<id> --ref <PR/URL> \
 lint は**二層**。**error/warn＝記録の自己矛盾**の検査（従来定義そのまま・不変。error は保存拒否/exit 1・warn は CI ratchet の対象）。
 **advisory＝authoring 規律（書き方規律）の改善提案**（`tier=advisory`・severity=info・保存も CI も止めない）。
 advisory は「自己矛盾」ではなく「読みが重い・腐りやすい書き方」を検出し、書いた同じターンに警告して是正コストが最小の時点で直せるようにする。
-decision の判断欄位（why/changed/ref/at）由来の advisory は append-only により是正が原理的に不能なので **acknowledge-only** 区分とし、是正リスト・残件バッジの分母から別掲する。
+decision の判断欄位（why/changed/ref/at）由来の advisory は append-only により是正が原理的に不能なので **acknowledge-only** 区分とし、是正リスト・残件バッジの分母から別掲する。テキスト出力では既定は**件数のサマリ行 1 行のみ**（明細は `--verbose`・修正候補つきの棚卸しは `scholia retrofit`）で、`--json` は全件を透過する。exit code には関与しない（severity=info ゆえ `--ci` の ratchet の対象外）。
 
 | rule | 重大度 | 何を守るか |
 | --- | --- | --- |

@@ -183,7 +183,7 @@ decision は append-only ゆえ「今どれが正か」は `supersedes` リン�
 `scholia retrofit` の差分レポート（改定で新たに violation になる既存レコードの一覧）を添付する。
 AI は既存 store を few-shot の手本として読むため、古い違反レコードを掃除しない限り違反様式が再生産される。
 是正は提案フロー（pending 変更＋review コメント→adopt）に乗せる（`scholia retrofit` は read-only・`--fix` を持たない・exit 0）。
-decision の判断欄位（why/changed/ref）由来の finding は append-only により是正不能なので acknowledge-only として別掲される。
+decision の判断欄位（why/changed/ref）由来の finding は append-only により是正不能なので acknowledge-only として別掲される——`scholia lint` の既定では**件数 1 行のみ**で、明細は `--verbose`、修正候補つきの棚卸しは `scholia retrofit`。
 
 ## CLI コマンド表（DESIGN §6 要約。真値は `scholia <cmd> --help`）
 
