@@ -10,7 +10,7 @@ import (
 	"github.com/nkenji09/scholia/internal/store"
 )
 
-func registerFacetRoutes(mux *http.ServeMux, c *indexCache) {
+func registerFacetRoutes(mux *routeMux, c *indexCache) {
 	mux.HandleFunc("GET /api/facets", getFacetsHandler(c))
 	mux.HandleFunc("GET /api/tags", getTagsHandler(c))
 	mux.HandleFunc("GET /api/vocab", getVocabHandler(c))

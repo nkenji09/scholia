@@ -7,7 +7,7 @@ import (
 	"github.com/nkenji09/scholia/internal/store"
 )
 
-func registerGovernsRoutes(mux *http.ServeMux, c *indexCache) {
+func registerGovernsRoutes(mux *routeMux, c *indexCache) {
 	mux.HandleFunc("GET /api/governs", getGovernsHandler(c))
 }
 

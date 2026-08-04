@@ -98,7 +98,15 @@ Go を触ったら次を通す（linked worktree では `go build` が buildvcs 
 
 ```sh
 go build ./... && go vet ./... && go test ./... && scholia lint --ci
+go test -race ./...       # ⚠️ 下記の理由で必須。`go test ./...` では落ちない歯止めがある
 test -z "$(gofmt -l .)"   # ⚠️ gofmt -l 自体は不整形があっても exit 0 なので、&& 連鎖に入れても落ちない
 ```
+
+⚠️ **`-race` を省かないこと。** viewer はスナップショットと派生 index を**プロセス全体で1つ
+共有**している（decision `01KZ5N5CJ2VFMZAGSFPSCZAMTZ` 条項2）。共有前は無害だった
+「取り出したスライスをその場で並べ替える」1行が、共有後は**別の要求の応答を壊す**。
+それを落とす歯止めは `-race` と対でしか歯が立たず、`go test ./...` だけなら
+**実際に共有スライスを in-place ソートする変異を入れても緑のまま通る**（実測）。
+CI（`.github/workflows/test.yml`）にも同じステップを置いてある。
 
 `web/dist` は、`web/` のソースを変えたときだけ再生成する。

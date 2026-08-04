@@ -11,7 +11,7 @@ import (
 	"github.com/nkenji09/scholia/internal/store"
 )
 
-func registerDerivedRoutes(mux *http.ServeMux, s *store.Store, c *indexCache) {
+func registerDerivedRoutes(mux *routeMux, s *store.Store, c *indexCache) {
 	mux.HandleFunc("GET /api/spec", getSpecAllHandler(c))
 	mux.HandleFunc("GET /api/spec/{tagId}", getSpecHandler(c))
 	mux.HandleFunc("GET /api/lint", getLintHandler(c))

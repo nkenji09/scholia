@@ -7,7 +7,7 @@ import (
 	"github.com/nkenji09/scholia/internal/index"
 )
 
-func registerTraceabilityRoute(mux *http.ServeMux, c *indexCache) {
+func registerTraceabilityRoute(mux *routeMux, c *indexCache) {
 	mux.HandleFunc("GET /api/traceability", getTraceabilityHandler(c))
 }
 

@@ -6,7 +6,7 @@ import (
 	"github.com/nkenji09/scholia/internal/index"
 )
 
-func registerSearchRoute(mux *http.ServeMux, c *indexCache) {
+func registerSearchRoute(mux *routeMux, c *indexCache) {
 	mux.HandleFunc("GET /api/search", getSearchHandler(c))
 }
 

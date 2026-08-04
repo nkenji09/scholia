@@ -10,7 +10,7 @@ import (
 	"github.com/nkenji09/scholia/internal/store"
 )
 
-func registerReviewsRoute(mux *http.ServeMux, s *store.Store, c *indexCache) {
+func registerReviewsRoute(mux *routeMux, s *store.Store, c *indexCache) {
 	mux.HandleFunc("GET /api/reviews", getReviewsHandler(s, c))
 	mux.HandleFunc("DELETE /api/reviews/{id}", deleteReviewHandler(s))
 }

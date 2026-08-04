@@ -10,7 +10,7 @@ import (
 	"github.com/nkenji09/scholia/internal/store"
 )
 
-func registerTransitionRoutes(mux *http.ServeMux, s *store.Store, c *indexCache) {
+func registerTransitionRoutes(mux *routeMux, s *store.Store, c *indexCache) {
 	mux.HandleFunc("GET /api/transitions", listTransitionsHandler(s, c))
 	mux.HandleFunc("GET /api/transitions/{id}", getTransitionHandler(c))
 	mux.HandleFunc("DELETE /api/transitions/{id}", deleteTransitionHandler(s))

@@ -11,7 +11,7 @@ import (
 	"github.com/nkenji09/scholia/internal/store"
 )
 
-func registerTransitionWriteRoutes(mux *http.ServeMux, s *store.Store) {
+func registerTransitionWriteRoutes(mux *routeMux, s *store.Store) {
 	mux.HandleFunc("POST /api/transition", postTransitionHandler(s))
 }
 

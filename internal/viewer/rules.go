@@ -7,7 +7,7 @@ import (
 	"github.com/nkenji09/scholia/internal/model"
 )
 
-func registerRulesRoute(mux *http.ServeMux, c *indexCache) {
+func registerRulesRoute(mux *routeMux, c *indexCache) {
 	mux.HandleFunc("GET /api/rules", getRulesHandler(c))
 }
 

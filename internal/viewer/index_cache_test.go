@@ -258,8 +258,70 @@ func TestIndexCache_ViewerWritesAreVisibleImmediately(t *testing.T) {
 	}
 }
 
+// concurrentReadSamples は「登録された GET の pattern」→「その口を実際に叩く URL」。
+//
+// 🔴 **表に無い pattern が現れたらガードが落ちる**（下の readSamplesFor）。
+// 口を新設した人は、そこで初めて「この口も同時要求ガードを通すのか」を決めることになる。
+// 表を手で並べているのは、pattern の `{id}` に入れる実在の値をテストが知らないから
+// であって、**どの口を見るかの選択ではない**——選択にすると、また選び忘れる。
+//
+// ⚠️ **1つの pattern が複数の URL を持つ**のは、同じ口でもクエリで別の重い経路へ
+// 分かれるものがあるため（`?all=1` / `?detail=1`）。
+//
+// ⚠️ **捕まえないもの（射程）**: 既存の pattern に**新しいクエリの経路**を足した場合、
+// pattern は増えないのでここは落ちない。口そのものの新設は落ちる。
+var concurrentReadSamples = map[string][]string{
+	"GET /api/config":           {"/api/config"},
+	"GET /api/facets":           {"/api/facets"},
+	"GET /api/tags":             {"/api/tags"},
+	"GET /api/vocab":            {"/api/vocab", "/api/vocab?subject=subject.auth"},
+	"GET /api/transitions":      {"/api/transitions", "/api/transitions?detail=1"},
+	"GET /api/transitions/{id}": {"/api/transitions/T-login"},
+	"GET /api/rules":            {"/api/rules", "/api/rules?tag=subject.auth"},
+	"GET /api/governs":          {"/api/governs?tag=subject.auth", "/api/governs?all=1"},
+	"GET /api/spec":             {"/api/spec"},
+	"GET /api/spec/{tagId}":     {"/api/spec/subject.auth"},
+	"GET /api/lint":             {"/api/lint"},
+	"GET /api/diff":             {}, // git を起こす口。キャッシュを通らない（共有状態を持たない）
+	"GET /api/flow/{action}":    {"/api/flow/act.user.login"},
+	"GET /api/traceability":     {"/api/traceability", "/api/traceability?kind=requirement"},
+	"GET /api/search":           {"/api/search?q=login"},
+	"GET /api/reviews":          {"/api/reviews"},
+}
+
+// readSamplesFor は、実際に登録された pattern から「同時に叩く URL」を組む。
+//
+// 🔴 **登録は製品と同じ1つの経路（buildAPIMux）から取る。** 写しを作ると、
+// 製品が口を足したのに歯止めだけ古いまま緑になる。
+func readSamplesFor(t *testing.T, patterns []string) []string {
+	t.Helper()
+	var urls []string
+	var missing []string
+	for _, p := range patterns {
+		if !strings.HasPrefix(p, "GET ") {
+			continue // 書込の口は共有スナップショットを配らない
+		}
+		sample, ok := concurrentReadSamples[p]
+		if !ok {
+			missing = append(missing, p)
+			continue
+		}
+		urls = append(urls, sample...)
+	}
+	if len(missing) > 0 {
+		t.Fatalf("同時要求ガードを通っていない読みの口がある: %v\n"+
+			"新しい口を足したら concurrentReadSamples に叩き方を書くこと"+
+			"（共有スナップショットを配る口なら必ず通す。通さない理由があるなら空スライスと1行の理由を書く）", missing)
+	}
+	return urls
+}
+
 // TestIndexCache_ConcurrentReadsShareSnapshot は、共有された Snapshot / *index.Index
-// を複数の要求が同時に持っても壊れないことを見る（`go test -race` と対で意味を持つ）。
+// を複数の要求が同時に持っても壊れないことを見る。
+//
+// 🔴 **`go test -race` と対でしか歯が立たない。** `go test ./...` だけでは、
+// 実際に共有スライスを in-place ソートする変異を入れても緑のまま通る（実測）。
+// CI と `CLAUDE.md` の検証節の両方に `-race` を置いてあるのはそのため。
 //
 // ⚠️ **これが無いと、スライスを in-place に並べ替える／append で書き戻す実装が
 // 素通りする。** 要求ごとに別の Snapshot を配っていたときは無害だった形が、
@@ -267,12 +329,8 @@ func TestIndexCache_ViewerWritesAreVisibleImmediately(t *testing.T) {
 func TestIndexCache_ConcurrentReadsShareSnapshot(t *testing.T) {
 	h, s := newTestHandler(t)
 
-	paths := []string{
-		"/api/tags", "/api/vocab", "/api/facets", "/api/transitions",
-		"/api/transitions/T-login", "/api/rules", "/api/spec/subject.auth",
-		"/api/governs?tag=subject.auth", "/api/traceability", "/api/search?q=login",
-		"/api/lint", "/api/config", "/api/reviews",
-	}
+	_, patterns := buildAPIMux(s)
+	paths := readSamplesFor(t, patterns)
 
 	var wg sync.WaitGroup
 	// 読み側を並べつつ、書き側も同時に走らせる（＝建て直しが読みと重なる）。
@@ -309,9 +367,31 @@ func TestIndexCache_ConcurrentReadsShareSnapshot(t *testing.T) {
 // 🔴 **本番より上の規模**。この repo の `.scholia` は 501 件、利用者の実機は
 // その 3.17 倍（≈1,590 件）。ここは 4,200 件で、その上に置く——「N 件までは
 // キャッシュする」形の閾値ゲートを標本の中に入れるため。
+// scaleSize は合成ストアの件数。**比率は本 repo の `.scholia` に合わせてある**
+// （タグ:遷移:語彙:decision ≒ 83:70:170:182）。
+type scaleSize struct{ tags, transitions, vocab, decisions int }
+
+var (
+	// fullScale は 4,200 件。本 repo は 501 件、利用者の実機はその 3.17 倍
+	// （≈1,590 件）なので、**本番は標本の内側**にある。
+	fullScale = scaleSize{tags: 700, transitions: 600, vocab: 1400, decisions: 1500}
+	// midScale は 2,100 件。**これも本番より上**（≈1.3 倍）。
+	// 全レコードを1件ずつ叩く突き合わせ（bulk_test.go）に使う——費用は
+	// 「レコード件数 × 要求本数」で**件数の二乗**に効くので、fullScale で
+	// 総当たりすると `-race` 込み 162 秒かかり、CI の `go test -race ./...` が
+	// 現実的でなくなる（実測）。件数で分岐する形は fullScale 側の
+	// 別の検査（下の bulk_test.go の「規模の側」）が受け持つ。
+	midScale = scaleSize{tags: 350, transitions: 300, vocab: 700, decisions: 750}
+)
+
 func seedScaledStore(t *testing.T) (http.Handler, *store.Store) {
 	t.Helper()
-	s, err := store.Init(t.TempDir())
+	return seedScaledStoreIn(t, t.TempDir(), fullScale)
+}
+
+func seedScaledStoreIn(t *testing.T, dir string, sz scaleSize) (http.Handler, *store.Store) {
+	t.Helper()
+	s, err := store.Init(dir)
 	if err != nil {
 		t.Fatalf("store.Init: %v", err)
 	}
@@ -328,12 +408,10 @@ func seedScaledStore(t *testing.T) (http.Handler, *store.Store) {
 		t.Fatalf("SaveConfig: %v", err)
 	}
 
-	const (
-		nTags        = 700
-		nTransitions = 600
-		nVocab       = 1400
-		nDecisions   = 1500
-	)
+	nTags, nTransitions, nVocab, nDecisions := sz.tags, sz.transitions, sz.vocab, sz.decisions
+	// decision の target を集める法。件数より小さく取ることで
+	// 1レコードあたり複数件が付く（bulk_test.go の 🔴 を参照）。
+	modTag, modTx, modVocab := nTags*3/14, nTags*2/7, nVocab*3/14
 	for i := 0; i < nVocab; i++ {
 		cat := model.CategoryAction
 		if i%2 == 1 {
@@ -366,10 +444,28 @@ func seedScaledStore(t *testing.T) (http.Handler, *store.Store) {
 			t.Fatalf("SaveTransition: %v", err)
 		}
 	}
+	// 🔴 **target は3種すべてを回し、1レコードに複数件が付くようにする。**
+	// 「どのレコードも支配する規則が高々1件」の fixture では、一括の答えを
+	// **先頭1件に切り詰める変異**が突き合わせを素通りする（レビュアが実測）。
+	// 対象 id の法（150/200/300）を件数より小さく取って、1レコードあたり
+	// 2〜4 件が付くようにしてある。
+	//
+	// 🔴 **`at` は全件同じにしてある。** 支配する規則の並びは `at` の安定ソートで
+	// 決まるので、`at` が全部同じなら**並びは元の並びがそのまま出る**——
+	// 走査の順を変える変異が、突き合わせで値として見える。
 	for i := 0; i < nDecisions; i++ {
+		var target model.DecisionTarget
+		switch i % 3 {
+		case 0:
+			target = model.DecisionTarget{Type: model.DecisionTargetTag, ID: fmt.Sprintf("subject.scale%04d", i%modTag)}
+		case 1:
+			target = model.DecisionTarget{Type: model.DecisionTargetTransition, ID: fmt.Sprintf("T-scale%04d", i%modTx)}
+		default:
+			target = model.DecisionTarget{Type: model.DecisionTargetVocab, ID: fmt.Sprintf("v.scale%04d", i%modVocab)}
+		}
 		if err := s.CreateDecision(model.Decision{
 			ID:     fmt.Sprintf("01SCALEDECISION%011d", i),
-			Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: fmt.Sprintf("subject.scale%04d", i%nTags)},
+			Target: target,
 			Why:    fmt.Sprintf("# 規模の標本 %d\n\n本文。\n", i),
 			At:     "2026-01-01T00:00:00Z",
 		}, store.DecisionCreateOptions{}); err != nil {

@@ -29,7 +29,14 @@ import (
 // ⚠️ **返す Snapshot / *index.Index は共有される（複数の要求が同時に持つ）。**
 // どちらも読み取り専用として扱うこと——スライスを in-place に並べ替えたり
 // append で書き戻したりすると、別の要求から見えるデータが壊れる。
-// これは値として検査してある（snapshot_test.go の同時要求ガード＋`go test -race`）。
+// これは値として検査してある（index_cache_test.go の
+// TestIndexCache_ConcurrentReadsShareSnapshot）。
+//
+// 🔴 **その検査は `go test -race` と対でしか歯が立たない。** `go test ./...` だけ
+// では、実際に共有スライスを in-place ソートする変異を入れても**緑のまま通る**
+// （実測）。だから CI（`.github/workflows/test.yml`）と `CLAUDE.md` の検証節の
+// 両方に `-race` のステップを置いてある。片方でも外すと、この doc が称している
+// 契約は誰にも守られなくなる。
 type indexCache struct {
 	store *store.Store
 
