@@ -258,40 +258,58 @@ func countingGitShim(t *testing.T) *gitShim {
 //	本番の入口 loadRefSnapshot が起こす「実際の git プロセスの本数」が、
 //	レコード件数を振っても変わらないこと。
 //
-// 🔴 振っている軸を明示する（ここが射程のすべてである）:
+// # 標本の取り方 — 🔴 ここが射程のすべてである
 //
-//	レコード件数 … 5 / 60 / 200
-//	ref         … HEAD / HEAD~1 / ブランチ名 / 完全 SHA
+// この検査は標本抽出である。**振っていない性質でゲートを1枚包めば、内側にいない
+// ことは見えない。**だから「何を捕まえられないか」を綴りで列挙するのではなく、
+// **標本の軸そのものを挙げる**。軸は有限で書き切れるが、軸の外の綴りは書き切れない。
 //
-// **落ちる**もの — 上の軸の上で、実プロセス数が件数に比例したとき。
-// 読み方をどう綴っても落ちる: runGit 経由でも、ループの中へ直に
-// exec.Command("git", ...) と書いても、batch を1件ごとに起こし直しても、
-// 配線を旧読み手へ戻しても、非 HEAD の ref だけ旧読み方に落としても、
-// 件数が閾値を超えたときだけ旧読み方に落としても（閾値が 200 以下なら）。
+// 振っている軸は3つ:
 //
-// 🔴 **落ちない**もの — ここは塞ぎ切れていないので名乗る（CLAUDE.md 6）:
+//	レコード件数 … 5 / 60 / 600
+//	ref          … HEAD / HEAD~1 / ブランチ名 / 完全 SHA
+//	ストアの形   … vocab・tags・transitions・decisions の4カテゴリすべてを持つ
 //
-//   - **標本の外側にゲートを置く変異**。これは原理的に通る。件数を 200 までしか
-//     振っていないので「n>300 で切り替える」は見えないし、ref を4通りしか
+// **上端の 600 は、この repo の .scholia（501 件）より上に置いてある。**
+// ここを本番より下に置くと「今日踏める退行」が標本の外に落ちる——実際、上端が
+// 200 だったときは「件数が 300 を超えたときだけ旧読み方」が全ゲート緑のまま通り、
+// 本番はその外側にあった。**上端の選び方は原理の問題ではないので、直せる分は直す。**
+//
+// **ストアの形を軸に入れたのも同じ理由である。** fixture が tags だけを作っていた
+// ときは「カテゴリが2種類以上あるときだけ旧読み方」が全ゲート緑のまま通った。
+// 本番の .scholia は必ず4カテゴリ持つので、その変異は**件数にも ref にもよらず
+// 必ず発火する**——開示していた件数依存の穴より広い。**fixture の形そのものが
+// 標本である。**
+//
+// # 落ちるもの
+//
+// 上の軸の上で、実プロセス数が件数に比例したとき。読み方をどう綴っても落ちる:
+// runGit 経由でも、ループの中へ直に exec.Command("git", ...) と書いても、
+// batch を1件ごとに起こし直しても、配線を旧読み手へ戻しても、非 HEAD の ref だけ
+// 旧読み方に落としても、カテゴリ構成で分岐しても、件数の閾値で切り替えても
+// （閾値が 600 未満なら）。
+//
+// # 🔴 落ちないもの — 塞ぎ切れないので名乗る（CLAUDE.md 6）
+//
+//   - **標本の軸の、標本の外側にゲートを置く変異。** 有限の標本である限り必ず残る。
+//     件数の上端は 600 なので「n>700 で切り替える」は見えないし、ref は4通りしか
 //     試していないので「ref=="main" のときだけ旧読み方」も見えない。
-//     ⚠️ 実測で確かめてある——「件数が 300 を超えたときだけ旧読み方へ落ちる」変異は
-//     全ゲート緑のまま生き残った。**しかもこの repo の .scholia は 501 件なので、
-//     その変異は本番を実際に退行させる。** 標本抽出であることの代償はここに出る。
-//     ⚠️ 軸を増やしても標本抽出であることは変わらない。**綴りを列挙して
-//     1つずつ塞ぐ方向へは行かない**（CLAUDE.md 2）。捕まえたい性質は
-//     「git のプロセスが件数に比例して起きないこと」の1つである。
+//     ⚠️ **軸を増やしても標本抽出であることは変わらない。**捕まえたい性質は
+//     「git のプロセスが件数に比例して起きないこと」の1つだけで、綴りを列挙して
+//     1つずつ塞ぐ方向へは行かない（CLAUDE.md 2）。
+//     ただし**軸を挙げ忘れると読み手は穴を実際より狭く見積もる**ので、軸は上に書く。
 //   - **PATH を経由しない git の起動**（絶対パスで /usr/bin/git を直に叩く等）。
 //     影武者は PATH の先頭に居るので、名前解決を通らない起動は数えられない。
-//     実測: 絶対パスで1件1プロセスへ戻す変異を入れたとき、**この検査は通った**
-//     （落としたのは別の検査で、その綴りに固有の副作用を踏んだだけである。
-//     偶然なので、この検査が捕まえられるものとしては数えない）。
+//     ⚠️ この綴りで別の検査が落ちることはあるが、**落ちるかどうかは綴りに依存する
+//     ので、この検査が捕まえられるものとしては数えない**（実測でも、落ちる版と
+//     何も落ちない版の両方が観測されている）。
 //   - 件数に依らない定数本のプロセス増。
 //   - プロセス以外の原因（ls-tree 自体・JSON の unmarshal・store の読み込み）での遅さ。
 //   - **実行時間そのもの**。一度も測っていない（機械と負荷で揺れるため）。
 func TestLoadRefSnapshot_RealGitProcessesDoNotGrowWithRecordCount(t *testing.T) {
 	shim := countingGitShim(t)
 
-	sizes := []int{5, 60, 200}
+	sizes := []int{5, 60, 600}
 	refLabels := []string{"HEAD", "HEAD~1", "branch", "sha"}
 	// counts[refLabel][n] = 実プロセス本数
 	counts := map[string]map[int]int{}
@@ -310,11 +328,7 @@ func TestLoadRefSnapshot_RealGitProcessesDoNotGrowWithRecordCount(t *testing.T) 
 			if err != nil {
 				t.Fatalf("n=%d ref=%s: loadRefSnapshot: %v", n, label, err)
 			}
-			// ⚠️ 空振り検出: 読めていなければプロセスも起きず「一定」で緑になる。
-			if len(snap.Tags) != n {
-				t.Fatalf("n=%d ref=%s: %d 件のはずが %d 件しか読めていない（この検査が空振りしている）",
-					n, label, n, len(snap.Tags))
-			}
+			assertProductionShape(t, snap, n, fmt.Sprintf("n=%d ref=%s", n, label))
 			counts[label][n] = shim.count(t) - before
 		}
 	}
@@ -328,22 +342,66 @@ func TestLoadRefSnapshot_RealGitProcessesDoNotGrowWithRecordCount(t *testing.T) 
 					label, sizes[0], base, n, counts[label][n])
 			}
 		}
-		t.Logf("ref=%-7s  実 git プロセス: 5 件=%d / 60 件=%d / 200 件=%d 本",
-			label, counts[label][5], counts[label][60], counts[label][200])
+		t.Logf("ref=%-7s  実 git プロセス: 5 件=%d / 60 件=%d / 600 件=%d 本",
+			label, counts[label][5], counts[label][60], counts[label][600])
 	}
 }
 
-// recordRepo は tags を n 件持つ git repo を作る。HEAD~1 も .scholia を持つよう
-// 2 コミット積み、ブランチ b1 を HEAD に置く（ref を振るため）。
+// assertProductionShape は「読めた件数」と「本番と同じ4カテゴリが揃っていること」を
+// 確かめる。⚠️ どちらもこの検査が空振りしないために要る——読めていなければ
+// プロセスも起きず「一定」で緑になるし、カテゴリが1種類に痩せれば
+// 「ストアの形」の軸が黙って標本から抜ける。
+func assertProductionShape(t *testing.T, snap refSnapshot, want int, where string) {
+	t.Helper()
+	got := len(snap.Vocab) + len(snap.Tags) + len(snap.Transitions) + len(snap.Decisions)
+	if got != want {
+		t.Fatalf("%s: %d 件のはずが %d 件しか読めていない（この検査が空振りしている）", where, want, got)
+	}
+	for _, c := range []struct {
+		name string
+		n    int
+	}{
+		{"vocab", len(snap.Vocab)}, {"tags", len(snap.Tags)},
+		{"transitions", len(snap.Transitions)}, {"decisions", len(snap.Decisions)},
+	} {
+		if c.n == 0 {
+			t.Fatalf("%s: カテゴリ %s が 0 件——fixture が本番の形（4カテゴリ）になっていない。"+
+				"「ストアの形」の軸が標本から抜けている", where, c.name)
+		}
+	}
+}
+
+// recordRepo は本番と同じ形の .scholia を持つ git repo を作る。
+//
+// ⚠️ レコードは4カテゴリへ配る。tags だけに置いていたときは「カテゴリが2種類以上
+// あるときだけ旧読み方に落とす」変異が全ゲート緑のまま通った——本番の .scholia は
+// 必ず4カテゴリ持つので、その変異は本番で必ず発火する。**fixture の形は標本の軸の
+// 1つである。**
+//
+// HEAD~1 でも同じ件数が読めるよう2コミット積み、ブランチ b1 を HEAD に置く（ref を振るため）。
 func recordRepo(t *testing.T, n int) string {
 	t.Helper()
 	dir, _ := gitTestRepo(t)
 	for i := 0; i < n; i++ {
-		writeFile(t, filepath.Join(dir, ".scholia", "tags", fmt.Sprintf("t%03d.json", i)),
-			fmt.Sprintf(`{"id":"t%03d","kind":"requirement","label":"t"}`+"\n", i))
+		var rel, body string
+		switch i % 4 {
+		case 0:
+			rel = filepath.Join("vocab", fmt.Sprintf("cond.v%04d.json", i))
+			body = fmt.Sprintf(`{"id":"cond.v%04d","category":"condition","label":"v"}`, i)
+		case 1:
+			rel = filepath.Join("tags", fmt.Sprintf("req.t%04d.json", i))
+			body = fmt.Sprintf(`{"id":"req.t%04d","kind":"requirement","label":"t"}`, i)
+		case 2:
+			rel = filepath.Join("transitions", fmt.Sprintf("tx.x%04d.json", i))
+			body = fmt.Sprintf(`{"id":"tx.x%04d","action":"act.a","given":[],"then":["eff.a"]}`, i)
+		default:
+			rel = filepath.Join("decisions", fmt.Sprintf("d%04d.json", i))
+			body = fmt.Sprintf(`{"id":"d%04d","target":{"type":"transition","id":"tx.x0002"},"why":"w","at":"2026-01-01T00:00:00Z"}`, i)
+		}
+		writeFile(t, filepath.Join(dir, ".scholia", rel), body+"\n")
 	}
 	commitAll(t, dir, "records")
-	// .scholia の外に1件足して2つ目のコミットを作る（HEAD~1 でも同じ n 件が読める）。
+	// .scholia の外に1件足して2つ目のコミットを作る（HEAD~1 でも同じ件数が読める）。
 	writeFile(t, filepath.Join(dir, "README.md"), "hello\n")
 	commitAll(t, dir, "readme")
 	mustGit(t, dir, "branch", "b1")
