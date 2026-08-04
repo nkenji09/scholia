@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
 
@@ -83,71 +84,137 @@ func newLintCmd() *cobra.Command {
 	return cmd
 }
 
-// printLintText は既定のテキスト出力。decision-coverage は none のみ列挙し、
-// 3段の件数はサマリ行に畳む（direct/via-tag を毎回列挙する info ノイズを
-// 出さない・U1）。--verbose で via-tag の出自内訳を展開する。
-// acknowledge-only（decision 判断欄位由来の advisory＝append-only により是正
-// 不能・#45 U2）は是正対象と混ざらないよう末尾に別掲する。
-func printLintText(cmd *cobra.Command, findings []lint.Finding, verbose bool) {
-	out := cmd.OutOrStdout()
+// lintSection は lint テキスト出力の区分。findings はこの4系統のいずれか
+// ちょうど1つに落ちる（decision-coverage の direct/via-tag は lintSectionCoverage）。
+type lintSection string
 
-	displayed := make([]lint.Finding, 0, len(findings))
-	ackOnly := make([]lint.Finding, 0)
-	typedAck := make([]lint.Finding, 0)
+const (
+	// lintSectionDisplayed は是正対象（error/warn/info）。lint の本体。
+	lintSectionDisplayed lintSection = "displayed"
+	// lintSectionTypedAck は typed 容認済み（#45 D6）。
+	lintSectionTypedAck lintSection = "typed-ack"
+	// lintSectionAckOnly は acknowledge-only（decision 判断欄位由来・
+	// append-only により是正不能・#45 U2）。
+	lintSectionAckOnly lintSection = "ack-only"
+	// lintSectionCoverage は decision-coverage の3段集計。
+	lintSectionCoverage lintSection = "coverage"
+)
+
+// lintDetail は区分の明細をどこまで出すか。件数（サマリ行）は粒度に依らず常に出る。
+type lintDetail string
+
+const (
+	lintDetailNone lintDetail = "none" // 件数だけ出す
+	lintDetailAll  lintDetail = "all"  // 明細を全件出す
+)
+
+// lintTextPlan は「どの finding がどの区分に落ち、どの区分の明細を出すか」。
+// テキスト出力はこの値だけを見て描く（renderLintText）。
+type lintTextPlan struct {
+	Displayed []lint.Finding
+	TypedAck  []lint.Finding
+	AckOnly   []lint.Finding
+	ViaTag    []lint.Finding // decision-coverage via-tag の出自内訳
+
+	CoverageDirect int
+	CoverageViaTag int
+	CoverageNone   int
+
+	// Detail は区分ごとの明細粒度。描画はこの表を通る——表に無い経路で
+	// 明細を出さない（区分×モードの検査が素通りしないようにするため）。
+	Detail map[lintSection]lintDetail
+}
+
+// planLintText はテキスト出力の方針を findings と verbose だけから決める純関数。
+// 画面（io.Writer）から切り離してあるのは、表示方針を値で検査できるようにするため。
+//
+// 粒度:
+//   - displayed: 常に全件明細。exit code の根拠（error）と --ci の ratchet 対象
+//     （warn）を含むので畳まない。
+//   - typedAck / ackOnly / coverage: 既定は件数のみ・--verbose で明細。
+//
+// ackOnly を既定で畳むのは、この区分が append-only により是正不能で exit code
+// にも --ci の ratchet にも関与せず（evaluateCI は warn だけを見る）、同じ棚卸しを
+// `scholia retrofit` が修正候補つきで出すため——用途は失われない。区分を新設した
+// decision 自身が、別掲の目的を「恒常ノイズを新設しないこと」と述べている。
+func planLintText(findings []lint.Finding, verbose bool) lintTextPlan {
+	p := lintTextPlan{Detail: make(map[lintSection]lintDetail, 4)}
 	for _, f := range findings {
-		if f.Coverage != "" && f.Coverage != lint.CoverageNone {
-			continue
+		switch {
+		case f.Coverage != "" && f.Coverage != lint.CoverageNone:
+			// direct/via-tag は3段集計に畳む（毎回列挙する info ノイズを出さない・U1）。
+			if f.Coverage == lint.CoverageViaTag {
+				p.ViaTag = append(p.ViaTag, f)
+			}
+		case f.AcknowledgedBy != "":
+			// typed 容認は是正対象の displayed に混ぜない（信じられる緑を返すため）。
+			p.TypedAck = append(p.TypedAck, f)
+		case f.AcknowledgeOnly:
+			p.AckOnly = append(p.AckOnly, f)
+		default:
+			p.Displayed = append(p.Displayed, f)
 		}
-		// typed 容認（#45 D6）で畳んだ finding は「容認済み（decision リンク付き）」
-		// 区分に落とす（既定は件数のみ・--verbose で展開）。是正対象の displayed には
-		// 混ぜない（信じられる緑を返すため）。
-		if f.AcknowledgedBy != "" {
-			typedAck = append(typedAck, f)
-			continue
-		}
-		if f.AcknowledgeOnly {
-			ackOnly = append(ackOnly, f)
-			continue
-		}
-		displayed = append(displayed, f)
 	}
-	if len(displayed) == 0 && len(ackOnly) == 0 && len(typedAck) == 0 {
+	p.CoverageDirect, p.CoverageViaTag, p.CoverageNone = lint.CoverageCounts(findings)
+
+	folded := lintDetailNone
+	if verbose {
+		folded = lintDetailAll
+	}
+	p.Detail[lintSectionDisplayed] = lintDetailAll
+	p.Detail[lintSectionTypedAck] = folded
+	p.Detail[lintSectionAckOnly] = folded
+	p.Detail[lintSectionCoverage] = folded
+	return p
+}
+
+// printLintText は既定のテキスト出力。
+func printLintText(cmd *cobra.Command, findings []lint.Finding, verbose bool) {
+	renderLintText(cmd.OutOrStdout(), planLintText(findings, verbose))
+}
+
+// renderLintText は plan を描く。粒度の判断はここでは行わない（plan.Detail に従う）。
+func renderLintText(out io.Writer, p lintTextPlan) {
+	if len(p.Displayed) == 0 && len(p.AckOnly) == 0 && len(p.TypedAck) == 0 {
 		fmt.Fprintln(out, "lint: 問題は見つかりませんでした")
 	}
-	for _, f := range displayed {
-		fmt.Fprintf(out, "[%s] %s: %s\n", f.Severity, f.Rule, f.Message)
+	if p.Detail[lintSectionDisplayed] == lintDetailAll {
+		for _, f := range p.Displayed {
+			fmt.Fprintf(out, "[%s] %s: %s\n", f.Severity, f.Rule, f.Message)
+		}
 	}
-	if len(typedAck) > 0 {
-		fmt.Fprintf(out, "typed 容認済み（decision で意図的に残す gap・#45 D6）: %d 件\n", len(typedAck))
-		if verbose {
-			for _, f := range typedAck {
+	if len(p.TypedAck) > 0 {
+		fmt.Fprintf(out, "typed 容認済み（decision で意図的に残す gap・#45 D6）: %d 件\n", len(p.TypedAck))
+		if p.Detail[lintSectionTypedAck] == lintDetailAll {
+			for _, f := range p.TypedAck {
 				fmt.Fprintf(out, "  [%s] %s: %s → 容認 decision %s\n", f.Severity, f.Rule, f.Target, f.AcknowledgedBy)
 			}
 		}
 	}
-	if len(ackOnly) > 0 {
-		fmt.Fprintf(out, "acknowledge-only（decision 判断欄位・append-only により是正不能・容認で畳む対象）: %d 件\n", len(ackOnly))
-		for _, f := range ackOnly {
-			fmt.Fprintf(out, "  [%s] %s: %s\n", f.Severity, f.Rule, f.Message)
+	if len(p.AckOnly) > 0 {
+		fmt.Fprintf(out,
+			"acknowledge-only（decision 判断欄位・append-only により是正不能・容認で畳む対象）: %d 件（明細は --verbose / 修正候補つきの棚卸しは scholia retrofit）\n",
+			len(p.AckOnly))
+		if p.Detail[lintSectionAckOnly] == lintDetailAll {
+			for _, f := range p.AckOnly {
+				fmt.Fprintf(out, "  [%s] %s: %s\n", f.Severity, f.Rule, f.Message)
+			}
 		}
 	}
 
-	direct, viaTag, none := lint.CoverageCounts(findings)
-	if direct+viaTag+none == 0 {
+	if p.CoverageDirect+p.CoverageViaTag+p.CoverageNone == 0 {
 		return
 	}
-	if verbose {
-		fmt.Fprintf(out, "decision-coverage: direct %d / via-tag %d / none %d\n", direct, viaTag, none)
-		if viaTag > 0 {
+	if p.Detail[lintSectionCoverage] == lintDetailAll {
+		fmt.Fprintf(out, "decision-coverage: direct %d / via-tag %d / none %d\n", p.CoverageDirect, p.CoverageViaTag, p.CoverageNone)
+		if p.CoverageViaTag > 0 {
 			fmt.Fprintln(out, "decision-coverage via-tag の内訳:")
-			for _, f := range findings {
-				if f.Coverage == lint.CoverageViaTag {
-					fmt.Fprintf(out, "  %s: %s\n", f.Target, f.Detail)
-				}
+			for _, f := range p.ViaTag {
+				fmt.Fprintf(out, "  %s: %s\n", f.Target, f.Detail)
 			}
 		}
 	} else {
-		fmt.Fprintf(out, "decision-coverage: direct %d / via-tag %d / none %d（via-tag の内訳は --verbose）\n", direct, viaTag, none)
+		fmt.Fprintf(out, "decision-coverage: direct %d / via-tag %d / none %d（via-tag の内訳は --verbose）\n", p.CoverageDirect, p.CoverageViaTag, p.CoverageNone)
 	}
 }
 
