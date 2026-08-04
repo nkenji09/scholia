@@ -245,6 +245,12 @@ export interface TransitionsResponse {
   facet?: string;
   roots?: FacetNode[];
   untagged?: Transition[];
+  /** `GET /api/transitions?detail=1` のときだけ載る（正本
+      01KZ5N5CJ2VFMZAGSFPSCZAMTZ 条項1）。transition 1件につき
+      `/api/transitions/<id>` を1本ずつ投げていたのを一覧と同じ1本に畳むための
+      口で、値は `GET /api/transitions/<id>` と同じ形（静的書き出しの
+      `transitionDetail` とも同一）。 */
+  details?: Record<string, TransitionDetail>;
 }
 
 /** How a tag became effective on a transition (§3.7) — a tag can arrive via

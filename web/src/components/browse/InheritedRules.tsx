@@ -1,10 +1,8 @@
 import { Fragment } from 'preact';
-import { useEffect, useState } from 'preact/hooks';
-import { api } from '../../api';
 import { useT } from '../../i18n';
+import { useGoverns } from '../../governs';
 import { useLookups } from '../../lookups';
 import { routeHash } from '../../router';
-import type { GovernsRef } from '../../types';
 import { HashLink } from '../shared/HashLink';
 import { Icon } from '../shared/Icon';
 import { isInForce } from '../decisions/decisionModel';
@@ -42,31 +40,22 @@ import type { RecordRef } from './rulesCommand';
 //
 // データ源は GET /api/governs＝ CLI `scholia rules` と同じ Go コア
 // （index.GovernsFor*）。フロントで実効タグを再計算しない（面間整合 D10b-2）。
+//
+// ⚠️ **取りに行くのはこの部品ではない。** この欄はタグ・仕様・語彙の3つの一覧に
+// カード1枚ごとに載るので、ここで1件ずつ取ると要求の本数がカード枚数＝レコード
+// 件数に比例する（実測 82＋70＋170 本）。取得は app 起動時に1回だけ行う共有機構
+// （governs.tsx）に置き、ここはそこから引く（正本 01KZ5N5CJ2VFMZAGSFPSCZAMTZ
+// 条項1）。**答えは変わらない**——同じ Go コアの一括版を1本で受けているだけ。
 
 export function InheritedRules({ record }: { record: RecordRef }) {
   const t = useT();
   const { tagName, currencyIndex } = useLookups();
-  const [entries, setEntries] = useState<GovernsRef[] | null>(null);
+  const { ready, entriesFor } = useGoverns();
 
-  useEffect(() => {
-    let cancelled = false;
-    const params = record.kind === 'tag' ? { tag: record.id } : record.kind === 'transition' ? { tx: record.id } : { vocab: record.id };
-    api
-      .getGoverns(params)
-      .then((res) => {
-        if (!cancelled) setEntries(res.entries);
-      })
-      .catch(() => {
-        // 取得できなかったときは欄を出さない。開示できないのは条項3 的には
-        // 望ましくないが、壊れた件数を出すよりは出さないほうがまし。
-        if (!cancelled) setEntries([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [record.kind, record.id]);
-
-  if (!entries) return null;
+  // 未取得のうちは欄を出さない（1件ずつ取っていた頃の `entries === null` と
+  // 同じ倒し方。0件と未取得を取り違えると、取得前のカードが「規則ゼロ」に見える）。
+  if (!ready) return null;
+  const entries = entriesFor(record);
 
   // 口を出すかどうかは「この記録に効いている規則が1件でもあるか」で決める
   // （own を含む）。継承の件数で決めると、継承0・own ありのカードから「全体は

@@ -195,14 +195,20 @@ export const api = {
     return request<VocabEntry[]>('/api/vocab' + query({ category, subject }));
   },
 
-  getTransitions: (params: { facet?: string; tag?: string; kind?: string }) => {
+  // detail:true は「一覧＋全 transition の詳細」を1本で取る（正本
+  // 01KZ5N5CJ2VFMZAGSFPSCZAMTZ 条項1）。transition 1件につき getTransition を
+  // 1本ずつ投げる形は、件数に比例して本数が増える——本数を件数から切り離す
+  // ための口である。静的モードは焼き込み済みの transitionDetail を返すので、
+  // 消費側は live/静的で同じ1つのコードパスを通る（面間整合 D10b-2）。
+  getTransitions: (params: { facet?: string; tag?: string; kind?: string; detail?: boolean }) => {
+    const { detail, ...selectors } = params;
     if (staticData) {
-      if (params.facet || params.kind) return staticUnavailable(DICTS[loadLang()].api.transitionsByFacetKind);
-      const res = staticData.transitionsByTag[params.tag ?? ''];
-      if (!res) return staticUnavailable(DICTS[loadLang()].api.transitionsForTag(params.tag ?? ''));
-      return Promise.resolve(res);
+      if (selectors.facet || selectors.kind) return staticUnavailable(DICTS[loadLang()].api.transitionsByFacetKind);
+      const res = staticData.transitionsByTag[selectors.tag ?? ''];
+      if (!res) return staticUnavailable(DICTS[loadLang()].api.transitionsForTag(selectors.tag ?? ''));
+      return Promise.resolve(detail ? { ...res, details: staticData.transitionDetail } : res);
     }
-    return request<TransitionsResponse>('/api/transitions' + query(params));
+    return request<TransitionsResponse>('/api/transitions' + query({ ...selectors, detail: detail ? '1' : undefined }));
   },
 
   getTransition: (id: string) => {
@@ -211,6 +217,14 @@ export const api = {
       return detail ? Promise.resolve(detail) : staticUnavailable(DICTS[loadLang()].api.transition(id));
     }
     return request<TransitionDetail>(`/api/transitions/${encodeURIComponent(id)}`);
+  },
+
+  // 全タグの spec レポートを1本で取る（正本 01KZ5N5CJ2VFMZAGSFPSCZAMTZ 条項1）。
+  // タグ1件につき getSpec を1本ずつ投げる形の置き換えで、静的モードは焼き込み
+  // 済みの map をそのまま返す（形が live と同一なので消費側は分岐しない）。
+  getSpecAll: () => {
+    if (staticData) return Promise.resolve(staticData.spec);
+    return request<{ reports: Record<string, SpecReport> }>('/api/spec').then((r) => r.reports);
   },
 
   getSpec: (tagId: string) => {
@@ -327,6 +341,15 @@ export const api = {
   // per-record governs（#45 D10b-1）— exactly one of tag/tx/vocab. static は
   // record ref（"tag:<id>" 等）で焼き込み済み map を引く（transitionsByTag と
   // 同流儀）。live は GET /api/governs に委譲。
+  // 全レコードの governs を1本で取る（正本 01KZ5N5CJ2VFMZAGSFPSCZAMTZ 条項1）。
+  // カード1枚につき getGoverns を1本ずつ投げる形の置き換え。key は
+  // "tag:<id>" / "transition:<id>" / "vocab:<id>" ——静的の焼き込みと同じ綴りで、
+  // live 側もこの綴りで返す（GovernsProvider が1回だけ呼ぶ）。
+  getGovernsAll: () => {
+    if (staticData) return Promise.resolve(staticData.governs);
+    return request<{ byRef: Record<string, GovernsRef[]> }>('/api/governs?all=1').then((r) => r.byRef);
+  },
+
   getGoverns: (ref: { tag?: string; tx?: string; vocab?: string }) => {
     if (staticData) {
       const key = ref.tag ? `tag:${ref.tag}` : ref.tx ? `transition:${ref.tx}` : ref.vocab ? `vocab:${ref.vocab}` : '';

@@ -25,7 +25,12 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 // (#/spec/#/vocab/#/flow/#/decisions/#/tags) is untouched: they're no longer
 // top-level nav tabs but stay reachable as internal lenses/detail routes of
 // 概要/ブラウザ (per the IA-rework: nothing is deleted, only demoted).
-export type ViewName = 'overview' | 'home' | 'browse' | 'vocab' | 'spec' | 'tags' | 'config' | 'flow' | 'decisions' | 'decision';
+// ⚠️ **面の一覧は値で持つ**（型だけだと実行時に数え上げられない）。ViewName は
+// この配列から導くので、面を1つ足せば必ずここにも載る——「新しく作った面には
+// ガードを置き忘れる」（CLAUDE.md 5）を、書き忘れようのない形にするため。
+// 画面1枚の費用を見る歯止め（pageRequestCost.test.tsx）はこの配列を回る。
+export const VIEW_NAMES = ['overview', 'home', 'browse', 'vocab', 'spec', 'tags', 'config', 'flow', 'decisions', 'decision'] as const;
+export type ViewName = (typeof VIEW_NAMES)[number];
 
 export interface Route {
   view: ViewName;

@@ -298,54 +298,49 @@ export function BrowseView({
       .catch((err) => setError(String(err)));
   }, []);
 
+  // タグ facet のカード本体（spec レポート）は**1本**で取る。以前は
+  // `tags.map(getSpec)` ＝ タグ1件につき1本で、要求の本数がレコード件数に
+  // 比例していた（正本 01KZ5N5CJ2VFMZAGSFPSCZAMTZ 条項1・実測 82 本）。
+  // 1本にしたので「一部だけ失敗する」形は無くなり、失敗件数は 0 か全件かの
+  // どちらかになる——それでも欄は残す（下の soft banner の意味は「読めなかった
+  // カードがある」のまま）。
   useEffect(() => {
     if (facet !== 'tags' || !tags) return;
     let cancelled = false;
-    Promise.all(
-      tags.map((t) =>
-        api
-          .getSpec(t.id)
-          .then((r) => [t.id, r] as const)
-          .catch(() => [t.id, undefined] as const),
-      ),
-    ).then((pairs) => {
-      if (cancelled) return;
-      const next: Record<string, SpecReport> = {};
-      let failed = 0;
-      for (const [id, r] of pairs) {
-        if (r) next[id] = r;
-        else failed++;
-      }
-      setSpecReports(next);
-      setTagsFailedCount(failed);
-      setTagsSettled(true);
-    });
+    api
+      .getSpecAll()
+      .then((reports) => {
+        if (cancelled) return;
+        setSpecReports(reports);
+        setTagsFailedCount(tags.filter((t) => !reports[t.id]).length);
+        setTagsSettled(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSpecReports({});
+        setTagsFailedCount(tags.length);
+        setTagsSettled(true);
+      });
     return () => {
       cancelled = true;
     };
   }, [facet, tags]);
 
+  // 仕様 facet も同じ理由で**1本**（一覧＋全詳細）。以前は一覧1本のあとに
+  // transition 1件につき1本＝ 70 本を投げ、しかも下の deps のせいでそれを
+  // 2回投げていた（正本 条項1 の「同じレコードを二度取りに行かない」・実測 140 本）。
   useEffect(() => {
     if (facet !== 'specs') return;
     let cancelled = false;
     api
-      .getTransitions({})
+      .getTransitions({ detail: true })
       .then((res) => {
-        if (cancelled) return undefined;
+        if (cancelled) return;
         const list = res.transitions || [];
+        const details = res.details || {};
         setTxList(list);
-        return Promise.all(list.map((t) => api.getTransition(t.id).catch(() => undefined)));
-      })
-      .then((details) => {
-        if (cancelled || !details) return;
-        const next: Record<string, TransitionDetail> = {};
-        let failed = 0;
-        for (const d of details) {
-          if (d) next[d.id] = d;
-          else failed++;
-        }
-        setTxDetails(next);
-        setSpecsFailedCount(failed);
+        setTxDetails(details);
+        setSpecsFailedCount(list.filter((t) => !details[t.id]).length);
         setSpecsSettled(true);
       })
       .catch((err) => setError(String(err)));
@@ -357,6 +352,10 @@ export function BrowseView({
     // own "+ 新規 Transition" form) refreshes the diff, and this refetches
     // the live transition list/details so the affected card actually
     // appears/disappears without a full page reload.
+    //
+    // ⚠️ **初回解決では上がらない**（pendingDiff.tsx の version の doc）。
+    // 上がっていた頃は、起動直後の diff が返った拍子にこの effect がもう一度
+    // 走り、同じ 70 件を取り直していた。
   }, [facet, pendingDiff.version]);
 
   const tagsReady = facet === 'tags' && tagsSettled;
