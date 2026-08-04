@@ -55,7 +55,43 @@ function staticUnavailable(what: string): Promise<never> {
   return Promise.reject(new ApiError(DICTS[loadLang()].api.unavailable(what)));
 }
 
+// 同時に飛んでいる**同じ GET** を1本に畳む（正本 01KZ5N5CJ2VFMZAGSFPSCZAMTZ
+// 条項1「同じレコードを1画面で二度取りに行かない」）。
+//
+// 画面が起きるとき、共有機構（lookups.tsx）と画面自身が同じ一覧（`/api/tags`・
+// `/api/config`・`/api/vocab`・`/api/transitions`・`/api/rules`）をそれぞれ取りに
+// 行っていた。一括の口を用意したいまは、その1本が**全レコードを運ぶ**ので、
+// 二重に取ることは全レコードを二度取りに行くことと同じである。
+//
+// **畳むのは飛んでいる最中だけ。** 応答が返った時点で表から外すので、書込の後の
+// 取り直し（pendingDiff.refresh() 等）はこれまでどおりサーバまで行く——鮮度は
+// 落とさない（条項2 と同じ線）。
+//
+// ⚠️ **返るオブジェクトは呼び手のあいだで共有される。** 受け取った配列やオブジェクトを
+// **その場で書き換えてはいけない**（並べ替えるなら `slice()` してから）。いまの
+// 呼び手はどれも filter/map/Array.from の結果を並べ替えているので該当しない。
+const inFlightGets = new Map<string, Promise<unknown>>();
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  if (!init || (init.method ?? 'GET') === 'GET') {
+    const pending = inFlightGets.get(path) as Promise<T> | undefined;
+    if (pending) return pending;
+    const started = fetchJSON<T>(path, init);
+    inFlightGets.set(path, started);
+    const clear = () => {
+      if (inFlightGets.get(path) === started) inFlightGets.delete(path);
+    };
+    started.then(clear, clear);
+    return started;
+  }
+  // 書込が始まったら、飛んでいる読みには**もう相乗りさせない**。
+  // 相乗りさせると、書込の後に投げた読みが書込前の応答を受け取りうる
+  // （提案を消した直後の refresh() が、消す前の diff を受け取る形）。
+  inFlightGets.clear();
+  return fetchJSON<T>(path, init);
+}
+
+async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, init);
   if (!res.ok) {
     let message = res.statusText;

@@ -47,14 +47,9 @@ import type { ViewName } from './router';
 //     `internal/viewer/bulk_test.go` が全レコードで突き合わせる。
 //  4. **利用者が操作した後に投げる要求。** ここが見るのは「開いて静まるまで」で、
 //     絞り込みやカードを開く操作の後に増える本数は見ていない。
-//  5. **一覧の口（レコードを名指ししない口）の重複。** 正本の条項は
-//     「**同じレコードを**二度取りに行かない」で、下の「二度取り」の検査もその線で
-//     書いてある。実測でいま残っているのは、共有機構（lookups.tsx）と各画面が
-//     `/api/tags`・`/api/config`・`/api/vocab`・`/api/transitions`・`/api/rules` を
-//     それぞれ別に取る形＝**画面あたり最大5本の定数**である。件数では増えないので
-//     ここは「重複の本数が規模で増えないこと」までを見て、消すところまでは
-//     この単位の射程に入れていない（消すには各画面の取得を共有機構へ寄せる
-//     必要があり、失敗時の見せ方＝画面ごとのエラー banner まで変わる）。
+//  5. **利用者が画面を移った後の取り直し。** 畳んでいるのは「同時に飛んでいる
+//     同じ GET」だけなので、別の画面へ移ってから同じ口を叩き直すのは重複に
+//     数えない（そこは鮮度の側であって、1枚を開く費用ではない）。
 
 const SMALL = 1; // ≈ 本 repo の `.scholia`（タグ 84 / 語彙 168 / 遷移 72 / 決定 180）
 const LARGE = 12; // 本番（利用者の実機 ≈3.17×＝タグ 260）より上に置く（タグ 1,008）
@@ -85,7 +80,14 @@ function hashesFor(view: ViewName, c: Corpus): string[] {
 }
 
 interface Opened {
+  /** その hash を開いてから静まるまでに来た要求すべて。 */
   requests: string[];
+  /** 画面ごとに切った要求（URL が変われば別の画面）。転送する経路
+      （`#/decision/<id>` は `#/decisions?on=…` へ replace する）では
+      2枚ぶんになる——**「1画面で二度取りに行かない」は1枚ごとに見る。**
+      切り方は hashchange という**事象**で決めるので、どの経路が転送するかを
+      テスト側が知っている必要はない。 */
+  perPage: string[][];
   unhandled: string[];
 }
 
@@ -94,6 +96,9 @@ async function openPage(hash: string, scale: number): Promise<Opened> {
   const corpus = makeCorpus(scale);
   const server = installScaleServer(corpus);
   let mounted: Mounted | null = null;
+  const bounds: number[] = [];
+  const onHashChange = () => bounds.push(server.requests.length);
+  window.addEventListener('hashchange', onHashChange);
   try {
     mounted = mountApp(hash);
     // 「出尽くした」の判定: 本数が増えなくなってから一定回数変化しないこと。
@@ -113,8 +118,16 @@ async function openPage(hash: string, scale: number): Promise<Opened> {
       `${hash} の要求が出尽くす`,
       60000,
     );
-    return { requests: [...server.requests], unhandled: [...server.unhandled] };
+    const requests = [...server.requests];
+    const cuts = [0, ...bounds, requests.length];
+    const perPage: string[][] = [];
+    for (let i = 0; i + 1 < cuts.length; i++) {
+      const seg = requests.slice(cuts[i], cuts[i + 1]);
+      if (seg.length) perPage.push(seg);
+    }
+    return { requests, perPage, unhandled: [...server.unhandled] };
   } finally {
+    window.removeEventListener('hashchange', onHashChange);
     mounted?.unmount();
     server.restore();
     resetBrowserState();
@@ -133,7 +146,6 @@ describe('画面1枚を開く費用（正本 01KZ5N5CJ2VFMZAGSFPSCZAMTZ 条項1�
       it(
         `${hash}`,
         async () => {
-          const corpus = makeCorpus(SMALL);
           const small = await openPage(hash, SMALL);
           const large = await openPage(hash, LARGE);
 
@@ -149,15 +161,19 @@ describe('画面1枚を開く費用（正本 01KZ5N5CJ2VFMZAGSFPSCZAMTZ 条項1�
               `大きいほうだけに出た口: ${JSON.stringify(diffPaths(small.requests, large.requests).slice(0, 8))}`,
           ).toBe(small.requests.length);
 
-          // 条項1 後半: **レコードを名指しした口**は二度叩かない。
-          // 「どの口か」を列挙せず、**URL に corpus のレコード id が現れるか**で
-          // 判定する——新しい口を足しても、レコードを名指しする限り自動的に
-          // この検査の内側に入る（CLAUDE.md 3「どのゲートの内側にもいないこと」）。
-          const dupes = duplicates(small.requests);
-          expect(dupes.filter(([url]) => namesARecord(url, corpus)), `${hash}: 同じレコードを二度取りに行っている`).toEqual([]);
-
-          // 残る重複（レコードを名指ししない一覧の口・射程5）は**定数**であること。
-          expect(duplicates(large.requests).length, `${hash}: 重複する口の種類が規模で増えた`).toBe(dupes.length);
+          // 条項1 後半: **同じ口を二度叩かない**。
+          //
+          // 口の種類を選り分けない。一括の口（`/api/spec`・`/api/governs?all=1`・
+          // `/api/transitions?detail=1`）は**1本が全レコードを運ぶ**ので、それを
+          // 二度叩くことは全レコードを二度取りに行くことと同じである。
+          // 「レコードを名指しした口だけ見る」形にすると、まさにそこが抜ける
+          // （実見: pendingDiff の初回解決で一括の口が2本出る変異が素通りした）。
+          for (const [i, page] of small.perPage.entries()) {
+            expect(duplicates(page), `${hash}: 同じ口を二度叩いている（${i + 1} 枚目）`).toEqual([]);
+          }
+          for (const [i, page] of large.perPage.entries()) {
+            expect(duplicates(page), `${hash}: 同じ口を二度叩いている（大きい標本・${i + 1} 枚目）`).toEqual([]);
+          }
         },
         // 大きい標本は 1,000 件のカードを実際に描くので、vitest の既定
         // （5 秒）では足りない。**標本を小さくして既定に収めない**——
@@ -173,13 +189,6 @@ function duplicates(requests: string[]): Array<[string, number]> {
   const seen = new Map<string, number>();
   for (const r of requests) seen.set(r, (seen.get(r) ?? 0) + 1);
   return [...seen.entries()].filter(([, n]) => n > 1);
-}
-
-/** その URL が corpus のレコードを名指ししているか（path でも query でも）。 */
-function namesARecord(url: string, c: Corpus): boolean {
-  const decoded = decodeURIComponent(url);
-  const ids = [...c.tags.map((t) => t.id), ...c.vocab.map((v) => v.id), ...c.transitions.map((t) => t.id), ...c.decisions.map((d) => d.id)];
-  return ids.some((id) => decoded.includes(id));
 }
 
 /** 大きい側にだけ現れた path の種類（エラー文言を読める形にするためだけの補助）。 */
