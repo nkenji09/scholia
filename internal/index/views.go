@@ -62,6 +62,10 @@ type TransitionDetail struct {
 // BuildTransitionDetail builds TransitionDetail for id. ok is false if no
 // such transition exists.
 func BuildTransitionDetail(snap *store.Snapshot, ix *Index, id string) (detail TransitionDetail, ok bool, err error) {
+	return buildTransitionDetailWith(snap, newSnapLookups(snap), ix, id)
+}
+
+func buildTransitionDetailWith(snap *store.Snapshot, lk *snapLookups, ix *Index, id string) (detail TransitionDetail, ok bool, err error) {
 	t, ok := ix.TransitionByID[id]
 	if !ok {
 		return TransitionDetail{}, false, nil
@@ -81,7 +85,7 @@ func BuildTransitionDetail(snap *store.Snapshot, ix *Index, id string) (detail T
 	for _, e := range t.Then {
 		detail.ThenLabels = append(detail.ThenLabels, label(e))
 	}
-	detail.EffectiveTags = EffectiveTagsWithProvenance(snap, &t)
+	detail.EffectiveTags = effectiveTagsWithProvenance(lk, &t)
 
 	// この transition 自身の decision のみ（祖先タグの cross-cutting は除く）。
 	own := filterDecisions(snap.Decisions, func(d model.Decision) bool {

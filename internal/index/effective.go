@@ -38,10 +38,74 @@ type EffectiveTag struct {
 // EffectiveTagsWithProvenance's ID field (§9 single source of truth: one
 // computation, provenance is not recomputed separately).
 func EffectiveTags(snap *store.Snapshot, t *model.Transition) []string {
-	withProvenance := EffectiveTagsWithProvenance(snap, t)
+	return effectiveTagIDs(newSnapLookups(snap), t)
+}
+
+func effectiveTagIDs(lk *snapLookups, t *model.Transition) []string {
+	withProvenance := effectiveTagsWithProvenance(lk, t)
 	out := make([]string, 0, len(withProvenance))
 	for _, et := range withProvenance {
 		out = append(out, et.ID)
+	}
+	return out
+}
+
+// snapLookups は「スナップショット全体を id で引く表」。
+//
+// これを持ち回るのは費用のためである（decision 01KZ5N5CJ2VFMZAGSFPSCZAMTZ）。
+// 以前は EffectiveTagsWithProvenance も TagAncestors も GovernsFor* も、
+// **呼ばれるたびに全タグ／全語彙の map を建て直していた**。1件を引くぶんには
+// 誤差だが、一括の口（AllGoverns / AllTransitionDetails / SpecAll）は
+// レコード件数ぶん呼ぶので、そこで O(N²) になっていた——実測で 8×
+// （tags 664）の `/api/governs?all=1` が 0.31 秒。
+//
+// 公開関数の見た目と答えは変えない。1件用の口はこれまでどおり自分で建て、
+// 一括の口だけ1回建てて使い回す（＝**同じ核**を通り、選択規則は1箇所のまま）。
+type snapLookups struct {
+	tagByID   map[string]model.Tag
+	vocabByID map[string]model.VocabEntry
+	txByID    map[string]model.Transition
+	// decisionIdxByTarget は target（"<type>:<id>"）→ snap.Decisions の添字（昇順）。
+	//
+	// **添字を持つのは並びを変えないため。** 支配する規則の組み立ては
+	// snap.Decisions を先頭から見て積み、最後に At で安定ソートする——同じ At の
+	// 2件の前後関係は「元の並び」で決まる。バケツから拾った順に積むとその
+	// 前後関係が変わりうるので、拾った添字を昇順に戻してから積む。
+	decisionIdxByTarget map[string][]int
+}
+
+func decisionTargetKey(targetType, targetID string) string { return targetType + ":" + targetID }
+
+func newSnapLookups(snap *store.Snapshot) *snapLookups {
+	lk := &snapLookups{
+		tagByID:   make(map[string]model.Tag, len(snap.Tags)),
+		vocabByID: make(map[string]model.VocabEntry, len(snap.Vocab)),
+		txByID:    make(map[string]model.Transition, len(snap.Transitions)),
+	}
+	for _, t := range snap.Tags {
+		lk.tagByID[t.ID] = t
+	}
+	for _, v := range snap.Vocab {
+		lk.vocabByID[v.ID] = v
+	}
+	for _, t := range snap.Transitions {
+		lk.txByID[t.ID] = t
+	}
+	lk.decisionIdxByTarget = make(map[string][]int, len(snap.Decisions))
+	for i, d := range snap.Decisions {
+		k := decisionTargetKey(d.Target.Type, d.Target.ID)
+		lk.decisionIdxByTarget[k] = append(lk.decisionIdxByTarget[k], i)
+	}
+	return lk
+}
+
+// decisionsOn は target がちょうど一致する decision を、snap.Decisions での
+// 並びのまま返す（filterDecisions の等値版を、全件走査せずに引く）。
+func (lk *snapLookups) decisionsOn(snap *store.Snapshot, targetType, targetID string) []model.Decision {
+	idx := lk.decisionIdxByTarget[decisionTargetKey(targetType, targetID)]
+	out := make([]model.Decision, 0, len(idx))
+	for _, i := range idx {
+		out = append(out, snap.Decisions[i])
 	}
 	return out
 }
@@ -52,10 +116,11 @@ func EffectiveTags(snap *store.Snapshot, t *model.Transition) []string {
 // effective" (gap G11). Deduplicated and sorted by ID. Cyclic tag parentIds
 // do not cause an infinite loop (visited set, same guard as ancestorClosure).
 func EffectiveTagsWithProvenance(snap *store.Snapshot, t *model.Transition) []EffectiveTag {
-	vocabByID := make(map[string]model.VocabEntry, len(snap.Vocab))
-	for _, v := range snap.Vocab {
-		vocabByID[v.ID] = v
-	}
+	return effectiveTagsWithProvenance(newSnapLookups(snap), t)
+}
+
+func effectiveTagsWithProvenance(lk *snapLookups, t *model.Transition) []EffectiveTag {
+	vocabByID := lk.vocabByID
 
 	ownSeeds := make(map[string]bool, len(t.Tags))
 	for _, id := range t.Tags {
@@ -82,7 +147,7 @@ func EffectiveTagsWithProvenance(snap *store.Snapshot, t *model.Transition) []Ef
 		seeds[id] = true
 	}
 
-	_, viaAncestor := ancestorClosureWithSource(tagIndex(snap.Tags), seeds)
+	_, viaAncestor := ancestorClosureWithSource(lk.tagByID, seeds)
 
 	all := make(map[string]bool, len(seeds)+len(viaAncestor))
 	for id := range seeds {
@@ -114,7 +179,11 @@ func EffectiveTagsWithProvenance(snap *store.Snapshot, t *model.Transition) []Ef
 // Tag.ParentIDs (sorted, deduplicated, cycle-safe). Used by `scholia rules
 // --tag` (§3.8): a decision on an ancestor tag also governs its descendants.
 func TagAncestors(snap *store.Snapshot, tagID string) []string {
-	closure := ancestorClosure(tagIndex(snap.Tags), map[string]bool{tagID: true})
+	return tagAncestorsWith(newSnapLookups(snap), tagID)
+}
+
+func tagAncestorsWith(lk *snapLookups, tagID string) []string {
+	closure := ancestorClosure(lk.tagByID, map[string]bool{tagID: true})
 	return sortedKeys(closure)
 }
 
@@ -153,14 +222,6 @@ func ancestorClosureWithSource(tagByID map[string]model.Tag, seeds map[string]bo
 		expand(id)
 	}
 	return all, viaAncestor
-}
-
-func tagIndex(tags []model.Tag) map[string]model.Tag {
-	m := make(map[string]model.Tag, len(tags))
-	for _, t := range tags {
-		m[t.ID] = t
-	}
-	return m
 }
 
 func sortedKeys(m map[string]bool) []string {

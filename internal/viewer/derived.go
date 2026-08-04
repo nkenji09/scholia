@@ -12,6 +12,7 @@ import (
 )
 
 func registerDerivedRoutes(mux *http.ServeMux, s *store.Store, c *indexCache) {
+	mux.HandleFunc("GET /api/spec", getSpecAllHandler(c))
 	mux.HandleFunc("GET /api/spec/{tagId}", getSpecHandler(c))
 	mux.HandleFunc("GET /api/lint", getLintHandler(c))
 	mux.HandleFunc("GET /api/diff", getDiffHandler(s))
@@ -34,6 +35,33 @@ func getFlowHandler(c *indexCache) http.HandlerFunc {
 		}
 		report := flow.Analyze(&snap, ix, actionID)
 		writeJSON(w, http.StatusOK, report)
+	}
+}
+
+// specAllResponse は全タグの spec レポートを1本で返す（decision
+// 01KZ5N5CJ2VFMZAGSFPSCZAMTZ 条項1）。key は tag id で、値は
+// `GET /api/spec/{tagId}` が1件で返すものと同じ形——静的書き出しの
+// `staticData.spec` と同一の形でもある（面間整合原則 D10b-2）。
+//
+// タグ1件につき1本投げていた `/api/spec/{tagId}` はそのまま残す（他の口から
+// 使われうる・後方互換）。画面が使うのはこちらへ移る。
+type specAllResponse struct {
+	Reports map[string]render.SpecReport `json:"reports"`
+}
+
+func getSpecAllHandler(c *indexCache) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		snap, ix, err := c.load()
+		if err != nil {
+			writeStoreError(w, err)
+			return
+		}
+		reports, err := render.SpecAll(&snap, ix)
+		if err != nil {
+			writeStoreError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, specAllResponse{Reports: reports})
 	}
 }
 

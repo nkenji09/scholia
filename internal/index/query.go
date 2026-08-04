@@ -114,14 +114,15 @@ func SelectRulesDecisions(snap *store.Snapshot, tagID, txID, facet string) ([]mo
 // selector. SelectRulesDecisions delegates here with vocabID="" so existing
 // callers (which never pass a vocab) keep their exact three-selector API.
 func SelectRulesDecisionsFor(snap *store.Snapshot, tagID, txID, vocabID, facet string) ([]model.Decision, error) {
+	lk := newSnapLookups(snap)
 	switch {
 	case txID != "":
-		tx, ok := findTransitionByID(snap.Transitions, txID)
+		tx, ok := lk.txByID[txID]
 		if !ok {
 			return nil, fmt.Errorf("transition %q が実在しません", txID)
 		}
 		targetTags := make(map[string]bool)
-		for _, id := range EffectiveTags(snap, &tx) {
+		for _, id := range effectiveTagIDs(lk, &tx) {
 			targetTags[id] = true
 		}
 		return filterDecisions(snap.Decisions, func(d model.Decision) bool {
@@ -132,11 +133,11 @@ func SelectRulesDecisionsFor(snap *store.Snapshot, tagID, txID, vocabID, facet s
 		}), nil
 
 	case tagID != "":
-		if !tagExistsByID(snap.Tags, tagID) {
+		if _, ok := lk.tagByID[tagID]; !ok {
 			return nil, fmt.Errorf("tag %q が実在しません", tagID)
 		}
 		ancestors := make(map[string]bool)
-		for _, id := range TagAncestors(snap, tagID) {
+		for _, id := range tagAncestorsWith(lk, tagID) {
 			ancestors[id] = true
 		}
 		return filterDecisions(snap.Decisions, func(d model.Decision) bool {
@@ -144,7 +145,7 @@ func SelectRulesDecisionsFor(snap *store.Snapshot, tagID, txID, vocabID, facet s
 		}), nil
 
 	case vocabID != "":
-		v, ok := findVocabByID(snap.Vocab, vocabID)
+		v, ok := lk.vocabByID[vocabID]
 		if !ok {
 			return nil, fmt.Errorf("vocab %q が実在しません", vocabID)
 		}
@@ -154,7 +155,7 @@ func SelectRulesDecisionsFor(snap *store.Snapshot, tagID, txID, vocabID, facet s
 		// 遷移の実効タグ導出のシードにはなるが自身の実効タグは持たない）。
 		govTags := make(map[string]bool)
 		for _, tg := range v.Tags {
-			for _, anc := range TagAncestors(snap, tg) {
+			for _, anc := range tagAncestorsWith(lk, tg) {
 				govTags[anc] = true
 			}
 		}
@@ -179,24 +180,6 @@ func SelectRulesDecisionsFor(snap *store.Snapshot, tagID, txID, vocabID, facet s
 	default:
 		return append([]model.Decision{}, snap.Decisions...), nil
 	}
-}
-
-func findTransitionByID(transitions []model.Transition, id string) (model.Transition, bool) {
-	for _, t := range transitions {
-		if t.ID == id {
-			return t, true
-		}
-	}
-	return model.Transition{}, false
-}
-
-func findVocabByID(vocab []model.VocabEntry, id string) (model.VocabEntry, bool) {
-	for _, v := range vocab {
-		if v.ID == id {
-			return v, true
-		}
-	}
-	return model.VocabEntry{}, false
 }
 
 // GovernsProvenance names how a governing decision reaches a record (#45
@@ -266,17 +249,19 @@ func RefsOf(entries []GovernsEntry) []GovernsRef {
 // (01KYHW4NBNVN9BFXYZMBX8MPF8 条項3 discloses *inherited* rules, i.e. the
 // non-own ones), so the distinction has to be right at the source.
 func GovernsForTag(snap *store.Snapshot, tagID string) ([]GovernsEntry, error) {
-	if !tagExistsByID(snap.Tags, tagID) {
+	return governsForTagWith(snap, newSnapLookups(snap), tagID)
+}
+
+func governsForTagWith(snap *store.Snapshot, lk *snapLookups, tagID string) ([]GovernsEntry, error) {
+	if _, ok := lk.tagByID[tagID]; !ok {
 		return nil, fmt.Errorf("tag %q が実在しません", tagID)
 	}
-	ownDecisions := filterDecisions(snap.Decisions, func(d model.Decision) bool {
-		return d.Target.Type == model.DecisionTargetTag && d.Target.ID == tagID
-	})
+	ownDecisions := lk.decisionsOn(snap, model.DecisionTargetTag, tagID)
 	// The tag itself stays in directTags so its ancestors are walked from it;
 	// governsFromTagSets dedupes by decision id keeping the strongest
 	// provenance, so the own entries above win over the effective-tag ones.
 	directTags := map[string]bool{tagID: true}
-	return governsFromTagSets(snap, ownFromDecisions(ownDecisions), directTags), nil
+	return governsFromTagSets(snap, lk, ownFromDecisions(ownDecisions), directTags), nil
 }
 
 // GovernsForTransition returns the decisions governing a transition — its own
@@ -284,22 +269,24 @@ func GovernsForTag(snap *store.Snapshot, tagID string) ([]GovernsEntry, error) {
 // effective-tag (a directly-carried tag: own/vocab source) vs parent (reached
 // only by ancestor expansion) provenance (#45 D10b-1). Chronological.
 func GovernsForTransition(snap *store.Snapshot, txID string) ([]GovernsEntry, error) {
-	tx, ok := findTransitionByID(snap.Transitions, txID)
+	return governsForTransitionWith(snap, newSnapLookups(snap), txID)
+}
+
+func governsForTransitionWith(snap *store.Snapshot, lk *snapLookups, txID string) ([]GovernsEntry, error) {
+	tx, ok := lk.txByID[txID]
 	if !ok {
 		return nil, fmt.Errorf("transition %q が実在しません", txID)
 	}
 	directTags := make(map[string]bool)
-	for _, et := range EffectiveTagsWithProvenance(snap, &tx) {
+	for _, et := range effectiveTagsWithProvenance(lk, &tx) {
 		for _, src := range et.Sources {
 			if src == SourceOwn || src == SourceVocab {
 				directTags[et.ID] = true
 			}
 		}
 	}
-	ownDecisions := filterDecisions(snap.Decisions, func(d model.Decision) bool {
-		return d.Target.Type == model.DecisionTargetTransition && d.Target.ID == txID
-	})
-	entries := governsFromTagSets(snap, ownFromDecisions(ownDecisions), directTags)
+	ownDecisions := lk.decisionsOn(snap, model.DecisionTargetTransition, txID)
+	entries := governsFromTagSets(snap, lk, ownFromDecisions(ownDecisions), directTags)
 	return entries, nil
 }
 
@@ -309,7 +296,11 @@ func GovernsForTransition(snap *store.Snapshot, txID string) ([]GovernsEntry, er
 // "effective-tag"; ancestors reached only via ParentIDs are "parent".
 // Chronological.
 func GovernsForVocab(snap *store.Snapshot, vocabID string) ([]GovernsEntry, error) {
-	v, ok := findVocabByID(snap.Vocab, vocabID)
+	return governsForVocabWith(snap, newSnapLookups(snap), vocabID)
+}
+
+func governsForVocabWith(snap *store.Snapshot, lk *snapLookups, vocabID string) ([]GovernsEntry, error) {
+	v, ok := lk.vocabByID[vocabID]
 	if !ok {
 		return nil, fmt.Errorf("vocab %q が実在しません", vocabID)
 	}
@@ -317,10 +308,8 @@ func GovernsForVocab(snap *store.Snapshot, vocabID string) ([]GovernsEntry, erro
 	for _, tg := range v.Tags {
 		directTags[tg] = true
 	}
-	ownDecisions := filterDecisions(snap.Decisions, func(d model.Decision) bool {
-		return d.Target.Type == model.DecisionTargetVocab && d.Target.ID == vocabID
-	})
-	entries := governsFromTagSets(snap, ownFromDecisions(ownDecisions), directTags)
+	ownDecisions := lk.decisionsOn(snap, model.DecisionTargetVocab, vocabID)
+	entries := governsFromTagSets(snap, lk, ownFromDecisions(ownDecisions), directTags)
 	return entries, nil
 }
 
@@ -339,7 +328,7 @@ func ownFromDecisions(decisions []model.Decision) []GovernsEntry {
 // supplied own entries, dedupes by decision id (a decision reachable by several
 // tag paths appears once, at its strongest — own > effective-tag > parent),
 // and sorts the whole list chronologically.
-func governsFromTagSets(snap *store.Snapshot, own []GovernsEntry, directTags map[string]bool) []GovernsEntry {
+func governsFromTagSets(snap *store.Snapshot, lk *snapLookups, own []GovernsEntry, directTags map[string]bool) []GovernsEntry {
 	// Build the full governing-tag closure and remember, per tag, whether it is
 	// direct or only an ancestor, and the nearest direct tag it descends from.
 	type tagInfo struct {
@@ -348,7 +337,7 @@ func governsFromTagSets(snap *store.Snapshot, own []GovernsEntry, directTags map
 	}
 	closure := make(map[string]tagInfo)
 	for tg := range directTags {
-		for _, anc := range TagAncestors(snap, tg) {
+		for _, anc := range tagAncestorsWith(lk, tg) {
 			info := closure[anc]
 			if anc == tg {
 				info.direct = true
@@ -378,10 +367,16 @@ func governsFromTagSets(snap *store.Snapshot, own []GovernsEntry, directTags map
 	for _, e := range own {
 		upsert(e)
 	}
-	for _, d := range snap.Decisions {
-		if d.Target.Type != model.DecisionTargetTag {
-			continue
-		}
+	// closure に載っているタグへの decision だけを、**元の並びのまま**見る
+	// （全件走査すると、支配される側のレコード件数 × decision 件数になる＝
+	// 一括の口が二乗になる。添字を集めて昇順に戻すことで並びは変わらない）。
+	candidates := make([]int, 0)
+	for tg := range closure {
+		candidates = append(candidates, lk.decisionIdxByTarget[decisionTargetKey(model.DecisionTargetTag, tg)]...)
+	}
+	sort.Ints(candidates)
+	for _, di := range candidates {
+		d := snap.Decisions[di]
 		info, ok := closure[d.Target.ID]
 		if !ok {
 			continue
@@ -401,17 +396,11 @@ func governsFromTagSets(snap *store.Snapshot, own []GovernsEntry, directTags map
 	return out
 }
 
-func tagExistsByID(tags []model.Tag, id string) bool {
-	for _, t := range tags {
-		if t.ID == id {
-			return true
-		}
-	}
-	return false
-}
-
+// ⚠️ 容量を先取りしない。一括の口はレコード件数ぶんこれを呼ぶので、
+// `make(..., 0, len(decisions))` は 1 件も残らない呼び出しでも decision 全件ぶんの
+// 領域を確保することになり、実測でそこが一括の口の主要な費用になっていた。
 func filterDecisions(decisions []model.Decision, keep func(model.Decision) bool) []model.Decision {
-	out := make([]model.Decision, 0, len(decisions))
+	out := make([]model.Decision, 0)
 	for _, d := range decisions {
 		if keep(d) {
 			out = append(out, d)

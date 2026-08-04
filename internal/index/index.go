@@ -69,11 +69,14 @@ func Build(snap *store.Snapshot) *Index {
 		sort.Strings(ix.tagChildren[p])
 	}
 
+	// 実効タグの導出は全タグ／全語彙の表を要る。**1回だけ建てて使い回す**
+	// （以前は遷移1本ごとに建て直していて、Build 自体が O(N²) だった）。
+	lk := newSnapLookups(snap)
 	for _, t := range snap.Transitions {
 		t := t // ループ変数のコピー（EffectiveTags は *model.Transition を取る）
 		ix.TransitionByID[t.ID] = t
 
-		eff := EffectiveTags(snap, &t)
+		eff := effectiveTagIDs(lk, &t)
 		ix.EffectiveTags[t.ID] = eff
 		for _, tagID := range eff {
 			if ix.tagTransitions[tagID] == nil {

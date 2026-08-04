@@ -168,15 +168,10 @@ func collectStaticData(s *store.Store) (staticData, error) {
 		vocabBySubject[id] = ix.VocabBySubject(id)
 	}
 
-	txDetail := make(map[string]index.TransitionDetail, len(ix.TransitionByID))
-	for _, t := range ix.AllTransitions() {
-		detail, ok, err := index.BuildTransitionDetail(&snap, ix, t.ID)
-		if err != nil {
-			return staticData{}, err
-		}
-		if ok {
-			txDetail[t.ID] = detail
-		}
+	// live の一括エンドポイント（GET /api/transitions?detail=1）と同じ核。
+	txDetail, err := index.AllTransitionDetails(&snap, ix)
+	if err != nil {
+		return staticData{}, err
 	}
 
 	traceEntries := index.Traceability(ix, snap.Config.TraceabilityKinds)
@@ -201,13 +196,10 @@ func collectStaticData(s *store.Store) (staticData, error) {
 		}
 	}
 
-	spec := make(map[string]SpecReport, len(snap.Tags))
-	for _, t := range snap.Tags {
-		report, err := Spec(&snap, ix, t.ID)
-		if err != nil {
-			return staticData{}, err
-		}
-		spec[t.ID] = report
+	// live の一括エンドポイント（GET /api/spec）と同じ核。
+	spec, err := SpecAll(&snap, ix)
+	if err != nil {
+		return staticData{}, err
 	}
 
 	actionIDs := map[string]bool{}
@@ -236,27 +228,10 @@ func collectStaticData(s *store.Store) (staticData, error) {
 	// 同一の index.GovernsFor* を呼び、SPA が要求しうる各レコード ref（tag/
 	// transition/vocab の全 id）を先に計算する（transitionsByTag と同じ「bake
 	// what the SPA can request」規約）。key は "tag:<id>" 等の record ref。
-	governs := make(map[string][]index.GovernsRef, len(snap.Tags)+len(ix.TransitionByID)+len(snap.Vocab))
-	for _, t := range snap.Tags {
-		entries, err := index.GovernsForTag(&snap, t.ID)
-		if err != nil {
-			return staticData{}, err
-		}
-		governs["tag:"+t.ID] = index.RefsOf(entries)
-	}
-	for _, t := range ix.AllTransitions() {
-		entries, err := index.GovernsForTransition(&snap, t.ID)
-		if err != nil {
-			return staticData{}, err
-		}
-		governs["transition:"+t.ID] = index.RefsOf(entries)
-	}
-	for _, v := range snap.Vocab {
-		entries, err := index.GovernsForVocab(&snap, v.ID)
-		if err != nil {
-			return staticData{}, err
-		}
-		governs["vocab:"+v.ID] = index.RefsOf(entries)
+	// live の一括エンドポイント（GET /api/governs?all=1）と同じ核。
+	governs, err := index.AllGoverns(&snap, ix)
+	if err != nil {
+		return staticData{}, err
 	}
 
 	return staticData{
