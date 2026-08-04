@@ -77,7 +77,8 @@ func newLintCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, "JSON で出力する（decision-coverage は direct/via-tag/none 全件＋coverage 付き）")
-	cmd.Flags().BoolVar(&verbose, "verbose", false, "decision-coverage via-tag の内訳（どのタグ経由か）を表示する")
+	cmd.Flags().BoolVar(&verbose, "verbose", false,
+		"既定で件数へ畳んでいる区分の明細を出す: acknowledge-only・typed 容認・decision-coverage via-tag の内訳（どのタグ経由か）")
 	cmd.Flags().BoolVar(&ci, "ci", false,
 		"CI モード（歯止め）: error 常時 exit 1・baseline に無い新規 warn のみ exit 1（baseline 不在は非活性）・info/advisory 不問")
 	cmd.AddCommand(newLintBaselineCmd())
@@ -192,9 +193,16 @@ func renderLintText(out io.Writer, p lintTextPlan) {
 		}
 	}
 	if len(p.AckOnly) > 0 {
+		// 明細を既に出している面で「明細は --verbose」と案内し続けるのは自己矛盾なので、
+		// 開き方の案内は畳んでいるときだけ出す。retrofit への導線は常に出す
+		// （どの面から見ても、修正候補つきの棚卸しの行き先は同じであるため）。
+		hint := "（明細は --verbose / 修正候補つきの棚卸しは scholia retrofit）"
+		if p.Detail[lintSectionAckOnly] == lintDetailAll {
+			hint = "（修正候補つきの棚卸しは scholia retrofit）"
+		}
 		fmt.Fprintf(out,
-			"acknowledge-only（decision 判断欄位・append-only により是正不能・容認で畳む対象）: %d 件（明細は --verbose / 修正候補つきの棚卸しは scholia retrofit）\n",
-			len(p.AckOnly))
+			"acknowledge-only（decision 判断欄位・append-only により是正不能・容認で畳む対象）: %d 件%s\n",
+			len(p.AckOnly), hint)
 		if p.Detail[lintSectionAckOnly] == lintDetailAll {
 			for _, f := range p.AckOnly {
 				fmt.Fprintf(out, "  [%s] %s: %s\n", f.Severity, f.Rule, f.Message)

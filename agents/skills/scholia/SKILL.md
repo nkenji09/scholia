@@ -235,7 +235,7 @@ scholia spec <subjectTag> [--all] [--json]                    # 取り下げの�
 scholia list [--facet <tagKind>] [--tag <id>] [--kind <k>] [--json]
 scholia rules [--tag <id> | --tx <id> | --vocab <id> | --facet <k>] [--sort chrono|target] [--all] [--json]  # --vocab=own∪ vocab.tags＋祖先（#45 D10b）。既定は**その記録自身への decision の本文だけ**（タグ経由の分と取り下げは存在・経由タグ・引き方だけ）・--all で畳んだもの全部を本文ごと（01KZ06SYP12ZFDG1WPNYM529D8）
 scholia search <keyword> [--type tag|transition|vocab|decision] [--tag <id>]… [--json]   # keyword で横断逆引き（id 未確定な入口）。transition は実効タグ・action kind でもヒット（viewer 検索と同一コア・#45 D10b）。--tag は候補タグのサブツリー（実効タグ包含・list --tag と同義）へ絞り込み（繰り返し可＝OR・#1）
-scholia lint [--json]
+scholia lint [--json] [--verbose] [--ci]                      # 既定は acknowledge-only・typed 容認・decision-coverage via-tag を件数へ畳む（明細は --verbose・修正候補つきの棚卸しは retrofit）。--ci は歯止め（error 常時 exit 1・baseline に無い新規 warn のみ exit 1）
 scholia retrofit [--rule <id>] [--json]                       # advisory 規則で store を read-only 走査し是正候補を棚卸し（--fix なし・exit 0）
 scholia diff [<ref1> [<ref2>]] [--json]                       # 現在 vs ref1、または ref1 vs ref2（landed 監査）
 
