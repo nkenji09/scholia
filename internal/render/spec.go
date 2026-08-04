@@ -81,6 +81,22 @@ func Spec(snap *store.Snapshot, ix *index.Index, subjectTag string) (SpecReport,
 	return SpecReport{Tag: tag, Entries: entries, TagDecisions: tagDecisions, RelatedVocab: ix.VocabByTag(subjectTag), Axis: axis}, nil
 }
 
+// SpecAll は全タグの spec レポートを tag id でひいた map を返す（decision
+// 01KZ5N5CJ2VFMZAGSFPSCZAMTZ 条項1 の一括取得）。1件用の Spec をそのまま回す
+// ので、live の一括エンドポイントと `scholia export --html` の焼き込みが同じ
+// 核を通る（面間整合原則 D10b-2）。
+func SpecAll(snap *store.Snapshot, ix *index.Index) (map[string]SpecReport, error) {
+	out := make(map[string]SpecReport, len(snap.Tags))
+	for _, t := range snap.Tags {
+		report, err := Spec(snap, ix, t.ID)
+		if err != nil {
+			return nil, err
+		}
+		out[t.ID] = report
+	}
+	return out, nil
+}
+
 func vocabLabel(ix *index.Index, vocabID string) string {
 	if v, ok := ix.VocabByID[vocabID]; ok {
 		return v.Label

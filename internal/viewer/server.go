@@ -27,23 +27,61 @@ func NewHandler(s *store.Store) (http.Handler, error) {
 	// the SPA's "/" handler — jsonAPIHandler then re-emits that outcome as
 	// JSON instead of stdlib's plain-text body (§7: /api/ is a JSON
 	// contract, not part of the SPA's route space).
-	apiMux := http.NewServeMux()
-	registerConfigRoutes(apiMux, s)
-	registerFacetRoutes(apiMux, s)
-	registerTransitionRoutes(apiMux, s)
-	registerTransitionWriteRoutes(apiMux, s)
-	registerRulesRoute(apiMux, s)
-	registerGovernsRoutes(apiMux, s)
-	registerDerivedRoutes(apiMux, s)
-	registerTraceabilityRoute(apiMux, s)
-	registerSearchRoute(apiMux, s)
-	registerReviewsRoute(apiMux, s)
-	registerDecisionRoutes(apiMux, s)
+	apiMux, _ := buildAPIMux(s)
 
 	root := http.NewServeMux()
 	root.Handle("/api/", jsonAPIHandler{mux: apiMux})
 	root.Handle("/", spaHandler{fs: distFS})
 	return root, nil
+}
+
+// routeMux は登録された pattern を控えながら ServeMux へ配る薄い包み。
+//
+// 控えるのは**歯止めのため**である。共有スナップショットを同時に読む口が
+// 増えたとき、その口が同時要求ガードを通っているかは「ガードの表に足したか」
+// でしか決まらず、**足し忘れは誰にも止められなかった**——実際、この単位が
+// 新設した3つの一括の口は、置いたばかりの同時要求ガードを1つも通っていなかった
+// （`CLAUDE.md` 5「新しく作った面には、ガードを置き忘れる」）。
+//
+// ここで pattern を控えておくと、ガードは**登録された口そのもの**を回れる。
+// 表に無い pattern が現れたらガードが落ちるので、口を足した人はそこで気づく。
+type routeMux struct {
+	mux      *http.ServeMux
+	patterns []string
+}
+
+func (m *routeMux) HandleFunc(pattern string, h http.HandlerFunc) {
+	m.patterns = append(m.patterns, pattern)
+	m.mux.HandleFunc(pattern, h)
+}
+
+// buildAPIMux は /api/ 以下の口をすべて登録し、登録した pattern も返す。
+// NewHandler と歯止め（index_cache_test.go）が**同じ1つの登録**を通る
+// ——写しを作ると、製品が口を足したのに歯止めだけ古いままになる。
+func buildAPIMux(s *store.Store) (*http.ServeMux, []string) {
+	// 派生 index は**起動時に1回**建て、`.scholia/` が変わったときだけ建て直す
+	// （decision 01KZ5N5CJ2VFMZAGSFPSCZAMTZ 条項2・語彙 cond.index-built）。
+	// 読み取り系のハンドラは全部これを共有する——1本ずつが毎回ストア全体を
+	// 読み直していたのが、画面あたり O(N²) の片方の因子だった。
+	c := newIndexCache(s)
+	c.prime()
+
+	// The API routes live on their own sub-mux with no catch-all pattern, so
+	// Go's ServeMux applies its built-in 404 / 405 behavior (see
+	// jsonAPIHandler below).
+	m := &routeMux{mux: http.NewServeMux()}
+	registerConfigRoutes(m, s)
+	registerFacetRoutes(m, c)
+	registerTransitionRoutes(m, s, c)
+	registerTransitionWriteRoutes(m, s)
+	registerRulesRoute(m, c)
+	registerGovernsRoutes(m, c)
+	registerDerivedRoutes(m, s, c)
+	registerTraceabilityRoute(m, c)
+	registerSearchRoute(m, c)
+	registerReviewsRoute(m, s, c)
+	registerDecisionRoutes(m, s)
+	return m.mux, m.patterns
 }
 
 // jsonAPIHandler wraps an API-only ServeMux (no catch-all pattern) so that

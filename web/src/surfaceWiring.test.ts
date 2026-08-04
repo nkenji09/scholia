@@ -178,8 +178,12 @@ describe('継承した規則の開示がカードに配線されている（条�
     // （下の describe）。
     // 条件そのものに括弧を含む（shouldDiscloseWhole(...)）ので、非貪欲ではなく
     // 「行末の `) return null;` の直前まで」を貪欲に取る。
+    //
+    // 「まだ取得していない」の綴りは `!entries` から `!ready` になった——取得が
+    // カードごとの fetch から共有機構（governs.tsx）へ移ったため（正本
+    // 01KZ5N5CJ2VFMZAGSFPSCZAMTZ 条項1）。**条件の意味は変えていない。**
     const guards = [...inheritedRulesSource.matchAll(/^\s*if \((.*)\) return null;/gm)].map((m) => m[1].trim());
-    expect(guards).toEqual(['!entries', '!shouldDiscloseWhole(entries, (id) => isInForce(id, currencyIndex))']);
+    expect(guards).toEqual(['!ready', '!shouldDiscloseWhole(entries, (id) => isInForce(id, currencyIndex))']);
     // 条件の付いていない裸の return null も塞ぐ。
     expect(inheritedRulesSource).not.toMatch(/^\s*return null;\s*$/m);
   });

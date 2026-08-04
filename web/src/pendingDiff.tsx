@@ -59,7 +59,13 @@ interface PendingDiff {
       (BrowseView's specs-facet transition list) key their own refetch off
       of, so a create/delete elsewhere doesn't require prop-drilling a
       dedicated callback down to wherever the mutation happened (comment
-      drawer, subject list "+ 新規" entry, …). */
+      drawer, subject list "+ 新規" entry, …).
+      ⚠️ **起動時の初回解決では上がらない。** 上げていた頃は、diff が返った
+      拍子に BrowseView が transition の詳細を**もう一度**取り直していた
+      （実測 transition 70 件に対し 140 本・正本 01KZ5N5CJ2VFMZAGSFPSCZAMTZ
+      条項1「同じレコードを1画面で二度取りに行かない」）。初回解決は「変化」
+      ではない——作業ツリーの中身はその前後で1バイトも変わっていないので、
+      取り直しても同じ答えが返るだけだった。 */
   version: number;
   refresh: () => void;
 }
@@ -72,11 +78,16 @@ export function PendingDiffProvider({ children }: { children: ComponentChildren 
   const [unavailable, setUnavailable] = useState<'static' | 'error' | null>(isStaticMode ? 'static' : null);
   const [version, setVersion] = useState(0);
 
-  const load = () => {
+  // `initial` は起動時の1回目。version を上げるのは**変化があったとき**だけで、
+  // 初回解決は変化ではない（version の doc）。
+  const load = (initial = false) => {
+    const settle = () => {
+      setReady(true);
+      if (!initial) setVersion((v) => v + 1);
+    };
     if (isStaticMode) {
       setUnavailable('static');
-      setReady(true);
-      setVersion((v) => v + 1);
+      settle();
       return;
     }
     api
@@ -84,18 +95,16 @@ export function PendingDiffProvider({ children }: { children: ComponentChildren 
       .then((r) => {
         setResult(r);
         setUnavailable(null);
-        setReady(true);
-        setVersion((v) => v + 1);
+        settle();
       })
       .catch(() => {
         setUnavailable('error');
-        setReady(true);
-        setVersion((v) => v + 1);
+        settle();
       });
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(load, []);
+  useEffect(() => load(true), []);
 
   const changedTransitionIds = useMemo(() => new Set((result?.transitions.changed || []).map((c) => c.id)), [result]);
   const addedTransitionIds = useMemo(() => new Set((result?.transitions.added || []).map((tx) => tx.id)), [result]);
@@ -135,7 +144,7 @@ export function PendingDiffProvider({ children }: { children: ComponentChildren 
     getAddedTag,
     removedTags,
     version,
-    refresh: load,
+    refresh: () => load(),
   };
   return <PendingDiffContext.Provider value={value}>{children}</PendingDiffContext.Provider>;
 }

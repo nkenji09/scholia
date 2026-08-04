@@ -10,10 +10,10 @@ import (
 	"github.com/nkenji09/scholia/internal/store"
 )
 
-func registerFacetRoutes(mux *http.ServeMux, s *store.Store) {
-	mux.HandleFunc("GET /api/facets", getFacetsHandler(s))
-	mux.HandleFunc("GET /api/tags", getTagsHandler(s))
-	mux.HandleFunc("GET /api/vocab", getVocabHandler(s))
+func registerFacetRoutes(mux *routeMux, c *indexCache) {
+	mux.HandleFunc("GET /api/facets", getFacetsHandler(c))
+	mux.HandleFunc("GET /api/tags", getTagsHandler(c))
+	mux.HandleFunc("GET /api/vocab", getVocabHandler(c))
 }
 
 // facetsResponse は browse ナビの「1本の統一ツリー」（§3.8）。Roots は kind 非依存に
@@ -34,9 +34,9 @@ func buildFacetsResponse(snap store.Snapshot, ix *index.Index) facetsResponse {
 	}
 }
 
-func getFacetsHandler(s *store.Store) http.HandlerFunc {
+func getFacetsHandler(c *indexCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		snap, ix, err := loadIndexed(s)
+		snap, ix, err := c.load()
 		if err != nil {
 			writeStoreError(w, err)
 			return
@@ -45,9 +45,9 @@ func getFacetsHandler(s *store.Store) http.HandlerFunc {
 	}
 }
 
-func getTagsHandler(s *store.Store) http.HandlerFunc {
+func getTagsHandler(c *indexCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		snap, _, err := loadIndexed(s)
+		snap, _, err := c.load()
 		if err != nil {
 			writeStoreError(w, err)
 			return
@@ -68,9 +68,9 @@ func getTagsHandler(s *store.Store) http.HandlerFunc {
 	}
 }
 
-func getVocabHandler(s *store.Store) http.HandlerFunc {
+func getVocabHandler(c *indexCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		snap, ix, err := loadIndexed(s)
+		snap, ix, err := c.load()
 		if err != nil {
 			writeStoreError(w, err)
 			return

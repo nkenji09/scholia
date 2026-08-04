@@ -5,11 +5,10 @@ import (
 	"net/http"
 
 	"github.com/nkenji09/scholia/internal/index"
-	"github.com/nkenji09/scholia/internal/store"
 )
 
-func registerTraceabilityRoute(mux *http.ServeMux, s *store.Store) {
-	mux.HandleFunc("GET /api/traceability", getTraceabilityHandler(s))
+func registerTraceabilityRoute(mux *routeMux, c *indexCache) {
+	mux.HandleFunc("GET /api/traceability", getTraceabilityHandler(c))
 }
 
 type traceabilityResponse struct {
@@ -22,9 +21,9 @@ type traceabilityResponse struct {
 // omitted), every tag of that kind with the transitions that satisfy it and
 // whether it's a gap (index.Traceability — same effective-tag semantics as
 // lint's requirement-gap rule, §5).
-func getTraceabilityHandler(s *store.Store) http.HandlerFunc {
+func getTraceabilityHandler(c *indexCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		snap, ix, err := loadIndexed(s)
+		snap, ix, err := c.load()
 		if err != nil {
 			writeStoreError(w, err)
 			return

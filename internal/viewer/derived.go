@@ -11,11 +11,12 @@ import (
 	"github.com/nkenji09/scholia/internal/store"
 )
 
-func registerDerivedRoutes(mux *http.ServeMux, s *store.Store) {
-	mux.HandleFunc("GET /api/spec/{tagId}", getSpecHandler(s))
-	mux.HandleFunc("GET /api/lint", getLintHandler(s))
+func registerDerivedRoutes(mux *routeMux, s *store.Store, c *indexCache) {
+	mux.HandleFunc("GET /api/spec", getSpecAllHandler(c))
+	mux.HandleFunc("GET /api/spec/{tagId}", getSpecHandler(c))
+	mux.HandleFunc("GET /api/lint", getLintHandler(c))
 	mux.HandleFunc("GET /api/diff", getDiffHandler(s))
-	mux.HandleFunc("GET /api/flow/{action}", getFlowHandler(s))
+	mux.HandleFunc("GET /api/flow/{action}", getFlowHandler(c))
 }
 
 // getFlowHandler is the live handler for tx.viewer.action-flow-render — it
@@ -24,10 +25,10 @@ func registerDerivedRoutes(mux *http.ServeMux, s *store.Store) {
 // flow.Analyze returns a Report with an empty matrix, so the frontend can
 // render "この action を持つ遷移はありません" instead of the route crashing
 // (§2 acceptance: 不明な action は穏当な空表示).
-func getFlowHandler(s *store.Store) http.HandlerFunc {
+func getFlowHandler(c *indexCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		actionID := r.PathValue("action")
-		snap, ix, err := loadIndexed(s)
+		snap, ix, err := c.load()
 		if err != nil {
 			writeStoreError(w, err)
 			return
@@ -37,10 +38,37 @@ func getFlowHandler(s *store.Store) http.HandlerFunc {
 	}
 }
 
-func getSpecHandler(s *store.Store) http.HandlerFunc {
+// specAllResponse は全タグの spec レポートを1本で返す（decision
+// 01KZ5N5CJ2VFMZAGSFPSCZAMTZ 条項1）。key は tag id で、値は
+// `GET /api/spec/{tagId}` が1件で返すものと同じ形——静的書き出しの
+// `staticData.spec` と同一の形でもある（面間整合原則 D10b-2）。
+//
+// タグ1件につき1本投げていた `/api/spec/{tagId}` はそのまま残す（他の口から
+// 使われうる・後方互換）。画面が使うのはこちらへ移る。
+type specAllResponse struct {
+	Reports map[string]render.SpecReport `json:"reports"`
+}
+
+func getSpecAllHandler(c *indexCache) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		snap, ix, err := c.load()
+		if err != nil {
+			writeStoreError(w, err)
+			return
+		}
+		reports, err := render.SpecAll(&snap, ix)
+		if err != nil {
+			writeStoreError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, specAllResponse{Reports: reports})
+	}
+}
+
+func getSpecHandler(c *indexCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tagID := r.PathValue("tagId")
-		snap, ix, err := loadIndexed(s)
+		snap, ix, err := c.load()
 		if err != nil {
 			writeStoreError(w, err)
 			return
@@ -82,9 +110,9 @@ func buildLintResponse(snap store.Snapshot) lintResponse {
 	return lintResponse{Findings: findings, ErrorCount: errorCount, WarnCount: warnCount, InfoCount: infoCount}
 }
 
-func getLintHandler(s *store.Store) http.HandlerFunc {
+func getLintHandler(c *indexCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		snap, _, err := loadIndexed(s)
+		snap, _, err := c.load()
 		if err != nil {
 			writeStoreError(w, err)
 			return

@@ -10,9 +10,9 @@ import (
 	"github.com/nkenji09/scholia/internal/store"
 )
 
-func registerTransitionRoutes(mux *http.ServeMux, s *store.Store) {
-	mux.HandleFunc("GET /api/transitions", listTransitionsHandler(s))
-	mux.HandleFunc("GET /api/transitions/{id}", getTransitionHandler(s))
+func registerTransitionRoutes(mux *routeMux, s *store.Store, c *indexCache) {
+	mux.HandleFunc("GET /api/transitions", listTransitionsHandler(s, c))
+	mux.HandleFunc("GET /api/transitions/{id}", getTransitionHandler(c))
 	mux.HandleFunc("DELETE /api/transitions/{id}", deleteTransitionHandler(s))
 }
 
@@ -21,6 +21,14 @@ type transitionsResponse struct {
 	Facet       string             `json:"facet,omitempty"`
 	Roots       []index.FacetNode  `json:"roots,omitempty"`
 	Untagged    []model.Transition `json:"untagged,omitempty"`
+	// Details は `?detail=1` のときだけ載る（decision
+	// 01KZ5N5CJ2VFMZAGSFPSCZAMTZ 条項1）。transition 1件につき
+	// `/api/transitions/{id}` を1本ずつ投げていたのを、一覧と同じ1本に畳む。
+	// 値は `GET /api/transitions/{id}` の応答と同じ形（静的書き出しの
+	// `staticData.transitionDetail` とも同一・面間整合原則 D10b-2）。
+	// omitempty なので、`detail` を渡さない既存の呼び手には JSON が1バイトも
+	// 変わらない（後方互換）。
+	Details map[string]index.TransitionDetail `json:"details,omitempty"`
 }
 
 // buildTransitionsResponse is shared by the live handler and the static
@@ -41,9 +49,9 @@ func buildTransitionsResponse(ix *index.Index, facet, tagID, kind string) transi
 	return out
 }
 
-func listTransitionsHandler(s *store.Store) http.HandlerFunc {
+func listTransitionsHandler(s *store.Store, c *indexCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		snap, ix, err := loadIndexed(s)
+		snap, ix, err := c.load()
 		if err != nil {
 			writeStoreError(w, err)
 			return
@@ -65,14 +73,23 @@ func listTransitionsHandler(s *store.Store) http.HandlerFunc {
 			return
 		}
 
-		writeJSON(w, http.StatusOK, buildTransitionsResponse(ix, facet, tagID, kind))
+		out := buildTransitionsResponse(ix, facet, tagID, kind)
+		if q.Get("detail") != "" {
+			details, err := index.AllTransitionDetails(&snap, ix)
+			if err != nil {
+				writeStoreError(w, err)
+				return
+			}
+			out.Details = details
+		}
+		writeJSON(w, http.StatusOK, out)
 	}
 }
 
-func getTransitionHandler(s *store.Store) http.HandlerFunc {
+func getTransitionHandler(c *indexCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
-		snap, ix, err := loadIndexed(s)
+		snap, ix, err := c.load()
 		if err != nil {
 			writeStoreError(w, err)
 			return

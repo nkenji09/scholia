@@ -1,6 +1,7 @@
 import { App } from './app.tsx'
 import { LookupsProvider } from './lookups'
 import { PendingDiffProvider } from './pendingDiff'
+import { GovernsProvider } from './governs'
 import { ReviewsProvider } from './reviews'
 import { CommentsProvider } from './components/comments/useComments'
 import { DrawerProvider } from './drawer'
@@ -24,15 +25,17 @@ export function AppRoot() {
   return (
     <LangProvider>
       <LookupsProvider>
-        <PendingDiffProvider>
-          <ReviewsProvider>
-            <CommentsProvider>
-              <DrawerProvider>
-                <App />
-              </DrawerProvider>
-            </CommentsProvider>
-          </ReviewsProvider>
-        </PendingDiffProvider>
+        <GovernsProvider>
+          <PendingDiffProvider>
+            <ReviewsProvider>
+              <CommentsProvider>
+                <DrawerProvider>
+                  <App />
+                </DrawerProvider>
+              </CommentsProvider>
+            </ReviewsProvider>
+          </PendingDiffProvider>
+        </GovernsProvider>
       </LookupsProvider>
     </LangProvider>
   )

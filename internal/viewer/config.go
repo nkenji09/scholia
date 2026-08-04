@@ -12,7 +12,7 @@ import (
 	"github.com/nkenji09/scholia/internal/store"
 )
 
-func registerConfigRoutes(mux *http.ServeMux, s *store.Store) {
+func registerConfigRoutes(mux *routeMux, s *store.Store) {
 	mux.HandleFunc("GET /api/config", getConfigHandler(s))
 	mux.HandleFunc("PUT /api/config", putConfigHandler(s))
 	mux.HandleFunc("PUT /api/config/local", putLocalConfigHandler(s))

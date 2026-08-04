@@ -7,8 +7,8 @@ import (
 	"github.com/nkenji09/scholia/internal/store"
 )
 
-func registerGovernsRoutes(mux *http.ServeMux, s *store.Store) {
-	mux.HandleFunc("GET /api/governs", getGovernsHandler(s))
+func registerGovernsRoutes(mux *routeMux, c *indexCache) {
+	mux.HandleFunc("GET /api/governs", getGovernsHandler(c))
 }
 
 // governsResponse is the per-record governs payload (#45 D10b-1): the set of
@@ -28,10 +28,41 @@ type governsResponse struct {
 	Entries []index.GovernsRef `json:"entries"`
 }
 
-func getGovernsHandler(s *store.Store) http.HandlerFunc {
+// governsAllResponse は `?all=1` の応答（decision 01KZ5N5CJ2VFMZAGSFPSCZAMTZ
+// 条項1）。カード1枚につき1本投げていたのを1本に畳むための口で、key は
+// "tag:<id>" / "transition:<id>" / "vocab:<id>" ——静的書き出しの
+// `staticData.governs` と同一の綴りである（面間整合原則 D10b-2: live でも
+// 静的でも消費側は同じ1つのコードパスを通る）。
+//
+// ⚠️ `all` が無いときの挙動（tag/tx/vocab のいずれか1つ必須・違反は 400）は
+// 従来のまま。既存の呼び手は壊れない。
+type governsAllResponse struct {
+	ByRef map[string][]index.GovernsRef `json:"byRef"`
+}
+
+func getGovernsHandler(c *indexCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		tagID, txID, vocabID := q.Get("tag"), q.Get("tx"), q.Get("vocab")
+
+		if q.Get("all") != "" {
+			if tagID != "" || txID != "" || vocabID != "" {
+				writeError(w, http.StatusBadRequest, "all と tag / tx / vocab は同時に指定できません")
+				return
+			}
+			snap, ix, err := c.load()
+			if err != nil {
+				writeStoreError(w, err)
+				return
+			}
+			byRef, err := index.AllGoverns(&snap, ix)
+			if err != nil {
+				writeStoreError(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, governsAllResponse{ByRef: byRef})
+			return
+		}
 
 		selected := 0
 		for _, v := range []string{tagID, txID, vocabID} {
@@ -44,7 +75,7 @@ func getGovernsHandler(s *store.Store) http.HandlerFunc {
 			return
 		}
 
-		snap, _, err := loadIndexed(s)
+		snap, _, err := c.load()
 		if err != nil {
 			writeStoreError(w, err)
 			return

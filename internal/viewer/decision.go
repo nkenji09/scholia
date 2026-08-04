@@ -26,7 +26,7 @@ func withoutDecision(snap store.Snapshot, id string) store.Snapshot {
 	return snap
 }
 
-func registerDecisionRoutes(mux *http.ServeMux, s *store.Store) {
+func registerDecisionRoutes(mux *routeMux, s *store.Store) {
 	mux.HandleFunc("POST /api/decision", postDecisionHandler(s))
 }
 

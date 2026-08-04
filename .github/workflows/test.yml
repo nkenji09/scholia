@@ -33,6 +33,17 @@ jobs:
       - name: go test
         run: go test ./...
 
+      # ⚠️ **`-race` を別ステップで必ず走らせる。** viewer は 2026-08-04 から
+      # スナップショットと派生 index を**プロセス全体で1つ共有**するようになった
+      # （decision 01KZ5N5CJ2VFMZAGSFPSCZAMTZ 条項2）。共有前は無害だった
+      # 「取り出したスライスをその場で並べ替える」1行が、共有後は**別の要求の
+      # 応答を壊す**。それを落とす歯止め（TestIndexCache_ConcurrentReadsShareSnapshot）
+      # は `-race` と対でしか歯が立たない——`go test ./...` だけでは、実際に
+      # 共有スライスを in-place ソートする変異を入れても**緑のまま通る**（実測）。
+      # ここを外すと歯止めが自称どおりに落ちなくなる（CLAUDE.md 6）。
+      - name: go test -race
+        run: go test -race ./...
+
       - name: gofmt
         run: |
           diff="$(gofmt -l .)"
