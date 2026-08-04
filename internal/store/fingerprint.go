@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // Fingerprint は .scholia/ の「いまの状態」を、**中身を読まずに**表す短い文字列。
@@ -62,8 +61,11 @@ func (s *Store) Fingerprint() (string, error) {
 			return "", err
 		}
 		for _, e := range entries {
-			// listRecords が読むものと同じ絞り（ディレクトリと非 .json は無視）。
-			if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+			// listRecords が読むものと**同じ絞り**を通す（isRecordFile）。
+			// ここが広いと、書き込み中の一時ファイル（`.tmp-*.json`）が現れたり
+			// 消えたりするたびに指紋が変わり、読んでいないものの変化で
+			// 建て直すことになる。
+			if e.IsDir() || !isRecordFile(e.Name()) {
 				continue
 			}
 			info, err := e.Info()

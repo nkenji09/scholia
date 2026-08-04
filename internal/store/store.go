@@ -135,6 +135,23 @@ func ensureGitignoreEntry(projectRoot, entry string) error {
 
 // --- atomic JSON write ---
 
+// isRecordFile はレコードファイルの名前か。
+//
+// ⚠️ **先頭が `.` のものを外すのが肝である。** writeJSONAtomic は同じディレクトリに
+// `.tmp-*.json` を作ってから rename する（下）。`.json` で終わるかどうかだけで
+// 絞ると、**書き込みの最中にその一時ファイルがレコードとして読まれる。**
+// 実測で2つ起きた:
+//
+//   - 一時ファイルが**幻のレコード**として Snapshot に載る（id はその中身のまま）
+//   - ReadDir で名前を拾った直後に rename で消えるので、続く ReadFile が
+//     ENOENT になり、**LoadAll 全体が失敗する**（viewer なら 500）
+//
+// CLI で書きながら viewer を開いていれば普通に踏む。`go test -race` の
+// 同時要求ガード（internal/viewer）が実際にこれを引き当てた。
+func isRecordFile(name string) bool {
+	return strings.HasSuffix(name, ".json") && !strings.HasPrefix(name, ".")
+}
+
 func writeJSONAtomic(path string, v any) error {
 	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
@@ -388,7 +405,7 @@ func listRecords[T identifiable](dir, category string) ([]T, []IDMismatch, error
 
 	var names []string
 	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+		if e.IsDir() || !isRecordFile(e.Name()) {
 			continue
 		}
 		names = append(names, e.Name())
