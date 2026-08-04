@@ -1,11 +1,14 @@
 package diff
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -171,55 +174,240 @@ func TestBatchBlobReader_HandlesOrdinaryRecordsWithoutFallback(t *testing.T) {
 	}
 }
 
-// TestLoadRefSnapshot_ProcessCountDoesNotGrowWithRecordCount は配線ガードである。
+// ============================================================================
+// 配線ガード — 実際に起きた git のプロセスを、外から数える
+// ============================================================================
 //
-// これを置いたのは、変異試験で「loadRefSnapshot の配線を newShowBlobReader へ
-// 戻す」を入れたとき、上の突き合わせ検査がすべて緑のまま通ったからである
-// （どれも loadRefSnapshotWith に読み手を明示して呼ぶので、本番が実際にどちらを
-// 使うかを誰も見ていなかった）。CLAUDE.md 5「新しく作った面には、ガードを置き忘れる」。
+// 🔴 前の版は runGit の中で自分をインクリメントする「申告カウンタ」だった。
+// それは「runGit を通る」という1つの綴りに依存していて、ループの中へ直に
+// exec.Command("git", "show", ...) と書けば申告は平らなまま実プロセスだけが
+// 件数に比例する。クリーンルームレビューが実際にその変異を通し、全ゲート緑・
+// 出力バイト同一のまま 0.73s -> 5.56s に戻した（申告 2/2/2 に対し実プロセス
+// 7/62/202）。CLAUDE.md 2 が言う穴の一段深いところに同じ穴があった。
 //
-// 見るのは絶対値ではなく「件数を変えたときに変わらないこと」である。絶対値を
-// 焼くと rev-parse が1本増えただけで落ちるし、逆に「1件1プロセス」に戻したことを
-// 綴りで探すのはソース文字列の照合になる（CLAUDE.md 2）。
-//
-// 落ちるのは、本番の入口 loadRefSnapshot がレコード件数に比例して git のプロセスを
-// 起こすようになったとき。配線を旧読み手へ戻しても、batch がふつうのレコードで
-// fallback するようになっても、ループの中へ直に `git show` を書き足しても落ちる
-// （どれも「1件につき1プロセス」という同じ性質に落ちるので、綴りを列挙していない）。
-//
-// 落ちないもの: 件数に依らない定数本のプロセスが増えること、プロセス以外の原因
-// （ls-tree 自体・JSON の unmarshal・store の読み込み）で遅くなること、
-// 実行時間そのもの。
-func TestLoadRefSnapshot_ProcessCountDoesNotGrowWithRecordCount(t *testing.T) {
-	spawnsFor := func(n int) int64 {
-		dir, _ := gitTestRepo(t)
-		for i := 0; i < n; i++ {
-			writeFile(t, filepath.Join(dir, ".scholia", "tags", fmt.Sprintf("t%03d.json", i)),
-				fmt.Sprintf(`{"id":"t%03d","kind":"requirement","label":"t"}`+"\n", i))
-		}
-		commitAll(t, dir, "seed")
+// いまは PATH の先頭に「git」という名前の影武者を置き、起きたプロセスを
+// 外から数える。見ているのは「git のプロセスが起きた」という事象そのもので、
+// 呼び出し側の書き方に依らない。
 
-		before := gitSpawns.Load()
-		snap, err := loadRefSnapshot(dir, ".scholia", "HEAD")
-		if err != nil {
-			t.Fatalf("loadRefSnapshot(%d 件): %v", n, err)
+// gitShim は PATH の先頭に置いた偽の git。実行のたびに argv をログへ1行積み、
+// 本物の git へ exec する（＝振る舞いは変えず、回数だけを外から観測する）。
+type gitShim struct{ logPath string }
+
+// installGitShim は PATH の先頭へ影武者を置く。body は本物の git の絶対パスを
+// 受け取り、sh スクリプトの本文を返す。
+func installGitShim(t *testing.T, body func(realGit, logPath string) string) *gitShim {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("影武者は sh スクリプトなので Windows では置けない")
+	}
+	// ⚠️ PATH を書き換える前に本物を解決する（後だと影武者自身を掴む）。
+	realGit, err := exec.LookPath("git")
+	if err != nil {
+		t.Skip("git not installed")
+	}
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "invocations.log")
+	shimPath := filepath.Join(dir, "git")
+	if err := os.WriteFile(shimPath, []byte(body(realGit, logPath)), 0o755); err != nil {
+		t.Fatalf("影武者を書けない: %v", err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	g := &gitShim{logPath: logPath}
+	// ⚠️ 影武者が本当に間に入っていることを確かめる。ここを省くと、
+	// 差し替えに失敗しても「0 本で一定」で緑になり、検査が空振りする。
+	before := g.count(t)
+	if err := exec.Command("git", "--version").Run(); err != nil {
+		t.Fatalf("影武者経由の git が動かない: %v", err)
+	}
+	if g.count(t) != before+1 {
+		t.Fatalf("影武者が PATH に効いていない（この検査は空振りする）: log=%s", logPath)
+	}
+	return g
+}
+
+// count はこれまでに起きた git プロセスの本数。
+func (g *gitShim) count(t *testing.T) int {
+	t.Helper()
+	b, err := os.ReadFile(g.logPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0
 		}
-		if len(snap.Tags) != n {
-			t.Fatalf("%d 件のはずが %d 件しか読めていない（この検査が空振りしている）", n, len(snap.Tags))
-		}
-		return gitSpawns.Load() - before
+		t.Fatalf("影武者のログを読めない: %v", err)
+	}
+	return bytes.Count(b, []byte("\n"))
+}
+
+// shQuote は sh スクリプトへ埋めるためのシングルクォート。
+func shQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
+
+// countingGitShim は「数えてから本物へ渡す」影武者。
+func countingGitShim(t *testing.T) *gitShim {
+	return installGitShim(t, func(realGit, logPath string) string {
+		return "#!/bin/sh\n" +
+			"printf '%s\\n' \"$*\" >> " + shQuote(logPath) + "\n" +
+			"exec " + shQuote(realGit) + " \"$@\"\n"
+	})
+}
+
+// TestLoadRefSnapshot_RealGitProcessesDoNotGrowWithRecordCount は配線ガードである。
+//
+// 見ている性質（1つだけ）:
+//
+//	本番の入口 loadRefSnapshot が起こす「実際の git プロセスの本数」が、
+//	レコード件数を振っても変わらないこと。
+//
+// 🔴 振っている軸を明示する（ここが射程のすべてである）:
+//
+//	レコード件数 … 5 / 60 / 200
+//	ref         … HEAD / HEAD~1 / ブランチ名 / 完全 SHA
+//
+// **落ちる**もの — 上の軸の上で、実プロセス数が件数に比例したとき。
+// 読み方をどう綴っても落ちる: runGit 経由でも、ループの中へ直に
+// exec.Command("git", ...) と書いても、batch を1件ごとに起こし直しても、
+// 配線を旧読み手へ戻しても、非 HEAD の ref だけ旧読み方に落としても、
+// 件数が閾値を超えたときだけ旧読み方に落としても（閾値が 200 以下なら）。
+//
+// 🔴 **落ちない**もの — ここは塞ぎ切れていないので名乗る（CLAUDE.md 6）:
+//
+//   - **標本の外側にゲートを置く変異**。これは原理的に通る。件数を 200 までしか
+//     振っていないので「n>300 で切り替える」は見えないし、ref を4通りしか
+//     試していないので「ref=="main" のときだけ旧読み方」も見えない。
+//     ⚠️ 軸を増やしても標本抽出であることは変わらない。**綴りを列挙して
+//     1つずつ塞ぐ方向へは行かない**（CLAUDE.md 2）。捕まえたい性質は
+//     「git のプロセスが件数に比例して起きないこと」の1つである。
+//   - **PATH を経由しない git の起動**（絶対パスで /usr/bin/git を直に叩く等）。
+//     影武者は PATH の先頭に居るので、名前解決を通らない起動は数えられない。
+//   - 件数に依らない定数本のプロセス増。
+//   - プロセス以外の原因（ls-tree 自体・JSON の unmarshal・store の読み込み）での遅さ。
+//   - **実行時間そのもの**。一度も測っていない（機械と負荷で揺れるため）。
+func TestLoadRefSnapshot_RealGitProcessesDoNotGrowWithRecordCount(t *testing.T) {
+	shim := countingGitShim(t)
+
+	sizes := []int{5, 60, 200}
+	refLabels := []string{"HEAD", "HEAD~1", "branch", "sha"}
+	// counts[refLabel][n] = 実プロセス本数
+	counts := map[string]map[int]int{}
+	for _, l := range refLabels {
+		counts[l] = map[int]int{}
 	}
 
-	const few, many = 5, 60
-	spawnsFew := spawnsFor(few)
-	spawnsMany := spawnsFor(many)
+	for _, n := range sizes {
+		dir := recordRepo(t, n)
+		sha := strings.TrimSpace(mustGit(t, dir, "rev-parse", "HEAD"))
+		refs := map[string]string{"HEAD": "HEAD", "HEAD~1": "HEAD~1", "branch": "b1", "sha": sha}
 
-	if spawnsFew != spawnsMany {
-		t.Fatalf("レコード件数でプロセス数が変わった: %d 件 -> %d プロセス、%d 件 -> %d プロセス。"+
-			"件数に比例している＝1件1プロセスの読み方に戻っている",
-			few, spawnsFew, many, spawnsMany)
+		for _, label := range refLabels {
+			before := shim.count(t)
+			snap, err := loadRefSnapshot(dir, ".scholia", refs[label])
+			if err != nil {
+				t.Fatalf("n=%d ref=%s: loadRefSnapshot: %v", n, label, err)
+			}
+			// ⚠️ 空振り検出: 読めていなければプロセスも起きず「一定」で緑になる。
+			if len(snap.Tags) != n {
+				t.Fatalf("n=%d ref=%s: %d 件のはずが %d 件しか読めていない（この検査が空振りしている）",
+					n, label, n, len(snap.Tags))
+			}
+			counts[label][n] = shim.count(t) - before
+		}
 	}
-	t.Logf("%d 件でも %d 件でも git プロセスは %d 本", few, many, spawnsFew)
+
+	for _, label := range refLabels {
+		base := counts[label][sizes[0]]
+		for _, n := range sizes[1:] {
+			if counts[label][n] != base {
+				t.Errorf("ref=%s: レコード件数で実 git プロセス数が変わった —— %d 件で %d 本、%d 件で %d 本。"+
+					"件数に比例している＝1件1プロセスの読み方に戻っている",
+					label, sizes[0], base, n, counts[label][n])
+			}
+		}
+		t.Logf("ref=%-7s  実 git プロセス: 5 件=%d / 60 件=%d / 200 件=%d 本",
+			label, counts[label][5], counts[label][60], counts[label][200])
+	}
+}
+
+// recordRepo は tags を n 件持つ git repo を作る。HEAD~1 も .scholia を持つよう
+// 2 コミット積み、ブランチ b1 を HEAD に置く（ref を振るため）。
+func recordRepo(t *testing.T, n int) string {
+	t.Helper()
+	dir, _ := gitTestRepo(t)
+	for i := 0; i < n; i++ {
+		writeFile(t, filepath.Join(dir, ".scholia", "tags", fmt.Sprintf("t%03d.json", i)),
+			fmt.Sprintf(`{"id":"t%03d","kind":"requirement","label":"t"}`+"\n", i))
+	}
+	commitAll(t, dir, "records")
+	// .scholia の外に1件足して2つ目のコミットを作る（HEAD~1 でも同じ n 件が読める）。
+	writeFile(t, filepath.Join(dir, "README.md"), "hello\n")
+	commitAll(t, dir, "readme")
+	mustGit(t, dir, "branch", "b1")
+	return dir
+}
+
+func mustGit(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	out, err := runGit(dir, args...)
+	if err != nil {
+		t.Fatalf("git %v: %v", args, err)
+	}
+	return out
+}
+
+// TestBatchBlobReader_FallsBackWhenBatchProcessDies は、batch を起こせたのに
+// 応答を1行も読めなかった経路を踏む。
+//
+// この経路は2つの理由で検査が要る:
+//
+//  1. 🔴 **データ競合が在った場所**である。以前ここは cmd.Wait() より前に
+//     os/exec の複写ゴルーチンが書いている bytes.Buffer を読んでいた。
+//     -race が緑だったのは、この経路を踏む検査が1つも無かったからである。
+//     ⚠️ この検査は go test -race で走らせて初めて意味を持つ。
+//  2. 全件フォールバックが本当に正しい結果を返すことを、値で確かめる。
+//
+// `git cat-file` だけが即死する影武者を PATH に置いて再現する。
+func TestBatchBlobReader_FallsBackWhenBatchProcessDies(t *testing.T) {
+	installGitShim(t, func(realGit, logPath string) string {
+		// cat-file だけ即座に終了させる（stdout が即 EOF になり、応答行が読めない）。
+		return "#!/bin/sh\n" +
+			"printf '%s\\n' \"$*\" >> " + shQuote(logPath) + "\n" +
+			"case \"$1\" in cat-file) exit 0 ;; esac\n" +
+			"exec " + shQuote(realGit) + " \"$@\"\n"
+	})
+
+	dir, _ := gitTestRepo(t)
+	for i := 0; i < 5; i++ {
+		writeFile(t, filepath.Join(dir, ".scholia", "tags", fmt.Sprintf("t%d.json", i)),
+			fmt.Sprintf(`{"id":"t%d","kind":"requirement","label":"t"}`+"\n", i))
+	}
+	commitAll(t, dir, "seed")
+
+	want, wantErr := loadRefSnapshotWith(dir, ".scholia", "HEAD", newShowBlobReader)
+	got, gotErr := loadRefSnapshotWith(dir, ".scholia", "HEAD", newBatchBlobReader)
+
+	if errString(wantErr) != errString(gotErr) {
+		t.Fatalf("エラーが違う\n  git show       = %q\n  cat-file 即死  = %q", errString(wantErr), errString(gotErr))
+	}
+	if !snapshotsEqual(want, got) {
+		t.Fatalf("batch が死んだときの snapshot が違う\n  git show      = %s\n  cat-file 即死 = %s",
+			snapshotJSON(t, want), snapshotJSON(t, got))
+	}
+	if len(got.Tags) != 5 {
+		t.Fatalf("5 件のはずが %d 件（この検査が空振りしている）", len(got.Tags))
+	}
+
+	// ⚠️ 本当に「batch が死んで全件フォールバックした」経路を踏んだことを確かめる。
+	// 踏んでいなければ、上の一致は何も証明していない。
+	r := newBatchBlobReader(dir, "HEAD").(*batchBlobReader)
+	defer r.close()
+	if _, err := r.read(".scholia/tags/t0.json"); err != nil {
+		t.Fatalf("フォールバックが読めていない: %v", err)
+	}
+	if !r.broken {
+		t.Error("batch が死んだのに broken になっていない（想定した経路を踏んでいない）")
+	}
+	if r.fallbacks != 1 {
+		t.Errorf("fallbacks = %d, want 1（1件目から git show へ回るはず）", r.fallbacks)
+	}
 }
 
 // TestLoadRefSnapshotWith_BatchMatchesPerFileShow は snapshot まるごとを新旧の

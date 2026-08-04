@@ -2,7 +2,6 @@ package diff
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"io"
 	"os/exec"
@@ -62,7 +61,6 @@ type batchBlobReader struct {
 	cmd     *exec.Cmd
 	stdin   io.WriteCloser
 	stdout  *bufio.Reader
-	stderr  bytes.Buffer
 
 	// fallback は batch が答えられなかった1件を読み直す相手。エラーの文言まで
 	// 以前と同じにするため、異常系は必ずここを通す。
@@ -94,7 +92,12 @@ func (r *batchBlobReader) start() {
 
 	cmd := exec.Command("git", "cat-file", "--batch")
 	cmd.Dir = r.repoRoot
-	cmd.Stderr = &r.stderr
+	// stderr は捕まえない（Stderr==nil は os.DevNull へ繋がる）。以前は
+	// bytes.Buffer に取ってエラー文へ埋めていたが、(a) その値は read が
+	// 捨てている——ask が err を返した先で readViaFallback に回るだけで、
+	// 利用者に届くのは `git show` が出す方のエラーである——のに
+	// (b) os/exec の複写ゴルーチンが書いている buffer を cmd.Wait() より前に
+	// 読むデータ競合を抱えていた。使われない文字列のための競合だったので消した。
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		r.broken = true
@@ -106,7 +109,6 @@ func (r *batchBlobReader) start() {
 		r.broken = true
 		return
 	}
-	gitSpawns.Add(1)
 	if err := cmd.Start(); err != nil {
 		stdin.Close()
 		stdout.Close()
@@ -158,7 +160,7 @@ func (r *batchBlobReader) ask(path string) (content string, ok bool, err error) 
 	}
 	header, err := r.stdout.ReadString('\n')
 	if err != nil {
-		return "", false, fmt.Errorf("git cat-file --batch: %w (%s)", err, strings.TrimSpace(r.stderr.String()))
+		return "", false, fmt.Errorf("git cat-file --batch: %w", err)
 	}
 	size, ok := parseBatchHeader(header)
 	if !ok {

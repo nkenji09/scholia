@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync/atomic"
 
 	"github.com/nkenji09/scholia/internal/model"
 )
@@ -49,14 +48,7 @@ func requireGit() error {
 	return nil
 }
 
-// gitSpawns は git のプロセスを1つ起こすたびに1増える。配線ガードが
-// 「レコード件数に比例してプロセスが増えていないこと」を値で見るためだけに在る
-// （gitblob_test.go の TestLoadRefSnapshot_ProcessCountDoesNotGrowWithRecordCount）。
-// 起こす場所は runGit と batchBlobReader.start の2つだけで、どちらもここを通す。
-var gitSpawns atomic.Int64
-
 func runGit(dir string, args ...string) (string, error) {
-	gitSpawns.Add(1)
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
 	var stdout, stderr bytes.Buffer
