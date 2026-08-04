@@ -171,6 +171,57 @@ func TestBatchBlobReader_HandlesOrdinaryRecordsWithoutFallback(t *testing.T) {
 	}
 }
 
+// TestLoadRefSnapshot_ProcessCountDoesNotGrowWithRecordCount は配線ガードである。
+//
+// これを置いたのは、変異試験で「loadRefSnapshot の配線を newShowBlobReader へ
+// 戻す」を入れたとき、上の突き合わせ検査がすべて緑のまま通ったからである
+// （どれも loadRefSnapshotWith に読み手を明示して呼ぶので、本番が実際にどちらを
+// 使うかを誰も見ていなかった）。CLAUDE.md 5「新しく作った面には、ガードを置き忘れる」。
+//
+// 見るのは絶対値ではなく「件数を変えたときに変わらないこと」である。絶対値を
+// 焼くと rev-parse が1本増えただけで落ちるし、逆に「1件1プロセス」に戻したことを
+// 綴りで探すのはソース文字列の照合になる（CLAUDE.md 2）。
+//
+// 落ちるのは、本番の入口 loadRefSnapshot がレコード件数に比例して git のプロセスを
+// 起こすようになったとき。配線を旧読み手へ戻しても、batch がふつうのレコードで
+// fallback するようになっても、ループの中へ直に `git show` を書き足しても落ちる
+// （どれも「1件につき1プロセス」という同じ性質に落ちるので、綴りを列挙していない）。
+//
+// 落ちないもの: 件数に依らない定数本のプロセスが増えること、プロセス以外の原因
+// （ls-tree 自体・JSON の unmarshal・store の読み込み）で遅くなること、
+// 実行時間そのもの。
+func TestLoadRefSnapshot_ProcessCountDoesNotGrowWithRecordCount(t *testing.T) {
+	spawnsFor := func(n int) int64 {
+		dir, _ := gitTestRepo(t)
+		for i := 0; i < n; i++ {
+			writeFile(t, filepath.Join(dir, ".scholia", "tags", fmt.Sprintf("t%03d.json", i)),
+				fmt.Sprintf(`{"id":"t%03d","kind":"requirement","label":"t"}`+"\n", i))
+		}
+		commitAll(t, dir, "seed")
+
+		before := gitSpawns.Load()
+		snap, err := loadRefSnapshot(dir, ".scholia", "HEAD")
+		if err != nil {
+			t.Fatalf("loadRefSnapshot(%d 件): %v", n, err)
+		}
+		if len(snap.Tags) != n {
+			t.Fatalf("%d 件のはずが %d 件しか読めていない（この検査が空振りしている）", n, len(snap.Tags))
+		}
+		return gitSpawns.Load() - before
+	}
+
+	const few, many = 5, 60
+	spawnsFew := spawnsFor(few)
+	spawnsMany := spawnsFor(many)
+
+	if spawnsFew != spawnsMany {
+		t.Fatalf("レコード件数でプロセス数が変わった: %d 件 -> %d プロセス、%d 件 -> %d プロセス。"+
+			"件数に比例している＝1件1プロセスの読み方に戻っている",
+			few, spawnsFew, many, spawnsMany)
+	}
+	t.Logf("%d 件でも %d 件でも git プロセスは %d 本", few, many, spawnsFew)
+}
+
 // TestLoadRefSnapshotWith_BatchMatchesPerFileShow は snapshot まるごとを新旧の
 // 読み方で組み、値とエラー文字列を突き合わせる。読み手単体の突き合わせでは
 // 見えない「どこで打ち切るか」（最初に失敗した path でそのエラーを返す）まで含めて

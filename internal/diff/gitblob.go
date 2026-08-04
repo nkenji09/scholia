@@ -106,6 +106,7 @@ func (r *batchBlobReader) start() {
 		r.broken = true
 		return
 	}
+	gitSpawns.Add(1)
 	if err := cmd.Start(); err != nil {
 		stdin.Close()
 		stdout.Close()
