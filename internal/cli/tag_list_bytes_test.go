@@ -4,8 +4,10 @@
 // # このファイルの歯止めが落とす範囲（CLAUDE.md「配線ガードの書き方」6）
 //
 // **落ちる:**
-//   - `--json --all` のバイト列が、この変更の前と 1 バイトでも違う
-//     （平坦・入れ子〔`--tree`〕・絞り込み〔`--kind`〕・入れ子＋絞り込み の 4 つとも）
+//   - `--json --all` のバイト列が golden と 1 バイトでも違う
+//     （平坦・入れ子〔`--tree`〕・絞り込み〔`--kind`〕・入れ子＋絞り込み の 4 つとも）。
+//     ⚠️ **golden は「この変更の前」の出力ではなくなった**——
+//     01KZ7V637RNMPXJMVACYV6V1AS で採り直してある（下の「golden の出自」）
 //   - テキストの面（素の一覧 / `--tree` / `--kind` / `--tree --kind`）のバイト列が変わる
 //   - 既定の `--json` が「`--all` の出力から description の欄だけを抜いたもの」と
 //     1 バイトでも違う（＝ description 以外が 1 つでも消えた・変わった・
@@ -31,23 +33,35 @@
 //     いまは畳んだ値しか届かないので出しようがない（出しても空文字になる）が、
 //     「空文字が出る」こと自体を落とす検査は置いていない。
 //
-// # golden の出自
+// # golden の出自と、採り直しの手順
 //
 // 初出の golden は 01KZ5ACN6P279S96D5M3AHY9HZ を**入れる前のコード**の出力だった。
 // 採り直しは
 //
-//	SCHOLIA_GOLDEN_UPDATE=1 go test ./internal/cli -run TestTagListBytes
+//	SCHOLIA_GOLDEN_UPDATE=1 go test ./internal/cli -run 'TestTagListBytes$'
 //
-// で、`tagListGoldenCases.args` を走らせて記録する。
+// で、`tagListGoldenCases.args` を走らせて記録する。**外部のスクリプトは要らない。**
+//
+// 🔴 **採り直しは、同時に「変わったのは空白だけか」を機械で見る**（updateTagListGoldens）。
+// 手順書に「確かめること」と書くだけでは飛ばせてしまい、飛ばせば**欄が消えても
+// 気づけないまま golden が正典になる。** 面ごとに次を出す:
+//
+//   - JSON の面: 旧と新をトークン列で比べ、**キー順・重複キー・数値リテラルの綴りまで
+//     保って**「空白の置き方だけが変わった」かを判定する（jsonSameIgnoringWhitespace）。
+//     ⚠️ **`jq -S .` は使わない**——`-S` がキー順を正規化するので、順序が変わっても
+//     一致してしまう。
+//   - テキストの面: JSON ではないので**生バイト**で比べる。
+//
+// 値が変わるのが正しい変更のときだけ `SCHOLIA_GOLDEN_ALLOW_VALUE_CHANGE=1` を併せて立てる
+// （立てた事実がログに残る）。
 //
 // ⚠️ **`01KZ7V637RNMPXJMVACYV6V1AS`（`--json` の整形をやめる・全 52 サブコマンド）で
-// 採り直した。** `--json` の 4 本は**空白だけが変わり、欄は 1 つも変わっていない**
-// （旧 golden と新 golden を `jq -S .` で正規化して突き合わせ、7 本すべてが一致することを
-// 確かめた。テキストの 3 本は 1 バイトも変わっていない）。**この確かめを飛ばして採り直すと、
-// 欄が消えても気づけない。**
+// 採り直した。** `--json` の 4 本は**空白だけが変わり、欄は 1 つも変わっていない**。
+// テキストの 3 本は 1 バイトも変わっていない。
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -159,22 +173,74 @@ func readTagListGolden(t *testing.T, name string) string {
 	return string(b)
 }
 
+// updateTagListGoldens は golden を採り直す。
+//
+// 🔴 **採り直しと同時に「変わったのは空白だけか」を機械で見る。**
+// これを手順書の 1 行にしておくと飛ばせる——飛ばせば、**欄が消えても気づけないまま
+// golden が正典になる。** 比べ方は `jsonSameIgnoringWhitespace`（goldencmp_test.go）で、
+// キー順・重複キー・数値リテラルの綴りまで保つ。⚠️ **`jq -S .` は使えない**
+// （`-S` がキー順を正規化してしまう）。
+//
+// JSON として読めない golden（テキストの面）は**生バイト**で比べる。
+//
+// 値が変わるのが正しい変更のときは、`SCHOLIA_GOLDEN_ALLOW_VALUE_CHANGE=1` を
+// 併せて立てる。**立てた事実がログに残る。**
+func updateTagListGoldens(t *testing.T, dir string) {
+	t.Helper()
+	const allowValueChangeEnv = "SCHOLIA_GOLDEN_ALLOW_VALUE_CHANGE"
+	allowValueChange := os.Getenv(allowValueChangeEnv) != ""
+	if allowValueChange {
+		t.Logf("⚠️ %s が立っている——値が変わっても採り直しを止めない", allowValueChangeEnv)
+	}
+	if err := os.MkdirAll(filepath.Join("testdata", "tag_list"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range tagListGoldenCases {
+		path := tagListGoldenPath(tc.name)
+		old, readErr := os.ReadFile(path) // 初回は存在しない
+		out := mustRun(t, dir, tc.args...)
+		if err := os.WriteFile(path, []byte(out), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if readErr != nil {
+			t.Logf("golden %s を %v から新規に採った（%d バイト・比べる相手が無い）", tc.name, tc.args, len(out))
+			continue
+		}
+
+		var verdict string
+		switch {
+		case bytes.Equal(old, []byte(out)):
+			verdict = "1 バイトも変わっていない"
+		case json.Valid(old) && json.Valid([]byte(out)):
+			same, why := jsonSameIgnoringWhitespace(old, []byte(out))
+			if same {
+				verdict = "空白の置き方だけが変わった（欄・順序・値は同一）"
+			} else {
+				verdict = "★値が変わった: " + why
+				if !allowValueChange {
+					t.Errorf("golden %s は空白以外も変わった。この単位の射程外の変更かもしれない: %s\n"+
+						"（意図した変更なら %s=1 を併せて立てること）", tc.name, why, allowValueChangeEnv)
+				}
+			}
+		default:
+			verdict = "★テキストの golden のバイト列が変わった（JSON ではないので空白の差も差である）"
+			if !allowValueChange {
+				t.Errorf("golden %s（テキスト）のバイト列が変わった。`--json` の単位はテキストを変えないはず\n"+
+					"（意図した変更なら %s=1 を併せて立てること）", tc.name, allowValueChangeEnv)
+			}
+		}
+		t.Logf("golden %s を %v から採り直した（%d → %d バイト・%s）",
+			tc.name, tc.args, len(old), len(out), verdict)
+	}
+}
+
 // TestTagListBytes は各面のバイト列を golden と突き合わせる。
 func TestTagListBytes(t *testing.T) {
 	dir := t.TempDir()
 	seedTagListFixture(t, dir)
 
 	if os.Getenv(goldenUpdateEnv) != "" {
-		if err := os.MkdirAll(filepath.Join("testdata", "tag_list"), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		for _, tc := range tagListGoldenCases {
-			out := mustRun(t, dir, tc.args...)
-			if err := os.WriteFile(tagListGoldenPath(tc.name), []byte(out), 0o644); err != nil {
-				t.Fatal(err)
-			}
-			t.Logf("golden %s を %v から採り直した（%d バイト）", tc.name, tc.args, len(out))
-		}
+		updateTagListGoldens(t, dir)
 		t.Skip("golden を採り直したので照合はしない")
 	}
 

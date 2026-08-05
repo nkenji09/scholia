@@ -261,49 +261,131 @@ func argsRequestJSON(args []string) bool {
 	return false
 }
 
-// TestEveryJSONFaceGoesThroughTheSingleExit は、**数え上げた全ての面が少なくとも
-// 1 度は走ること**を担う。バイトの突き合わせ自体は `executeForTest` が行うので、
-// ここが見るのは「どの面も検査されないまま残らない」ことと、整形されていない
-// こと・JSON として読めることの 2 つである。
+// TestEveryJSONFaceGoesThroughTheSingleExit は、**数え上げた全ての面**を、
+// **その面が宣言している bool フラグの全部分集合**で走らせる。
+// バイトの突き合わせ自体は `executeForTest` が行うので、ここが担うのは
+// 「どの面・どの枝も検査されないまま残らない」ことと、整形されていないこと・
+// JSON として読めることである。
 //
-// ⚠️ **引き方は面ごとに 1 つしか書いていない。** それでよいのは、**表に無い
-// 引き方も `executeForTest` が拾う**ようになったため——この表の役目は
-// 「全ての面が最低 1 回は通る」を保つことに縮んでいる。
+// 🔴 **枝の側も列挙しない。** 引き方の表に書くのは面ごとに 1 つで、
+// **フラグの組み合わせは cobra の宣言から数え上げる**（AY の
+// TestTagListEveryDiscoveredFaceFolds と同じ取り方）。新しい bool フラグが
+// 足されれば、その枝も自動で回る。
+//
+// ⚠️ **なぜ `executeForTest` に置いた突き合わせだけでは足りないのか。**
+// あちらが拾うのは「テスト一式がたまたま叩いた起動」である。
+// `rules --all --json` の枝がいま覆われているのは `currency_test.go` と
+// `rules_test.go` がそれを叩いているからで、**そのテストが消えれば黙って覆いも消える。**
+// ここは覆いを**宣言から導く**——何を叩くかが他のテストの都合に依存しない。
+//
+// ⚠️ **組み合わせとして成り立たない引き方**（`--dry-run` と併せられない等）は
+// 失敗する。素通りと混ぜないよう、**記録を残して次へ**進み、最後に
+// 「1 度も成功しなかった面」があれば落とす。
 func TestEveryJSONFaceGoesThroughTheSingleExit(t *testing.T) {
 	template, ids := seedJSONFaceFixture(t)
 
+	// ⚠️ **宣言から数え上げると、外に触る bool フラグも回ってしまう。**
+	// 実測で 2 つ踏んだ。**除外して列挙するのではなく、外に触れないようにする。**
+	//   - `--edit` は $EDITOR を起動する。既定の `vi` は入力を待ち、**テストが止まる**
+	//     （10 分の deadlock 検出まで走った）。中身を書かない非対話コマンドへ差し替える。
+	//   - `skills install --user` は `~/.claude/skills/` へ書く。**本物のホームである。**
+	//     HOME を temp へ向けて逃がす。
+	t.Setenv("EDITOR", "true")
+	t.Setenv("HOME", t.TempDir())
+
+	ran, rejected := 0, 0
 	for _, face := range discoverJSONFaces(t) {
 		extra, ok := jsonFaceInvocations[face]
 		if !ok {
 			continue // TestEveryJSONFaceIsExercised が別途落とす
 		}
 		t.Run(face, func(t *testing.T) {
-			dir := copyFixture(t, template)
-			t.Chdir(dir) // `skills install --project` は cwd に書く
+			okRuns := 0
+			for _, combo := range boolFlagSubsets(t, face) {
+				name := "既定"
+				if len(combo) > 0 {
+					name = strings.Join(combo, " ")
+				}
+				t.Run(name, func(t *testing.T) {
+					dir := copyFixture(t, template)
+					t.Chdir(dir) // `skills install --project` は cwd に書く
 
-			args := append(strings.Fields(face), ids.resolve(extra)...)
-			args = append(args, "--json")
+					args := append(strings.Fields(face), ids.resolve(extra)...)
+					args = append(args, "--json")
+					args = append(args, combo...)
 
-			// バイトの突き合わせは runSplit の中（executeForTest）で当たる。
-			stdout, stderr, err := runSplit(t, dir, args...)
-			if err != nil {
-				t.Fatalf("%v が失敗した（引き方が古い可能性がある）: %v\n--- stdout ---\n%s\n--- stderr ---\n%s",
-					args, err, stdout, stderr)
+					// バイトの突き合わせは runSplit の中（executeForTest）で当たる。
+					stdout, stderr, err := runSplit(t, dir, args...)
+					if err != nil {
+						rejected++
+						t.Logf("この引き方は成り立たなかった（出力を持たないので検査対象外）: %v\n%v\n%s", args, err, stderr)
+						return
+					}
+					if stdout == "" {
+						rejected++
+						t.Logf("標準出力が空（比べる相手が無い）: %v", args)
+						return
+					}
+					okRuns++
+					ran++
+					// 整形されていないこと（改行は末尾の 1 つだけ）。
+					if n := strings.Count(stdout, "\n"); n != 1 || !strings.HasSuffix(stdout, "\n") {
+						t.Errorf("`--json` の出力が 1 行でない（改行 %d 個）:\n%s", n, stdout)
+					}
+					// JSON として読めること。
+					var decoded any
+					if err := json.Unmarshal([]byte(stdout), &decoded); err != nil {
+						t.Errorf("`--json` の出力が JSON として読めない: %v\n%s", err, stdout)
+					}
+				})
 			}
-			if stdout == "" {
-				t.Fatalf("%v が標準出力に何も出さなかった（この面は検査されていない）", args)
-			}
-			// 整形されていないこと（改行は末尾の 1 つだけ）。
-			if n := strings.Count(stdout, "\n"); n != 1 || !strings.HasSuffix(stdout, "\n") {
-				t.Errorf("`--json` の出力が 1 行でない（改行 %d 個）:\n%s", n, stdout)
-			}
-			// JSON として読めること。
-			var decoded any
-			if err := json.Unmarshal([]byte(stdout), &decoded); err != nil {
-				t.Errorf("`--json` の出力が JSON として読めない: %v\n%s", err, stdout)
+			if okRuns == 0 {
+				t.Errorf("この面はどの引き方でも出力を得られなかった（1 度も検査されていない）")
 			}
 		})
 	}
+	t.Logf("走らせた起動: %d 通り（成り立たなかった引き方 %d 通り）", ran, rejected)
+	if ran == 0 {
+		t.Fatal("1 つも走っていない（この検査は何も見ていない）")
+	}
+}
+
+// boolFlagSubsets は面が宣言している bool フラグ（`--json` と `--help` を除く）の
+// **全部分集合**を返す。面の枝を手で並べないための取り方。
+//
+// ⚠️ **bool フラグで表せない枝は取れない**——位置引数で分岐する面
+// （`config get <key>` のキー指定の枝など）や、文字列フラグの値で分岐する面は
+// ここでは回らない。file 冒頭の射程に書いてある。
+func boolFlagSubsets(t *testing.T, face string) [][]string {
+	t.Helper()
+	cmd, _, err := newRootCmd().Find(strings.Fields(face))
+	if err != nil {
+		t.Fatalf("面 %q を cobra の木から引けない: %v", face, err)
+	}
+	var names []string
+	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		if f.Value.Type() != "bool" || f.Name == "json" || f.Name == "help" {
+			return
+		}
+		names = append(names, f.Name)
+	})
+	sort.Strings(names)
+	// 組み合わせ爆発を避ける。実測で最大 4 本（2^4=16 通り）。
+	if len(names) > 6 {
+		t.Fatalf("面 %q の bool フラグが %d 本ある。全部分集合は %d 通りで多すぎる——"+
+			"取り方を見直すこと（黙って切り詰めない）", face, len(names), 1<<len(names))
+	}
+	var out [][]string
+	for mask := 0; mask < 1<<len(names); mask++ {
+		var combo []string
+		for i, n := range names {
+			if mask&(1<<i) != 0 {
+				combo = append(combo, "--"+n)
+			}
+		}
+		out = append(out, combo)
+	}
+	return out
 }
 
 // ---------------------------------------------------------------------------
