@@ -1,15 +1,56 @@
-import { render } from 'preact';
+import { options, render } from 'preact';
 import { AppRoot } from '../root';
 import type { Decision, GovernsRef, Tag, Transition, VocabEntry } from '../types';
+
+// ---------------------------------------------------------------------------
+// 効果（useEffect）の走行を、待ちのポーリングより必ず後ろへ置く
+// ---------------------------------------------------------------------------
+//
+// **何のためか。** 描画は1回では終わらない。`useEffect` の中で状態を変える面
+// （概要の構造ツリーは、束ねる段と現在地までの経路を**効果で**開く）は、
+//
+//   ① データが揃った描画（＝シートが出る）
+//   ② 効果が走ったあとの描画（＝ツリーの子が並ぶ）
+//
+// の**2段**で落ち着く。①だけを待って②に属するものを読むテストは、①と②のあいだに
+// ポーリングが挟まった回にだけ落ちる——2026-08-05 の main の CI で実際に落ちた
+// （`renderWiring.test.tsx` のツリーの件数。ローカルでは 0/30、CPU を奪った状態で 6/30）。
+//
+// preact は効果の走行を `options.requestAnimationFrame` 経由で予約する。ここを
+// 差し替えて、**待ちのポーリング間隔より確実に後ろ**へ置く。こうすると、
+// ①だけを待って②を読むテストは「たまに」ではなく**必ず**その隙間を読む。
+//
+// ⚠️ **これは締め切りではない**（`CLAUDE.md`「時間で守らない」）。テストが何 ms 以内に
+// 終わることも、効果が何 ms 以内に走ることも要求していない。要求しているのは**順序**
+// ——「待ちが1回ポーリングするあいだに効果は走らない」だけである。片方が遅れれば
+// もう片方も同じだけ遅れる（どちらも同じ event loop の timer なので、機械が詰まっても
+// 期限順に発火する順序は保たれる）。
+//
+// ⚠️ **この差し替えが落とすもの・落とさないもの**（`CLAUDE.md` 6）:
+//   落とす  : 効果で決まる描画を、その効果を待たずに読むテスト（読んだ答えが
+//             違えば assert が、要素が無ければ「無い」が、それぞれ**必ず**出る）。
+//   落とさない: `useLayoutEffect` で決まる描画（同期に走るので隙間が無い）。
+//             応答の到着順に由来する競合（順序は `installFakeServer({hold})` で作る）。
+//             隙間を読んでいるが**読んだ答えがたまたま同じ**になるテスト
+//             （＝空振り。それは各検査の「空振り防止」が受け持つ）。
+//   ⚠️ 1回のポーリングの中で機械が `EFFECT_FLUSH_DELAY_MS` 以上詰まると、隙間を
+//      **作れない**回が出る（そのときは読みが遅れて②に届くので、赤にはならず
+//      「今回は隙間を強制できなかった」になる）。強制は保証ではない。
+const POLL_MS = 10;
+const EFFECT_FLUSH_DELAY_MS = POLL_MS * 3;
+(options as unknown as { requestAnimationFrame: (flush: () => void) => void }).requestAnimationFrame = (flush: () => void) => {
+  setTimeout(flush, EFFECT_FLUSH_DELAY_MS);
+};
 
 // 描画を1回起こして「URL に書かれた条件 → 一覧に出た行」まで通すための足場。
 //
 // **ここは検査ではない。** 検査（何に落ちるか・落ちないか）は renderWiring.test.tsx
-// が持つ。この file が持つのは3つだけ:
+// が持つ。この file が持つのは4つだけ:
 //
 //   1. 製品が実際に叩く HTTP の口を、手元の corpus で答える偽サーバ
 //   2. 製品の合成ルート（AppRoot）を happy-dom の上に起こす mount
 //   3. 出た DOM から**値**（行の並び・見出しの件数・点灯タブ）を読み出す関数
+//   4. 描画が落ち着くまでの**順序を固定する**口（上の効果の走行の差し替え・`hold`）
 //
 // ⚠️ **偽サーバは Go 側の選択規則を再実装しない。** `/api/governs` が返す集合は
 // corpus に**そのまま書いてある**ものを返すだけで、「この記録を支配する規則は何か」
@@ -475,7 +516,7 @@ export async function waitFor(check: () => boolean, what: string, timeoutMs = 30
   for (;;) {
     if (check()) return;
     if (performance.now() - started > timeoutMs) throw new Error(`timed out waiting for: ${what}`);
-    await new Promise((r) => setTimeout(r, 10));
+    await new Promise((r) => setTimeout(r, POLL_MS));
   }
 }
 
