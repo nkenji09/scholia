@@ -1,0 +1,76 @@
+[
+  {
+    "tag": {
+      "id": "axis.k",
+      "name": "軸K",
+      "kind": "axis",
+      "description": "軸の説明。",
+      "total": true
+    }
+  },
+  {
+    "tag": {
+      "id": "concern.x",
+      "name": "関心X",
+      "kind": "concern",
+      "description": "色と参照を持つ。",
+      "color": "#3b82f6",
+      "ref": "https://example.invalid/x"
+    }
+  },
+  {
+    "tag": {
+      "id": "subject.core",
+      "name": "中核",
+      "kind": "subject",
+      "description": "説明を持つ親タグ。改行を含む。\n2 行目。"
+    },
+    "children": [
+      {
+        "tag": {
+          "id": "req.a",
+          "name": "要件A",
+          "kind": "requirement",
+          "parentIds": [
+            "subject.core"
+          ],
+          "description": "引用符 \" と \u003c \u003e \u0026 と ASCII mixed 日本語 を含む説明。",
+          "fulfillment": "property"
+        }
+      },
+      {
+        "tag": {
+          "id": "req.b",
+          "name": "要件B",
+          "kind": "requirement",
+          "parentIds": [
+            "subject.core",
+            "subject.side"
+          ],
+          "description": "多親のタグの説明。"
+        }
+      }
+    ]
+  },
+  {
+    "tag": {
+      "id": "subject.side",
+      "name": "傍系",
+      "kind": "subject"
+    },
+    "children": [
+      {
+        "tag": {
+          "id": "req.b",
+          "name": "要件B",
+          "kind": "requirement",
+          "parentIds": [
+            "subject.core",
+            "subject.side"
+          ],
+          "description": "多親のタグの説明。"
+        }
+      }
+    ]
+  }
+]
