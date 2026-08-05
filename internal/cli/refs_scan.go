@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"sort"
 
 	"github.com/spf13/cobra"
@@ -55,9 +54,7 @@ func newRefsScanCmd() *cobra.Command {
 			}
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(report)
+				return emitJSON(cmd, report)
 			}
 			printRenameRefsReport(cmd, &report, false)
 			return nil

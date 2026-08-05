@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
-
 	"github.com/spf13/cobra"
 
 	"github.com/nkenji09/scholia/internal/flow"
@@ -42,9 +40,7 @@ func newGapsCmd() *cobra.Command {
 			report := flow.Analyze(&snap, ix, args[0])
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(report.Gaps())
+				return emitJSON(cmd, report.Gaps())
 			}
 			flow.WriteGapsText(cmd.OutOrStdout(), report, verbose)
 			return nil

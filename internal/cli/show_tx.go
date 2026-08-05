@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -54,9 +53,7 @@ func newShowTxCmd() *cobra.Command {
 			}
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(view)
+				return emitJSON(cmd, view)
 			}
 			printTxView(cmd, view, resolve)
 			return nil

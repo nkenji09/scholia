@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -25,9 +24,7 @@ func newShowDecisionCmd() *cobra.Command {
 			}
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(d)
+				return emitJSON(cmd, d)
 			}
 
 			out := cmd.OutOrStdout()

@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -104,9 +103,7 @@ func newReviewAddCmd() *cobra.Command {
 			}
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(r)
+				return emitJSON(cmd, r)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "review %s を記録しました（%s:%s）\n", r.ID, targetType, targetID)
 			for _, l := range r.Supersedes {
@@ -157,9 +154,7 @@ func newReviewListCmd() *cobra.Command {
 				if reviews == nil {
 					reviews = []review.Review{}
 				}
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(reviews)
+				return emitJSON(cmd, reviews)
 			}
 			if len(reviews) == 0 {
 				fmt.Fprintln(cmd.OutOrStdout(), "レビューはありません")
@@ -299,9 +294,7 @@ func newReviewDecideCmd(kind reviewDecideKind) *cobra.Command {
 			}
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(struct {
+				return emitJSON(cmd, struct {
 					model.Decision
 					Advisories []lint.Finding `json:"advisories,omitempty"`
 				}{Decision: d, Advisories: descAdvisories})
@@ -425,9 +418,7 @@ func newReviewRmCmd() *cobra.Command {
 				return err
 			}
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(map[string]string{"id": id})
+				return emitJSON(cmd, map[string]string{"id": id})
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "review %s を削除しました（decision は作成していません）\n", id)
 			return nil

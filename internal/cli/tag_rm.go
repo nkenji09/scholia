@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -25,9 +24,7 @@ func newTagRmCmd() *cobra.Command {
 			}
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(result)
+				return emitJSON(cmd, result)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "tag %s を削除しました（detached: transition %d 件・vocab %d 件・tag %d 件）\n",
 				result.ID, len(result.DetachedTransitions), len(result.DetachedVocab), len(result.DetachedTags))

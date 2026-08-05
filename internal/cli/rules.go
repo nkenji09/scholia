@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"sort"
@@ -94,9 +93,7 @@ func newRulesCmd() *cobra.Command {
 			groups := foldRules(entries, func(id string) bool { return view.effectOf(id) == EffectReplaced }, all)
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(rulesOutput{
+				return emitJSON(cmd, rulesOutput{
 					Decisions: view.decisionOuts(governsDecisions(groups.Bodies)),
 					Inherited: view.inheritedOuts(groups.Inherited),
 					Withdrawn: view.withdrawnOuts(governsDecisions(groups.Withdrawn)),

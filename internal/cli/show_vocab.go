@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"sort"
@@ -67,9 +66,7 @@ func newShowVocabCmd() *cobra.Command {
 			decisions := vocabDecisionsFor(snap, id)
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(vocabShowOutput{VocabEntry: v, Usage: usage,
+				return emitJSON(cmd, vocabShowOutput{VocabEntry: v, Usage: usage,
 					EstablishedBy: establishedBy, Decisions: decisions})
 			}
 

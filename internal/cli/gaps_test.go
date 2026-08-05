@@ -68,7 +68,7 @@ func TestGaps_JSONOutputRoundTripsGapFieldsButOmitsMatrix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("gaps --json: %v\n%s", err, out)
 	}
-	for _, want := range []string{`"axisId": "axis.mode"`, `"value": "cond.apply"`, `"declaredAxes"`} {
+	for _, want := range []string{`"axisId":"axis.mode"`, `"value":"cond.apply"`, `"declaredAxes"`} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("gaps --json output missing %q:\n%s", want, out)
 		}

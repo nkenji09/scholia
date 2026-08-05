@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
-
 	"github.com/spf13/cobra"
 
 	"github.com/nkenji09/scholia/internal/index"
@@ -60,9 +58,7 @@ func newSpecCmd() *cobra.Command {
 			split := decisionSplitter{view: view, all: all}
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(buildSpecOutput(report, view, split))
+				return emitJSON(cmd, buildSpecOutput(report, view, split))
 			}
 			render.WriteText(cmd.OutOrStdout(), report, split)
 			return nil

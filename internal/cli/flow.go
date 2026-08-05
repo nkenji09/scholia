@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
-
 	"github.com/spf13/cobra"
 
 	"github.com/nkenji09/scholia/internal/flow"
@@ -34,9 +32,7 @@ func newFlowCmd() *cobra.Command {
 			report := flow.Analyze(&snap, ix, args[0])
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(report)
+				return emitJSON(cmd, report)
 			}
 			flow.WriteText(cmd.OutOrStdout(), report, verbose)
 			return nil

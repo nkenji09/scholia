@@ -15,7 +15,7 @@ func TestCLI_TagCreateDefaultsKindWhenSingleTagKindDeclared(t *testing.T) {
 	mustRun(t, dir, "config", "set", "tagKinds", "concern")
 
 	out := mustRun(t, dir, "tag", "create", "t1", "--name", "t1", "--json")
-	if !strings.Contains(out, `"kind": "concern"`) {
+	if !strings.Contains(out, `"kind":"concern"`) {
 		t.Fatalf("expected kind to default to the sole declared tagKind, got:\n%s", out)
 	}
 

@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -29,9 +28,7 @@ func newInitCmd() *cobra.Command {
 				return err
 			}
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(cfg)
+				return emitJSON(cmd, cfg)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "%s を作成しました\n", s.Dir)
 			return nil

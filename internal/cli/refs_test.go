@@ -91,7 +91,7 @@ func TestCLI_RefsScanSurvivesNonRegularCandidateAndNamesTheSkip(t *testing.T) {
 	// --json is a machine-read face, so the field name and the reason string are
 	// part of the contract, not just the prose above.
 	jsonOut := mustRun(t, dir, "refs", "scan", "--id", "req.auth", "--json")
-	if !strings.Contains(jsonOut, `"reason": "not-regular"`) {
+	if !strings.Contains(jsonOut, `"reason":"not-regular"`) {
 		t.Fatalf("expected the skip reason in --json output, got:\n%s", jsonOut)
 	}
 }

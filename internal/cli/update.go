@@ -7,7 +7,6 @@ import (
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -172,7 +171,7 @@ func fetchLatestTagViaGitHub() (string, error) {
 		return "", fmt.Errorf("GitHub API がエラーを返しました: %s", resp.Status)
 	}
 	var rel githubRelease
-	if err := json.NewDecoder(resp.Body).Decode(&rel); err != nil {
+	if err := decodeJSON(resp.Body, &rel); err != nil {
 		return "", fmt.Errorf("GitHub API の応答を解釈できません: %w", err)
 	}
 	if rel.TagName == "" {

@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -57,9 +56,7 @@ func newDecisionShowCmd() *cobra.Command {
 						Mode string `json:"mode"`
 					}{ID: ref.FromID, Mode: ref.Mode})
 				}
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(out)
+				return emitJSON(cmd, out)
 			}
 
 			out := cmd.OutOrStdout()

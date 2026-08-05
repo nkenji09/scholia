@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -64,15 +63,13 @@ func newRetrofitCmd() *cobra.Command {
 			ackStats := partitionStats(ackOnly, names)
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
 				out := struct {
 					Rules           []string       `json:"rules"`
 					Findings        []lint.Finding `json:"findings"`
 					Fixable         retrofitStats  `json:"fixable"`
 					AcknowledgeOnly retrofitStats  `json:"acknowledgeOnly"`
 				}{Rules: names, Findings: findings, Fixable: fixStats, AcknowledgeOnly: ackStats}
-				return enc.Encode(out)
+				return emitJSON(cmd, out)
 			}
 
 			printRetrofitText(cmd, names, fixable, ackOnly, fixStats, ackStats)

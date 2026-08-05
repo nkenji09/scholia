@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 
@@ -87,9 +86,7 @@ func newVocabOwnerMigrateCmd() *cobra.Command {
 			}
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(plan)
+				return emitJSON(cmd, plan)
 			}
 
 			w := cmd.OutOrStdout()

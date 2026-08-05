@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -37,9 +36,7 @@ func newTxRmCmd() *cobra.Command {
 			}
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(result)
+				return emitJSON(cmd, result)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "transition %s を削除しました（道連れ decision: %d 件・why: %s）\n",
 				result.ID, len(result.RemovedDecisions), why)

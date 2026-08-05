@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"sort"
@@ -144,9 +143,7 @@ func newSearchCmd() *cobra.Command {
 			}
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(searchOutput{Matches: enriched})
+				return emitJSON(cmd, searchOutput{Matches: enriched})
 			}
 			printSearchMatches(cmd, enriched)
 			return nil

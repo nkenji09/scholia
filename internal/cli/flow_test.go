@@ -44,7 +44,7 @@ func TestFlow_JSONOutputRoundTripsTotalGapAndOverlap(t *testing.T) {
 	if err != nil {
 		t.Fatalf("flow --json: %v\n%s", err, out)
 	}
-	for _, want := range []string{`"axisId": "axis.mode"`, `"value": "cond.apply"`, `"declaredAxes"`} {
+	for _, want := range []string{`"axisId":"axis.mode"`, `"value":"cond.apply"`, `"declaredAxes"`} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("flow --json output missing %q:\n%s", want, out)
 		}
