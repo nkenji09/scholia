@@ -1,0 +1,26 @@
+[
+  {
+    "tag": {
+      "id": "req.a",
+      "name": "要件A",
+      "kind": "requirement",
+      "parentIds": [
+        "subject.core"
+      ],
+      "description": "引用符 \" と \u003c \u003e \u0026 と ASCII mixed 日本語 を含む説明。",
+      "fulfillment": "property"
+    }
+  },
+  {
+    "tag": {
+      "id": "req.b",
+      "name": "要件B",
+      "kind": "requirement",
+      "parentIds": [
+        "subject.core",
+        "subject.side"
+      ],
+      "description": "多親のタグの説明。"
+    }
+  }
+]

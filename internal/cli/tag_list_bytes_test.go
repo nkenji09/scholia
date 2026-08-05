@@ -5,21 +5,24 @@
 //
 // **落ちる:**
 //   - `--json --all` のバイト列が、この変更の前と 1 バイトでも違う
-//   - 素の一覧 / `--tree` / `--tree --json` / `--kind` のバイト列が変わる
+//     （平坦・入れ子〔`--tree`〕・絞り込み〔`--kind`〕の 3 つとも）
+//   - テキストの面（素の一覧 / `--tree` / `--kind`）のバイト列が変わる
 //   - 既定の `--json` が「`--all` の出力から description の行だけを抜いたもの」と
 //     1 バイトでも違う（＝ description 以外が 1 つでも消えた・変わった・
-//     description が 1 件でも残っている・整形が変わった、のいずれか）
+//     description が 1 件でも残っている・整形が変わった、のいずれか）。
+//     **入れ子の面にも同じ期待値を当てる。**
+//   - `--json` の 4 つの面（平坦・入れ子・絞り込み・入れ子＋絞り込み）のどれかで、
+//     既定と `--all` が description 以外で違う
 //   - 上のどれかが**件数によって変わる**（0 件から、実在する最大の記録集合より
 //     十分上の件数まで見る）
 //
 // **落ちない（射程の外・正直に名乗る）:**
-//   - `--tree --json` の description。本単位は `--tree` を変えない（正本がそう定めた）。
-//     この面が今も description を全文出していることは、`tree_json` の golden が
-//     そのまま記録している。
 //   - repo の外の消費者。ここで見ているのはこの repo が出すバイト列だけ。
 //   - golden の標本に現れない model.Tag のフィールド。フィールドの網羅は
 //     tag_list_json_test.go が reflect で見る（標本が全フィールドを埋めていない
 //     ことを、そちらが赤で知らせる）。
+//   - `--json` を付けない面での `--all` の効き目（何も畳んでいないので no-op）。
+//     それは TestTagListTextFacesIgnoreAll が別に見る。
 //
 // # golden の出自
 //
@@ -104,12 +107,31 @@ var tagListGoldenCases = []struct {
 }{
 	{"plain", []string{"tag", "list"}, []string{"tag", "list"}},
 	{"tree", []string{"tag", "list", "--tree"}, []string{"tag", "list", "--tree"}},
-	{"tree_json", []string{"tag", "list", "--tree", "--json"}, []string{"tag", "list", "--tree", "--json"}},
 	{"kind", []string{"tag", "list", "--kind", "requirement"}, []string{"tag", "list", "--kind", "requirement"}},
 	{"json_full", []string{"tag", "list", "--json"}, []string{"tag", "list", "--json", "--all"}},
+	{"tree_json_full",
+		[]string{"tag", "list", "--tree", "--json"},
+		[]string{"tag", "list", "--tree", "--json", "--all"}},
 	{"kind_json_full",
 		[]string{"tag", "list", "--kind", "requirement", "--json"},
 		[]string{"tag", "list", "--kind", "requirement", "--json", "--all"}},
+	{"tree_kind_json_full",
+		[]string{"tag", "list", "--tree", "--kind", "requirement", "--json"},
+		[]string{"tag", "list", "--tree", "--kind", "requirement", "--json", "--all"}},
+}
+
+// jsonFaces は `--json` の面（平坦・入れ子・絞り込み）。**この列挙は
+// 「面ごとに検査を書く」ためのものではない**——判断は面が分かれる前に 1 度だけ
+// 通っているので、ここは「その 1 つの判断がどの面にも届いているか」の確認である。
+var jsonFaces = []struct {
+	name   string
+	args   []string
+	golden string // 変更前のバイト列を記録した golden（空なら byte 比較はしない）
+}{
+	{"平坦", []string{"tag", "list", "--json"}, "json_full"},
+	{"入れ子", []string{"tag", "list", "--tree", "--json"}, "tree_json_full"},
+	{"絞り込み", []string{"tag", "list", "--kind", "requirement", "--json"}, "kind_json_full"},
+	{"入れ子＋絞り込み", []string{"tag", "list", "--tree", "--kind", "requirement", "--json"}, "tree_kind_json_full"},
 }
 
 func tagListGoldenPath(name string) string {
@@ -159,26 +181,24 @@ func TestTagListBytes(t *testing.T) {
 	// 既定の `--json` は「`--all` の出力から description の行だけを抜いたもの」と
 	// バイト単位で一致する。正本の 2 つの条件——「description が消える」と
 	// 「他のフィールドは 1 つも変わらない」——を、そのままバイト列の期待値にしている。
-	for _, tc := range []struct {
-		name string
-		args []string
-	}{
-		{"json_full", []string{"tag", "list", "--json"}},
-		{"kind_json_full", []string{"tag", "list", "--kind", "requirement", "--json"}},
-	} {
-		t.Run("既定は description の行だけが抜けた形/"+tc.name, func(t *testing.T) {
-			full := readTagListGolden(t, tc.name)
+	// **入れ子（`--tree --json`）にも同じ期待値を当てる。**
+	for _, face := range jsonFaces {
+		if face.golden == "" {
+			continue
+		}
+		t.Run("既定は description の行だけが抜けた形/"+face.name, func(t *testing.T) {
+			full := readTagListGolden(t, face.golden)
 			want := withoutDescriptionLines(full)
 			if want == full {
-				t.Fatalf("golden %s に description の行が 1 つも無い（標本が壊れている）", tc.name)
+				t.Fatalf("golden %s に description の行が 1 つも無い（標本が壊れている）", face.golden)
 			}
-			got := mustRun(t, dir, tc.args...)
+			got := mustRun(t, dir, face.args...)
 			if got != want {
 				t.Errorf("%v の出力が「description の行だけを抜いた golden」と違う\n--- got ---\n%s\n--- want ---\n%s",
-					tc.args, got, want)
+					face.args, got, want)
 			}
 			// 抜いた側がなお JSON として読めること（末尾カンマの処理漏れを落とす）。
-			var decoded []map[string]any
+			var decoded any
 			if err := json.Unmarshal([]byte(got), &decoded); err != nil {
 				t.Fatalf("既定の出力が JSON として読めない: %v\n%s", err, got)
 			}
@@ -220,40 +240,47 @@ func TestTagListJSONDefaultDropsOnlyDescription(t *testing.T) {
 			seedTagListFixture(t, dir)
 			seedBulkTags(t, dir, extra)
 
-			def := decodeTagObjects(t, mustRun(t, dir, "tag", "list", "--json"))
-			all := decodeTagObjects(t, mustRun(t, dir, "tag", "list", "--json", "--all"))
+			for _, face := range jsonFaces {
+				t.Run(face.name, func(t *testing.T) {
+					def := collectTagObjects(t, mustRun(t, dir, face.args...))
+					all := collectTagObjects(t, mustRun(t, dir, append(append([]string{}, face.args...), "--all")...))
 
-			if len(def) != len(all) {
-				t.Fatalf("件数が違う: 既定 %d 件 / --all %d 件", len(def), len(all))
-			}
-			if len(all) == 0 {
-				t.Fatal("標本が空（この検査は何も見ていない）")
-			}
-			describedInAll := 0
-			for i := range all {
-				if _, ok := def[i]["description"]; ok {
-					t.Errorf("既定の %d 件目に description が残っている: %v", i, def[i]["id"])
-				}
-				if _, ok := all[i]["description"]; ok {
-					describedInAll++
-					delete(all[i], "description")
-				}
-				// description を除いた残りが、キーも値も並びも完全に一致する。
-				if !reflect.DeepEqual(def[i], all[i]) {
-					t.Errorf("%d 件目が description 以外で違う\n既定: %v\n--all: %v", i, def[i], all[i])
-				}
-			}
-			if describedInAll == 0 {
-				t.Fatal("--all 側に description を持つタグが 1 件も無い（標本が壊れている）")
+					if len(def) != len(all) {
+						t.Fatalf("件数が違う: 既定 %d 件 / --all %d 件", len(def), len(all))
+					}
+					if len(all) == 0 {
+						t.Fatal("標本が空（この検査は何も見ていない）")
+					}
+					describedInAll := 0
+					for i := range all {
+						if _, ok := def[i]["description"]; ok {
+							t.Errorf("既定の %d 件目に description が残っている: %v", i, def[i]["id"])
+						}
+						if _, ok := all[i]["description"]; ok {
+							describedInAll++
+							delete(all[i], "description")
+						}
+						// description を除いた残りが、キーも値も並びも完全に一致する。
+						if !reflect.DeepEqual(def[i], all[i]) {
+							t.Errorf("%d 件目が description 以外で違う\n既定: %v\n--all: %v", i, def[i], all[i])
+						}
+					}
+					if describedInAll == 0 {
+						t.Fatal("--all 側に description を持つタグが 1 件も無い（標本が壊れている）")
+					}
+				})
 			}
 		})
 	}
 }
 
-// TestTagListNonJSONFacesIgnoreAll は、素の一覧・`--tree`・`--kind` が
-// `--all` の有無で変わらないことを見る。この 3 つは元から description を
-// 出していない（正本「1 バイトも変わらない」）。
-func TestTagListNonJSONFacesIgnoreAll(t *testing.T) {
+// TestTagListTextFacesIgnoreAll は、**テキストの**面が `--all` の有無で
+// 変わらないことを見る。これらは元から description を出していない
+// （正本「1 バイトも変わらない」）。
+//
+// ⚠️ `--tree --json` はここに**居ない**。入れ子も `--json` の面なので、
+// `--all` で description が戻る側である（TestTagListJSONDefaultDropsOnlyDescription）。
+func TestTagListTextFacesIgnoreAll(t *testing.T) {
 	dir := t.TempDir()
 	seedTagListFixture(t, dir)
 
@@ -261,7 +288,7 @@ func TestTagListNonJSONFacesIgnoreAll(t *testing.T) {
 		{"tag", "list"},
 		{"tag", "list", "--tree"},
 		{"tag", "list", "--kind", "requirement"},
-		{"tag", "list", "--tree", "--json"},
+		{"tag", "list", "--tree", "--kind", "requirement"},
 	} {
 		t.Run(strings.Join(args[2:], " "), func(t *testing.T) {
 			plain := mustRun(t, dir, args...)
@@ -273,13 +300,34 @@ func TestTagListNonJSONFacesIgnoreAll(t *testing.T) {
 	}
 }
 
-func decodeTagObjects(t *testing.T, out string) []map[string]any {
+// collectTagObjects は `--json` の出力からタグの object を**文書順に**取り出す。
+// 平坦（タグの配列）と入れ子（`{tag, children}` の森）のどちらの形でも同じ列を返すので、
+// 面ごとに別の検査を書かなくて済む。
+func collectTagObjects(t *testing.T, out string) []map[string]any {
 	t.Helper()
-	var decoded []map[string]any
+	var decoded any
 	if err := json.Unmarshal([]byte(out), &decoded); err != nil {
 		t.Fatalf("JSON として読めない: %v\n%s", err, out)
 	}
-	return decoded
+	return walkTagObjects(decoded)
+}
+
+func walkTagObjects(v any) []map[string]any {
+	switch x := v.(type) {
+	case []any:
+		var out []map[string]any
+		for _, e := range x {
+			out = append(out, walkTagObjects(e)...)
+		}
+		return out
+	case map[string]any:
+		if tag, ok := x["tag"]; ok { // 入れ子のノード
+			out := walkTagObjects(tag)
+			return append(out, walkTagObjects(x["children"])...)
+		}
+		return []map[string]any{x} // タグそのもの
+	}
+	return nil
 }
 
 // seedBulkTags は tags ディレクトリへ直接 n 件書く。CLI 経由だと 1 件ごとに

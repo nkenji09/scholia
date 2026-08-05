@@ -32,8 +32,18 @@ func newTagListCmd() *cobra.Command {
 				return fmt.Errorf("--kind %q は config.tagKinds に未宣言です", kind)
 			}
 
+			// `--json` が 1 タグについて何を渡すかの判断は tag_list_json.go の
+			// 純関数にあり、**面が分かれる前**に 1 度だけ通す。平坦と入れ子で
+			// 別々に判断を書くと、片方だけ直す変異が通る（CLAUDE.md 5 の裏返し
+			// ——新しい面を足したときにガードを置き忘れるくらいなら、判断の側を
+			// 両面が必ず通る位置に置く）。ここから下は並べ方と書き出しだけ。
+			tags := snap.Tags
+			if asJSON {
+				tags = tagListJSONItems(tags, all)
+			}
+
 			if tree {
-				forest := buildTagForest(snap.Tags, kind)
+				forest := buildTagForest(tags, kind)
 				if asJSON {
 					enc := json.NewEncoder(cmd.OutOrStdout())
 					enc.SetIndent("", "  ")
@@ -50,13 +60,11 @@ func newTagListCmd() *cobra.Command {
 				return nil
 			}
 
-			flat := filterTagsByKind(snap.Tags, kind)
+			flat := filterTagsByKind(tags, kind)
 			if asJSON {
-				// 何を渡すかの判断は tag_list_json.go の純関数にある。
-				// ここは並べ替えと書き出しだけ。
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
-				return enc.Encode(tagListJSONItems(flat, all))
+				return enc.Encode(flat)
 			}
 			w := cmd.OutOrStdout()
 			if len(flat) == 0 {
@@ -71,8 +79,8 @@ func newTagListCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&kind, "kind", "", "kind で絞り込む")
 	cmd.Flags().BoolVar(&tree, "tree", false, "parentIds の入れ子で表示する（多親は複数箇所に出現）")
-	cmd.Flags().BoolVar(&asJSON, "json", false, "JSON で出力する（既定は各タグの description を畳む。全文は --all か show tag）")
-	cmd.Flags().BoolVar(&all, "all", false, "畳んでいるものを全部開く（--json の description を全文で出す。素の一覧と --tree は元から出していないので変わらない）")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "JSON で出力する（--tree と併せても、既定は各タグの description を畳む。全文は --all か show tag）")
+	cmd.Flags().BoolVar(&all, "all", false, "畳んでいるものを全部開く（--json の description を全文で出す。テキストの面は元から出していないので変わらない）")
 	return cmd
 }
 
