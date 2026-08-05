@@ -1,4 +1,4 @@
-// tag_list_json_test.go — 「`--json` で 1 タグについて何を渡すか」の判断を、
+// tag_list_fold_test.go — 「`--json` で 1 タグについて何を渡すか」の判断を、
 // 入力と出力の対で検査する（CLAUDE.md「配線ガードの書き方」1）。
 //
 // # この歯止めが落とす範囲（同 6）
@@ -28,11 +28,11 @@ import (
 	"github.com/nkenji09/scholia/internal/model"
 )
 
-// sampleTagsForJSON は model.Tag の**全フィールド**を踏む標本。
+// sampleTagsForFold は model.Tag の**全フィールド**を踏む標本。
 // 踏み残しがあると「description 以外は変わらない」の検査がそのフィールドを
-// 見ないまま緑になるので、下の TestTagListJSONSampleCoversEveryField が
+// 見ないまま緑になるので、下の TestFoldSampleCoversEveryTagField が
 // 踏み残しを赤で知らせる。
-func sampleTagsForJSON() []model.Tag {
+func sampleTagsForFold() []model.Tag {
 	return []model.Tag{
 		{
 			ID:          "a.full",
@@ -50,18 +50,18 @@ func sampleTagsForJSON() []model.Tag {
 	}
 }
 
-func TestTagListJSONItems(t *testing.T) {
+func TestFoldTagDescriptions(t *testing.T) {
 	t.Run("--all は入力と完全に一致する", func(t *testing.T) {
-		in := sampleTagsForJSON()
-		got := tagListJSONItems(in, true)
+		in := sampleTagsForFold()
+		got := foldTagDescriptions(in, true)
 		if !reflect.DeepEqual(got, in) {
 			t.Errorf("--all が入力と違う\ngot:  %+v\nwant: %+v", got, in)
 		}
 	})
 
 	t.Run("既定は description だけを落とす", func(t *testing.T) {
-		in := sampleTagsForJSON()
-		got := tagListJSONItems(in, false)
+		in := sampleTagsForFold()
+		got := foldTagDescriptions(in, false)
 		if len(got) != len(in) {
 			t.Fatalf("件数が違う: %d, want %d", len(got), len(in))
 		}
@@ -88,13 +88,13 @@ func TestTagListJSONItems(t *testing.T) {
 	})
 
 	t.Run("入力を破壊しない", func(t *testing.T) {
-		in := sampleTagsForJSON()
-		before := sampleTagsForJSON()
-		tagListJSONItems(in, false)
+		in := sampleTagsForFold()
+		before := sampleTagsForFold()
+		foldTagDescriptions(in, false)
 		if !reflect.DeepEqual(in, before) {
 			t.Errorf("既定の呼び出しが入力を書き換えた\ngot:  %+v\nwant: %+v", in, before)
 		}
-		tagListJSONItems(in, true)
+		foldTagDescriptions(in, true)
 		if !reflect.DeepEqual(in, before) {
 			t.Errorf("--all の呼び出しが入力を書き換えた\ngot:  %+v\nwant: %+v", in, before)
 		}
@@ -102,8 +102,8 @@ func TestTagListJSONItems(t *testing.T) {
 
 	t.Run("返り値を書き換えても入力へ波及しない", func(t *testing.T) {
 		for _, showAll := range []bool{false, true} {
-			in := sampleTagsForJSON()
-			got := tagListJSONItems(in, showAll)
+			in := sampleTagsForFold()
+			got := foldTagDescriptions(in, showAll)
 			if len(got) == 0 {
 				t.Fatal("標本が空")
 			}
@@ -129,8 +129,8 @@ func TestTagListJSONItems(t *testing.T) {
 						Description: strings.Repeat("落ちる説明。", 8),
 					})
 				}
-				def := tagListJSONItems(in, false)
-				all := tagListJSONItems(in, true)
+				def := foldTagDescriptions(in, false)
+				all := foldTagDescriptions(in, true)
 				if len(def) != n || len(all) != n {
 					t.Fatalf("件数が変わった: 既定 %d / --all %d, want %d", len(def), len(all), n)
 				}
@@ -156,18 +156,18 @@ func TestTagListJSONItems(t *testing.T) {
 		// 変更前の filterTagsByKind は空スライスを返していたので、ここが nil を
 		// 返すと `--all` の出力が現行と変わってしまう。
 		for _, showAll := range []bool{false, true} {
-			if got := tagListJSONItems(nil, showAll); got == nil {
+			if got := foldTagDescriptions(nil, showAll); got == nil {
 				t.Errorf("showAll=%v: nil を返した（出力が [] から null へ変わる）", showAll)
 			}
 		}
 	})
 }
 
-// TestTagListJSONSampleCoversEveryField は、標本が model.Tag の全フィールドを
+// TestFoldSampleCoversEveryTagField は、標本が model.Tag の全フィールドを
 // 踏んでいることを見る。**新しいフィールドを足した面にガードを置き忘れる**という
 // 型（CLAUDE.md 5）を、標本の側から塞ぐ。
-func TestTagListJSONSampleCoversEveryField(t *testing.T) {
-	sample := sampleTagsForJSON()
+func TestFoldSampleCoversEveryTagField(t *testing.T) {
+	sample := sampleTagsForFold()
 	typ := reflect.TypeOf(model.Tag{})
 	for i := 0; i < typ.NumField(); i++ {
 		f := typ.Field(i)
@@ -185,7 +185,7 @@ func TestTagListJSONSampleCoversEveryField(t *testing.T) {
 		if !covered {
 			t.Errorf("標本が model.Tag.%s を 1 件も埋めていない: "+
 				"この状態だと「description 以外は変わらない」の検査がこのフィールドを見ない。"+
-				"sampleTagsForJSON に足すこと", f.Name)
+				"sampleTagsForFold に足すこと", f.Name)
 		}
 	}
 }

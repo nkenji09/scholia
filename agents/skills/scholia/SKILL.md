@@ -201,7 +201,7 @@ scholia vocab tag <id> --add <tagId>… [--rm <tagId>…]
 scholia vocab rename <id> --to <newId>                                 # vocab-target decision・他 vocab の establishes も追随張替え
 scholia show vocab <id> [--json]                                       # 使用箇所＋establishes 双方向逆引き＋vocab 宛 decision
 scholia tag create <id> --name <n> [--kind <k>] [--parent <tagId>…] [--desc <t>] [--ref <url>]
-scholia tag list [--kind <k>] [--tree] [--json] [--all]                # --json の既定は description を畳む（--tree と併せても同じ＝選ぶための一覧）。全文は --all か show tag <id>（01KZ5ACN6P279S96D5M3AHY9HZ）
+scholia tag list [--kind <k>] [--tree] [--json] [--all]                # --json の既定は description を畳む（--tree と併せても同じ＝選ぶための一覧）。全文は --all か show tag <id>（01KZ5ACN6P279S96D5M3AHY9HZ ＋ 追補 01KZ7YBTQ8STQMBHGFXG3CES44。⚠️ 基の decision 本文は「--tree は変えない」と書いており、射程を広げたのは追補のほう）
 scholia tag edit <id> [--name][--kind][--parent…][--desc]
 scholia tag rm <id> [--force]
 

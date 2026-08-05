@@ -5,24 +5,31 @@
 //
 // **落ちる:**
 //   - `--json --all` のバイト列が、この変更の前と 1 バイトでも違う
-//     （平坦・入れ子〔`--tree`〕・絞り込み〔`--kind`〕の 3 つとも）
-//   - テキストの面（素の一覧 / `--tree` / `--kind`）のバイト列が変わる
+//     （平坦・入れ子〔`--tree`〕・絞り込み〔`--kind`〕・入れ子＋絞り込み の 4 つとも）
+//   - テキストの面（素の一覧 / `--tree` / `--kind` / `--tree --kind`）のバイト列が変わる
 //   - 既定の `--json` が「`--all` の出力から description の行だけを抜いたもの」と
 //     1 バイトでも違う（＝ description 以外が 1 つでも消えた・変わった・
-//     description が 1 件でも残っている・整形が変わった、のいずれか）。
-//     **入れ子の面にも同じ期待値を当てる。**
-//   - `--json` の 4 つの面（平坦・入れ子・絞り込み・入れ子＋絞り込み）のどれかで、
-//     既定と `--all` が description 以外で違う
-//   - 上のどれかが**件数によって変わる**（0 件から、実在する最大の記録集合より
-//     十分上の件数まで見る）
+//     description が 1 件でも残っている・整形が変わった、のいずれか）
+//   - **`tag list` に足された「新しい面」が description を畳んでいない**——
+//     面をここで列挙せず、bool フラグを cobra から数え上げてその全部分集合を回す
+//     （TestTagListEveryDiscoveredFaceFolds）。**新しい bool フラグが足されれば、
+//     その面も自動で回る。** 判断を通さずに store を開き直す面でも落ちる。
+//   - 上のどれかが**件数によって変わる**（0 件から、実在が確認できている最大の
+//     タグ集合〔257 件〕の 4.7 倍＝1200 件まで見る。本 repo は 83 件）
 //
 // **落ちない（射程の外・正直に名乗る）:**
 //   - repo の外の消費者。ここで見ているのはこの repo が出すバイト列だけ。
 //   - golden の標本に現れない model.Tag のフィールド。フィールドの網羅は
-//     tag_list_json_test.go が reflect で見る（標本が全フィールドを埋めていない
+//     tag_list_fold_test.go が reflect で見る（標本が全フィールドを埋めていない
 //     ことを、そちらが赤で知らせる）。
-//   - `--json` を付けない面での `--all` の効き目（何も畳んでいないので no-op）。
-//     それは TestTagListTextFacesIgnoreAll が別に見る。
+//   - 🔴 **bool フラグ以外で表現される面**（位置引数・文字列フラグの値で分岐する面）
+//     **が、`loadTagListTags` を使わず自分で store を開き直した場合。**
+//     cobra から数え上げられるのは bool フラグまでで、そこは届かない。
+//     ⚠️ **実際に変異を書いて緑を実見してある**（M-R）。この 1 件は名乗るだけで塞いでいない。
+//     なお `loadTagListTags` を使う限りは、位置引数の面でも畳んだ値しか受け取れない。
+//   - `--json` を付けない面が description を**テキストとして**出すこと。
+//     いまは畳んだ値しか届かないので出しようがない（出しても空文字になる）が、
+//     「空文字が出る」こと自体を落とす検査は置いていない。
 //
 // # golden の出自
 //
@@ -44,8 +51,11 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
+
+	pflag "github.com/spf13/pflag"
 
 	"github.com/nkenji09/scholia/internal/model"
 )
@@ -123,9 +133,10 @@ var tagListGoldenCases = []struct {
 		[]string{"tag", "list", "--tree", "--kind", "requirement", "--json", "--all"}},
 }
 
-// jsonFaces は `--json` の面（平坦・入れ子・絞り込み）。**この列挙は
-// 「面ごとに検査を書く」ためのものではない**——判断は面が分かれる前に 1 度だけ
-// 通っているので、ここは「その 1 つの判断がどの面にも届いているか」の確認である。
+// jsonFaces は golden を持つ 4 面。**これは「面の網羅」ではない**——
+// 網羅は TestTagListEveryDiscoveredFaceFolds が cobra から数え上げて担う。
+// ここは「変更前のバイト列を記録してある面」の対応表で、golden がある面にだけ
+// バイト単位の期待値を当てるためのものである。
 var jsonFaces = []struct {
 	name   string
 	args   []string
@@ -353,4 +364,108 @@ func seedBulkTags(t *testing.T, dir string, n int) {
 			t.Fatal(err)
 		}
 	}
+}
+
+// TestTagListEveryDiscoveredFaceFolds は、`tag list` の**面の側を cobra から
+// 数え上げて**、どの引き方でも既定が description を畳んでいることを見る。
+//
+// 🔴 **面をここで列挙しない。** 手書きの列挙（jsonFaces）は 4 面を数えていただけで、
+// **5 つ目の面は誰も見ていなかった**——クリーンルームレビューが「新しい面が畳む前の
+// タグを直に出す」変異を入れ、既存の歯止めは 1 つも落ちなかった。
+// 列挙で追う限り差し戻しは終わらない（CLAUDE.md 2）ので、列挙を足すのではなく
+// **面の集合を宣言から機械的に取る。**
+//
+// 取り方: bool フラグを `Flags().VisitAll` で拾い（`--all` は開く側なので除く）、
+// その**全部分集合** × **config.tagKinds の全値＋無指定**を回す。
+// **新しい bool フラグが足されれば、この検査が自動でその面も回す。**
+//
+// 見るのは 2 つだけで、出力の形（配列でも入れ子でも）に依らない:
+//  1. 既定の出力に `"description": ` が 1 つも無い
+//  2. `--all` の出力から description の行だけを抜いたものと、既定の出力が 1 バイトも違わない
+func TestTagListEveryDiscoveredFaceFolds(t *testing.T) {
+	dir := t.TempDir()
+	seedTagListFixture(t, dir)
+
+	// 面を表す bool フラグを宣言から拾う（手で並べない）。
+	var boolFlags []string
+	newTagListCmd().Flags().VisitAll(func(f *pflag.Flag) {
+		if f.Value.Type() != "bool" || f.Name == "all" || f.Name == "help" {
+			return
+		}
+		boolFlags = append(boolFlags, f.Name)
+	})
+	if len(boolFlags) == 0 {
+		t.Fatal("bool フラグを 1 つも拾えていない（この検査は何も見ていない）")
+	}
+	sort.Strings(boolFlags)
+
+	// 絞り込みの値も宣言（config.tagKinds）から拾う。
+	kindValues := append([]string{""}, declaredTagKinds(t, dir)...)
+
+	facesSeen, facesCarryingDescription := 0, 0
+	for mask := 0; mask < 1<<len(boolFlags); mask++ {
+		for _, kind := range kindValues {
+			args := []string{"tag", "list"}
+			for i, name := range boolFlags {
+				if mask&(1<<i) != 0 {
+					args = append(args, "--"+name)
+				}
+			}
+			if kind != "" {
+				args = append(args, "--kind", kind)
+			}
+
+			def, err := run(t, dir, args...)
+			if err != nil {
+				// 組み合わせとして成り立たない引き方は、タグを 1 件も出さない。
+				// 素通りと混ぜないよう、記録だけ残して次へ。
+				t.Logf("面 %v は失敗した（出力を持たないので検査対象外）: %v", args[2:], err)
+				continue
+			}
+			all, err := run(t, dir, append(append([]string{}, args...), "--all")...)
+			if err != nil {
+				t.Errorf("面 %v は既定で成功したのに --all で失敗した: %v", args[2:], err)
+				continue
+			}
+			facesSeen++
+
+			t.Run(strings.Join(args[2:], " "), func(t *testing.T) {
+				if strings.Contains(def, `"description": `) {
+					t.Errorf("既定の出力に description が残っている\n--- got ---\n%s", def)
+				}
+				if want := withoutDescriptionLines(all); def != want {
+					t.Errorf("既定が「--all から description の行だけを抜いたもの」と違う\n--- got ---\n%s\n--- want ---\n%s",
+						def, want)
+				}
+			})
+			if strings.Contains(all, `"description": `) {
+				facesCarryingDescription++
+			}
+		}
+	}
+
+	t.Logf("cobra から数え上げた面: %d 通り（bool フラグ %v × kind %d 値）",
+		facesSeen, boolFlags, len(kindValues))
+	if facesCarryingDescription == 0 {
+		t.Fatal("--all で description を出す面が 1 つも無い（標本か検査が壊れている）")
+	}
+}
+
+// declaredTagKinds は標本の config.tagKinds を読む。絞り込みの値も手で並べない
+// ——kind を足した人が、この検査の対象からその値だけ漏らすことがないように。
+func declaredTagKinds(t *testing.T, dir string) []string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join(dir, ".scholia", "config.json"))
+	if err != nil {
+		t.Fatalf("config.json が読めない: %v", err)
+	}
+	var cfg model.Config
+	if err := json.Unmarshal(b, &cfg); err != nil {
+		t.Fatalf("config.json が読めない: %v", err)
+	}
+	kinds := cfg.TagKindIDs()
+	if len(kinds) == 0 {
+		t.Fatal("config.tagKinds が空（この検査は絞り込みの面を 1 つも見ない）")
+	}
+	return kinds
 }
