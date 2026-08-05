@@ -4,9 +4,11 @@
 // # ここの歯止めが落とす範囲（CLAUDE.md「配線ガードの書き方」6）
 //
 // **落ちる:**
-//   - `--json` の面を新しく足して、**共有の口（jsonio.go）を通さずに書いた**
-//     ——整形して書いても、compact に書いても、`fmt.Fprintf` で JSON を手書きしても落ちる
-//     （TestEveryJSONFaceGoesThroughTheSingleExit の**バイトの突き合わせ**）。
+//   - **共有の口（jsonio.go）を通さずに `--json` を書いた**——整形して書いても、
+//     compact に書いても、`fmt.Fprintf` で JSON を手書きしても落ちる。
+//     🔴 **新しい面だけでなく、既存の面に足した「あるフラグの組み合わせのときだけ
+//     通さない」枝でも落ちる**——突き合わせは `executeForTest`（cli_test.go）に
+//     置いてあり、**テスト一式がこの package で叩く起動は全部そのまま対象になる**。
 //   - `--json` の面を新しく足して、**この歯止めに引き方を書かなかった**
 //     ——面は cobra の木から数え上げるので、表に無い面があれば落ちる
 //     （TestEveryJSONFaceIsExercised）。⚠️ **列挙を足したのではない。**
@@ -16,9 +18,20 @@
 //     （TestCLIPackageTouchesEncodingJSONOnlyHere）。
 //   - 共有の口が整形して書くようになった（TestRenderJSONLineIsCompact・
 //     入力と出力の対で見る純関数の検査）。
-//   - 既存の面が `--json` で 2 行以上出す・出力が JSON として読めない。
+//   - `--json` の面が 2 行以上出す・出力が JSON として読めない
+//     （TestEveryJSONFaceGoesThroughTheSingleExit。**面ごとに引き方 1 つ**）。
 //
 // **落ちない（射程の外・正直に名乗る）:**
+//   - 🔴 **この package のテストが 1 度も叩かない引き方。** 突き合わせが見るのは
+//     **走った起動だけ**で、フラグの組み合わせを網羅してはいない。
+//     ⚠️ **これは直しても残る穴である**——`executeForTest` へ移す前は
+//     「面ごとに 1 つの引き方」しか走らせておらず、`rules --all` の枝に置いた
+//     素通りが緑で通った（実見）。移した後はテスト一式の引き方が全部対象になるが、
+//     **どのテストも叩かない引き方**（例: `config get --local <key> --json`）は
+//     依然として通らない。面の枝を増やすなら、その枝を叩くテストも要る。
+//   - 🔴 **`executeForTest` を通さずに root コマンドを走らせるテスト。**
+//     `usage_test.go` は入口の配線そのものを見るために意図的に直に走らせている。
+//     そこから出る `--json` は突き合わせに掛からない。
 //   - 🔴 **package cli の外**に出力口を作り、そこから `--json` を書く面。
 //     import の境界はこの package の file しか見ない。**バイトの突き合わせは
 //     cobra の木にぶら下がった面なら拾う**ので、そちらでは落ちる——
@@ -202,14 +215,60 @@ func TestEveryJSONFaceIsExercised(t *testing.T) {
 // バイトの突き合わせ
 // ---------------------------------------------------------------------------
 
-// TestEveryJSONFaceGoesThroughTheSingleExit は、数え上げた全ての面を実際に
-// 走らせて、**標準出力に出たバイト列が共有の口（jsonio.go）が書いたバイト列と
-// 1 バイトも違わない**ことを見る。
+// assertJSONWentThroughTheSingleExit は「標準出力に出たバイト列が、共有の口
+// （jsonio.go）が書いたバイト列そのものか」を見る。**条項2 の本体はこれである。**
 //
-// これが条項2 の本体である。「compact であること」だけを見る検査は、
-// **共有の口を通さずに compact な JSON を書いた面**を素通りさせる
-// ——同じ意味を別の綴りで書かれれば捕まらない（CLAUDE.md 2）。
+// 🔴 **呼び出し元は `executeForTest`（cli_test.go）1 つだけで、テストが
+// root コマンドを走らせるときは必ずここを通る。** 面ごとの表に引き方を並べる
+// 形をやめたのは、**表に無い引き方に置いた素通りが緑のまま通った**ため——
+// `rules` に「`--all` のときだけ共有の口を通さず整形して書く」枝を入れると、
+// 面の表は `"rules": {}`（引き方 1 つ）なのでその枝を 1 度も通らず、
+// **123 行の整形済み JSON が出ているのに歯止めは 1 本も落ちなかった。**
+// CLAUDE.md 3（1 つのゲートの内側にいないことだけを見る実装は、別のゲートで
+// 包む変異を通す）の実例である。
+//
+// 「compact であること」だけを見る検査では足りない理由は別にある——
+// **共有の口を通さずに compact な JSON を書いた面**を素通りさせるからで、
+// 同じ意味を別の綴りで書かれれば捕まらない（CLAUDE.md 2）。
 // ここでは「通ったかどうか」そのものを観測している。
+//
+// ⚠️ **見送る場合**（下の 2 つ。射程として file 冒頭にも書いてある）:
+//   - 引数に `--json` が無く、共有の口も 1 バイトも書かなかった起動
+//     （＝そもそも JSON を出していない）
+//   - 標準出力が空の起動（比べる相手が無い）
+func assertJSONWentThroughTheSingleExit(t *testing.T, args []string, stdout, emitted string) {
+	t.Helper()
+	if !argsRequestJSON(args) && emitted == "" {
+		return
+	}
+	if stdout == "" {
+		return
+	}
+	if stdout != emitted {
+		t.Errorf("`--json` の出力が共有の口（%s）の書いたバイト列と違う。"+
+			"書く経路がもう1つある: %v\n--- 標準出力 (%d B) ---\n%s\n--- 共有の口 (%d B) ---\n%s",
+			jsonExitFile, args, len(stdout), stdout, len(emitted), emitted)
+	}
+}
+
+// argsRequestJSON は引数列に `--json` があるかを見る（`--json=true` も拾う）。
+func argsRequestJSON(args []string) bool {
+	for _, a := range args {
+		if a == "--json" || strings.HasPrefix(a, "--json=") {
+			return true
+		}
+	}
+	return false
+}
+
+// TestEveryJSONFaceGoesThroughTheSingleExit は、**数え上げた全ての面が少なくとも
+// 1 度は走ること**を担う。バイトの突き合わせ自体は `executeForTest` が行うので、
+// ここが見るのは「どの面も検査されないまま残らない」ことと、整形されていない
+// こと・JSON として読めることの 2 つである。
+//
+// ⚠️ **引き方は面ごとに 1 つしか書いていない。** それでよいのは、**表に無い
+// 引き方も `executeForTest` が拾う**ようになったため——この表の役目は
+// 「全ての面が最低 1 回は通る」を保つことに縮んでいる。
 func TestEveryJSONFaceGoesThroughTheSingleExit(t *testing.T) {
 	template, ids := seedJSONFaceFixture(t)
 
@@ -225,10 +284,7 @@ func TestEveryJSONFaceGoesThroughTheSingleExit(t *testing.T) {
 			args := append(strings.Fields(face), ids.resolve(extra)...)
 			args = append(args, "--json")
 
-			var emitted bytes.Buffer
-			jsonEmitSpy = func(b []byte) { emitted.Write(b) }
-			defer func() { jsonEmitSpy = nil }()
-
+			// バイトの突き合わせは runSplit の中（executeForTest）で当たる。
 			stdout, stderr, err := runSplit(t, dir, args...)
 			if err != nil {
 				t.Fatalf("%v が失敗した（引き方が古い可能性がある）: %v\n--- stdout ---\n%s\n--- stderr ---\n%s",
@@ -237,37 +293,17 @@ func TestEveryJSONFaceGoesThroughTheSingleExit(t *testing.T) {
 			if stdout == "" {
 				t.Fatalf("%v が標準出力に何も出さなかった（この面は検査されていない）", args)
 			}
-
-			// 1) 出たバイト列が、共有の口が書いたバイト列そのものであること。
-			if got, want := stdout, emitted.String(); got != want {
-				t.Errorf("標準出力が共有の口（%s）の書いたバイト列と違う。"+
-					"`--json` を書く経路がもう1つある\n--- 標準出力 (%d B) ---\n%s\n--- 共有の口 (%d B) ---\n%s",
-					jsonExitFile, len(got), got, len(want), want)
-			}
-			// 2) 整形されていないこと（改行は末尾の 1 つだけ）。
+			// 整形されていないこと（改行は末尾の 1 つだけ）。
 			if n := strings.Count(stdout, "\n"); n != 1 || !strings.HasSuffix(stdout, "\n") {
 				t.Errorf("`--json` の出力が 1 行でない（改行 %d 個）:\n%s", n, stdout)
 			}
-			// 3) JSON として読めること。
+			// JSON として読めること。
 			var decoded any
 			if err := json.Unmarshal([]byte(stdout), &decoded); err != nil {
 				t.Errorf("`--json` の出力が JSON として読めない: %v\n%s", err, stdout)
 			}
 		})
 	}
-}
-
-// runSplit は run と同じだが、標準出力と標準エラーを分けて返す
-// （`diff` のように注記を標準エラーへ書く面があるため）。
-func runSplit(t *testing.T, dir string, args ...string) (string, string, error) {
-	t.Helper()
-	cmd := newRootCmd()
-	cmd.SetArgs(append([]string{"--dir", dir}, args...))
-	var out, errb bytes.Buffer
-	cmd.SetOut(&out)
-	cmd.SetErr(&errb)
-	err := cmd.Execute()
-	return out.String(), errb.String(), err
 }
 
 // ---------------------------------------------------------------------------

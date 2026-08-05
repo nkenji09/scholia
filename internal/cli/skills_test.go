@@ -12,13 +12,9 @@ import (
 // skills install は --dir を持たないルートコマンドなので run() は使わない。
 func runSkills(t *testing.T, args ...string) (string, error) {
 	t.Helper()
-	cmd := newRootCmd()
-	cmd.SetArgs(args)
-	var out bytes.Buffer
-	cmd.SetOut(&out)
-	cmd.SetErr(&out)
-	err := cmd.Execute()
-	return out.String(), err
+	var combined bytes.Buffer
+	_, err := executeForTest(t, args, &combined, &combined)
+	return combined.String(), err
 }
 
 // expectedSkillFiles は agents/skills/ 配下から embed されるはずのファイル一覧
