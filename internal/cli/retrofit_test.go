@@ -192,6 +192,10 @@ var dogfoodKnownAckOnly = map[string]string{
 	"why-file-line|01KXNGQYRV3ZQSMSWXNA4BGTF7": "why: internal/flow/analyze.go:323",
 	"why-file-line|01KXNGQYS14G2XPDW19Y8JGX4B": "why: internal/flow/analyze.go:192 ほか3箇所",
 	"why-file-line|01KXNGQYS8997QET0KWJA29B38": "why: internal/flow/analyze.go:449",
+	// why が「画面の出す端末コマンドに --json が付いていない」ことの証拠として
+	// web/src の2箇所を file:line で引用した（2026-08-05 時点の位置）。証拠の
+	// 引用でも file:line なら腐る、という点で上4件と同じ形である。
+	"why-file-line|01KZ7V637RNMPXJMVACYV6V1AS": "why: viewer のコマンド生成2箇所（--json 不使用の証拠）",
 
 	// 判断欄位が、store に存在しない id を引用している。
 	"dangling-id|01KXFEXG01RS00RHAVS3TMP25Y": "changed: 廃止済み tx.action",
