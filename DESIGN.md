@@ -535,7 +535,7 @@ scholia vocab rename <id> --to <newId> [--rewrite-refs] [--no-refs]   # 参照�
 # タグ（ネスト対応）
 # --kind 省略時: tagKinds が 1 種類ならそれを既定採用／2 種類以上なら必須エラー／0 種類（退化 config）なら空許容（lint kind-missing が警告）
 scholia tag create <id> --name <n> [--kind <k>] [--parent <tagId>…] [--desc <t>] [--color <c>] [--ref <url>] [--total]
-scholia tag list [--kind <k>] [--tree] [--json] [--all]      # --tree でネスト表示。--json の既定は description を畳む（全文は --all か show tag・01KZ5ACN6P279S96D5M3AHY9HZ）
+scholia tag list [--kind <k>] [--tree] [--json] [--all]      # --tree でネスト表示。--json の既定は description を畳む（--tree と併せても同じ。全文は --all か show tag・01KZ5ACN6P279S96D5M3AHY9HZ）
 scholia tag edit <id> [--name][--kind][--parent…][--desc][--color][--ref][--total][--fulfillment <property|transitions|"">]  # --total は kind="axis" タグ向け（#39・§3.4）。--fulfillment=property は遷移で構造的に充足されない性質型要件（既定 transitions・#45 D6）
 scholia tag rename <old-id> <new-id> [--cascade] [--rewrite-refs] [--no-refs]  # 全参照を張替。--cascade でサブツリーごと。ソースの旧 id 残存は既定で dry-run 表示（§8.5）
 scholia tag rm <id> [--force]                                # 未参照のみ・--force で detach cascade
