@@ -14,10 +14,10 @@ import (
 
 func newTagListCmd() *cobra.Command {
 	var kind string
-	var tree, asJSON bool
+	var tree, asJSON, all bool
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "タグを一覧する（--tree で parentIds の入れ子表示）",
+		Short: "タグを一覧する（--tree で parentIds の入れ子表示・--json の既定は description を畳む）",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			s, err := openStore()
@@ -52,9 +52,11 @@ func newTagListCmd() *cobra.Command {
 
 			flat := filterTagsByKind(snap.Tags, kind)
 			if asJSON {
+				// 何を渡すかの判断は tag_list_json.go の純関数にある。
+				// ここは並べ替えと書き出しだけ。
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
-				return enc.Encode(flat)
+				return enc.Encode(tagListJSONItems(flat, all))
 			}
 			w := cmd.OutOrStdout()
 			if len(flat) == 0 {
@@ -69,7 +71,8 @@ func newTagListCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&kind, "kind", "", "kind で絞り込む")
 	cmd.Flags().BoolVar(&tree, "tree", false, "parentIds の入れ子で表示する（多親は複数箇所に出現）")
-	cmd.Flags().BoolVar(&asJSON, "json", false, "JSON で出力する")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "JSON で出力する（既定は各タグの description を畳む。全文は --all か show tag）")
+	cmd.Flags().BoolVar(&all, "all", false, "畳んでいるものを全部開く（--json の description を全文で出す。素の一覧と --tree は元から出していないので変わらない）")
 	return cmd
 }
 

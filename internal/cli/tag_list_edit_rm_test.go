@@ -45,7 +45,10 @@ func TestCLI_TagEditUpdatesOnlyGivenFields(t *testing.T) {
 
 	mustRun(t, dir, "tag", "edit", "t1", "--color", "#3b82f6")
 
-	out := mustRun(t, dir, "tag", "list", "--json")
+	// description は `--json` の既定から畳まれているので、全文は --all で読む
+	// （01KZ5ACN6P279S96D5M3AHY9HZ）。ここで見たいのは「--color の更新が --desc を
+	// 消していないこと」なので、description が読める面で引く。
+	out := mustRun(t, dir, "tag", "list", "--json", "--all")
 	if !strings.Contains(out, "orig") {
 		t.Fatalf("tag edit of --color should not clear --desc, got:\n%s", out)
 	}
