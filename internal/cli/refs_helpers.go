@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -203,7 +202,5 @@ func refsFailedErr(report *refs.Report, applied bool) error {
 }
 
 func encodeRenameJSON[T any](cmd *cobra.Command, rename T, report *refs.Report) error {
-	enc := json.NewEncoder(cmd.OutOrStdout())
-	enc.SetIndent("", "  ")
-	return enc.Encode(renameOutput[T]{Rename: rename, Refs: report})
+	return emitJSON(cmd, renameOutput[T]{Rename: rename, Refs: report})
 }

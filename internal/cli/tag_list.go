@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"sort"
@@ -87,9 +86,7 @@ func writeTagList(w io.Writer, tags []model.Tag, kind string, tree, asJSON bool)
 	if tree {
 		forest := buildTagForest(tags, kind)
 		if asJSON {
-			enc := json.NewEncoder(w)
-			enc.SetIndent("", "  ")
-			return enc.Encode(forest)
+			return emitJSONTo(w, forest)
 		}
 		if len(forest) == 0 {
 			fmt.Fprintln(w, "(該当するタグはありません)")
@@ -103,9 +100,7 @@ func writeTagList(w io.Writer, tags []model.Tag, kind string, tree, asJSON bool)
 
 	flat := filterTagsByKind(tags, kind)
 	if asJSON {
-		enc := json.NewEncoder(w)
-		enc.SetIndent("", "  ")
-		return enc.Encode(flat)
+		return emitJSONTo(w, flat)
 	}
 	if len(flat) == 0 {
 		fmt.Fprintln(w, "(該当するタグはありません)")

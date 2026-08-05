@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -106,7 +107,7 @@ func TestCLI_ShowVocabUsage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("show vocab --json failed: %v\noutput:\n%s", err, unusedOut)
 	}
-	if !strings.Contains(unusedOut, `"txId": "T-1"`) || !strings.Contains(unusedOut, `"txId": "T-2"`) {
+	if !strings.Contains(unusedOut, `"txId":"T-1"`) || !strings.Contains(unusedOut, `"txId":"T-2"`) {
 		t.Fatalf("show vocab --json usage missing expected txIds:\n%s", unusedOut)
 	}
 }
@@ -141,17 +142,22 @@ func TestCLI_ShowDecision(t *testing.T) {
 }
 
 // extractJSONID は "id": "..." 行から id を素朴に取り出す（--json 出力のテスト用ヘルパ）。
+// extractJSONID は `--json` の出力から id を取り出す。
+//
+// ⚠️ **行で切らない。** `--json` は整形しない（01KZ7V637RNMPXJMVACYV6V1AS 条項1）ので、
+// 出力は 1 行である。値で読む。
 func extractJSONID(t *testing.T, jsonOut string) string {
 	t.Helper()
-	for _, line := range strings.Split(jsonOut, "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, `"id":`) {
-			v := strings.TrimPrefix(line, `"id":`)
-			v = strings.TrimSpace(v)
-			v = strings.TrimSuffix(v, ",")
-			v = strings.Trim(v, `"`)
-			return v
-		}
+	var decoded map[string]any
+	if err := json.Unmarshal([]byte(jsonOut), &decoded); err != nil {
+		t.Fatalf("JSON として読めない: %v\n%s", err, jsonOut)
+	}
+	// 書き込み系は封筒 { record, advisories } を返す（01KXS75QCYM500CZ42H977A01X）。
+	if rec, ok := decoded["record"].(map[string]any); ok {
+		decoded = rec
+	}
+	if id, ok := decoded["id"].(string); ok {
+		return id
 	}
 	t.Fatalf("id field not found in JSON output:\n%s", jsonOut)
 	return ""

@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
@@ -91,9 +90,7 @@ func newConfigSetCmd() *cobra.Command {
 			}
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(cfg)
+				return emitJSON(cmd, cfg)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "config.%s を更新しました: %s\n", key, value)
 			return nil
@@ -145,9 +142,7 @@ func setLocalConfigKey(cmd *cobra.Command, s *store.Store, key, value string, as
 	}
 
 	if asJSON {
-		enc := json.NewEncoder(cmd.OutOrStdout())
-		enc.SetIndent("", "  ")
-		return enc.Encode(o)
+		return emitJSON(cmd, o)
 	}
 	if value == "" {
 		fmt.Fprintf(cmd.OutOrStdout(), "config.local.%s の上書きを解除しました\n", key)

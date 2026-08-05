@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -36,9 +35,7 @@ func newVocabRmCmd() *cobra.Command {
 			}
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(result)
+				return emitJSON(cmd, result)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "vocab %s を削除しました\n", result.ID)
 			return nil

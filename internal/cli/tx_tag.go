@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 
@@ -75,9 +74,7 @@ func newTxTagCmd() *cobra.Command {
 			}
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(saved)
+				return emitJSON(cmd, saved)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "transition %s のタグを更新しました\n", id)
 			return nil

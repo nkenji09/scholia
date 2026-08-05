@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -31,9 +30,7 @@ func newKindGetCmd() *cobra.Command {
 			kinds := cfg.KindsFor(category)
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(kinds)
+				return emitJSON(cmd, kinds)
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), strings.Join(kinds, ", "))
 			return nil

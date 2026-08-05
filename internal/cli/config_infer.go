@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 
@@ -34,9 +33,7 @@ func newConfigInferIDPolicyCmd() *cobra.Command {
 			result := inferIDPolicy(snap)
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(result)
+				return emitJSON(cmd, result)
 			}
 			printInferIDPolicyText(cmd, result)
 			return nil
@@ -199,9 +196,9 @@ func printInferIDPolicyText(cmd *cobra.Command, result inferIDPolicyResult) {
 
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "宣言案（config.json の idPolicy に手で追記する——このコマンドは書き込まない）:")
-	data, err := json.MarshalIndent(struct {
+	data, err := renderIndentedJSON(struct {
 		IDPolicy model.IDPolicy `json:"idPolicy"`
-	}{result.IDPolicy}, "", "  ")
+	}{result.IDPolicy})
 	if err == nil {
 		fmt.Fprintln(out, string(data))
 	}

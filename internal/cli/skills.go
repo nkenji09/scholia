@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -121,9 +120,7 @@ go install した scholia バイナリだけで、cwd に agents/ が存在し�
 			}
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(out)
+				return emitJSON(cmd, out)
 			}
 
 			fmt.Fprintf(cmd.OutOrStdout(), "展開先: %s\n", out.Target)

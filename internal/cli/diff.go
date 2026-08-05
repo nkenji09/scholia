@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -71,9 +70,7 @@ func newDiffCmd() *cobra.Command {
 			}
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				if err := enc.Encode(result); err != nil {
+				if err := emitJSON(cmd, result); err != nil {
 					return err
 				}
 			} else if check {

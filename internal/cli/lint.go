@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 
@@ -47,8 +46,6 @@ func newLintCmd() *cobra.Command {
 			}
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
 				errorCount, warnCount, infoCount := countBySeverity(findings)
 				out := struct {
 					Findings   []lint.Finding `json:"findings"`
@@ -57,7 +54,7 @@ func newLintCmd() *cobra.Command {
 					InfoCount  int            `json:"infoCount"`
 					CI         *ciResult      `json:"ci,omitempty"`
 				}{Findings: findings, ErrorCount: errorCount, WarnCount: warnCount, InfoCount: infoCount, CI: ciEval}
-				if err := enc.Encode(out); err != nil {
+				if err := emitJSON(cmd, out); err != nil {
 					return err
 				}
 			} else {
@@ -395,9 +392,7 @@ func newLintBaselineUpdateCmd() *cobra.Command {
 			}
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(struct {
+				return emitJSON(cmd, struct {
 					Path    string `json:"path"`
 					Count   int    `json:"count"`
 					Added   int    `json:"added"`

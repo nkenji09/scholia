@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,16 +11,52 @@ import (
 	"github.com/nkenji09/scholia/internal/store"
 )
 
-// run は cobra コマンドをテスト用に直接実行するヘルパ（バイナリを介さない統合スモーク）。
-func run(t *testing.T, dir string, args ...string) (string, error) {
+// executeForTest は cobra コマンドをテスト用に走らせる共通の入口であり、
+// **`--json` の出力口が 1 つであることを突き合わせる場所**でもある
+// （01KZ7V637RNMPXJMVACYV6V1AS 条項2・検査の本体は jsonio_test.go）。
+//
+// 🔴 **ここに置くのが肝である。** 面ごとに引き方を並べると、それ自体が列挙になり、
+// **表に無い引き方に置いた素通り**（あるフラグの組み合わせのときだけ共有の口を
+// 通さない、など）は緑のまま通る——実際に通した。ここへ置けば
+// **テスト一式が既に叩いている引き方が、1 行も足さずに全部そのまま対象になる。**
+//
+// outW / errW は cobra に渡す書き先。突き合わせに使うのは**標準出力だけの写し**で、
+// 呼び出し側が両方を 1 つの buffer にまとめていても（run）、分けていても（runSplit）
+// 同じ検査が当たる。
+func executeForTest(t *testing.T, args []string, outW, errW io.Writer) (string, error) {
 	t.Helper()
 	cmd := newRootCmd()
-	cmd.SetArgs(append([]string{"--dir", dir}, args...))
-	var out bytes.Buffer
-	cmd.SetOut(&out)
-	cmd.SetErr(&out)
+	cmd.SetArgs(args)
+	var stdout bytes.Buffer
+	cmd.SetOut(io.MultiWriter(outW, &stdout))
+	cmd.SetErr(errW)
+
+	var emitted bytes.Buffer
+	prev := jsonEmitSpy
+	jsonEmitSpy = func(b []byte) { emitted.Write(b) }
+	defer func() { jsonEmitSpy = prev }()
+
 	err := cmd.Execute()
-	return out.String(), err
+	assertJSONWentThroughTheSingleExit(t, args, stdout.String(), emitted.String())
+	return stdout.String(), err
+}
+
+// run は cobra コマンドをテスト用に直接実行するヘルパ（バイナリを介さない統合スモーク）。
+// 標準出力と標準エラーは、**書かれた順のまま** 1 つの文字列にまとめて返す。
+func run(t *testing.T, dir string, args ...string) (string, error) {
+	t.Helper()
+	var combined bytes.Buffer
+	_, err := executeForTest(t, append([]string{"--dir", dir}, args...), &combined, &combined)
+	return combined.String(), err
+}
+
+// runSplit は run と同じだが、標準出力と標準エラーを分けて返す
+// （`diff` のように注記を標準エラーへ書く面があるため）。
+func runSplit(t *testing.T, dir string, args ...string) (string, string, error) {
+	t.Helper()
+	var out, errb bytes.Buffer
+	_, err := executeForTest(t, append([]string{"--dir", dir}, args...), &out, &errb)
+	return out.String(), errb.String(), err
 }
 
 func TestCLISmoke_InitVocabTagTxLintShow(t *testing.T) {

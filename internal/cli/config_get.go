@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -32,9 +31,7 @@ func newConfigGetCmd() *cobra.Command {
 			}
 
 			if len(args) == 0 {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(cfg)
+				return emitJSON(cmd, cfg)
 			}
 
 			key := args[0]
@@ -43,9 +40,7 @@ func newConfigGetCmd() *cobra.Command {
 				return err
 			}
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(val)
+				return emitJSON(cmd, val)
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), formatConfigValue(val))
 			return nil
@@ -66,9 +61,7 @@ func getLocalConfigKey(cmd *cobra.Command, s *store.Store, args []string, asJSON
 	}
 
 	if len(args) == 0 {
-		enc := json.NewEncoder(cmd.OutOrStdout())
-		enc.SetIndent("", "  ")
-		return enc.Encode(o)
+		return emitJSON(cmd, o)
 	}
 
 	var val any
@@ -88,9 +81,7 @@ func getLocalConfigKey(cmd *cobra.Command, s *store.Store, args []string, asJSON
 		return fmt.Errorf("config get --local が対象にできるのは %s / %s のみです: %q", configKeyViewerPort, configKeyTimezone, args[0])
 	}
 	if asJSON {
-		enc := json.NewEncoder(cmd.OutOrStdout())
-		enc.SetIndent("", "  ")
-		return enc.Encode(val)
+		return emitJSON(cmd, val)
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), display)
 	return nil

@@ -4,10 +4,12 @@
 // # このファイルの歯止めが落とす範囲（CLAUDE.md「配線ガードの書き方」6）
 //
 // **落ちる:**
-//   - `--json --all` のバイト列が、この変更の前と 1 バイトでも違う
-//     （平坦・入れ子〔`--tree`〕・絞り込み〔`--kind`〕・入れ子＋絞り込み の 4 つとも）
+//   - `--json --all` のバイト列が golden と 1 バイトでも違う
+//     （平坦・入れ子〔`--tree`〕・絞り込み〔`--kind`〕・入れ子＋絞り込み の 4 つとも）。
+//     ⚠️ **golden は「この変更の前」の出力ではなくなった**——
+//     01KZ7V637RNMPXJMVACYV6V1AS で採り直してある（下の「golden の出自」）
 //   - テキストの面（素の一覧 / `--tree` / `--kind` / `--tree --kind`）のバイト列が変わる
-//   - 既定の `--json` が「`--all` の出力から description の行だけを抜いたもの」と
+//   - 既定の `--json` が「`--all` の出力から description の欄だけを抜いたもの」と
 //     1 バイトでも違う（＝ description 以外が 1 つでも消えた・変わった・
 //     description が 1 件でも残っている・整形が変わった、のいずれか）
 //   - **`tag list` に足された「新しい面」が description を畳んでいない**——
@@ -31,21 +33,35 @@
 //     いまは畳んだ値しか届かないので出しようがない（出しても空文字になる）が、
 //     「空文字が出る」こと自体を落とす検査は置いていない。
 //
-// # golden の出自
+// # golden の出自と、採り直しの手順
 //
-// golden は**この変更を入れる前のコード**の出力そのものである。採り直しは
+// 初出の golden は 01KZ5ACN6P279S96D5M3AHY9HZ を**入れる前のコード**の出力だった。
+// 採り直しは
 //
-//	SCHOLIA_GOLDEN_UPDATE=1 go test ./internal/cli -run TestTagListBytes
+//	SCHOLIA_GOLDEN_UPDATE=1 go test ./internal/cli -run 'TestTagListBytes$'
 //
-// で、`capture` 側の引数（`--all` を含まない＝変更前にも通る形）を走らせて記録する。
+// で、`tagListGoldenCases.args` を走らせて記録する。**外部のスクリプトは要らない。**
 //
-// ⚠️ **`01KZ7V637RNMPXJMVACYV6V1AS`（`--json` の整形をやめる・全 52 サブコマンド）が
-// 実装されると、この golden は正しく赤くなる。** 空白だけが変わり、欄は 1 つも変わらない
-// はずなので、**採り直したうえで差分が空白だけであることを示す**のが、あの単位の着地である。
-// 採り直しを先にやって差分を見ないまま通すと、欄が消えても気づけない。
+// 🔴 **採り直しは、同時に「変わったのは空白だけか」を機械で見る**（updateTagListGoldens）。
+// 手順書に「確かめること」と書くだけでは飛ばせてしまい、飛ばせば**欄が消えても
+// 気づけないまま golden が正典になる。** 面ごとに次を出す:
+//
+//   - JSON の面: 旧と新をトークン列で比べ、**キー順・重複キー・数値リテラルの綴りまで
+//     保って**「空白の置き方だけが変わった」かを判定する（jsonSameIgnoringWhitespace）。
+//     ⚠️ **`jq -S .` は使わない**——`-S` がキー順を正規化するので、順序が変わっても
+//     一致してしまう。
+//   - テキストの面: JSON ではないので**生バイト**で比べる。
+//
+// 値が変わるのが正しい変更のときだけ `SCHOLIA_GOLDEN_ALLOW_VALUE_CHANGE=1` を併せて立てる
+// （立てた事実がログに残る）。
+//
+// ⚠️ **`01KZ7V637RNMPXJMVACYV6V1AS`（`--json` の整形をやめる・全 52 サブコマンド）で
+// 採り直した。** `--json` の 4 本は**空白だけが変わり、欄は 1 つも変わっていない**。
+// テキストの 3 本は 1 バイトも変わっていない。
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -108,29 +124,24 @@ func seedTagListFixture(t *testing.T, dir string) {
 	must("decide", "--on", "transition:T-a", "--why", "# 標本用の見出し 2\n\n同上。")
 }
 
-// tagListGoldenCases は「変更前に採る引数」と「変更後に突き合わせる引数」の対。
+// tagListGoldenCases は golden を持つ面と、その引き方。
 //
-// capture に `--all` を書かないのは、**変更前のコードでも走る形**にしておくため。
-// json_full / kind_json_full の対がそのまま、正本の
-// 「`--all` を付けたときの出力は現行と 1 バイトも変わらない」である。
+// ⚠️ **かつては「変更前に採る引数（capture）」と「変更後に突き合わせる引数（check）」の
+// 対だった。** capture が `--all` を書かなかったのは、01KZ5ACN6P279S96D5M3AHY9HZ を
+// 入れる前のコードでも走る形にしておくためで、あの単位が着地した時点で役目を終えている
+// （いまの `tag list --json` は description を畳むので、capture 側で採り直すと
+// json_full が「full ではない」ものになる）。**引き方は 1 つに戻した。**
 var tagListGoldenCases = []struct {
-	name    string
-	capture []string
-	check   []string
+	name string
+	args []string
 }{
-	{"plain", []string{"tag", "list"}, []string{"tag", "list"}},
-	{"tree", []string{"tag", "list", "--tree"}, []string{"tag", "list", "--tree"}},
-	{"kind", []string{"tag", "list", "--kind", "requirement"}, []string{"tag", "list", "--kind", "requirement"}},
-	{"json_full", []string{"tag", "list", "--json"}, []string{"tag", "list", "--json", "--all"}},
-	{"tree_json_full",
-		[]string{"tag", "list", "--tree", "--json"},
-		[]string{"tag", "list", "--tree", "--json", "--all"}},
-	{"kind_json_full",
-		[]string{"tag", "list", "--kind", "requirement", "--json"},
-		[]string{"tag", "list", "--kind", "requirement", "--json", "--all"}},
-	{"tree_kind_json_full",
-		[]string{"tag", "list", "--tree", "--kind", "requirement", "--json"},
-		[]string{"tag", "list", "--tree", "--kind", "requirement", "--json", "--all"}},
+	{"plain", []string{"tag", "list"}},
+	{"tree", []string{"tag", "list", "--tree"}},
+	{"kind", []string{"tag", "list", "--kind", "requirement"}},
+	{"json_full", []string{"tag", "list", "--json", "--all"}},
+	{"tree_json_full", []string{"tag", "list", "--tree", "--json", "--all"}},
+	{"kind_json_full", []string{"tag", "list", "--kind", "requirement", "--json", "--all"}},
+	{"tree_kind_json_full", []string{"tag", "list", "--tree", "--kind", "requirement", "--json", "--all"}},
 }
 
 // jsonFaces は golden を持つ 4 面。**これは「面の網羅」ではない**——
@@ -162,32 +173,84 @@ func readTagListGolden(t *testing.T, name string) string {
 	return string(b)
 }
 
+// updateTagListGoldens は golden を採り直す。
+//
+// 🔴 **採り直しと同時に「変わったのは空白だけか」を機械で見る。**
+// これを手順書の 1 行にしておくと飛ばせる——飛ばせば、**欄が消えても気づけないまま
+// golden が正典になる。** 比べ方は `jsonSameIgnoringWhitespace`（goldencmp_test.go）で、
+// キー順・重複キー・数値リテラルの綴りまで保つ。⚠️ **`jq -S .` は使えない**
+// （`-S` がキー順を正規化してしまう）。
+//
+// JSON として読めない golden（テキストの面）は**生バイト**で比べる。
+//
+// 値が変わるのが正しい変更のときは、`SCHOLIA_GOLDEN_ALLOW_VALUE_CHANGE=1` を
+// 併せて立てる。**立てた事実がログに残る。**
+func updateTagListGoldens(t *testing.T, dir string) {
+	t.Helper()
+	const allowValueChangeEnv = "SCHOLIA_GOLDEN_ALLOW_VALUE_CHANGE"
+	allowValueChange := os.Getenv(allowValueChangeEnv) != ""
+	if allowValueChange {
+		t.Logf("⚠️ %s が立っている——値が変わっても採り直しを止めない", allowValueChangeEnv)
+	}
+	if err := os.MkdirAll(filepath.Join("testdata", "tag_list"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range tagListGoldenCases {
+		path := tagListGoldenPath(tc.name)
+		old, readErr := os.ReadFile(path) // 初回は存在しない
+		out := mustRun(t, dir, tc.args...)
+		if err := os.WriteFile(path, []byte(out), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if readErr != nil {
+			t.Logf("golden %s を %v から新規に採った（%d バイト・比べる相手が無い）", tc.name, tc.args, len(out))
+			continue
+		}
+
+		var verdict string
+		switch {
+		case bytes.Equal(old, []byte(out)):
+			verdict = "1 バイトも変わっていない"
+		case json.Valid(old) && json.Valid([]byte(out)):
+			same, why := jsonSameIgnoringWhitespace(old, []byte(out))
+			if same {
+				verdict = "空白の置き方だけが変わった（欄・順序・値は同一）"
+			} else {
+				verdict = "★値が変わった: " + why
+				if !allowValueChange {
+					t.Errorf("golden %s は空白以外も変わった。この単位の射程外の変更かもしれない: %s\n"+
+						"（意図した変更なら %s=1 を併せて立てること）", tc.name, why, allowValueChangeEnv)
+				}
+			}
+		default:
+			verdict = "★テキストの golden のバイト列が変わった（JSON ではないので空白の差も差である）"
+			if !allowValueChange {
+				t.Errorf("golden %s（テキスト）のバイト列が変わった。`--json` の単位はテキストを変えないはず\n"+
+					"（意図した変更なら %s=1 を併せて立てること）", tc.name, allowValueChangeEnv)
+			}
+		}
+		t.Logf("golden %s を %v から採り直した（%d → %d バイト・%s）",
+			tc.name, tc.args, len(old), len(out), verdict)
+	}
+}
+
 // TestTagListBytes は各面のバイト列を golden と突き合わせる。
 func TestTagListBytes(t *testing.T) {
 	dir := t.TempDir()
 	seedTagListFixture(t, dir)
 
 	if os.Getenv(goldenUpdateEnv) != "" {
-		if err := os.MkdirAll(filepath.Join("testdata", "tag_list"), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		for _, tc := range tagListGoldenCases {
-			out := mustRun(t, dir, tc.capture...)
-			if err := os.WriteFile(tagListGoldenPath(tc.name), []byte(out), 0o644); err != nil {
-				t.Fatal(err)
-			}
-			t.Logf("golden %s を %v から採り直した（%d バイト）", tc.name, tc.capture, len(out))
-		}
+		updateTagListGoldens(t, dir)
 		t.Skip("golden を採り直したので照合はしない")
 	}
 
 	for _, tc := range tagListGoldenCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := mustRun(t, dir, tc.check...)
+			got := mustRun(t, dir, tc.args...)
 			want := readTagListGolden(t, tc.name)
 			if got != want {
 				t.Errorf("%v の出力が golden(%s) と違う\n--- got (%d バイト) ---\n%s\n--- want (%d バイト) ---\n%s",
-					tc.check, tc.name, len(got), got, len(want), want)
+					tc.args, tc.name, len(got), got, len(want), want)
 			}
 		})
 	}
@@ -200,15 +263,15 @@ func TestTagListBytes(t *testing.T) {
 		if face.golden == "" {
 			continue
 		}
-		t.Run("既定は description の行だけが抜けた形/"+face.name, func(t *testing.T) {
+		t.Run("既定は description の欄だけが抜けた形/"+face.name, func(t *testing.T) {
 			full := readTagListGolden(t, face.golden)
-			want := withoutDescriptionLines(full)
+			want := withoutDescriptionFields(full)
 			if want == full {
-				t.Fatalf("golden %s に description の行が 1 つも無い（標本が壊れている）", face.golden)
+				t.Fatalf("golden %s に description の欄が 1 つも無い（標本が壊れている）", face.golden)
 			}
 			got := mustRun(t, dir, face.args...)
 			if got != want {
-				t.Errorf("%v の出力が「description の行だけを抜いた golden」と違う\n--- got ---\n%s\n--- want ---\n%s",
+				t.Errorf("%v の出力が「description の欄だけを抜いた golden」と違う\n--- got ---\n%s\n--- want ---\n%s",
 					face.args, got, want)
 			}
 			// 抜いた側がなお JSON として読めること（末尾カンマの処理漏れを落とす）。
@@ -220,24 +283,59 @@ func TestTagListBytes(t *testing.T) {
 	}
 }
 
-// withoutDescriptionLines は golden から description の行だけを取り除く。
+// withoutDescriptionFields は golden から description の欄だけを取り除く。
 //
-// json.Encoder + SetIndent が書く文字列フィールドは必ず 1 行に収まる（改行は
-// \n へ escape される）ので、行単位で抜ける。description がその object の
-// 最後のキーだったときだけ、直前の行の末尾カンマも落とす。
-func withoutDescriptionLines(golden string) string {
-	lines := strings.Split(golden, "\n")
-	out := make([]string, 0, len(lines))
-	for _, ln := range lines {
-		if !strings.HasPrefix(strings.TrimSpace(ln), `"description": `) {
-			out = append(out, ln)
+// ⚠️ **行では切れない。** `--json` は整形しない（01KZ7V637RNMPXJMVACYV6V1AS 条項1）
+// ので、出力は全体で 1 行である。**文字列の中に居るかどうかを追いながら**
+// `"description":<値>` の span を探し、前後どちらかのカンマごと落とす。
+// 文字列を追うのは、description の値そのものが `"description":` という並びを
+// 含みうるため——素朴な検索だと、そこで切って残りを壊す。
+func withoutDescriptionFields(compact string) string {
+	const key = `"description":`
+	var out strings.Builder
+	i := 0
+	for i < len(compact) {
+		if compact[i] == '"' {
+			end := endOfJSONString(compact, i)
+			if strings.HasPrefix(compact[i:], key) {
+				// 値（model.Tag.Description は string なので必ず文字列）の終わりまでが span。
+				ve := endOfJSONString(compact, i+len(key))
+				s := out.String()
+				switch {
+				case strings.HasSuffix(s, ","): // 前にカンマ → 前を落とす
+					out.Reset()
+					out.WriteString(strings.TrimSuffix(s, ","))
+				case ve < len(compact) && compact[ve] == ',': // 後ろにカンマ → 後ろを落とす
+					ve++
+				}
+				i = ve
+				continue
+			}
+			out.WriteString(compact[i:end])
+			i = end
 			continue
 		}
-		if !strings.HasSuffix(ln, ",") && len(out) > 0 {
-			out[len(out)-1] = strings.TrimSuffix(out[len(out)-1], ",")
-		}
+		out.WriteByte(compact[i])
+		i++
 	}
-	return strings.Join(out, "\n")
+	return out.String()
+}
+
+// endOfJSONString は compact[start] から始まる JSON 文字列リテラルの終端（閉じ
+// 引用符の次）を返す。escape（`\"` / `\\`）を跨ぐ。
+func endOfJSONString(compact string, start int) int {
+	i := start + 1
+	for i < len(compact) {
+		switch compact[i] {
+		case '\\':
+			i += 2
+			continue
+		case '"':
+			return i + 1
+		}
+		i++
+	}
+	return len(compact)
 }
 
 // TestTagListJSONDefaultDropsOnlyDescription は、既定と `--all` の出力を
@@ -380,8 +478,8 @@ func seedBulkTags(t *testing.T, dir string, n int) {
 // **新しい bool フラグが足されれば、この検査が自動でその面も回す。**
 //
 // 見るのは 2 つだけで、出力の形（配列でも入れ子でも）に依らない:
-//  1. 既定の出力に `"description": ` が 1 つも無い
-//  2. `--all` の出力から description の行だけを抜いたものと、既定の出力が 1 バイトも違わない
+//  1. 既定の出力に `"description":` が 1 つも無い
+//  2. `--all` の出力から description の欄だけを抜いたものと、既定の出力が 1 バイトも違わない
 func TestTagListEveryDiscoveredFaceFolds(t *testing.T) {
 	dir := t.TempDir()
 	seedTagListFixture(t, dir)
@@ -430,15 +528,15 @@ func TestTagListEveryDiscoveredFaceFolds(t *testing.T) {
 			facesSeen++
 
 			t.Run(strings.Join(args[2:], " "), func(t *testing.T) {
-				if strings.Contains(def, `"description": `) {
+				if strings.Contains(def, `"description":`) {
 					t.Errorf("既定の出力に description が残っている\n--- got ---\n%s", def)
 				}
-				if want := withoutDescriptionLines(all); def != want {
-					t.Errorf("既定が「--all から description の行だけを抜いたもの」と違う\n--- got ---\n%s\n--- want ---\n%s",
+				if want := withoutDescriptionFields(all); def != want {
+					t.Errorf("既定が「--all から description の欄だけを抜いたもの」と違う\n--- got ---\n%s\n--- want ---\n%s",
 						def, want)
 				}
 			})
-			if strings.Contains(all, `"description": `) {
+			if strings.Contains(all, `"description":`) {
 				facesCarryingDescription++
 			}
 		}

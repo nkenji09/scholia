@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -76,9 +75,7 @@ func newDecisionListCmd() *cobra.Command {
 			})
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(decisionListOutput{Decisions: view.decisionOuts(decisions)})
+				return emitJSON(cmd, decisionListOutput{Decisions: view.decisionOuts(decisions)})
 			}
 			printDecisionList(cmd, decisions, superseded)
 			return nil

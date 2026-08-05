@@ -6,7 +6,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -130,7 +129,5 @@ func emitWriteJSON(cmd *cobra.Command, record any, advisories []lint.Finding, al
 	if advisories == nil {
 		advisories = []lint.Finding{}
 	}
-	enc := json.NewEncoder(cmd.OutOrStdout())
-	enc.SetIndent("", "  ")
-	return enc.Encode(writeEnvelope{Record: record, Advisories: advisories, Allowed: allowed, DryRun: dryRun})
+	return emitJSON(cmd, writeEnvelope{Record: record, Advisories: advisories, Allowed: allowed, DryRun: dryRun})
 }

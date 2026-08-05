@@ -287,7 +287,7 @@ func TestCLI_WriteJSONEnvelopeShape(t *testing.T) {
 	if env.Advisories == nil || len(env.Advisories) != 0 {
 		t.Fatalf("advisories は空でも [] で常在するはず:\n%s", out)
 	}
-	if !strings.Contains(out, `"advisories": []`) {
+	if !strings.Contains(out, `"advisories":[]`) {
 		t.Fatalf("advisories キーが JSON に現れるはず:\n%s", out)
 	}
 

@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
-
 	"github.com/spf13/cobra"
 
 	"github.com/nkenji09/scholia/internal/refs"
@@ -35,9 +33,7 @@ func newRefsRewriteCmd() *cobra.Command {
 				return err
 			}
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				if err := enc.Encode(report); err != nil {
+				if err := emitJSON(cmd, report); err != nil {
 					return err
 				}
 			} else {

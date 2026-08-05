@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -52,9 +51,7 @@ func newKindSetCmd() *cobra.Command {
 			}
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(cfg.Kinds)
+				return emitJSON(cmd, cfg.Kinds)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "config.kinds.%s を更新しました: %s\n", category, strings.Join(kinds, ", "))
 			return nil

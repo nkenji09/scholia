@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"runtime"
 	"runtime/debug"
@@ -87,9 +86,7 @@ func newVersionCmd() *cobra.Command {
 			info := resolveVersionInfo()
 
 			if asJSON {
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(info)
+				return emitJSON(cmd, info)
 			}
 
 			fmt.Fprintf(cmd.OutOrStdout(), "scholia %s\n", info.Version)
