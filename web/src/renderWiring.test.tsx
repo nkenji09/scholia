@@ -130,10 +130,21 @@ import type { FakeServer, HarnessConfig, Mounted } from './testing/renderHarness
 //      数が動かない（実測: どちらの変異も `sheetModel.test.ts`（純関数）だけが red で、
 //      描画側は緑のままだった）。埋めるなら corpus に「規則を持つ振る舞いを配下に持つ
 //      構成要素」と「規則を持つ制約タグ」を足す必要がある。**今も足していない。**
+//   9. **「待たずに読んだが、読んだ答えがたまたま同じ」形。** harness は効果の走行を
+//      待ちのポーリングより後ろへ固定しており（`renderHarness.tsx` 冒頭）、効果で
+//      決まる描画を待たずに読む検査は**必ず**その隙間を読む。だが隙間で読んだ答えが
+//      期待と一致してしまう検査は、隙間を読んでいても緑のままである。
+//      ⚠️ **これは仮の話ではない。** 是正前、構造ツリーを読む4本は「1行以上ある」
+//      「役割を持たないタグが無い」「押しても何も起きない行が無い」を、**根の2行
+//      （束ねる段だけ）に対して**満たして緑になっていた（実測: 9行のはずが2行）。
+//      いまは各検査の前に「現在地の行が出ていること」を置いて空振りに変わらない
+//      ようにしてあるが、**その置き忘れを機械で見つける手段は無い**——読んだ答えが
+//      同じである以上、原理的に区別できない。新しい検査を足すときは自分で置く。
 //
-// ⚠️ **「全部捕まえる」とは名乗らない。** 上の8つは、この形のままでは原理的に
+// ⚠️ **「全部捕まえる」とは名乗らない。** 上の9つは、この形のままでは原理的に
 // 捕まえられない（1・4・5・8 は corpus と経路の選び方、2 は DOM 実装の性質、3 は
-// 起こしていない面、6・7 は意図的に置かなかった歯止め）。埋めるなら別の手段が要る。
+// 起こしていない面、6・7 は意図的に置かなかった歯止め、9 は読んだ答えが同じなら
+// 隙間を読んだかどうかを値で区別できないため）。埋めるなら別の手段が要る。
 
 let server: FakeServer | null = null;
 let mounted: Mounted | null = null;
@@ -437,7 +448,48 @@ async function openOverview(opts: { config?: HarnessConfig; tags?: typeof TAGS }
     () => !!host.querySelector('.overview-sheet') || (host.querySelector('.overview-empty')?.textContent || '') !== '読み込み中…',
     '概要の中身が決まる（読み込み中を抜ける）',
   );
+  // ⚠️⚠️ **概要は2つの面が別のタイミングで落ち着く。** シートはデータが揃った描画で出るが、
+  // 構造ツリーの子は**そのあとに走る効果**（束ねる段と現在地までの経路を開く）の描画にしか
+  // 出ない。上の待ちはシートしか見ていないので、ここで返すと**ツリーは根の2行だけ**という
+  // 途中の状態を呼び出し側に渡すことになる——2026-08-05 の main の CI はそれで落ちた
+  // （ツリーの行を `find(...)!` で断定していた1本が `undefined` を掴んだ）。
+  //
+  // ⚠️ **「1行以上ある」で待ってはいけない。** 効果より前の描画でも起点の行は出ている。
+  // 効果が走った後にしか無いのは**現在地のコンポーネントの行**なので、それで待つ。
+  // シートが無い世界（役割を持つタグが1件も無く空状態になる corpus）には現在地が無いので、
+  // そのときは待たない。
+  await waitFor(
+    () => !host.querySelector('.overview-sheet') || !!host.querySelector('.overview-tree-row.selected'),
+    '構造ツリーが既定展開のあとの状態にならない（現在地の行が出ない）',
+  );
   return host;
+}
+
+/** ツリーが「既定展開のあと」の状態で読まれていることを確かめる。
+ *
+ *  ⚠️ **「1行以上ある」では空振りを検知できない。** 効果より前の描画でも起点（束ねる段）の
+ *  2行は出ており、その2行だけを見ても「役割を持たないタグは並ばない」「押しても何も
+ *  起きない行は無い」は**どちらも成り立ってしまう**——実測では、効果を遅らせると
+ *  9行のはずのツリーを 2行だけ見て緑のまま通った。読む前にこれを置いておくと、
+ *  `openOverview` から待ちを外す変異がここで落ちる（＝空振りに変わらない）。 */
+function expectTreeSettled(host: HTMLElement): void {
+  expect(
+    host.querySelector('.overview-tree-row.selected'),
+    'ツリーを既定展開より前の状態で読んでいる（＝根の行だけを見た空振りになる）',
+  ).not.toBeNull();
+}
+
+/** ツリーの行を名前で取る。**無ければ、そのとき何が出ていたかを添えて落ちる。**
+ *
+ *  ⚠️ `find(...)!` で断定すると、外れたとき `Cannot read properties of undefined` になり、
+ *  **「まだ描かれていない」のか「そもそも描かれない」のかが赤の文面から分からない**
+ *  （CI で実際にそうなった）。追跡がここで止まらないよう、出ていた行を並べる。 */
+function treeRowNamed(host: HTMLElement, name: string): Element {
+  const rows = Array.from(host.querySelectorAll('.overview-tree-row'));
+  const nameOf = (r: Element) => (r.querySelector('.overview-tree-name')?.textContent || '').trim();
+  const hit = rows.find((r) => nameOf(r) === name);
+  if (!hit) throw new Error(`ツリーに「${name}」の行が無い（出ていたのは: ${rows.map(nameOf).join(' / ') || 'なし'}）`);
+  return hit;
 }
 
 /** 直下の振る舞いの欄を開く（初期は畳まれている）。開く前後の枚数も返す。 */
@@ -773,6 +825,7 @@ describe('構造ツリーは役割を持つタグだけを並べ、並んだ行�
 
   it('役割（コンポーネント／構成要素／束ねる段）を持たないタグは1行も並ばない', async () => {
     const host = await openOverview();
+    expectTreeSettled(host);
     const rows = treeRows(host);
     expect(rows.length, '構造ツリーが1行も描かれていない＝検査が空振りしている').toBeGreaterThan(0);
     // corpus には親を持たない要件（`req.viewer` / `req.cli`）が居り、config.roots にも
@@ -784,6 +837,7 @@ describe('構造ツリーは役割を持つタグだけを並べ、並んだ行�
 
   it('押しても何も起きない行が0件（開閉の三角も無く、リンクでもない行）', async () => {
     const host = await openOverview();
+    expectTreeSettled(host);
     const rows = treeRows(host);
     expect(rows.length).toBeGreaterThan(0);
     // ⚠️ **これが是正の本体である。** 「アンカーである」か「開閉できる」か、
@@ -847,6 +901,7 @@ describe('構造ツリーは役割を持つタグだけを並べ、並んだ行�
     // **三角はあるが開いても何も出ない行**が漏れる（レビュアの変異 M5/M5b）。
     // 三角の有無ではなく**押した結果**を見る。
     const host = await openOverview();
+    expectTreeSettled(host);
     const rowCount = () => host.querySelectorAll('.overview-tree-row').length;
     const toggles = () => Array.from(host.querySelectorAll<HTMLElement>('.overview-tree-row')).filter((r) => r.querySelector('.overview-tree-toggle'));
     expect(toggles().length, '三角のある行が1つも無い＝検査が空振りしている').toBeGreaterThan(0);
@@ -867,6 +922,7 @@ describe('構造ツリーは役割を持つタグだけを並べ、並んだ行�
     // `ALIAS_*` の世界に `component` という id は無い。役割の解決をリテラルへ戻すと
     // ツリーが空になるか、逆に役割を持たないタグが混ざる。
     const host = await openOverview({ config: ALIAS_CONFIG, tags: ALIAS_TAGS });
+    expectTreeSettled(host);
     const rows = treeRows(host);
     expect(rows.length, 'ツリーが空＝役割の解決が宣言を読んでいない').toBeGreaterThan(0);
     // ALIAS の世界で宣言し直しているのは component だけ。part / group は宣言が無く
@@ -1022,7 +1078,11 @@ describe('構成要素の欄が入れ子になり、各欄は直接付いた分�
     // part.list に直接付いた遷移は T-list の1本だけ。祖先展開込みなら4本になる。
     expect(Number(/(\d+)/.exec(head.querySelector('.overview-part-count')?.textContent || '')?.[1] ?? -1)).toBe(1);
     // 左のツリーの件数も同じ数え方に揃っていること（同じ画面に2つの数え方を置かない）。
-    const row = Array.from(host.querySelectorAll('.overview-tree-row')).find((r) => (r.querySelector('.overview-tree-name')?.textContent || '') === '意思決定の一覧')!;
+    // ⚠️ **ツリーはシートと別のタイミングで落ち着く**（`openOverview` の待ちを参照）。
+    // ここは上の `[data-part=...]`（シート側）を待っただけでツリー側を読んでいたため、
+    // 隙間に入った回に `undefined.querySelector` で落ちていた。
+    expectTreeSettled(host);
+    const row = treeRowNamed(host, '意思決定の一覧');
     expect(row.querySelector('.overview-tree-count')?.textContent).toBe('1');
   });
 
@@ -1050,7 +1110,7 @@ describe('構成要素の欄が入れ子になり、各欄は直接付いた分�
       await selectComponent(host, name);
       const headline = /構成要素\s*(\d+)/.exec(host.querySelector('.overview-cov-meta')?.textContent || '');
       expect(headline, `${name}: 見出しに「構成要素 N」が出ていない`).not.toBeNull();
-      const row = Array.from(host.querySelectorAll('.overview-tree-row')).find((r) => (r.querySelector('.overview-tree-name')?.textContent || '').trim() === name)!;
+      const row = treeRowNamed(host, name);
       const shown = row.querySelector('.overview-tree-count')?.textContent ?? '0';
       expect(Number(shown), `${name}: ツリーの件数（${shown}）とヘッダの「構成要素 ${headline![1]}」が食い違っている`).toBe(Number(headline![1]));
     }
@@ -1228,7 +1288,7 @@ describe('構造ツリーとシートが、多親の構成要素について同�
     const crumbs = Array.from(host.querySelectorAll('.overview-crumbs .overview-crumb')).map((el) => (el.textContent || '').trim());
     expect(crumbs, 'パンくずが役割を持たないタグを出している／束ねる段を落としている').toEqual(['主要なまとまり']);
     // ツリーの側でも、その行は同じ束ねる段の下に居ること（同じ問いに1つの答え）。
-    const row = Array.from(host.querySelectorAll('.overview-tree-row')).find((r) => (r.querySelector('.overview-tree-name')?.textContent || '') === '書き出し')!;
+    const row = treeRowNamed(host, '書き出し');
     const above = Array.from(host.querySelectorAll('.overview-tree-row'));
     const idx = above.indexOf(row);
     const groupAbove = above
