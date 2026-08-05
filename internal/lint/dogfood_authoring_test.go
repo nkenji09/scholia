@@ -142,7 +142,7 @@ func TestDogfoodAdvisoryRuleCounts(t *testing.T) {
 		"derived-value-in-desc": 0, // 増分2.3a の desc 浄化（D4-d）で axis.update.* の派生値列挙を除去し 4→0
 		"stale-tense":           0, // 同上で #39/現状/新設/Level1/rev3/#40 等を除去し 7→0
 		"prose-ref":             0,
-		"why-file-line":         4,
+		"why-file-line":         5, // 4→5: decision 01KZ7V637RNMPXJMVACYV6V1AS の why が、証拠として web/src の2箇所を file:line で引用した（append-only ゆえ是正不能・容認の理由は internal/cli の dogfoodKnownAckOnly）
 		"axis-without-decision": 0,
 		"duplicate-atom":        0, // フェーズ2 の duplicate merge（決定⑩）で 5グループ13遷移→5 に統合済み
 		"dangling-id":           2, // decision 01KY1VDJWZF7M23K4X1J62QYXV の why 例示 `req.foo.1-1` が新規真ヒット
