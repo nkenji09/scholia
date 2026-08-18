@@ -190,7 +190,7 @@ var unrunnableSurfacesPinned = []string{"scholia update", "scholia view"}
 
 // 面のまとまりごとに共有する理由（書き写さずに参照する）。
 const (
-	whyWriteFace  = "書き込みの面。保存後に人が読む形で出るのは allow / advisory の行だけで、レコードの本文は出ない（`--json` は保存したレコードを返す）"
+	whyWriteFace  = "書き込みの面。人が読む形で出るのは要約と allow / advisory の行だけで、レコードの本文は出ない（`--json` は保存したレコードを返すので、そちらは本文を渡す）"
 	whyToolFace   = "道具・設定の面。`.scholia` の記録を 1 件も出力に組み立てない"
 	whyIndexFace  = "索引・要約の面。人が読む形では id と名前（と切り詰めた要約）しか出さない"
 	whyNotARecord = "出しているのは `.scholia` の記録（tag/transition/vocab/decision）ではない"
@@ -203,6 +203,9 @@ const (
 // （usageRunnableSurfaces）。ここに無い面があれば
 // TestUsage_EveryRunnableSurfaceDeclaresItsDelivery が落ちる——
 // **新しい面を足した人は、ここに宣言を書くまで緑にできない。**
+//
+// 🎯 **実際に捕まえた**: 別の単位が同時期に `scholia decision applied` を新設し、この項目の
+// 配線をしないまま着地した。**どちらのブランチも単独では緑で、main へ合流した瞬間に落ちた。**
 var deliverySpecs = map[string]deliverySpec{
 	// --- 読み取りの面 ---
 	"scholia rules": {text: textDeliversSameAsJSON,
@@ -250,31 +253,34 @@ var deliverySpecs = map[string]deliverySpec{
 	"scholia config set":             {text: textDeliversNothing, why: whyToolFace},
 	"scholia decide":                 {text: textDeliversNothing, why: "保存後の表示は allow/advisory だけ（`--json` は保存したレコードを返す）"},
 	"scholia decision add-commit":    {text: textDeliversNothing, why: whyWriteFace},
-	"scholia decision link":          {text: textDeliversNothing, why: whyWriteFace},
-	"scholia init":                   {text: textDeliversNothing, why: whyToolFace},
-	"scholia kind get":               {text: textDeliversNothing, why: whyToolFace},
-	"scholia kind list":              {text: textDeliversNothing, why: whyToolFace},
-	"scholia kind set":               {text: textDeliversNothing, why: whyToolFace},
-	"scholia lint":                   {text: textDeliversNothing, why: "検査の所見（規則名・id・短い説明）だけを出す面。記録の本文は出さない"},
-	"scholia lint baseline update":   {text: textDeliversNothing, why: whyToolFace},
-	"scholia retrofit":               {text: textDeliversNothing, why: "棚卸しの面。修正候補の断片は出すが、記録の本文は出さない"},
-	"scholia review add":             {text: textDeliversNothing, why: whyWriteFace},
-	"scholia review adopt":           {text: textDeliversNothing, why: "昇格した decision を返すのは `--json` だけ"},
-	"scholia review reject":          {text: textDeliversNothing, why: whyWriteFace},
-	"scholia review rm":              {text: textDeliversNothing, why: whyWriteFace},
-	"scholia skills install":         {text: textDeliversNothing, why: whyToolFace},
-	"scholia skills ls":              {text: textDeliversNothing, why: whyNotARecord + "（配布スキルの一覧）", args: []string{}},
-	"scholia skills show":            {text: textDeliversNothing, why: whyNotARecord + "（配布スキルの本文）", args: []string{"evaluating-changes"}},
-	"scholia tag create":             {text: textDeliversNothing, why: whyWriteFace},
-	"scholia tag edit":               {text: textDeliversNothing, why: whyWriteFace},
-	"scholia tag rename":             {text: textDeliversNothing, why: whyWriteFace},
-	"scholia tag rm":                 {text: textDeliversNothing, why: whyWriteFace},
-	"scholia tx add":                 {text: textDeliversNothing, why: whyWriteFace},
-	"scholia tx edit":                {text: textDeliversNothing, why: whyWriteFace},
-	"scholia tx merge":               {text: textDeliversNothing, why: whyWriteFace},
-	"scholia tx rename":              {text: textDeliversNothing, why: whyWriteFace},
-	"scholia tx rm":                  {text: textDeliversNothing, why: whyWriteFace},
-	"scholia tx tag":                 {text: textDeliversNothing, why: whyWriteFace},
+	// ⚠️ **`decision applied` は `decision add-commit` と同じ形である**（実測: 人が読む面は
+	// 要約 1 行だけ・`--json` は更新後のレコードを封筒で返す）。同じ理由の定数を参照して揃える。
+	"scholia decision applied":     {text: textDeliversNothing, why: whyWriteFace},
+	"scholia decision link":        {text: textDeliversNothing, why: whyWriteFace},
+	"scholia init":                 {text: textDeliversNothing, why: whyToolFace},
+	"scholia kind get":             {text: textDeliversNothing, why: whyToolFace},
+	"scholia kind list":            {text: textDeliversNothing, why: whyToolFace},
+	"scholia kind set":             {text: textDeliversNothing, why: whyToolFace},
+	"scholia lint":                 {text: textDeliversNothing, why: "検査の所見（規則名・id・短い説明）だけを出す面。記録の本文は出さない"},
+	"scholia lint baseline update": {text: textDeliversNothing, why: whyToolFace},
+	"scholia retrofit":             {text: textDeliversNothing, why: "棚卸しの面。修正候補の断片は出すが、記録の本文は出さない"},
+	"scholia review add":           {text: textDeliversNothing, why: whyWriteFace},
+	"scholia review adopt":         {text: textDeliversNothing, why: "昇格した decision を返すのは `--json` だけ"},
+	"scholia review reject":        {text: textDeliversNothing, why: whyWriteFace},
+	"scholia review rm":            {text: textDeliversNothing, why: whyWriteFace},
+	"scholia skills install":       {text: textDeliversNothing, why: whyToolFace},
+	"scholia skills ls":            {text: textDeliversNothing, why: whyNotARecord + "（配布スキルの一覧）", args: []string{}},
+	"scholia skills show":          {text: textDeliversNothing, why: whyNotARecord + "（配布スキルの本文）", args: []string{"evaluating-changes"}},
+	"scholia tag create":           {text: textDeliversNothing, why: whyWriteFace},
+	"scholia tag edit":             {text: textDeliversNothing, why: whyWriteFace},
+	"scholia tag rename":           {text: textDeliversNothing, why: whyWriteFace},
+	"scholia tag rm":               {text: textDeliversNothing, why: whyWriteFace},
+	"scholia tx add":               {text: textDeliversNothing, why: whyWriteFace},
+	"scholia tx edit":              {text: textDeliversNothing, why: whyWriteFace},
+	"scholia tx merge":             {text: textDeliversNothing, why: whyWriteFace},
+	"scholia tx rename":            {text: textDeliversNothing, why: whyWriteFace},
+	"scholia tx rm":                {text: textDeliversNothing, why: whyWriteFace},
+	"scholia tx tag":               {text: textDeliversNothing, why: whyWriteFace},
 	"scholia update": {text: textDeliversNothing,
 		why: "自分自身の版を取り替える面で、記録を 1 件も読まない"},
 	"scholia version":             {text: textDeliversNothing, why: whyToolFace},
