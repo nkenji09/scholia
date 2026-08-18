@@ -133,6 +133,7 @@ const (
 // 表に無い面があれば TestEveryJSONFaceIsExercised が落ちる——
 // **新しい面を足した人は、ここに引き方を書くまで緑にできない。**
 var jsonFaceInvocations = map[string][]string{
+	"activity":               {},
 	"config get":             {},
 	"config infer-id-policy": {},
 	"config set":             {"tagKinds", "requirement,concern,subject,axis"},
