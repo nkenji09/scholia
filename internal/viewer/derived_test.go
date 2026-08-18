@@ -7,6 +7,7 @@ import (
 
 	"github.com/nkenji09/scholia/internal/diff"
 	"github.com/nkenji09/scholia/internal/flow"
+	"github.com/nkenji09/scholia/internal/gittest"
 	"github.com/nkenji09/scholia/internal/model"
 	"github.com/nkenji09/scholia/internal/render"
 	"github.com/nkenji09/scholia/internal/store"
@@ -190,10 +191,8 @@ func gitInitAndCommit(t *testing.T, dir, msg string) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not installed")
 	}
+	gittest.InitRepo(t, dir)
 	for _, args := range [][]string{
-		{"init", "-q"},
-		{"config", "user.email", "test@example.com"},
-		{"config", "user.name", "test"},
 		{"add", "-A"},
 		{"commit", "-q", "-m", msg},
 	} {
