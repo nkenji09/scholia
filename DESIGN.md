@@ -217,12 +217,17 @@ lint は二層で、**error＝記録の自己矛盾**（保存拒否・CI fail �
 - **`commits[]`（git hash の集合・任意）は実装来歴**。`ref`（外部 URL/PR）とは別軸で、**repo 内の正確な着地点**を持つ
   （推奨 1 decision : 1 commit だが、実装ミス直しなどで 1 decision に複数 commit を許容）。
   - `scholia decide --commit <hash>`（繰り返し可）で decide 時に結べる。
-  - 着地後に結ぶ／追加する場合は **`scholia decision add-commit <decisionId> <hash>...`**（追加専用）を使う。
+  - 着地後に結ぶ／追加する場合は **`scholia decision add-commit <decisionId> <hash>... --kind implementation|correction`**（追加専用）を使う。
+    **種別の指定は必須**（既定値は無い・01M09FHEQH7PVZ2BTKGXY5YMNN）。`implementation`＝この decision の判断を実装した commit、
+    `correction`＝この decision に書いてあるとおりに実装されていなかったのを直した commit で、後者は `applied[]` に是正の印が1件付く。
+  - **結ぶ commit は保存前に照合される**: 形（16 進 7〜64 文字）はどこでも、実在（`git rev-parse` が commit として解決すること）は
+    git 管理下でのみ検査する。git 管理外では実在を照合できないので、保存したうえで「照合していない」と出す。
   - **append-only の精緻化（欄位単位・#45 U4→D7）**: decision の append-only とは「ファイル不変」ではなく
     「**判断欄位の不変＋来歴/リンク欄位の単調追記**」である。判断（`why` / `changed` / `ref` / `at`・`target.type`）は
-    凍結され、**来歴（`commits[]`）＋現行性リンク（`supersedes[]`・link 経由）＋容認（`acknowledges[]`）**は
-    追記専用・単調増加で変わりうる（判断は凍結されたまま）。`supersedes[]` は `{id,mode}` 単位で順序保存包含のみ
-    許容し、既存 link の削除・並べ替え・**mode 改変**は違反（`scholia diff` の欄位分類が commits と同型に検出する）。
+    凍結され、**来歴（`commits[]`）＋現行性リンク（`supersedes[]`・link 経由）＋容認（`acknowledges[]`）＋
+    適用の印（`applied[]`）**は追記専用・単調増加で変わりうる（判断は凍結されたまま）。`supersedes[]` は `{id,mode}` 単位で、
+    `applied[]` は `{kind,at,commit,decision}` 単位で順序保存包含のみ許容し、既存要素の削除・並べ替え・**改変**は違反
+    （`scholia diff` の欄位分類が commits と同型に検出する）。
     `target.id` は正本レコード側 rename／merge の機械追随でのみ張替わる（`scholia diff` は同一 diff 内の
     rename／merge ペア照合で判定し、`diff --check` が CI でこの不変条件を守る。#42 型の全店 retrofit は
     明示の例外承認——理由必須・出力記録——の逃し弁で通す）。
@@ -269,7 +274,7 @@ lint は二層で、**error＝記録の自己矛盾**（保存拒否・CI fail �
   （一覧・検索・横断到達）で非矛盾——governs 並置・軸構造表示は束7（D10b）に残す。
   - **ビューアからの採用（adopt）も同じ append-only 経路**: `POST /api/decision`（§7）は毎回新しい ULID の
     decision を 1 件生成するだけ（既存 decision には触れない）。採用時点では `commits[]` は空で、
-    人が commit した後に `scholia decision add-commit` で結ぶ。採用前に why を練り直すのは**未コミット下書きの合成**で
+    人が commit した後に `scholia decision add-commit <decisionId> <hash> --kind implementation` で結ぶ。採用前に why を練り直すのは**未コミット下書きの合成**で
     あって過去判断の書き換えではない（commit 済み decision は凍結・監査可能性は保たれる）。
 - **★タグに付けられる**のが要。spec という"容れ物"を無くした代わりに、
   **複数遷移をまたぐ不変条件はタグに刻む**。A と B が同じタグを持てば、A の変更時に**そのタグの decision が surface** する
@@ -550,7 +555,8 @@ scholia tx rm <id> --why <理由> --force                      # 破壊的（dec
 
 # 意思決定（transition か tag に付く）
 scholia decide --on <transition|tag|vocab>:<id> --why <見出し＋本文> [--changed <s>] [--ref <s>] [--commit <hash>…] [--acknowledges <ruleId,…>] [--supersedes <ulid>[:<mode>]…] [--allow <rule> --reason <t>]  # vocab は #45 D5。why の1行目は見出し必須（`# ` ＋1〜80 rune・2行目以降に本文・満たさないと保存拒否 decision-heading・01KZ06SYR3APGF3JD4NQRFTEEN）。acknowledges=容認する finding の rule id（実在照合・#45 D6）／supersedes=置き換える旧 decision（mode=supersede|amend|exception・既定 amend・#45 D7）
-scholia decision add-commit <decisionId> <hash> [<hash>...] [--json]  # 既存 decision の commits[] に追記専用（§3.5）
+scholia decision add-commit <decisionId> <hash> [<hash>...] --kind implementation|correction [--json]  # 既存 decision の commits[] に追記専用（§3.5）。--kind は必須（既定値なし）。correction は applied[] に是正の印を1件足す。結ぶ commit は形を必ず、実在は git 管理下でのみ照合する（01M09FHEQH7PVZ2BTKGXY5YMNN）
+scholia decision applied <decisionId> --kind conflict|rejection [--landed <decisionId>] [--json]  # 引かれた decision に「記録が結論を決めた」印を1件足す（矛盾・却下）。decision をどう作ったかに依存しない口。rejection は --landed 必須／conflict は任意（何も着地しない矛盾がある）。是正は add-commit --kind correction に相乗りする（01M09FHEQH7PVZ2BTKGXY5YMNN）
 scholia decision link <newId> --supersedes <oldUlid>[:<mode>] [--json]  # 現行性リンクの後付け backfill・追記専用・id実在/自己参照禁止/循環禁止（#45 D7）
 scholia decision list [--on <transition|tag|vocab>:<id>] [--unlinked] [--current] [--json]  # decision をフラット一覧（--on は完全一致・祖先展開なし。rules=対象別集約とは別）。--unlinked=commits未結線の棚卸し／--current=失効(mode=supersede)を畳んで現行のみ（#45 D7）
 scholia decision show <id> [--json]                                    # decision 1件 + derive した superseded-by/superseded/acknowledges（#45 D7）

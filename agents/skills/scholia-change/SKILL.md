@@ -16,7 +16,7 @@ decision 下書きを出す判断層。本スキルはその先、**方針が出
 **2 つのフローが使える**（landed した評価コックピット・DESIGN §7）:
 
 - **CLI フロー**: 端末でコメントを集め、**コピーして本スキルを AI に貼り付ける**。以降は既存 CLI
-  （`diff`/`rules`/`list`/`decide`/`decision add-commit`/`review`）とコメントの copy-paste で完結する。
+  （`diff`/`rules`/`list`/`decide`/`decision add-commit`/`decision applied`/`review`）とコメントの copy-paste で完結する。
 - **viewer インライン評価フロー**: `scholia view` のコメントドロワーで、pending diff（作業ツリー vs `main`）を
   **差分カード付きの提案**として見ながら評価する。**提案＝変更を持つレコードのコメント・本文＝why**。
   AI は変更本体と対で `scholia review add` で**提案コメントを配送**（`.scholia/reviews/`・read-only オーバーレイ）、
@@ -54,7 +54,7 @@ adopt/reject できることが目的。深リンクの route 一覧は [scholia
 （強制ではない）。
 
 - task はコード上の概念ではなく、**このスキルのセッション内で人と AI が共有する作業のまとまり**。
-- 1 decision に複数コミットを許すのは自然（`scholia decision add-commit` で足す）。
+- 1 decision に複数コミットを許すのは自然（`scholia decision add-commit <id> <hash> --kind implementation` で足す。**種別の指定は必須**）。
 - **実装ミス直し（判断は変わらない）は decision を増やさず、既存 decision に commit を足す。**
   別の判断が入ったときだけ新しい decision を足す（`scholia decide`）。decision の無駄な増殖は見づらさに直結するため
   避ける（DESIGN §3.5）。
@@ -75,7 +75,7 @@ adopt/reject できることが目的。深リンクの route 一覧は [scholia
    後から記録する）** かを確認する。
    - retrospective なら、Case 1/2 の提案→レビュー→adopt の踊りは不要。
      `scholia decide --on <対象> --why "<見出し＋本文>" --ref <landing commit>`（または `--commit <hash>`）で直行してよい。
-   - 完了ゲートも軽量にする: **landing commit を結線**（`decide --commit` または `decision add-commit`）＋
+   - 完了ゲートも軽量にする: **landing commit を結線**（`decide --commit` または `decision add-commit … --kind implementation`）＋
      **`scholia rules --all` で矛盾する既存 decision が無いか 1 回照合**するだけでよい。波及検索・兄弟ゲートは
      省略できる（後から波及に気づいたら、そのときは改めて Case 1/2 の手順で対応する）。
    - 後追いは特定のプロジェクトや用途に限った例外ではなく、scholia-change の一般的なルートの 1 つ。
@@ -154,8 +154,12 @@ desc に書かない。正典＝[`../_scholia-shared/references/modeling-princip
 9. **decision に着地 commit を結ぶ（完了ゲート・必須）** — レコードを変更した commit には decision が同伴していること
    （非同伴は lint `decision-stale` が検出する）:
    ```
-   scholia decision add-commit <decisionId> <hash>
+   scholia decision add-commit <decisionId> <hash> --kind implementation
    ```
+   **`--kind` は必須**（既定値は無い）。この decision の判断を実装した commit なら `implementation`、
+   この decision に書いてあるとおりに実装されていなかったのを直した commit なら `correction`——
+   `correction` を選ぶと `applied[]` に是正の印が1件付く（A是正の着地はこちら・下の「印を打つ」節）。
+   結ぶ commit は保存前に照合される: 形（16 進 7〜64 文字）はどこでも、実在は git 管理下でのみ。
    decide 時点で commit のハッシュが既に分かっているなら、手順 7 で `scholia decide --commit <hash>` として
    最初から結んでもよい（9 は省略できる）。未結線の棚卸しは `scholia decision list --unlinked`。
 10. **実装/テスト側へ** — 人が task の diff／コメントをコピーし、scholia の外（コード側）の実装・テスト修正を依頼する。
@@ -196,7 +200,7 @@ desc に書かない。正典＝[`../_scholia-shared/references/modeling-princip
    ```
 8. **commit → 結線**:
    ```
-   scholia decision add-commit <decisionId> <hash>
+   scholia decision add-commit <decisionId> <hash> --kind implementation
    ```
 9. **実装/テスト側へ** — 人が task のコンテキストをコピーし、実装・テスト修正を依頼する。
 
@@ -261,6 +265,32 @@ Case 3 パターン（本スキルで名前を付けて正規化する趣旨）�
 - **reject** — 採用しない ＋「取り込まない・理由」の decision を append する。一言で済ませず、
   次回同じ提案が来たときの既決になるよう根拠を why に残す（矛盾する decision があれば id を引用する）。
 
+## 印を打つ（A是正・C矛盾・E却下）
+
+triage の5つの方針のうち、**A是正・C矛盾・E却下の3つは「記録があったから結論が変わった」場合**である
+（B精緻化・D新規は記録の側が変わるので、変更そのものが記録になる）。この3つは、これまで**どれも数えられなかった**
+——是正は `.scholia/` が1バイトも変わらず、矛盾は記録が正しければ何も変わらず、却下は経路が使われていなかった。
+
+だから **引いた decision X の `applied[]` に印を1件足す**（01M09FHEQH7PVZ2BTKGXY5YMNN）。付ける先は
+「引かれた側」——X はどの場合にも必ず在るので、3種類が1つの置き方に収まる。
+
+| triage | 打つコマンド | 指し先 |
+| --- | --- | --- |
+| **A是正** | `scholia decision add-commit <X> <hash> --kind correction` | 直した commit（結線と同時に印が付く） |
+| **C矛盾** | `scholia decision applied <X> --kind conflict [--landed <新decisionId>]` | 改訂の decision。**何も着地しなければ指し先なし** |
+| **E却下** | `scholia decision applied <X> --kind rejection --landed <却下decisionId>` | 却下を記録した decision（**必須**） |
+
+`<X>` は**引いた側**——「この記録があったから結論が変わった」の、その記録の id である。
+数えるときは `scholia decision list --json` の `applied[]` を読む（**集計専用のコマンドは無い**）。
+
+⚠️ **これは明文化であって歯止めではない。** A是正は `add-commit` の `--kind` が必須なので打たずに進めないが、
+**C矛盾・E却下の口は、呼ばなくても作業が完了する。** ここに書いてあることが守られる保証は無い
+（`01KXS68HCNQ0H9QKNYFQ869J19`——明文化しても遡及機構が無ければ挙動は変わらない）。
+**したがって是正の数字と、矛盾・却下の数字は確からしさが違う。1つの指標に混ぜない。**
+
+⚠️ **印が無い記録は「起きなかった」ではなく「観測開始前」である。** この機構が入る前の decision には
+遡って印を付けない（どれが是正・矛盾・却下だったかは、いま推測でしか決められない）。集計は観測開始日で区切る。
+
 ## 完了条件
 
 - 着手前に [scholia-triage スキル](../scholia-triage/SKILL.md) で対応方針（B精緻化／D新規／E却下 等）を確定している。
@@ -276,8 +306,9 @@ Case 3 パターン（本スキルで名前を付けて正規化する趣旨）�
 - 後追い（retrospective）: landing commit を結線し、`scholia rules --all` で矛盾する既存 decision が無いか
   1 回照合している（波及検索・兄弟ゲートは省略可）。
 - adopt/reject いずれも decision を why 付きで記録し、着地 commit が `commits[]` に結ばれている
-  （`decide --commit` または `decision add-commit`）。
+  （`decide --commit` または `decision add-commit … --kind implementation`）。
 - 実装ミス直しで decision を無駄に増やしていない（`add-commit` で足りるケースは増やさず足りている）。
+- **A是正・C矛盾・E却下だったなら、引いた decision に印を打っている**（上の「印を打つ」節）。
 - 人が task の diff／コメントをコピーし、scholia の外（実装/テスト）の修正依頼まで橋渡ししている。
 
 ## 関連
