@@ -1,0 +1,9 @@
+{
+  "id": "cond.activity-not-git-managed",
+  "category": "condition",
+  "label": "プロジェクトルートが git 管理下にない",
+  "kind": "env",
+  "tags": [
+    "axis.activity.reliability"
+  ]
+}

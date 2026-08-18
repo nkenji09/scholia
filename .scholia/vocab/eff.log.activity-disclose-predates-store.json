@@ -1,0 +1,7 @@
+{
+  "id": "eff.log.activity-disclose-predates-store",
+  "category": "effect",
+  "label": "窓の開始が記録ディレクトリの初出より前であることを名乗る",
+  "kind": "log",
+  "owner": "subject.cli"
+}

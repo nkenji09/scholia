@@ -1,0 +1,7 @@
+{
+  "id": "eff.log.activity-disclose-shallow",
+  "category": "effect",
+  "label": "浅い clone であることを名乗り、実装活動の数を出さない",
+  "kind": "log",
+  "owner": "subject.cli"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "tx.activity.shallow-withholds",
+  "action": "act.user.activity-run",
+  "given": [
+    "cond.activity-repo-shallow"
+  ],
+  "then": [
+    "eff.log.activity-disclose-shallow",
+    "eff.state.activity-withhold-numbers"
+  ],
+  "tags": [
+    "req.practice-observability",
+    "subject.cli"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "id": "axis.activity.reliability",
+  "name": "実装活動: 数の信頼性軸（浅い clone / git 管理下でない / 窓がストア初出より前 / 窓がストア初出以降）",
+  "kind": "axis",
+  "parentIds": [
+    "req.practice-observability"
+  ],
+  "description": "scholia activity が git 由来の数をそのまま出せるかを束ねる軸。4つの値は互いに排他で、ちょうど1つが成り立つ。",
+  "total": true
+}

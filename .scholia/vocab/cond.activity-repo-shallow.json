@@ -1,0 +1,9 @@
+{
+  "id": "cond.activity-repo-shallow",
+  "category": "condition",
+  "label": "git 履歴が浅い（is-shallow-repository）",
+  "kind": "env",
+  "tags": [
+    "axis.activity.reliability"
+  ]
+}
