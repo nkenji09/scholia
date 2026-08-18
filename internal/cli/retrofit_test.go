@@ -201,6 +201,9 @@ var dogfoodKnownAckOnly = map[string]string{
 	// 判断欄位が、store に存在しない id を引用している。
 	"dangling-id|01KXFEXG01RS00RHAVS3TMP25Y": "changed: 廃止済み tx.action",
 	"dangling-id|01KY1VDJWZF7M23K4X1J62QYXV": "why: 説明のための架空例 req.foo.1-1",
+	// 実測の対照実験で使った使い捨てストアのタグ名（subject.ascii / その JSON）。
+	// この repo のレコードではないので解決しない——上と同じ「説明のための例」の形。
+	"dangling-id|01M0AJDYP9524AKXFN6J3FXBYJ": "why: 実測 fixture のタグ名 subject.ascii",
 
 	// 判断欄位が、repo に無い文書を引用している（作業台帳・gitignore 対象）。
 	"dead-doc-ref|01KXFEXG08YT8TB04BR7RA400Q": "why: tweaks3 §",

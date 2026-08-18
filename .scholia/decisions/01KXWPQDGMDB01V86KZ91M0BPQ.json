@@ -15,6 +15,14 @@
     "18b5157",
     "ea532b4",
     "03bcde0",
-    "fc4d0c7"
+    "fc4d0c7",
+    "2dc1a4f69e868e6e2da764eb6392224353cd966f"
+  ],
+  "applied": [
+    {
+      "kind": "correction",
+      "at": "2026-08-18T14:18:21Z",
+      "commit": "2dc1a4f69e868e6e2da764eb6392224353cd966f"
+    }
   ]
 }

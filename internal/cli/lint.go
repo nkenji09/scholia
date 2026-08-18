@@ -11,7 +11,7 @@ import (
 )
 
 func newLintCmd() *cobra.Command {
-	var asJSON, verbose, ci bool
+	var asJSON, verbose, ci, requireGitDerivation bool
 	cmd := &cobra.Command{
 		Use:   "lint",
 		Short: "記録の自己矛盾を検査する（§5）",
@@ -21,7 +21,13 @@ func newLintCmd() *cobra.Command {
 			"baseline 不在なら ratchet は非活性（warn は fail しない・opt-in）。info と\n" +
 			"advisory（authoring 規律）は ratchet の対象外。baseline の更新は\n" +
 			"`scholia lint baseline update` 経由のみ（更新自体が PR diff に現れてレビュー\n" +
-			"対象になる）。rename／tx merge は baseline 内の target id を追随更新する。",
+			"対象になる）。rename／tx merge は baseline 内の target id を追随更新する。\n\n" +
+			"--require-git-derivation（decision 01M0AJDYJSEVCSYEV0HDPSTWFZ）: git 管理下\n" +
+			"なのに git からの導出が落ちたとき（git-derivation-failed）に exit 1 にする。\n" +
+			"既定は off——**既定の挙動は1バイトも変わらない**。CI で「検査が走らなかった」\n" +
+			"ことを止めたい利用者だけが選ぶ（severity は info のままで、baseline ratchet\n" +
+			"には載せない。載せると、記録を1バイトも変えていない利用者が実行環境の変化\n" +
+			"だけで赤くなり、黙らせる唯一の手段が baseline へ固定することになる）。",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			s, err := openStore()
@@ -70,6 +76,14 @@ func newLintCmd() *cobra.Command {
 			if ciEval != nil && len(ciEval.NewWarns) > 0 {
 				return fmt.Errorf("lint --ci failed: baseline に無い新規 warn %d 件", len(ciEval.NewWarns))
 			}
+			// --require-git-derivation は opt-in の歯止め。既定（false）では
+			// この分岐に入らないので、既定の挙動は1バイトも変わらない。
+			if requireGitDerivation {
+				if n := countRule(findings, lint.RuleGitDerivationFailed); n > 0 {
+					return fmt.Errorf("lint failed: git からの導出が落ちました（%s %d 件・検査は走っていません）",
+						lint.RuleGitDerivationFailed, n)
+				}
+			}
 			return nil
 		},
 	}
@@ -78,6 +92,8 @@ func newLintCmd() *cobra.Command {
 		"既定で件数へ畳んでいる区分の明細を出す: acknowledge-only・typed 容認・decision-coverage via-tag の内訳（どのタグ経由か）")
 	cmd.Flags().BoolVar(&ci, "ci", false,
 		"CI モード（歯止め）: error 常時 exit 1・baseline に無い新規 warn のみ exit 1（baseline 不在は非活性）・info/advisory 不問")
+	cmd.Flags().BoolVar(&requireGitDerivation, "require-git-derivation", false,
+		"git 管理下なのに git からの導出が落ちたら exit 1（既定 off・既定の挙動は変えない）")
 	cmd.AddCommand(newLintBaselineCmd())
 	return cmd
 }
@@ -225,6 +241,17 @@ func renderLintText(out io.Writer, p lintTextPlan) {
 
 func countErrors(findings []lint.Finding) int {
 	n, _, _ := countBySeverity(findings)
+	return n
+}
+
+// countRule は特定の rule id の finding 件数を数える。
+func countRule(findings []lint.Finding, rule string) int {
+	n := 0
+	for _, f := range findings {
+		if f.Rule == rule {
+			n++
+		}
+	}
 	return n
 }
 
