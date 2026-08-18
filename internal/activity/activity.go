@@ -85,13 +85,13 @@ type Report struct {
 // 一致しない。`git rev-parse --show-prefix` は git 自身が同じ内部表現で答えるので
 // この不一致が起きない。
 func ResolveGitContext(projectRoot string) (gitRoot, relPrefix string, err error) {
-	rootOut, err := exec.Command("git", "-C", projectRoot, "rev-parse", "--show-toplevel").Output()
+	rootOut, err := runGit(projectRoot, "rev-parse", "--show-toplevel")
 	if err != nil {
 		return "", "", fmt.Errorf("git rev-parse --show-toplevel: %w", err)
 	}
 	gitRoot = strings.TrimSpace(string(rootOut))
 
-	prefixOut, err := exec.Command("git", "-C", projectRoot, "rev-parse", "--show-prefix").Output()
+	prefixOut, err := runGit(projectRoot, "rev-parse", "--show-prefix")
 	if err != nil {
 		return "", "", fmt.Errorf("git rev-parse --show-prefix: %w", err)
 	}
@@ -111,6 +111,21 @@ func Compute(opts Options) (Report, error) {
 		Until:             opts.Window.Until,
 		WindowDays:        windowDays(opts.Window),
 		DecisionsInWindow: countDecisionsInWindow(opts.DecisionTimes, opts.Window),
+	}
+
+	hasCommits, err := hasAnyCommit(opts.GitRoot)
+	if err != nil {
+		return Report{}, fmt.Errorf("git rev-parse --verify HEAD: %w", err)
+	}
+	if !hasCommits {
+		// commit がまだ1件も無い（`git init` 直後の unborn HEAD）。異常ではなく
+		// 正当な「実装活動ゼロ」の状態——以降の git log 系の問い合わせはどれも
+		// unborn HEAD で exit status 128 になるので、呼ばずに素の Report
+		// （ゼロ値のまま）を返す。`git init` → `scholia init` → `scholia activity`
+		// という最も普通の初回の順番で実際に異常終了していた（クリーンルーム
+		// レビュー FAIL-2）。既に埋めた DecisionsInWindow はそのまま出す
+		// （decision の有無は git 履歴と無関係）。
+		return rep, nil
 	}
 
 	shallow, err := isShallow(opts.GitRoot)
@@ -185,8 +200,43 @@ func storePathspec(relPrefix, storeDirName string) string {
 	return filepath.ToSlash(filepath.Join(relPrefix, storeDirName))
 }
 
+// runGit は `git -C gitRoot <args>` を走らせ、標準出力を返す。
+//
+// ⚠️ `exec.Cmd.Output()` は失敗時に `*exec.ExitError` を返すだけで、git 自身が
+// 標準エラーへ書いた理由（"fatal: ..."）を握り潰す。呼び出し側には
+// `exit status 128` としか残らず、原因（unborn HEAD・古い git に無いフラグ等）
+// が画面から消える（クリーンルームレビュー FAIL-2 の二次的な指摘）。
+// ここで stderr を埋め込み、すべての呼び出し元がまとめて直る形にする。
+func runGit(gitRoot string, args ...string) ([]byte, error) {
+	cmd := exec.Command("git", append([]string{"-C", gitRoot}, args...)...)
+	out, err := cmd.Output()
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok && len(ee.Stderr) > 0 {
+			return nil, fmt.Errorf("%w: %s", err, strings.TrimSpace(string(ee.Stderr)))
+		}
+		return nil, err
+	}
+	return out, nil
+}
+
+// hasAnyCommit は HEAD が指す commit が存在するかを見る（`git init` 直後の
+// unborn HEAD を検出する）。`-q` は失敗時の "fatal: ..." を黙らせる——存在
+// しないこと自体は異常ではなく、Compute が「commit ゼロ」として扱う正当な
+// 入力だから（FAIL-2）。ExitError 以外（git 未導入等）は素通りさせて呼び出し
+// 元にエラーとして伝える。
+func hasAnyCommit(gitRoot string) (bool, error) {
+	cmd := exec.Command("git", "-C", gitRoot, "rev-parse", "--verify", "-q", "HEAD")
+	if err := cmd.Run(); err != nil {
+		if _, ok := err.(*exec.ExitError); ok {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 func isShallow(gitRoot string) (bool, error) {
-	out, err := exec.Command("git", "-C", gitRoot, "rev-parse", "--is-shallow-repository").Output()
+	out, err := runGit(gitRoot, "rev-parse", "--is-shallow-repository")
 	if err != nil {
 		return false, err
 	}
@@ -238,15 +288,29 @@ const fieldSep = "\x1f"
 // `--until` 側にこの罠は無い（今日より新しい commit に当たっても、それより古い
 // commit がまだ窓に入り得るため打ち切れない・実測: --until-as-filter という
 // フラグ自体が無い＝git 側もこの罠が --since 側だけだと扱っている）。
+//
+// ⚠️ `-c core.quotePath=false`（クリーンルームレビュー FAIL-1）。既定
+// （`core.quotePath=true`）では、`--name-only` は非 ASCII を含むパスを C 形式の
+// 引用符付き 8 進エスケープで出す（例: `"\350\243\275..."`）。`classify` は
+// パスの前方一致で判定するので、引用されたパスは記録ディレクトリの接頭辞に
+// 絶対一致せず、**記録だけの commit が実装 commit に化ける**——決定本文が
+// 「循環するから」と名指しした壊れ方の逆再生。実測（本 unit・クリーンルーム
+// レビューが独立に再現): プロジェクト根が日本語の monorepo で系統的に全滅・
+// ストア内に非 ASCII ファイルがあるとファイル単位で外れる。
+// 🔴 これでも残る穴: パス名に `"`・バックスラッシュ・制御文字そのものが
+// 含まれる場合は `core.quotePath=false` でも引用される（実測: `x"y.txt` →
+// `"x\"y.txt"`）。完全に消すには `-z`（NUL 区切り）で読む形が要るが、
+// この単位では対象にしない（射程外として名乗る・CLAUDE.md 6）。
 func windowCommits(gitRoot, rootSpec string, since, until time.Time) ([]rawCommit, error) {
 	untilFloor := until.Add(-time.Nanosecond).Truncate(time.Second)
-	cmd := exec.Command("git", "-C", gitRoot, "log", "--no-merges",
+	out, err := runGit(gitRoot,
+		"-c", "core.quotePath=false",
+		"log", "--no-merges",
 		"--since-as-filter="+since.Format(time.RFC3339),
 		"--until="+untilFloor.Format(time.RFC3339),
 		"--format="+commitHeaderMark+"%H"+fieldSep+"%cI",
 		"--name-only",
 		"--", rootSpec)
-	out, err := cmd.Output()
 	if err != nil {
 		return nil, err
 	}
@@ -315,21 +379,19 @@ func classify(commits []rawCommit, storeSpec string, loc *time.Location) (implCo
 // lastActivity は「窓に依存しない」最後の実装活動——rootSpec 配下で、記録
 // ディレクトリを除いた変更を持つ最新の非マージ commit。無ければ nil。
 func lastActivity(gitRoot, rootSpec, storeSpec string) (*time.Time, error) {
-	cmd := exec.Command("git", "-C", gitRoot, "log", "-1", "--no-merges",
+	return firstLineAsTime(gitRoot, "log", "-1", "--no-merges",
 		"--format=%cI", "--", rootSpec, ":(exclude)"+storeSpec)
-	return firstLineAsTime(cmd)
 }
 
 // storeFirstSeen は記録ディレクトリ（現在名）を最初に変更した commit の日時。
 // ストアが git 履歴に一度も現れていなければ nil（新規ストアでまだ commit
 // されていない等）。
 func storeFirstSeen(gitRoot, storeSpec string) (*time.Time, error) {
-	cmd := exec.Command("git", "-C", gitRoot, "log", "--format=%cI", "--reverse", "--", storeSpec)
-	return firstLineAsTime(cmd)
+	return firstLineAsTime(gitRoot, "log", "--format=%cI", "--reverse", "--", storeSpec)
 }
 
-func firstLineAsTime(cmd *exec.Cmd) (*time.Time, error) {
-	out, err := cmd.Output()
+func firstLineAsTime(gitRoot string, args ...string) (*time.Time, error) {
+	out, err := runGit(gitRoot, args...)
 	if err != nil {
 		return nil, err
 	}

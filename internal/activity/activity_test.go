@@ -446,12 +446,109 @@ func evalSymlinks(t *testing.T, p string) string {
 	return resolved
 }
 
-// TestCompute_NotGitManaged はストアが git 管理下に無いときエラーで返る
-// （呼び出し側 = internal/cli がそれを「何も出さない」開示に変える）ことを見る。
-// decision-stale と同型の「射程外を黙って通さない」検査。
+// TestResolveGitContext_NotAGitRepo はストアが git 管理下に無いときエラーで
+// 返る（呼び出し側 = internal/cli がそれを「何も出さない」開示に変える）ことを
+// 見る。decision-stale と同型の「射程外を黙って通さない」検査。
 func TestResolveGitContext_NotAGitRepo(t *testing.T) {
 	dir := t.TempDir()
 	if _, _, err := ResolveGitContext(dir); err == nil {
 		t.Error("git 管理下でないディレクトリでは error を返すはず")
+	}
+}
+
+// TestCompute_NonASCIIProjectRootPathsAreNotQuotedAway はクリーンルーム
+// レビュー FAIL-1 の再現1（プロジェクト根が日本語の monorepo）を固定する。
+//
+// 既定（core.quotePath=true）だと `git log --name-only` が非 ASCII パスを
+// C 形式の引用符付きで出し、`classify` の前方一致がすべて外れて**記録だけの
+// commit が実装 commit に化ける**——決定本文が「循環するから」と名指しした
+// 壊れ方が、パスの引用によって逆方向から再発する。
+func TestCompute_NonASCIIProjectRootPathsAreNotQuotedAway(t *testing.T) {
+	r := newActRepo(t)
+	base := mustTime(t, "2026-08-01T00:00:00Z")
+
+	r.write("製品A/.scholia/tags/x.json", "{}")
+	r.commitAt("store init", base)
+	r.write("製品A/app.go", "package main")
+	r.commitAt("impl", base.Add(24*time.Hour))
+	r.write("製品A/.scholia/tags/y.json", "{}")
+	r.commitAt("record only", base.Add(48*time.Hour))
+
+	gitRoot, relPrefix, err := ResolveGitContext(filepath.Join(r.dir, "製品A"))
+	if err != nil {
+		t.Fatalf("ResolveGitContext: %v", err)
+	}
+
+	rep, err := Compute(Options{
+		GitRoot: gitRoot, RelPrefix: relPrefix, StoreDirName: ".scholia",
+		Window: Window{Since: base.Add(-time.Hour), Until: base.Add(96 * time.Hour)},
+		Loc:    time.UTC, Now: base.Add(96 * time.Hour),
+	})
+	if err != nil {
+		t.Fatalf("Compute: %v", err)
+	}
+	if rep.ImplCommits != 1 {
+		t.Errorf("ImplCommits = %d, want 1（record-only の commit が引用符化で実装活動に化けていないか）", rep.ImplCommits)
+	}
+	if rep.RecordOnlyCommits != 2 {
+		t.Errorf("RecordOnlyCommits = %d, want 2（store init + record only）", rep.RecordOnlyCommits)
+	}
+}
+
+// TestCompute_NonASCIIStoreFilePathsAreNotQuotedAway はクリーンルーム
+// レビュー FAIL-1 の再現2（ストア内に非 ASCII のファイル）を固定する。
+// こちらはプロジェクト根が ASCII でも、ストア配下のファイル名が非 ASCII なら
+// 個別に引用符化され、そのファイルだけを触った commit が実装活動に化ける。
+func TestCompute_NonASCIIStoreFilePathsAreNotQuotedAway(t *testing.T) {
+	r := newActRepo(t)
+	base := mustTime(t, "2026-08-01T00:00:00Z")
+
+	r.write(".scholia/tags/x.json", "{}")
+	r.commitAt("store init", base)
+	r.write(".scholia/notes/設計メモ.md", "memo")
+	r.commitAt("non-ascii record file", base.Add(24*time.Hour))
+
+	rep, err := Compute(Options{
+		GitRoot: r.dir, StoreDirName: ".scholia",
+		Window: Window{Since: base.Add(-time.Hour), Until: base.Add(48 * time.Hour)},
+		Loc:    time.UTC, Now: base.Add(48 * time.Hour),
+	})
+	if err != nil {
+		t.Fatalf("Compute: %v", err)
+	}
+	if rep.ImplCommits != 0 {
+		t.Errorf("ImplCommits = %d, want 0（非 ASCII ファイルだけを触った commit が実装活動に化けていないか）", rep.ImplCommits)
+	}
+	if rep.RecordOnlyCommits != 2 {
+		t.Errorf("RecordOnlyCommits = %d, want 2", rep.RecordOnlyCommits)
+	}
+}
+
+// TestCompute_NoCommitsYet_ReturnsZeroNotError はクリーンルームレビュー
+// FAIL-2 を固定する。`git init` 直後（unborn HEAD・commit ゼロ）は異常では
+// なく正当な「実装活動ゼロ」の状態——`git init` → `scholia init` →
+// `scholia activity` という最も普通の初回の順番で、以前は exit status 128 に
+// なっていた。
+func TestCompute_NoCommitsYet_ReturnsZeroNotError(t *testing.T) {
+	r := newActRepo(t)
+	// commit を1件も作らない（HEAD が unborn のまま）。
+
+	now := mustTime(t, "2026-08-18T00:00:00Z")
+	rep, err := Compute(Options{
+		GitRoot: r.dir, StoreDirName: ".scholia",
+		Window: Window{Since: now.Add(-90 * 24 * time.Hour), Until: now},
+		Loc:    time.UTC, Now: now,
+	})
+	if err != nil {
+		t.Fatalf("Compute はエラーではなくゼロを返すはず: %v", err)
+	}
+	if rep.ImplCommits != 0 || rep.RecordOnlyCommits != 0 || rep.ActiveDays != 0 {
+		t.Errorf("commit ゼロの repo はすべてゼロのはず: %+v", rep)
+	}
+	if rep.LastActivity != nil {
+		t.Errorf("LastActivity は nil のはず: %v", rep.LastActivity)
+	}
+	if rep.Shallow {
+		t.Errorf("commit ゼロの repo を Shallow=true にする理由は無い: %+v", rep)
 	}
 }
