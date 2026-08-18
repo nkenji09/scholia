@@ -3,19 +3,35 @@
 //
 // # ここの歯止めが落とす範囲（CLAUDE.md「配線ガードの書き方」6）
 //
-// ⚠️ **この節は差し戻し 1 回目で書き直した。** 前の版は「人が読む面の配線を忘れる／数えすぎる」が
-// 落ちると名乗っていたが、**成り立っていなかった**——レビュアが新しい読み取り面を足し、
-// 宣言を `textDeliversNothing`（当時は iota のゼロ値・理由も不要）にするだけで、
-// **本文を 614,333 バイト渡していても歯止めは全部緑で通った。**
-// いまは (1) ゼロ値を無効値にし、(2) 理由をどの宣言にも必須にし、
-// (3) **出力のバイト列に本文が丸ごと出ていないことを値で確かめる**の 3 つで塞いである。
+// ⚠️ **この節は 2 度書き直した。** どちらも「**最も安く緑にできる書き方が、そのまま抜け道**」という
+// 同じ形で、名乗りが実態より広かった。
+//
+//  1. 1 回目: 宣言を `textDeliversNothing`（当時は iota のゼロ値・理由も不要）にするだけで、
+//     **本文を 614,333 バイト渡していても全部緑**で通った。
+//  2. 2 回目: 面の宣言に **`unrunnable: "…"` を 1 つ足すだけ**で、走る面が検査から丸ごと外れた。
+//     **ゼロ値より手数が少ない**（正しい enum を選ぶ必要すら無く、任意の文字列を書けばよい）。
+//
+// 🔴 **2 回とも「1 つのゲートの内側にいないこと」しか見ていなかった**（CLAUDE.md 3）。
+// いまは**抜け道になりうる書き方の側を消して**ある——
+// ゼロ値を無効値にし、理由をどの宣言にも必須にし、**「走らせられない」という欄そのものを面の宣言から外し**、
+// **成り立たない引き方を素通りさせず**、出力のバイト列を**両向き**（出していない本文を数えない／
+// 渡したと記録した本文は無加工で出ている）に確かめる。
+// ⚠️ **それでも残る抜け道は、下の「落ちない」に全部書いてある。**
 //
 // **落ちる:**
 //   - **読み取りの面を新しく足して、この項目を配線しなかったとき。**
 //     面は cobra の木から数え上げるので、宣言の無い面があれば落ちる
 //     （TestUsage_EveryRunnableSurfaceDeclaresItsDelivery）。**列挙を足したのではない。**
 //   - **宣言を書かずに済ませようとしたとき。** `textDelivery` のゼロ値は**無効値**で、
-//     理由（why）も**どの宣言にも**必須である。**最も少ない手数で緑にできる書き方を無くしてある。**
+//     理由（why）も**どの宣言にも**必須である。
+//   - **「走らせられない」と名乗って検査から外れようとしたとき。** その欄は面の宣言に無く、
+//     閉じた集合（unrunnableSurfaces）にしか書けない。**`--json` を持つ面はそこにも書けない**
+//     （TestUsage_UnrunnableSurfacesAreClosed）。
+//   - **引き方を壊して素通りしようとしたとき。** 人が読む面の起動が失敗したら落ちる。
+//     ⚠️ **これは実際に 1 件見つかった**——`skills show` の引き方が成り立っておらず、
+//     この面は**一度も検査されていなかった**（直した）。
+//   - **本文を飾って出す面が「渡した」と宣言したとき。** 渡したと記録した記録の本文が
+//     **無加工で丸ごと**出ていることも見る（assertDeliveredBodiesAppearInText）。
 //   - **配線したが中身が食い違うとき。** `--json` の面を**宣言された bool フラグの
 //     全部分集合**で実際に走らせ、**出たバイト列（機械可読出力）の構造から導いた
 //     「本文つきの記録」の集合**と、記録された deliveredIds が**一致する**ことを値で見る
@@ -51,6 +67,18 @@
 //     **101 字以上の本文しか探さない**（要約の面は 100 字で切り詰めるので、
 //     それ以下は「偶然そのまま出た」と区別できない）。
 //     ⚠️ したがって、**100 字以下の本文しか持たない記録については、この検査は何も言わない。**
+//   - 🔴 **本文を 1 件も渡さないと宣言した面が、本文を「飾って」出すこと。**
+//     探すのは `strings.Contains` なので、**1 行ずつ前置きを付ける等の加工をされると一致しない。**
+//     ⚠️ **渡すと宣言した面については上の逆向きの検査が落とす**が、
+//     「渡さない」と宣言した面が加工して出す場合は、いまも探せない。
+//     ⚠️ **この repo の既存の面は本文を無加工で出している**（レビュアの実測: `rules` 9 件・
+//     `spec` 10 件・`show decision` 1 件が丸ごと現れる）ので、**検査には現に歯がある**
+//     ——これは慣行から外れた面の話である。
+//   - 🔴 **「走らせられない」という宣言そのもの。** 閉じた集合に 2 件（`view` / `update`）あり、
+//     留め金で固定してあるが、**本当に走らせられないかを確かめる仕組みは無い**
+//     （走らせてみるまで分からない。常駐するものと網の外へ出るものを単体テストで起こさない、
+//     という判断で置いている）。**2 か所を直せば、走る面でもここへ入れられる**
+//     ——ただし `--json` を持つ面は入れられない。
 //   - 🔴 **本文が 1 文字も違わない記録が複数あるとき、どれが出たかは言えない。**
 //     バイト列から言えるのは「この本文が出た」までなので、
 //     **持ち主のうち 1 件でも記録されていれば通す**（過小に落とさないため）。
@@ -65,7 +93,7 @@
 //   - **Hidden なコマンド。** 面の数え上げ（usageRunnableSurfaces）が飛ばすので、
 //     宣言も照合も無しに通る。いま Hidden な面は 0 件。
 //   - **`scholia update` / `scholia view`。** 前者は網の外へ出て、後者は常駐する。
-//     走らせないので、宣言だけがある（deliverySpecs の unrunnable）。
+//     走らせないので、宣言だけがある（unrunnableSurfaces）。
 package cli
 
 import (
@@ -129,9 +157,36 @@ type deliverySpec struct {
 	why string
 	// args は `--json` を持たない面の引き方（持つ面は jsonFaceInvocations から取る）。
 	args []string
-	// unrunnable が空でなければ走らせない（その理由）。
-	unrunnable string
 }
+
+// unrunnableSurfaces は「テストから走らせられない面」の**閉じた集合**。
+//
+// 🔴 **面ごとの宣言から欄を外して、ここへ移してある。** 差し戻し 1 回目の直しのあと、
+// レビュアが**面の宣言に `unrunnable: "…"` を 1 つ足すだけで、走る面が検査から丸ごと外れる**
+// ことを実測した（E2/E5）。**任意の文字列を書けば通る欄は、最も安い抜け道になる。**
+// 欄そのものを無くしたので、**面の側から「走らせられない」と名乗ることはできない。**
+//
+// ⚠️ **加えて、ここに書けるのは `--json` を持たない面だけである**
+// （TestUsage_UnrunnableSurfacesAreClosed）。`--json` を持つ面は
+// `--json` の照合で必ず走るので、「走らせられない」は成り立たない。
+// **E5（`--json` を持つ面が名乗る）はこの条件で塞がる。**
+//
+// ⚠️ **この集合そのものは、誰も検査していない宣言である**（何が本当に走らせられないかは、
+// 走らせてみるまで分からない）。だから**2 件しかない**ことと、その理由を目に見える形で置く。
+var unrunnableSurfaces = map[string]string{
+	"scholia view":   "常駐して待ち受けるので、テストから走らせられない",
+	"scholia update": "網の外（GitHub）へ出るので、テストから走らせない",
+}
+
+// unrunnableSurfacesPinned は上の集合の**留め金**。黙って増えないように、
+// 中身そのものをここに固定する。
+//
+// 🔴 **増やすには 2 か所を直すことになる。** 検査に頼らず「1 欄で外れる」形を無くすのが目的で、
+// **これでも「2 か所を直せば外れる」ことは変わらない**（下の名乗り）。
+// 増やす前に確かめること: (1) その面は `--json` を持たないか（持つなら名乗れない）、
+// (2) **本当に走らせられないのか**（走らせられるなら、引き方を書いて走らせる）、
+// (3) 外した面は**この歯止めの外に出る**——それを承知しているか。
+var unrunnableSurfacesPinned = []string{"scholia update", "scholia view"}
 
 // 面のまとまりごとに共有する理由（書き写さずに参照する）。
 const (
@@ -183,10 +238,10 @@ var deliverySpecs = map[string]deliverySpec{
 	"scholia review list": {text: textDeliversNothing,
 		why: "レビューは揮発層のコメントで、`.scholia` の記録（tag/transition/vocab/decision）ではない"},
 	"scholia export": {text: textNotCounted,
-		why: "静的な画面の書き出し。画面経由の閲覧を数えないという正本 条項 5 の帰結で、この面はこの項目を持たない"},
+		why:  "静的な画面の書き出し。画面経由の閲覧を数えないという正本 条項 5 の帰結で、この面はこの項目を持たない",
+		args: []string{"--html", "_export"}}, // 標本の複製の中へ書く（面を実際に走らせるため）
 	"scholia view": {text: textNotCounted,
-		why:        "画面そのもの（正本 条項 5）。入れ物は cobra の context にしかないので HTTP ハンドラからは届かない",
-		unrunnable: "常駐して待ち受けるので、テストから走らせられない"},
+		why: "画面そのもの（正本 条項 5）。入れ物は cobra の context にしかないので HTTP ハンドラからは届かない"},
 
 	// --- 書き込み・設定・道具の面（記録の本文を人が読む形では渡さない） ---
 	"scholia activity":               {text: textDeliversNothing, why: "git から導いた数と日付だけを出す面。記録の本文は出さない"},
@@ -209,7 +264,7 @@ var deliverySpecs = map[string]deliverySpec{
 	"scholia review rm":              {text: textDeliversNothing, why: whyWriteFace},
 	"scholia skills install":         {text: textDeliversNothing, why: whyToolFace},
 	"scholia skills ls":              {text: textDeliversNothing, why: whyNotARecord + "（配布スキルの一覧）", args: []string{}},
-	"scholia skills show":            {text: textDeliversNothing, why: whyNotARecord + "（配布スキルの本文）", args: []string{"scholia"}},
+	"scholia skills show":            {text: textDeliversNothing, why: whyNotARecord + "（配布スキルの本文）", args: []string{"evaluating-changes"}},
 	"scholia tag create":             {text: textDeliversNothing, why: whyWriteFace},
 	"scholia tag edit":               {text: textDeliversNothing, why: whyWriteFace},
 	"scholia tag rename":             {text: textDeliversNothing, why: whyWriteFace},
@@ -221,8 +276,7 @@ var deliverySpecs = map[string]deliverySpec{
 	"scholia tx rm":                  {text: textDeliversNothing, why: whyWriteFace},
 	"scholia tx tag":                 {text: textDeliversNothing, why: whyWriteFace},
 	"scholia update": {text: textDeliversNothing,
-		why:        "自分自身の版を取り替える面で、記録を 1 件も読まない",
-		unrunnable: "網の外（GitHub）へ出るので、テストから走らせない"},
+		why: "自分自身の版を取り替える面で、記録を 1 件も読まない"},
 	"scholia version":             {text: textDeliversNothing, why: whyToolFace},
 	"scholia vocab add":           {text: textDeliversNothing, why: whyWriteFace},
 	"scholia vocab edit":          {text: textDeliversNothing, why: whyWriteFace},
@@ -274,6 +328,59 @@ usage_delivery_test.go の deliverySpecs に足すこと。
 		}
 	}
 	t.Logf("宣言を突き合わせた面: %d 個", len(surfaces))
+}
+
+// TestUsage_UnrunnableSurfacesAreClosed は、「走らせられない」と名乗れる面が
+// **閉じた集合**であり、そこに `--json` を持つ面が入っていないことを見る。
+//
+// 🔴 **差し戻し 1 回目の直しのあと、レビュアがここを抜けた**——面ごとの宣言に
+// `unrunnable: "…"` を 1 つ足すだけで、走る面が検査から丸ごと外れた（E2/E5）。
+// 欄そのものを無くしたうえで、残った集合にも 2 つの条件を課す:
+//
+//   - 実在する面であること（消えた面の宣言が残らない）
+//   - **`--json` を持たないこと**——`--json` を持つ面は `--json` の照合で必ず走るので、
+//     「走らせられない」は成り立たない。**E5 はこの条件で塞がる。**
+func TestUsage_UnrunnableSurfacesAreClosed(t *testing.T) {
+	surfaces := map[string]bool{}
+	for _, s := range usageRunnableSurfaces() {
+		surfaces[s] = true
+	}
+	jsonFaces := map[string]bool{}
+	for _, f := range discoverJSONFaces(t) {
+		jsonFaces["scholia "+f] = true
+	}
+	if len(jsonFaces) == 0 {
+		t.Fatal("`--json` の面を 1 つも拾えていない（この検査は何も見ていない）")
+	}
+	if got := sortedKeys(unrunnableSurfaces); !equalIDs(got, unrunnableSurfacesPinned) {
+		t.Errorf(`「走らせられない」と名乗る面が留め金と違う
+ いま: %v
+ 留め金: %v
+——増やすなら、その面が `+"`--json`"+` を持たないこと・本当に走らせられないこと・
+外した面がこの歯止めの外に出ることを承知していることを確かめて、留め金も直すこと。`, got, unrunnableSurfacesPinned)
+	}
+	for face, why := range unrunnableSurfaces {
+		if !surfaces[face] {
+			t.Errorf("unrunnableSurfaces に載っている %q は実在しない", face)
+		}
+		if why == "" {
+			t.Errorf("%q に理由が無い（何が走らせられないのかを書くこと）", face)
+		}
+		if jsonFaces[face] {
+			t.Errorf(`%q は `+"`--json`"+` を持つ。**`+"`--json`"+` を持つ面は「走らせられない」と名乗れない**
+——その面は `+"`--json`"+` の照合で必ず走っているので、人が読む面だけ走らせられない理由が無い。`, face)
+		}
+	}
+	t.Logf("走らせない面: %d 個（%v）", len(unrunnableSurfaces), sortedKeys(unrunnableSurfaces))
+}
+
+func sortedKeys(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // ---------------------------------------------------------------------------
@@ -475,9 +582,9 @@ func TestUsage_TextFacesDeliverWhatTheyDeclare(t *testing.T) {
 	checked, skipped := 0, 0
 	for _, face := range usageRunnableSurfaces() {
 		spec := deliverySpecs[face]
-		if spec.unrunnable != "" {
+		if why, ok := unrunnableSurfaces[face]; ok {
 			skipped++
-			t.Logf("%s は走らせない: %s", face, spec.unrunnable)
+			t.Logf("%s は走らせない: %s", face, why)
 			continue
 		}
 		short := strings.TrimPrefix(face, "scholia ")
@@ -491,8 +598,12 @@ func TestUsage_TextFacesDeliverWhatTheyDeclare(t *testing.T) {
 			base := append(strings.Fields(short), ids.resolve(extra)...)
 
 			stdoutText, gotText, err := runWithDelivery(t, dir, base...)
+			// 🔴 **成り立たない引き方を素通りさせない。** 失敗した起動は出力が空になるので、
+			// 「本文を出していない」検査も「渡した集合」の照合も**素通りする**
+			// ——引き方を壊すだけで緑にできる、もう 1 つの安い抜け道になる。
 			if err != nil {
-				t.Logf("人が読む面が成り立たなかった（%v）。記録は %v", err, gotText)
+				t.Fatalf("人が読む面が走らない: %v\n引き方: %v\n"+
+					"（走らせられない面は unrunnableSurfaces に置く。ただし `--json` を持つ面は置けない）", err, base)
 			}
 			checked++
 
@@ -532,7 +643,12 @@ func TestUsage_TextFacesDeliverWhatTheyDeclare(t *testing.T) {
  期待: %v（`+"`--json`"+` の %v から種類 %v を落としたもの）`, gotText, want, gotJSON, spec.withholds)
 			}
 			// 記録した集合の外にある記録の本文が、人が読む出力に丸ごと出ていないこと。
-			assertNoUnexpectedBodyInText(t, stdoutText, want, recordBodies(t, dir2))
+			bodies := recordBodies(t, dir2)
+			assertNoUnexpectedBodyInText(t, stdoutText, want, bodies)
+			// 🔴 **逆向きも見る**——渡したと記録した記録の本文は、**無加工で丸ごと**出ていること。
+			// これが無いと、本文を飾って出す面（1 行ずつ前置きを付ける等）が
+			// 「出していない」側の検査を素通りし、上の検査に歯が無くなる。
+			assertDeliveredBodiesAppearInText(t, stdoutText, want, bodies)
 		})
 	}
 	t.Logf("人が読む面を走らせた: %d 個（走らせなかった %d 個）", checked, skipped)
@@ -621,6 +737,40 @@ func assertNoUnexpectedBodyInText(t *testing.T, stdout string, delivered []strin
 記録した集合: %v
 ——出しているのに記録しないなら、この面の宣言が実物と違う。`, len([]rune(body)), owners, delivered)
 		}
+	}
+}
+
+// assertDeliveredBodiesAppearInText は、**渡したと記録した記録の本文が、無加工で丸ごと
+// 出ていること**を確かめる（探す長さの下限は上と同じ）。
+//
+// 🔴 **上の検査（出していない本文を数えない）と対で意味を持つ。**
+// 出力のバイト列を `strings.Contains` で探す形は、**本文を飾って出す面**
+// （1 行ずつ前置きを付ける等）を素通りさせる。片側だけ置くと、
+// 「飾って出す面を作れば何を出しても緑」という抜け道が残る。
+// **両側を置くと、飾った面は「渡した」と宣言した時点でこちらが落ちる。**
+//
+// ⚠️ **落ちない範囲**: 本文を 1 件も渡さないと宣言した面が、本文を飾って出す場合。
+// そこは今も探せない（file 冒頭に名乗ってある）。
+func assertDeliveredBodiesAppearInText(t *testing.T, stdout string, delivered []string, bodies map[string][]string) {
+	t.Helper()
+	owned := map[string][]string{}
+	for body, owners := range bodies {
+		for _, id := range owners {
+			owned[id] = append(owned[id], body)
+		}
+	}
+	checked := 0
+	for _, id := range delivered {
+		for _, body := range owned[id] {
+			checked++
+			if !strings.Contains(stdout, body) {
+				t.Errorf(`「渡した」と記録した %s の本文（%d 字）が、人が読む出力に丸ごと現れない。
+本文を加工して出しているなら、出していない本文を探す検査に歯が無くなる。`, id, len([]rune(body)))
+			}
+		}
+	}
+	if checked == 0 {
+		t.Logf("⚠️ この面が渡した記録には、探せる長さ（%d 字以上）の本文が無い", deliveredBodyProbeMinRunes)
 	}
 }
 

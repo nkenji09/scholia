@@ -170,7 +170,7 @@ var jsonFaceInvocations = map[string][]string{
 	"show vocab":             {"act.submit"},
 	"skills install":         {},
 	"spec":                   {"subject.core"},
-	"tag create":             {"req.new", "--name", "新要件", "--kind", "requirement", "--desc", "新要件の説明。"},
+	"tag create":             {"req.new", "--name", "新要件", "--kind", "requirement", "--desc", "新要件の説明。" + longFixtureBody("新要件")},
 	"tag edit":               {"req.a", "--name", "要件A改"},
 	"tag list":               {},
 	"tag rename":             {"req.a", "req.a2"},
@@ -182,7 +182,7 @@ var jsonFaceInvocations = map[string][]string{
 	"tx rm":                  {"T-b", "--force", "--why", "歯止めの標本で消す"},
 	"tx tag":                 {"T-b", "--add", "req.b"},
 	"version":                {},
-	"vocab add":              {"condition", "cond.new", "--label", "新しい条件", "--description", "新しい条件の説明。"},
+	"vocab add":              {"condition", "cond.new", "--label", "新しい条件", "--description", "新しい条件の説明。" + longFixtureBody("新しい条件")},
 	"vocab edit":             {"cond.valid", "--label", "前提が成り立つ（改）"},
 	"vocab owner-migrate":    {},
 	"vocab rename":           {"cond.valid", "--to", "cond.valid2"},
@@ -465,19 +465,19 @@ func seedJSONFaceFixture(t *testing.T) (string, fixtureIDs) {
 	// 数えないことで定義されている。本文が元から空だと、畳んだ出力と畳まない出力が
 	// **同じ値になる**ので、照合（usage_delivery_test.go）が畳み忘れを見分けられない。
 	must("vocab", "add", "condition", "cond.valid", "--label", "前提が成り立つ", "--description", longFixtureBody("前提が成り立つ状態"))
-	must("vocab", "add", "condition", "cond.other", "--label", "別の前提", "--description", "別の前提の説明。")
-	must("vocab", "add", "condition", "cond.unused", "--label", "どこからも参照されない前提", "--description", "参照されない前提の説明。")
-	must("vocab", "add", "action", "act.submit", "--label", "送信する", "--kind", "user", "--description", "送信するきっかけの説明。")
+	must("vocab", "add", "condition", "cond.other", "--label", "別の前提", "--description", longFixtureBody("別の前提"))
+	must("vocab", "add", "condition", "cond.unused", "--label", "どこからも参照されない前提", "--description", longFixtureBody("参照されない前提"))
+	must("vocab", "add", "action", "act.submit", "--label", "送信する", "--kind", "user", "--description", longFixtureBody("送信するきっかけ"))
 	must("vocab", "add", "effect", "eff.token", "--label", "トークンを発行する", "--kind", "state", "--owner", "server",
-		"--description", "トークンを発行する効果の説明。")
+		"--description", longFixtureBody("トークンを発行する効果"))
 
 	must("tag", "create", "subject.core", "--name", "中核", "--kind", "subject", "--desc", longFixtureBody("説明を持つ親タグ"))
 	must("tag", "create", "req.a", "--name", "要件A", "--kind", "requirement", "--parent", "subject.core",
-		"--desc", "引用符 \" と < > & を含む説明。")
+		"--desc", "引用符 \" と < > & を含む説明。"+longFixtureBody("要件A"))
 	must("tag", "create", "req.b", "--name", "要件B", "--kind", "requirement", "--parent", "subject.core",
-		"--desc", "要件Bの説明。")
+		"--desc", longFixtureBody("要件B"))
 	must("tag", "create", "concern.unused", "--name", "どこからも参照されない関心", "--kind", "concern",
-		"--desc", "参照されない関心の説明。")
+		"--desc", longFixtureBody("参照されない関心"))
 
 	must("tx", "add", "T-a", "--action", "act.submit", "--given", "cond.valid", "--then", "eff.token", "--tags", "req.a")
 	must("tx", "add", "T-b", "--action", "act.submit", "--given", "cond.other", "--then", "eff.token")
