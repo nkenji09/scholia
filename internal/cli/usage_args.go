@@ -88,6 +88,7 @@ var stringFlagSpecs = map[string]argSpec{
 	// --- レコードを指す（通常以上で値を残す） ---
 	"scholia decide --on":                {class: classRecordID, selectorFromPrefix: true},
 	"scholia decide --supersedes":        {class: classRecordID, selector: selDecision},
+	"scholia decision applied --landed":  {class: classRecordID, selector: selDecision},
 	"scholia decision link --supersedes": {class: classRecordID, selector: selDecision},
 	"scholia decision list --on":         {class: classRecordID, selectorFromPrefix: true},
 	"scholia list --tag":                 {class: classRecordID, selector: selTag},
@@ -127,6 +128,7 @@ var stringFlagSpecs = map[string]argSpec{
 	// 分類が違う——表を (コマンド, フラグ名) の組で引く理由がここにも出ている）。
 	// 列挙は model 側から引く。書き写すと種別を足したときに黙ってずれる。
 	"scholia decision add-commit --kind": {class: classToolVocab, values: []string{addCommitKindImplementation, addCommitKindCorrection}},
+	"scholia decision applied --kind":    {class: classToolVocab, values: appliedPortKinds()},
 	"scholia rules --sort":               {class: classToolVocab, values: []string{"chrono", "target"}},
 	"scholia search --type":              {class: classToolVocab, values: []string{"tag", "transition", "vocab", "decision"}},
 	"scholia decide --allow":             {class: classToolVocab, values: lintAllowValues},
@@ -229,6 +231,7 @@ var positionalSpecs = map[string]positionalSpec{
 	"scholia decide":                 {},
 	// 2 つ目以降は commit hash の並び（cobra.MinimumNArgs(2)）。
 	"scholia decision add-commit": {at: []argSpec{{class: classRecordID, selector: selDecision}, {class: classFreeText}}, variadic: true},
+	"scholia decision applied":    {at: []argSpec{{class: classRecordID, selector: selDecision}}},
 	"scholia decision link":       {at: []argSpec{{class: classRecordID, selector: selDecision}}},
 	"scholia decision list":       {},
 	"scholia decision show":       {at: []argSpec{{class: classRecordID, selector: selDecision}}},
