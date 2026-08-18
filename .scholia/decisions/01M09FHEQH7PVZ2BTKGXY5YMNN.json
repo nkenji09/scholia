@@ -14,6 +14,15 @@
     "f478d1e70b3801988def51a68f15124265cd3f90",
     "f1f04ec47d28592f5a96a9f4fdd8c05cac275261",
     "1d6d0d1b7be2a95e6b5c435edad9717f7d12ac19",
-    "14d06a5e98eaa5963fc8e7ea98a6e0e52aaf70ce"
+    "14d06a5e98eaa5963fc8e7ea98a6e0e52aaf70ce",
+    "24dcbb8ccdd5b04032886a6940484a5e2f4189fe",
+    "832305a51c80965f960653ffd1936f4eea21f7c2"
+  ],
+  "applied": [
+    {
+      "kind": "correction",
+      "at": "2026-08-18T08:52:16Z",
+      "commit": "24dcbb8ccdd5b04032886a6940484a5e2f4189fe"
+    }
   ]
 }
