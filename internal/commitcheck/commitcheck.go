@@ -40,6 +40,9 @@
 //   - ⚠️ **「その commit が本当にこの decision の実装（あるいは是正）である」
 //     ことは確かめられない。** 実在する commit なら何でも通る——無関係の commit を
 //     結ぶ変異は素通りする。ここが落とすのは「実在しない hash」だけである。
+//   - ⚠️ **16 進の名前を持つブランチ/タグが、たまたま自分の名前を接頭辞に持つ
+//     commit を指している場合**は通る。ただしそのとき保存されるのは「その名前を
+//     短縮 hash として解決した結果」と同じ commit なので、害は無い。
 //   - `.scholia/decisions/*.json` を store を通さず直接書く経路（エディタ・別ツール）。
 //     保存の口に置く歯止めはファイルシステムそのものを守れない（`scholia lint` の領分）。
 package commitcheck
@@ -86,9 +89,12 @@ const (
 // 後から変わる。ここで形を要求することで、`decide --commit HEAD` は
 // 「解決したが保存してはいけない値」として保存前に止まる。
 //
-// ⚠️ **通す側の穴を名乗る**: 16 進 7 文字の値は、偶然その名前のブランチが在れば
-// git では曖昧になりうる。その場合 Repo.Verify は git 自身の曖昧エラーで
-// VerdictMissing に倒れる（安全側）。
+// ⚠️ **形だけでは足りない。** 16 進 7〜64 文字の値は**ブランチ名やタグ名にもできる**
+// ので、`git rev-parse --verify <h>^{commit}` は **ref を先に解決する**
+// ——**曖昧エラーにはならず、exit 0 で「打った人が指していない commit」を返す**
+// （実測: `c8d45c0` という名前のブランチを別 commit へ向けると、`c8d45c0…` では
+// なくブランチの先が返った。git の警告は出ない）。だから解決したあとに
+// **前方一致を確かめる**（Repo.Resolve）。ここは形の判定だけを担う。
 func LooksLikeHash(s string) bool {
 	if len(s) < hashMinLen || len(s) > hashMaxLen {
 		return false
@@ -168,6 +174,16 @@ func (r Repo) Verify(hash string) Verdict {
 }
 
 // Resolve は1つの hash を照合し、結論と（解決したなら）完全 hash を返す。
+//
+// 🔴 **解決したものが「その hash」であることまで確かめる。** git は
+// `<名前>^{commit}` を **ref 優先**で解決するので、**16 進の名前を持つブランチ/タグが
+// 在ると、打った人が指した commit ではなくその ref の先が返る**——しかも
+// exit 0 で、警告は stderr にすら出ない（実測）。返った値をそのまま
+// `commits[]`・`applied[]` に書くと、**追記専用のフィールドに別の commit が
+// 焼き付いて後から消せない。**
+//
+// 判定は前方一致1つで足りる: hash として解決したなら完全 hash は必ず入力を
+// 接頭辞に持つ（短縮 hash の定義）。**ref として解決されたときだけ、これが破れる。**
 func (r Repo) Resolve(hash string) Result {
 	if !LooksLikeHash(hash) {
 		return Result{Hash: hash, Verdict: VerdictMalformed} // git を呼ばずに決まる
@@ -176,6 +192,11 @@ func (r Repo) Resolve(hash string) Result {
 		return Result{Hash: hash, Verdict: VerdictUnverifiable}
 	}
 	canonical := r.resolveToCommit(hash)
+	if canonical != "" && !strings.HasPrefix(canonical, strings.ToLower(hash)) {
+		// ref として解決された（16 進の名前を持つブランチ/タグ）。
+		// **通さない。** 打った人が指した commit は、この repo には無い。
+		return Result{Hash: hash, Verdict: VerdictMissing}
+	}
 	return Result{Hash: hash, Verdict: Classify(hash, true, canonical != ""), Canonical: canonical}
 }
 
@@ -224,10 +245,14 @@ type RejectError struct {
 
 func (e *RejectError) Error() string {
 	var lines []string
+	// 同じ値は1回だけ言う。commits[] と applied[] の両方に同じ hash が載る
+	// 呼び出し（`add-commit --kind correction`）で、同じ文が2回出ていた。
+	said := make(map[string]bool, len(e.Results))
 	for _, res := range e.Results {
-		if !res.Verdict.Rejects() {
+		if !res.Verdict.Rejects() || said[res.Hash] {
 			continue
 		}
+		said[res.Hash] = true
 		switch res.Verdict {
 		case VerdictMalformed:
 			lines = append(lines, fmt.Sprintf("%q は git の commit hash の形をしていません（16 進 %d〜%d 文字。ブランチ名や HEAD は使えません——保存されるのは後から動かない値である必要があります）",

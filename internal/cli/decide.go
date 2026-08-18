@@ -121,7 +121,7 @@ func newDecideCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			advisories = append(advisories, commitVerifyAdvisories(repo, len(d.Commits))...)
+			advisories = append(advisories, lint.CommitUnverifiedAdvisories(repo.Managed(), len(d.Commits))...)
 
 			if asJSON {
 				return emitWriteJSON(cmd, saved, advisories, allowed, false)

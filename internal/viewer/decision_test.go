@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nkenji09/scholia/internal/lint"
 	"github.com/nkenji09/scholia/internal/model"
 	"github.com/nkenji09/scholia/internal/store"
 )
@@ -370,4 +371,74 @@ func countDecisionFiles(t *testing.T, s *store.Store) int {
 		t.Fatalf("read decisions dir: %v", err)
 	}
 	return len(entries)
+}
+
+// 🔴 **viewer の面も「実在は照合していない」を名乗る**（クリーンルームレビュー 指摘③）。
+//
+// この面は body で `commits` を受け取れる。載せないと「advisory を運ぶ封筒を
+// 持っているのに名乗らない面」が1つ残り、判定を1つの関数に寄せた意味が消える。
+//
+// ⚠️ この標本は git 管理下ではないので、照合できない枝を通る。
+func TestPostDecision_CommitUnverifiedAdvisory(t *testing.T) {
+	h, _ := newTestHandler(t)
+
+	rec := doRequest(t, h, http.MethodPost, "/api/decision",
+		[]byte(`{"on":"transition:T-login","why":"# テスト用の見出し\n\n本文","commits":["aaa1111"]}`))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201: %s", rec.Code, rec.Body.String())
+	}
+	got := decodeJSON[struct {
+		Advisories []struct {
+			Rule    string `json:"rule"`
+			Message string `json:"message"`
+		} `json:"advisories"`
+	}](t, rec)
+	var found bool
+	for _, a := range got.Advisories {
+		if a.Rule == lint.RuleCommitUnverified {
+			found = true
+			if !strings.Contains(a.Message, "照合していません") {
+				t.Errorf("文言が読めない: %q", a.Message)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("commit-unverified advisory が出るべき（素通りと見分けがつかない）: %s", rec.Body.String())
+	}
+
+	// commits を渡さない呼び出しでは言わない（何について言われているのか読めなくなる）。
+	rec = doRequest(t, h, http.MethodPost, "/api/decision",
+		[]byte(`{"on":"transition:T-login","why":"# テスト用の見出し 2\n\n本文","commits":[]}`))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201: %s", rec.Code, rec.Body.String())
+	}
+	got = decodeJSON[struct {
+		Advisories []struct {
+			Rule    string `json:"rule"`
+			Message string `json:"message"`
+		} `json:"advisories"`
+	}](t, rec)
+	for _, a := range got.Advisories {
+		if a.Rule == lint.RuleCommitUnverified {
+			t.Fatalf("結ぶ commit が無いのに名乗っている: %s", rec.Body.String())
+		}
+	}
+}
+
+// この advisory は acknowledges で畳む対象ではない（指摘②）。
+// AcknowledgeOnly を立てると、それを読んだ AI が acknowledges に書き——
+// dangling-acknowledges が出て、acknowledges[] は追記専用なので永久に消えない。
+func TestCommitUnverifiedIsNotAcknowledgeOnly(t *testing.T) {
+	got := lint.CommitUnverifiedAdvisories(false, 1)
+	if len(got) != 1 {
+		t.Fatalf("1件出るべき: %+v", got)
+	}
+	if got[0].AcknowledgeOnly {
+		t.Error("acknowledgeOnly を立ててはいけない（acknowledges で畳む対象ではない）")
+	}
+	// rule id は lint の規則一覧に**入っていない**（全走査で判定できないため）。
+	// だから acknowledges に書くと宙吊りになる——立てない理由そのもの。
+	if lint.ValidRuleIDs()[lint.RuleCommitUnverified] {
+		t.Error("Rules に登録してはいけない（保存時の事実で、全走査では判定できない）")
+	}
 }

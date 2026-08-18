@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/nkenji09/scholia/internal/gittest"
+	"github.com/nkenji09/scholia/internal/lint"
 	"github.com/nkenji09/scholia/internal/model"
 )
 
@@ -377,7 +378,7 @@ func TestCommitVerifyNoticeAppearsOnBothFaces(t *testing.T) {
 		}
 		found := false
 		for _, a := range env.Advisories {
-			if a.Rule == RuleCommitUnverified {
+			if a.Rule == lint.RuleCommitUnverified {
 				found = true
 				if !strings.Contains(a.Message, "照合していません") {
 					t.Errorf("文言が読めない: %q", a.Message)
@@ -386,7 +387,7 @@ func TestCommitVerifyNoticeAppearsOnBothFaces(t *testing.T) {
 		}
 		if !found {
 			t.Fatalf("`--json` の封筒に %q の advisory が無い（素通りと見分けがつかない）:\n%s",
-				RuleCommitUnverified, out)
+				lint.RuleCommitUnverified, out)
 		}
 	})
 
@@ -396,7 +397,7 @@ func TestCommitVerifyNoticeAppearsOnBothFaces(t *testing.T) {
 		if err != nil {
 			t.Fatalf("decide --json: %v\n%s", err, out)
 		}
-		if !strings.Contains(out, RuleCommitUnverified) {
+		if !strings.Contains(out, lint.RuleCommitUnverified) {
 			t.Fatalf("decide の `--json` にも名乗りが要る:\n%s", out)
 		}
 	})
@@ -409,7 +410,7 @@ func TestCommitVerifyNoticeSilentUnderGit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("add-commit --json: %v\n%s", err, out)
 	}
-	if strings.Contains(out, RuleCommitUnverified) {
+	if strings.Contains(out, lint.RuleCommitUnverified) {
 		t.Fatalf("照合できたのに名乗っている（狼少年になる）:\n%s", out)
 	}
 }

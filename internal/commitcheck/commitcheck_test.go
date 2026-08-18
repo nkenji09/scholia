@@ -230,3 +230,95 @@ func asReject(err error, target **RejectError) bool {
 	}
 	return ok
 }
+
+// 🔴 **16 進の名前を持つブランチ/タグは通さない**（クリーンルームレビュー 指摘①）。
+//
+// git は `<名前>^{commit}` を **ref 優先**で解決するので、`c8d45c0` という名前の
+// ブランチが在ると、**打った人が指した commit ではなくブランチの先が exit 0 で返る**
+// （警告も出ない）。それをそのまま保存すると、**追記専用のフィールドに別の commit が
+// 焼き付いて後から消せない。**
+//
+// **落ちる:** ref として解決されたとき（前方一致が破れる）。
+// **落ちない:** その ref がたまたま自分の名前を接頭辞に持つ commit を指しているとき
+// ——そのとき保存される値は「短縮 hash として解決した結果」と同じなので害が無い。
+func TestRepoResolve_RejectsHexNamedRef(t *testing.T) {
+	dir, first := seedRepo(t)
+	// 2つ目の commit を作る。
+	if err := os.WriteFile(filepath.Join(dir, "b.txt"), []byte("b\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitT(t, dir, "add", "-A")
+	gitT(t, dir, "commit", "-q", "-m", "second")
+	second := gitT(t, dir, "rev-parse", "HEAD")
+	if first == second {
+		t.Fatal("2つ目の commit が作れていない")
+	}
+
+	// **1つ目の commit の短縮 hash を名前にしたブランチ**を、2つ目へ向ける。
+	shortOfFirst := first[:7]
+	gitT(t, dir, "branch", shortOfFirst, second)
+
+	repo := Open(dir)
+
+	// git 自身は ref を先に解決する（この検査が何を相手にしているかの実測）。
+	if got := gitT(t, dir, "rev-parse", "--verify", "--quiet", shortOfFirst+"^{commit}"); got != second {
+		t.Fatalf("前提が崩れている（git が ref を優先していない）: %s", got)
+	}
+
+	// 🔴 それでも scholia は通さない。
+	res := repo.Resolve(shortOfFirst)
+	if res.Verdict != VerdictMissing {
+		t.Fatalf("16 進の名前を持つ ref は通してはいけない: %+v", res)
+	}
+	if res.Canonical != "" {
+		t.Fatalf("通さないのに完全 hash を返してはいけない: %+v", res)
+	}
+	if err := repo.Check([]string{shortOfFirst}); err == nil {
+		t.Fatal("保存前に止めるべき")
+	}
+
+	// ⚠️ 同じ名前でも、**その ref が自分の名前を接頭辞に持つ commit を指しているなら**
+	// 通る（保存される値は短縮 hash として解決した結果と同じ＝害が無い）。
+	shortOfSecond := second[:7]
+	gitT(t, dir, "branch", shortOfSecond, second)
+	if res := repo.Resolve(shortOfSecond); res.Verdict != VerdictExists || res.Canonical != second {
+		t.Fatalf("接頭辞が一致するなら通してよい: %+v", res)
+	}
+
+	// 大文字で打っても同じ（git は大文字 16 進も受ける・出力は小文字）。
+	if res := repo.Resolve(strings.ToUpper(second[:10])); res.Verdict != VerdictExists || res.Canonical != second {
+		t.Fatalf("大文字の短縮 hash は通るべき: %+v", res)
+	}
+}
+
+// タグでも同じ（annotated tag は `^{commit}` で peel されるので、なお通しやすい）。
+func TestRepoResolve_RejectsHexNamedTag(t *testing.T) {
+	dir, first := seedRepo(t)
+	if err := os.WriteFile(filepath.Join(dir, "b.txt"), []byte("b\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitT(t, dir, "add", "-A")
+	gitT(t, dir, "commit", "-q", "-m", "second")
+	second := gitT(t, dir, "rev-parse", "HEAD")
+
+	gitT(t, dir, "tag", "-a", first[:8], "-m", "annotated", second)
+
+	if res := Open(dir).Resolve(first[:8]); res.Verdict != VerdictMissing {
+		t.Fatalf("16 進の名前を持つ tag は通してはいけない: %+v", res)
+	}
+}
+
+// 止める文言は、同じ値について1回だけ言う。
+// `add-commit --kind correction` は commits[] と applied[] の両方に同じ hash を
+// 載せるので、畳まないと同じ文が2回出る（実測で出た）。
+func TestRejectErrorSaysEachValueOnce(t *testing.T) {
+	dir, _ := seedRepo(t)
+	repo := Open(dir)
+	err := repo.Check([]string{"これはハッシュではない", "これはハッシュではない"})
+	if err == nil {
+		t.Fatal("止めるべき")
+	}
+	if n := strings.Count(err.Error(), "これはハッシュではない"); n != 1 {
+		t.Fatalf("同じ値は1回だけ言うべき（%d 回出た）: %s", n, err)
+	}
+}

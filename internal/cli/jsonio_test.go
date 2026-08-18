@@ -130,6 +130,11 @@ const (
 	// 実際に効く。**架空の hash を書くとこの面は 1 度も走らなくなる**
 	// （01M09FHEQH7PVZ2BTKGXY5YMNN）——標本が作った HEAD に差し替える。
 	placeholderHeadHash = "<head-hash>"
+	// 🔴 **短縮 hash を渡す引き方をわざと1つ持つ。** 保存の口は結ぶ commit を
+	// 完全 hash へ寄せるので、**短縮で渡したときだけ「渡した値」と「保存された値」が
+	// 食い違う。** 完全 hash しか渡さないと、面が保存前の値を出す変異を
+	// TestJSONWriteFacesEmitTheSavedDecision が検出できない（実測で緑のまま通った）。
+	placeholderShortHash = "<head-short>"
 )
 
 // jsonFaceInvocations は面ごとの引き方（コマンド列と `--json` は含まない）。
@@ -143,8 +148,8 @@ var jsonFaceInvocations = map[string][]string{
 	"config get":             {},
 	"config infer-id-policy": {},
 	"config set":             {"tagKinds", "requirement,concern,subject,axis"},
-	"decide":                 {"--on", "tag:req.b", "--why", "# 見出し\n\n本文。"},
-	"decision add-commit":    {placeholderDecisionID, placeholderHeadHash, "--kind", "implementation"},
+	"decide":                 {"--on", "tag:req.b", "--why", "# 見出し\n\n本文。", "--commit", placeholderShortHash},
+	"decision add-commit":    {placeholderDecisionID, placeholderShortHash, "--kind", "implementation"},
 	"decision applied":       {placeholderDecisionID, "--kind", "conflict"},
 	"decision link":          {placeholderDecisionID, "--supersedes", placeholderOldDecisionID},
 	"decision list":          {},
@@ -427,6 +432,8 @@ func (ids fixtureIDs) resolve(args []string) []string {
 			out[i] = ids.review
 		case placeholderHeadHash:
 			out[i] = ids.headHash
+		case placeholderShortHash:
+			out[i] = ids.headHash[:8]
 		default:
 			out[i] = a
 		}
