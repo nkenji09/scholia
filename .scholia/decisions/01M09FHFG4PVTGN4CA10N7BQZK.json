@@ -8,7 +8,8 @@
   "at": "2026-08-18T03:44:46Z",
   "commits": [
     "13e9977fe6a619b2c9e67586c1dec017ff24b6ed",
-    "e5c0358132a34c733944162a9eae7bd09f3a0ef2"
+    "e5c0358132a34c733944162a9eae7bd09f3a0ef2",
+    "02b6caf5f2f34349508093002b964a5a73a86933"
   ],
   "supersedes": [
     {
@@ -21,6 +22,11 @@
       "kind": "correction",
       "at": "2026-08-18T10:20:48Z",
       "commit": "e5c0358132a34c733944162a9eae7bd09f3a0ef2"
+    },
+    {
+      "kind": "correction",
+      "at": "2026-08-18T11:25:09Z",
+      "commit": "02b6caf5f2f34349508093002b964a5a73a86933"
     }
   ]
 }
