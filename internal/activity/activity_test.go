@@ -222,6 +222,37 @@ func TestCompute_WindowBoundary_HalfOpen(t *testing.T) {
 	}
 }
 
+// TestCompute_WindowBoundary_FractionalUntilIncludesJustBeforeSecond は
+// smoke test で実見した回帰——until が端数秒を持つ（time.Now() 由来で普通に
+// 起きる）とき、「1 秒引いてから RFC3339 整形（＝端数を切り捨て）」だと二重に
+// ズレて until 未満のはずの commit まで落ちる。commit は秒精度なので、
+// until=32.24 なら 32 ちょうどの commit は含まれるべき（32 < 32.24）。
+//
+// 実際に踏んだ筋書き: `scholia init` 直後に `scholia activity` を打つと、
+// 両方の commit が同じ秒に収まることがあり、実装 commit が 0 件と出た
+// （本来 1 件のはず）。単体検査がここまで通っていたのは、それまでの検査が
+// 端数秒ゼロの until しか使っていなかったため。
+func TestCompute_WindowBoundary_FractionalUntilIncludesJustBeforeSecond(t *testing.T) {
+	r := newActRepo(t)
+	commitSecond := mustTime(t, "2020-01-01T12:00:32+09:00")
+	until := commitSecond.Add(241925000) // 2020-01-01T12:00:32.241925+09:00（端数秒あり）
+
+	r.write("a.txt", "1")
+	r.commitAt("exactly at the whole second just before the fractional until", commitSecond)
+
+	rep, err := Compute(Options{
+		GitRoot: r.dir, StoreDirName: ".scholia",
+		Window: Window{Since: commitSecond.Add(-time.Hour), Until: until},
+		Loc:    time.UTC, Now: until,
+	})
+	if err != nil {
+		t.Fatalf("Compute: %v", err)
+	}
+	if rep.ImplCommits != 1 {
+		t.Errorf("ImplCommits = %d, want 1（%s の commit は until=%s より前）", rep.ImplCommits, commitSecond, until)
+	}
+}
+
 // TestCompute_Shallow_WithholdsNumbers は歯止め1（浅い clone を休眠と言わない）
 // を検査する。full clone では実装活動が出るのに、同じ履歴を depth 1 で
 // shallow clone すると Shallow=true になり、git 由来の数を一切埋めないことを見る。

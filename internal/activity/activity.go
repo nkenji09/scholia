@@ -215,10 +215,18 @@ const fieldSep = "\x1f"
 // （実測済みの罠・count2.sh v1 の bug）。
 //
 // ⚠️ git の --since/--until は両端とも含む（実測済み: ちょうど --until の時刻の
-// commit も出る）。半開区間 [since, until) にするため、--until へ渡す値だけ 1 秒
-// 引く（commit の日時は秒精度なので 1 秒引けば「until の1つ前の秒まで含む」に
-// なり、次の窓の --since=until と重複しない）。表示用の Report.Until は元の値の
-// ままで、ここでのズラしは git への問い合わせにだけ効く。
+// commit も出る）。半開区間 [since, until) にするため、--until へ渡す値は
+// 「until より真に小さい、最大の秒」に切り詰める（commit の日時は秒精度なので）。
+// これは `until を 1 秒引いてから RFC3339 整形（＝端数秒を切り捨て）`とは違う
+// ——実測: Now() 由来の until（例 04:33:32.24）に「1 秒引いてから切り捨て」を
+// 適用すると 04:33:31 になり、04:33:32 ちょうどの commit（実際には until より
+// 前）まで巻き込んで落としてしまった（scholia init 直後に scholia activity を
+// 打つ smoke test で実見。単体検査が使っていた「端数秒ゼロの until」では
+// 再現しなかった）。正しくは「1 ナノ秒引いてから秒に切り捨てる」
+// （floor(until − ε)）——端数が有る until（32.24）は 32 に切り詰まり
+// （32 の commit は正しく含む）、端数が無い until（32.00 ちょうど）は 31 に
+// 切り詰まる（32 ちょうどの commit を正しく除く）。表示用の Report.Until は
+// 元の値のままで、ここでのズラしは git への問い合わせにだけ効く。
 //
 // ⚠️ --since は素の形だと「commit 日時が単調減少している」前提の早期打ち切りを
 // 持つ——HEAD から遡る途中で --since より古い commit に当たった時点で、それより
@@ -231,9 +239,10 @@ const fieldSep = "\x1f"
 // commit がまだ窓に入り得るため打ち切れない・実測: --until-as-filter という
 // フラグ自体が無い＝git 側もこの罠が --since 側だけだと扱っている）。
 func windowCommits(gitRoot, rootSpec string, since, until time.Time) ([]rawCommit, error) {
+	untilFloor := until.Add(-time.Nanosecond).Truncate(time.Second)
 	cmd := exec.Command("git", "-C", gitRoot, "log", "--no-merges",
 		"--since-as-filter="+since.Format(time.RFC3339),
-		"--until="+until.Add(-time.Second).Format(time.RFC3339),
+		"--until="+untilFloor.Format(time.RFC3339),
 		"--format="+commitHeaderMark+"%H"+fieldSep+"%cI",
 		"--name-only",
 		"--", rootSpec)
