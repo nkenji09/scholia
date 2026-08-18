@@ -1,0 +1,7 @@
+{
+  "id": "eff.log.activity-disclose-not-git-managed",
+  "category": "effect",
+  "label": "git 管理下ではないことを名乗り、実装活動の数を出さない",
+  "kind": "log",
+  "owner": "subject.cli"
+}

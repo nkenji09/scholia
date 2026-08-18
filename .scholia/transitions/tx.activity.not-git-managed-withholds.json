@@ -1,0 +1,15 @@
+{
+  "id": "tx.activity.not-git-managed-withholds",
+  "action": "act.user.activity-run",
+  "given": [
+    "cond.activity-not-git-managed"
+  ],
+  "then": [
+    "eff.log.activity-disclose-not-git-managed",
+    "eff.state.activity-withhold-numbers"
+  ],
+  "tags": [
+    "req.practice-observability",
+    "subject.cli"
+  ]
+}
