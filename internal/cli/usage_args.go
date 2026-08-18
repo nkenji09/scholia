@@ -137,6 +137,8 @@ var stringFlagSpecs = map[string]argSpec{
 	// ⚠️ kind / facet / owner は config が宣言する集合＝**プロジェクトが名付けたもの**なので、
 	// 道具の側の語彙ではない。値は残さず、選択子の種類だけ名乗る。
 	"scholia --dir":                          {class: classFreeText},
+	"scholia activity --since":               {class: classFreeText},
+	"scholia activity --until":               {class: classFreeText},
 	"scholia decide --acknowledges":          {class: classFreeText},
 	"scholia decide --changed":               {class: classFreeText},
 	"scholia decide --commit":                {class: classFreeText},
@@ -215,6 +217,7 @@ type positionalSpec struct {
 // TestUsage_EveryRunnableSurfaceIsClassified が未分類の面を落とす
 // （CLAUDE.md 5: 新しく作った面には、ガードを置き忘れる）。
 var positionalSpecs = map[string]positionalSpec{
+	"scholia activity":               {},
 	"scholia config get":             {at: []argSpec{{class: classFreeText}}},
 	"scholia config infer-id-policy": {},
 	"scholia config set":             {at: []argSpec{{class: classFreeText}, {class: classFreeText}}},

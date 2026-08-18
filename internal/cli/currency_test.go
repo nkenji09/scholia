@@ -672,6 +672,9 @@ noDecisionBodyRunnable にも足して**実測に変える**こと。
 // **いま渡した本文をそのまま反響する**が、それは既存の規則の開示ではない。
 // ここで見るのは「**store にある他の decision の本文を読み手へ渡すか**」である。
 var surfacesNoDecisionBody = []string{
+	// git 由来の数（窓・commit数・decision数）しか出さない。store にある decision の
+	// why/changed は一切読まない（snap.Decisions からは at しか使わない）。
+	"scholia activity",
 	"scholia init",
 	"scholia lint",
 	"scholia lint baseline update",
@@ -755,6 +758,10 @@ var runnableSurfaces = map[string][]string{
 	"scholia show vocab":    {"show", "vocab", "act.user.submit-login"},
 	"scholia export":        {"export", "--html", "%OUT%"},
 	// --- decision 本文を出さない面 ---
+	// この fixture は git 管理下に無い（setupAuthFixture が git init しない）ので
+	// 「git 管理下ではありません」の開示だけを返す枝を実測することになる。
+	// これも decision 本文を出さない枝の1つとして正しい実測である。
+	"scholia activity":    {"activity"},
 	"scholia lint":        {"lint"},
 	"scholia retrofit":    {"retrofit"},
 	"scholia list":        {"list"},
