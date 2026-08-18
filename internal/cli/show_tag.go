@@ -28,6 +28,10 @@ func newShowTagCmd() *cobra.Command {
 				return emitJSON(cmd, t)
 			}
 
+			// 人が読む面も description を全文で出す（下の t.Description）。
+			// noteDelivered は本文が空なら何も積まない——出す側の条件と一致する。
+			noteDelivered(cmd, t)
+
 			out := cmd.OutOrStdout()
 			fmt.Fprintf(out, "id: %s\n", t.ID)
 			fmt.Fprintf(out, "name: %s\n", t.Name)

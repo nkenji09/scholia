@@ -206,13 +206,23 @@ func (v currencyView) partition(decisions []model.Decision, showAll bool) (bodie
 
 // decisionSplitter は currencyView を render.DecisionSplitter として渡すための
 // 薄い接続。判断（何を畳むか）は currencyView 側にあり、ここは向きを合わせるだけ。
+// deliver は「本文側へ回した decision」を計測へ申告する先（nil なら申告しない）。
+// **人が読む面のためにある**——`--json` の面は出力口が同じ判定を通すので設定しない。
 type decisionSplitter struct {
-	view currencyView
-	all  bool
+	view    currencyView
+	all     bool
+	deliver *deliveryLog
 }
 
 func (s decisionSplitter) SplitDecisions(d []model.Decision) ([]model.Decision, []model.Decision) {
-	return s.view.partition(d, s.all)
+	bodies, withdrawn := s.view.partition(d, s.all)
+	if s.deliver == nil {
+		return bodies, withdrawn // 計測オフ（＝入れ物が無い）ときは 1 行も余計に走らせない
+	}
+	for _, r := range deliveredRecords(bodies) {
+		s.deliver.note(r.id)
+	}
+	return bodies, withdrawn
 }
 
 func (s decisionSplitter) WriteWithdrawn(w io.Writer, withdrawn []model.Decision, indent string) {

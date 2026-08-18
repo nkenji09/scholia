@@ -55,6 +55,9 @@ func newShowTxCmd() *cobra.Command {
 			if asJSON {
 				return emitJSON(cmd, view)
 			}
+			// 遷移は自由文の欄を持たず、人が読む面も id・action・given・then・tags・
+			// priority を全部書く＝レコードの全部が渡る。
+			noteDelivered(cmd, t)
 			printTxView(cmd, view, resolve)
 			return nil
 		},

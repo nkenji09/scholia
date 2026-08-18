@@ -44,6 +44,17 @@ const (
 	FieldRecordIDs
 	// FieldProjectRoot はプロジェクトルート。
 	FieldProjectRoot
+	// FieldDeliveredIDs は、その起動で**本文が渡った**記録の id
+	// （01M09FHFG4PVTGN4CA10N7BQZK）。
+	//
+	// ⚠️ **「呼び出しが名指しした id」（FieldRecordIDs）とは別物である。**
+	// あちらは入力の側、こちらは出力の側で、規則の一覧のように「全件を走査してから
+	// 絞る」引き方では両者が大きく食い違う。
+	//
+	// 索引に id と名前だけが並んだもの、断片（切り詰めた why・検索の抜粋）は入れない。
+	// 一括で全件の本文を渡す引き方は**行には数え**、除外するかは集計するときに決める
+	// （行には command と flagNames が既にある）。
+	FieldDeliveredIDs
 
 	// --- 詳細のみ（その 1 回の呼び出しの形と、量の内訳） ---
 
@@ -76,6 +87,7 @@ func AllFields() []Field {
 		FieldToolVersion,
 		FieldRecordIDs,
 		FieldProjectRoot,
+		FieldDeliveredIDs,
 		FieldFlagValues,
 		FieldFreeTextLens,
 		FieldStderrBytes,
@@ -99,6 +111,7 @@ var fieldKeys = map[Field]string{
 	FieldToolVersion:   "toolVersion",
 	FieldRecordIDs:     "recordIds",
 	FieldProjectRoot:   "projectRoot",
+	FieldDeliveredIDs:  "deliveredIds",
 	FieldFlagValues:    "flagValues",
 	FieldFreeTextLens:  "freeTextLens",
 	FieldStderrBytes:   "stderrBytes",
@@ -114,8 +127,9 @@ func (f Field) Key() string { return fieldKeys[f] }
 // 「Records(Masked, f) ならば !namesProject[f]」という性質で検査でき、
 // 片方だけを書き換えれば検査が落ちる。
 var namesProject = map[Field]bool{
-	FieldRecordIDs:   true, // レコード id はプロジェクトが名付けたもの
-	FieldProjectRoot: true, // パスにプロジェクト名が入る
+	FieldRecordIDs:    true, // レコード id はプロジェクトが名付けたもの
+	FieldProjectRoot:  true, // パスにプロジェクト名が入る
+	FieldDeliveredIDs: true, // 同上（渡った側のレコード id）
 
 	// 詳細の 4 項目は、通常（＝プロジェクトを名指しする段）の上にしか立たない。
 	// flagValues は選択子の値（レコード id）を含みうるし、freeTextLens は
@@ -154,7 +168,8 @@ func Records(l Level, f Field) bool {
 		FieldToolVersion:
 		return l >= Masked
 	case FieldRecordIDs,
-		FieldProjectRoot:
+		FieldProjectRoot,
+		FieldDeliveredIDs:
 		return l >= Normal
 	case FieldFlagValues,
 		FieldFreeTextLens,

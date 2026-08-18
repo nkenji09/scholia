@@ -50,12 +50,29 @@ import (
 //
 // **整形しない**（条項1）。欄も、順序も、値も変えない——空白だけが無い。
 func emitJSON(cmd *cobra.Command, v any) error {
-	return emitJSONTo(cmd.OutOrStdout(), v)
+	return emitJSONTo(deliveryLogFrom(cmd), cmd.OutOrStdout(), v)
 }
 
 // emitJSONTo は書き先を直に渡す形。`tag list` のように cobra.Command ではなく
 // io.Writer を持ち回る経路のためにある（同じ 1 つの口を通る）。
-func emitJSONTo(w io.Writer, v any) error {
+//
+// 🔴 **計測の「本文が渡った記録」も、この 1 つの口で積む**
+// （01M09FHFG4PVTGN4CA10N7BQZK）。面ごとに申告させないのは、
+// **新しい `--json` の面が配線を忘れられない**ようにするためである
+// ——口が 1 つである以上、ここを通れば必ず積まれる。
+// d が nil（＝計測オフ）のときは 1 行も余計に走らない。
+//
+// ⚠️ **初版はここで「書くバイト列に本文が現れるか」を確かめていた。** その確かめは
+// 部分文字列の一致だったので、**本文が 1 文字も違わない 2 件を区別できず**、
+// 出力に 1 バイトも出ていない側まで数えた（差し戻し 1 回目）。
+// いまは判定の側（deliveredRecords）が**外側の欄に覆われた埋め込みの欄を歩かない**ので、
+// 出ない値がそもそも候補にならない。**確かめは要らず、`--json` を 2 度組み立てることも無い。**
+func emitJSONTo(d *deliveryLog, w io.Writer, v any) error {
+	if d != nil {
+		for _, r := range deliveredRecords(v) {
+			d.note(r.id)
+		}
+	}
 	if spy := jsonEmitSpy; spy != nil {
 		var seen bytes.Buffer
 		defer func() { spy(seen.Bytes()) }()

@@ -180,7 +180,7 @@ var jsonFaceInvocations = map[string][]string{
 	"show vocab":             {"act.submit"},
 	"skills install":         {},
 	"spec":                   {"subject.core"},
-	"tag create":             {"req.new", "--name", "新要件", "--kind", "requirement"},
+	"tag create":             {"req.new", "--name", "新要件", "--kind", "requirement", "--desc", "新要件の説明。" + longFixtureBody("新要件")},
 	"tag edit":               {"req.a", "--name", "要件A改"},
 	"tag list":               {},
 	"tag rename":             {"req.a", "req.a2"},
@@ -192,7 +192,7 @@ var jsonFaceInvocations = map[string][]string{
 	"tx rm":                  {"T-b", "--force", "--why", "歯止めの標本で消す"},
 	"tx tag":                 {"T-b", "--add", "req.b"},
 	"version":                {},
-	"vocab add":              {"condition", "cond.new", "--label", "新しい条件"},
+	"vocab add":              {"condition", "cond.new", "--label", "新しい条件", "--description", "新しい条件の説明。" + longFixtureBody("新しい条件")},
 	"vocab edit":             {"cond.valid", "--label", "前提が成り立つ（改）"},
 	"vocab owner-migrate":    {},
 	"vocab rename":           {"cond.valid", "--to", "cond.valid2"},
@@ -441,6 +441,21 @@ func (ids fixtureIDs) resolve(args []string) []string {
 	return out
 }
 
+// supersededTwinWhy は「本文が 1 文字も違わない 2 件」（片方は取り下げ）の本文。
+//
+// ⚠️ **要約の面が切り詰める長さ（`decision list` は 100 字）より長くしてある。**
+// 短いと、要約の面がそのまま全文を出してしまい、「人が読む面は本文を渡さない」を
+// 値で確かめる検査（usage_delivery_test.go）が偽の赤を出す。
+var supersededTwinWhy = longFixtureBody("置き換えの前後で 1 文字も違わない判断")
+
+// longFixtureBody は、要約の面が切り詰める長さより確実に長い本文を作る。
+func longFixtureBody(subject string) string {
+	return "# 標本用の見出し（" + subject + "）\n\n" +
+		"この本文は、要約の面が切り詰める長さ（100 字）より長くしてある。" +
+		"人が読む面が本文を丸ごと出したかどうかを、出力のバイト列から値で確かめられるようにするためである。" +
+		"短い本文だと、要約の面が偶然そのまま全文を出してしまい、検査が偽の赤を出す。（" + subject + "）"
+}
+
 // seedJSONFaceFixture は全ての面が走れる標本を 1 つ作る（面ごとに複製して使う）。
 //
 // ⚠️ **本番の `.scholia` は 4 カテゴリ（vocab・tags・transitions・decisions）を持つ。**
@@ -460,17 +475,24 @@ func seedJSONFaceFixture(t *testing.T) (string, fixtureIDs) {
 	must("init")
 	must("config", "set", "tagKinds", "requirement,concern,subject,axis")
 
-	must("vocab", "add", "condition", "cond.valid", "--label", "前提が成り立つ")
-	must("vocab", "add", "condition", "cond.other", "--label", "別の前提")
-	must("vocab", "add", "condition", "cond.unused", "--label", "どこからも参照されない前提")
-	must("vocab", "add", "action", "act.submit", "--label", "送信する", "--kind", "user")
-	must("vocab", "add", "effect", "eff.token", "--label", "トークンを発行する", "--kind", "state", "--owner", "server")
+	// ⚠️ **標本のタグ・語彙には必ず本文（description）を持たせる。**
+	// 計測の「本文が渡った記録」は、畳んだ出力（本文の欄を空にして渡す形）を
+	// 数えないことで定義されている。本文が元から空だと、畳んだ出力と畳まない出力が
+	// **同じ値になる**ので、照合（usage_delivery_test.go）が畳み忘れを見分けられない。
+	must("vocab", "add", "condition", "cond.valid", "--label", "前提が成り立つ", "--description", longFixtureBody("前提が成り立つ状態"))
+	must("vocab", "add", "condition", "cond.other", "--label", "別の前提", "--description", longFixtureBody("別の前提"))
+	must("vocab", "add", "condition", "cond.unused", "--label", "どこからも参照されない前提", "--description", longFixtureBody("参照されない前提"))
+	must("vocab", "add", "action", "act.submit", "--label", "送信する", "--kind", "user", "--description", longFixtureBody("送信するきっかけ"))
+	must("vocab", "add", "effect", "eff.token", "--label", "トークンを発行する", "--kind", "state", "--owner", "server",
+		"--description", longFixtureBody("トークンを発行する効果"))
 
-	must("tag", "create", "subject.core", "--name", "中核", "--kind", "subject", "--desc", "説明を持つ親タグ。")
+	must("tag", "create", "subject.core", "--name", "中核", "--kind", "subject", "--desc", longFixtureBody("説明を持つ親タグ"))
 	must("tag", "create", "req.a", "--name", "要件A", "--kind", "requirement", "--parent", "subject.core",
-		"--desc", "引用符 \" と < > & を含む説明。")
-	must("tag", "create", "req.b", "--name", "要件B", "--kind", "requirement", "--parent", "subject.core")
-	must("tag", "create", "concern.unused", "--name", "どこからも参照されない関心", "--kind", "concern")
+		"--desc", "引用符 \" と < > & を含む説明。"+longFixtureBody("要件A"))
+	must("tag", "create", "req.b", "--name", "要件B", "--kind", "requirement", "--parent", "subject.core",
+		"--desc", longFixtureBody("要件B"))
+	must("tag", "create", "concern.unused", "--name", "どこからも参照されない関心", "--kind", "concern",
+		"--desc", longFixtureBody("参照されない関心"))
 
 	must("tx", "add", "T-a", "--action", "act.submit", "--given", "cond.valid", "--then", "eff.token", "--tags", "req.a")
 	must("tx", "add", "T-b", "--action", "act.submit", "--given", "cond.other", "--then", "eff.token")
@@ -480,9 +502,23 @@ func seedJSONFaceFixture(t *testing.T) (string, fixtureIDs) {
 	ids.oldDecision = extractJSONID(t, must("decide", "--on", "tag:req.a",
 		"--why", "# 標本用の見出し\n\n置き換えられる側の判断。", "--json"))
 	ids.decision = extractJSONID(t, must("decide", "--on", "transition:T-a",
-		"--why", "# 標本用の見出し 2\n\n置き換える側の判断。", "--json"))
+		"--why", supersededTwinWhy, "--json"))
 	ids.review = extractJSONID(t, must("review", "add", "--on", "tag:req.a",
 		"--body", "# 提案の見出し\n\n提案の本文。", "--json"))
+	// 🔴 **取り下げられた decision を 1 件作り、その本文を新しい側と 1 文字も違わなくする。**
+	//
+	// 取り下げが無いと「本文を渡す群と、存在だけ渡す群に分ける」枝が標本で 1 度も通らず、
+	// **畳んだ側を数える変異が緑のまま通る**（実見: `spec --json` の照合が素通りした）。
+	//
+	// さらに**本文を同一にする**のは、差し戻し 1 回目で落ちた型を標本に持たせるためである
+	// ——初版は「書くバイト列に本文が現れるか」で数える側を決めており、
+	// **本文が同じ 2 件を区別できずに、出力に 1 バイトも出ていない側まで数えた。**
+	// この 2 件が標本に無い限り、同じ型の再発は次も緑で通る。
+	must("decide", "--on", "transition:T-a", "--supersedes", ids.decision+":supersede",
+		"--why", supersededTwinWhy)
+	// 語彙宛の decision。`show vocab` の人が読む面（decision を切り詰める）と
+	// `--json`（本文ごと渡す）で渡す集合が違うことを、標本の側で成り立たせる。
+	must("decide", "--on", "vocab:act.submit", "--why", "# 標本用の見出し 3\n\n語彙宛の判断。")
 
 	// `refs scan` / `refs rewrite` が拾うソース側の引用。
 	src := "// req.a を参照するコメント\npackage x\n"
@@ -652,7 +688,7 @@ func TestEmitJSONToWritesRenderJSONLine(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	if err := emitJSONTo(&buf, v); err != nil {
+	if err := emitJSONTo(nil, &buf, v); err != nil {
 		t.Fatal(err)
 	}
 	if buf.String() != string(want) {

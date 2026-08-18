@@ -60,6 +60,13 @@ func newSpecCmd() *cobra.Command {
 			if asJSON {
 				return emitJSON(cmd, buildSpecOutput(report, view, split))
 			}
+			// 人が読む面が本文を渡すのは、タグの description と
+			// **本文側へ畳み分けた decision** だけである（遷移は label へ
+			// 解決した 1 行で、語彙はそもそも書かない）。decision の申告は
+			// split（decisionSplitter）が担う——判断のある 1 か所で申告するので、
+			// `--json` と人が読む面のどちらから来ても同じ集合になる。
+			noteDelivered(cmd, report.Tag)
+			split.deliver = deliveryLogFrom(cmd)
 			render.WriteText(cmd.OutOrStdout(), report, split)
 			return nil
 		},

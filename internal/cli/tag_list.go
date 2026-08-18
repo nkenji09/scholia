@@ -27,7 +27,7 @@ func newTagListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return writeTagList(cmd.OutOrStdout(), tags, kind, tree, asJSON)
+			return writeTagList(deliveryLogFrom(cmd), cmd.OutOrStdout(), tags, kind, tree, asJSON)
 		},
 	}
 	cmd.Flags().StringVar(&kind, "kind", "", "kind で絞り込む")
@@ -82,11 +82,15 @@ func loadTagListTags(kind string, all bool) ([]model.Tag, error) {
 //
 // **畳む/畳まないの判断はここには無い。** ここは並べ方と書き出しだけで、
 // 受け取るタグ列は既に判断を通っている。
-func writeTagList(w io.Writer, tags []model.Tag, kind string, tree, asJSON bool) error {
+//
+// ⚠️ d（計測の入れ物・nil なら計測オフ）を持ち回るのは、この面が cobra.Command では
+// なく io.Writer を受け取る形だからである。**共有の出力口（emitJSONTo）へ渡す。**
+// テキストの面は description を 1 文字も出さないので、積むものは無い。
+func writeTagList(d *deliveryLog, w io.Writer, tags []model.Tag, kind string, tree, asJSON bool) error {
 	if tree {
 		forest := buildTagForest(tags, kind)
 		if asJSON {
-			return emitJSONTo(w, forest)
+			return emitJSONTo(d, w, forest)
 		}
 		if len(forest) == 0 {
 			fmt.Fprintln(w, "(該当するタグはありません)")
@@ -100,7 +104,7 @@ func writeTagList(w io.Writer, tags []model.Tag, kind string, tree, asJSON bool)
 
 	flat := filterTagsByKind(tags, kind)
 	if asJSON {
-		return emitJSONTo(w, flat)
+		return emitJSONTo(d, w, flat)
 	}
 	if len(flat) == 0 {
 		fmt.Fprintln(w, "(該当するタグはありません)")
