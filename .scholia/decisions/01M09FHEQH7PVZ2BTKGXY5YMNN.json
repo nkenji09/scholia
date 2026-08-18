@@ -16,13 +16,20 @@
     "1d6d0d1b7be2a95e6b5c435edad9717f7d12ac19",
     "14d06a5e98eaa5963fc8e7ea98a6e0e52aaf70ce",
     "24dcbb8ccdd5b04032886a6940484a5e2f4189fe",
-    "832305a51c80965f960653ffd1936f4eea21f7c2"
+    "832305a51c80965f960653ffd1936f4eea21f7c2",
+    "ca845a9bcb15dc046d51e35d83173dc8feb4ef08",
+    "aac34360fe40d63dc6f3f1367bfdfbaf73f8fe58"
   ],
   "applied": [
     {
       "kind": "correction",
       "at": "2026-08-18T08:52:16Z",
       "commit": "24dcbb8ccdd5b04032886a6940484a5e2f4189fe"
+    },
+    {
+      "kind": "correction",
+      "at": "2026-08-18T10:03:19Z",
+      "commit": "ca845a9bcb15dc046d51e35d83173dc8feb4ef08"
     }
   ]
 }
