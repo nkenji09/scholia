@@ -239,6 +239,16 @@ func headHash(r *staleRepo) string {
 // ⚠️ **期待値を「ASCII の対照と同じ答え」とは書かない。** 対照と比べる形は、
 // 両方が同時に壊れたときに差が出ない——期待する答えそのものを書く。
 //
+// ⚠️ **下の名前の一覧は「引用される文字の全部」ではない。例である。**
+// 全部を列挙して守る形は列挙が終わらないので採らない——読み方そのものを
+// 引用の通らない形（`-z`）にしてあり、その理由は internal/gitio の package doc に
+// 書いてある（CLAUDE.md「配線ガードの書き方」2）。
+//
+// 変異で確かめた射程（実測）: 読み方を古い形（タブ区切り・引用されたパスを
+// そのまま前方一致）へ戻す変異では、**非 ASCII・タブ・引用符の3つが red・
+// ASCII と空白は green** だった。**ASCII の対照だけを置いていたら、この変異は
+// 素通りしていた。** 空白は git が引用しないので、この変異に対しては効かない。
+//
 // 落ちない範囲: ここが動かすのは**ファイル名だけ**である。窓の境界・decision の
 // 同伴・ストアの位置は、それぞれ別の検査が持つ。
 func TestDecisionStaleRecordFileNameDoesNotChangeTheAnswer(t *testing.T) {
@@ -250,12 +260,13 @@ func TestDecisionStaleRecordFileNameDoesNotChangeTheAnswer(t *testing.T) {
 		{"ASCII", "subject.ascii.json", "subject.ascii"},
 		{"非 ASCII", "subject.核心.json", "subject.核心"},
 		{"空白入り", "subject.with space.json", "subject.with space"},
+		{"タブ入り", "subject.with\ttab.json", "subject.t"},
 		{"引用符とバックスラッシュ", `subject.quote"back\slash.json`, "subject.q"},
 	}
 	for _, n := range names {
 		t.Run(n.label, func(t *testing.T) {
-			if runtime.GOOS == "windows" && strings.ContainsAny(n.fileName, `"\`) {
-				t.Skip(`windows のファイル名に " と \ は置けない`)
+			if runtime.GOOS == "windows" && strings.ContainsAny(n.fileName, "\"\\\t") {
+				t.Skip(`windows のファイル名に " \ タブ は置けない`)
 			}
 			r := newStaleRepo(t)
 			r.writeTagFile(n.fileName, n.id, "名前")
