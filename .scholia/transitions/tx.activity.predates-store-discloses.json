@@ -1,0 +1,15 @@
+{
+  "id": "tx.activity.predates-store-discloses",
+  "action": "act.user.activity-run",
+  "given": [
+    "cond.activity-window-predates-store"
+  ],
+  "then": [
+    "eff.emit.activity-report",
+    "eff.log.activity-disclose-predates-store"
+  ],
+  "tags": [
+    "req.practice-observability",
+    "subject.cli"
+  ]
+}

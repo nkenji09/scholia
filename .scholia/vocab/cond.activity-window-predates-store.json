@@ -1,0 +1,9 @@
+{
+  "id": "cond.activity-window-predates-store",
+  "category": "condition",
+  "label": "full history だが、窓の開始が記録ディレクトリの初出より前",
+  "kind": "derived",
+  "tags": [
+    "axis.activity.reliability"
+  ]
+}

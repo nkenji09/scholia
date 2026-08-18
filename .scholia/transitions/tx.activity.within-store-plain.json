@@ -1,0 +1,14 @@
+{
+  "id": "tx.activity.within-store-plain",
+  "action": "act.user.activity-run",
+  "given": [
+    "cond.activity-window-within-store"
+  ],
+  "then": [
+    "eff.emit.activity-report"
+  ],
+  "tags": [
+    "req.practice-observability",
+    "subject.cli"
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "id": "eff.state.activity-withhold-numbers",
+  "category": "effect",
+  "label": "実装活動に関わる数（動いた日・commit数・最後の活動）を計算しない",
+  "kind": "state",
+  "owner": "subject.cli"
+}

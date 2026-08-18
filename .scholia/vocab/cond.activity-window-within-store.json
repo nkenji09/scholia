@@ -1,0 +1,9 @@
+{
+  "id": "cond.activity-window-within-store",
+  "category": "condition",
+  "label": "full history で、窓が記録ディレクトリの初出以降に収まる",
+  "kind": "derived",
+  "tags": [
+    "axis.activity.reliability"
+  ]
+}

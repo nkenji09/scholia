@@ -1,0 +1,6 @@
+{
+  "id": "act.user.activity-run",
+  "category": "action",
+  "label": "scholia activity を実行",
+  "kind": "user"
+}

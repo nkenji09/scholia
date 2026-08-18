@@ -1,0 +1,7 @@
+{
+  "id": "eff.emit.activity-report",
+  "category": "effect",
+  "label": "窓・実装が動いた日・実装commit数・最後の実装・同じ窓のdecision件数を表示する",
+  "kind": "emit",
+  "owner": "subject.cli"
+}
