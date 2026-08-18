@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/nkenji09/scholia/internal/gittest"
 	"github.com/nkenji09/scholia/internal/store"
 )
 
@@ -16,9 +17,7 @@ func gitTestRepo(t *testing.T) (dir string, s *store.Store) {
 		t.Skip("git not installed")
 	}
 	dir = t.TempDir()
-	runGitT(t, dir, "init", "-q")
-	runGitT(t, dir, "config", "user.email", "test@example.com")
-	runGitT(t, dir, "config", "user.name", "test")
+	gittest.InitRepo(t, dir)
 
 	var err error
 	s, err = store.Init(dir)

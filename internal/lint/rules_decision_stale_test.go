@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/nkenji09/scholia/internal/gittest"
 	"github.com/nkenji09/scholia/internal/store"
 )
 
@@ -24,9 +25,7 @@ func newStaleRepo(t *testing.T) *staleRepo {
 		t.Skip("git not installed")
 	}
 	r := &staleRepo{t: t, dir: t.TempDir()}
-	r.git("init", "-q")
-	r.git("config", "user.email", "test@example.com")
-	r.git("config", "user.name", "test")
+	gittest.InitRepo(t, r.dir)
 	return r
 }
 
