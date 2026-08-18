@@ -109,7 +109,7 @@ vocab と tag は形が近い（id・label・kind）が役割が直交する。*
 - **vocab id は実装同一性で粒度を決める**：**独立実装は最初から `<eff|act|cond>.<Owner>.<name>`（＝主題名で命名）が既定**。**effect / action だけでなく condition vocab も等しく owner-scope**——概念名で `cond.<共有概念>.<name>` のように切ると「概念scope＝共有」に見えて false-share になる（実装は各コンポ独立なのに逆引きが偽の影響を出す）。plain / 総称名（`eff.self.apply-size` 等）にすると、**プロジェクト全体 store では別主題が同名の独立実装を足したとき id 衝突→意図せず共有→主題横断の false-impact** を生む（size/blur/focus/status/loading 等の汎用挙動は必ず被る）。だから片主題専用でも owner 名で作る。plain id にしてよいのは**実装が共通と判明した共有**だけ（例: wrapper が inner を embed して同一コードを呼ぶ → owner=inner 名にして wrapper がそれを参照する）。「per-component で作り、共通と分かったら共通化」がルール。
   - ※ **軸(`kind="axis"` タグ)の scope は vocab と非対称**——vocab は owner-scope が既定だが、axis は単一 consumer なら概念scope維持でよく、独立実装が複数コンポを跨ぐときだけ per-component 分割する（§3「独立実装を跨ぐ軸」）。命名規則を axis に機械適用しない。
 - **label**：action（きっかけ）は **「〜したとき」のトリガー表現**（例 `API setValue() を実行したとき`）。メソッドシグネチャの羅列にしない — `spec` の `WHEN 〜 THEN 〜` が読めなくなる。effect（結果）は**起きる事実**（`終了入力へフォーカスを送る`）。
-  - ※ label / owner を変える CLI は無い（`vocab edit` は description のみ）。後から直すなら JSON の当該フィールドを直接編集。
+  - ※ label は `vocab edit --label` で、kind は `--kind` で、owner（effect のみ）は `--owner` で変更できる。
 - **きっかけ・前提・結果を書き分ける（action / condition / effect のカテゴリ分離）**：一つの事柄を書く前に「これは *きっかけ*（action・WHEN で発火するトリガー）／*前提*（condition・GIVEN で真の状態）／*結果*（effect・THEN で起きること）のどれか」を決め、その一つの欄にだけ書く。とくに **condition の label には「そのとき成り立っている事実・状態」だけ**を書き、**結果（何が起きるか）は transition の `then`（effect）の責務**なので condition に埋め込まない。同じ 1 つの事柄を condition と effect の両方に書かない。
   - ❌ `--force が指定されている（既存を上書き）` — 「既存を上書き」は結果（effect）であり、前提（condition）に混ぜてはいけない。
   - ✅ `--force が指定されている` — 結果は `then` 側の effect vocab（例 `既存を上書きする`）が表す。
