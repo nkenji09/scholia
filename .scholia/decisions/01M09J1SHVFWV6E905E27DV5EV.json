@@ -1,0 +1,9 @@
+{
+  "id": "01M09J1SHVFWV6E905E27DV5EV",
+  "target": {
+    "type": "tag",
+    "id": "axis.activity.reliability"
+  },
+  "why": "# 実装活動の数の信頼性を、3値の total 軸として宣言する\n\n実装活動の数がどれだけ信頼できるかを、3値の排他的な total 軸として宣言する。\n\n**なぜ軸で表せるか**: 決定 01M09FHDJCV2WWFC7Z8331B0YQ は、数を信頼できない条件（浅い clone・窓が記録ディレクトリの初出より前）を、黙って数に混ぜず名乗ることを歯止めとして定めている。scholia activity の1回の呼び出しは、必ず「浅い clone」「full history だが窓がストア初出より前」「full history で窓がストア初出以降」のいずれか1つに落ちる——排他かつ網羅なので、そのまま軸の値になる。\n\n**なぜ3値か（2値ではなく）**: 「浅い」と「窓がストア初出より前」は別々の理由で数を疑わせる——前者は git そのものの見える範囲が足りないこと、後者は記録ディレクトリの改名等で過去の期間が水増しされうることが理由で、原因が異なる。2つを1つの値に畳むと、どちらの理由で信頼できないのかが出力から消える。\n\n**なぜ total=true か**: 「浅いか・full history か」「full history なら窓がストア初出より前か以降か」の順に必ず1つの値に定まる。total を宣言することで act.user.activity-run の L-total の抜けが検査対象になる。実測で抜け0・重なり0（scholia gaps act.user.activity-run）。\n\n**射程**: 浅い clone かどうかの判定自体（git rev-parse --is-shallow-repository の値）や、記録ディレクトリの初出の判定自体の正しさは、この軸の宣言ではなく Go 側の検査（internal/activity の入力と出力の対の検査・TestCompute_Shallow_WithholdsNumbers・TestCompute_WindowPredatesStore_Disclosed）が担う。ここで宣言しているのは「この3値がどの呼び出しに対しても排他かつ網羅である」という軸の形そのもの。",
+  "at": "2026-08-18T04:28:38Z"
+}
