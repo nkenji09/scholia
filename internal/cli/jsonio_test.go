@@ -170,7 +170,7 @@ var jsonFaceInvocations = map[string][]string{
 	"show vocab":             {"act.submit"},
 	"skills install":         {},
 	"spec":                   {"subject.core"},
-	"tag create":             {"req.new", "--name", "新要件", "--kind", "requirement"},
+	"tag create":             {"req.new", "--name", "新要件", "--kind", "requirement", "--desc", "新要件の説明。"},
 	"tag edit":               {"req.a", "--name", "要件A改"},
 	"tag list":               {},
 	"tag rename":             {"req.a", "req.a2"},
@@ -182,7 +182,7 @@ var jsonFaceInvocations = map[string][]string{
 	"tx rm":                  {"T-b", "--force", "--why", "歯止めの標本で消す"},
 	"tx tag":                 {"T-b", "--add", "req.b"},
 	"version":                {},
-	"vocab add":              {"condition", "cond.new", "--label", "新しい条件"},
+	"vocab add":              {"condition", "cond.new", "--label", "新しい条件", "--description", "新しい条件の説明。"},
 	"vocab edit":             {"cond.valid", "--label", "前提が成り立つ（改）"},
 	"vocab owner-migrate":    {},
 	"vocab rename":           {"cond.valid", "--to", "cond.valid2"},
@@ -445,17 +445,24 @@ func seedJSONFaceFixture(t *testing.T) (string, fixtureIDs) {
 	must("init")
 	must("config", "set", "tagKinds", "requirement,concern,subject,axis")
 
-	must("vocab", "add", "condition", "cond.valid", "--label", "前提が成り立つ")
-	must("vocab", "add", "condition", "cond.other", "--label", "別の前提")
-	must("vocab", "add", "condition", "cond.unused", "--label", "どこからも参照されない前提")
-	must("vocab", "add", "action", "act.submit", "--label", "送信する", "--kind", "user")
-	must("vocab", "add", "effect", "eff.token", "--label", "トークンを発行する", "--kind", "state", "--owner", "server")
+	// ⚠️ **標本のタグ・語彙には必ず本文（description）を持たせる。**
+	// 計測の「本文が渡った記録」は、畳んだ出力（本文の欄を空にして渡す形）を
+	// 数えないことで定義されている。本文が元から空だと、畳んだ出力と畳まない出力が
+	// **同じ値になる**ので、照合（usage_delivery_test.go）が畳み忘れを見分けられない。
+	must("vocab", "add", "condition", "cond.valid", "--label", "前提が成り立つ", "--description", "前提が成り立つ状態の説明。")
+	must("vocab", "add", "condition", "cond.other", "--label", "別の前提", "--description", "別の前提の説明。")
+	must("vocab", "add", "condition", "cond.unused", "--label", "どこからも参照されない前提", "--description", "参照されない前提の説明。")
+	must("vocab", "add", "action", "act.submit", "--label", "送信する", "--kind", "user", "--description", "送信するきっかけの説明。")
+	must("vocab", "add", "effect", "eff.token", "--label", "トークンを発行する", "--kind", "state", "--owner", "server",
+		"--description", "トークンを発行する効果の説明。")
 
 	must("tag", "create", "subject.core", "--name", "中核", "--kind", "subject", "--desc", "説明を持つ親タグ。")
 	must("tag", "create", "req.a", "--name", "要件A", "--kind", "requirement", "--parent", "subject.core",
 		"--desc", "引用符 \" と < > & を含む説明。")
-	must("tag", "create", "req.b", "--name", "要件B", "--kind", "requirement", "--parent", "subject.core")
-	must("tag", "create", "concern.unused", "--name", "どこからも参照されない関心", "--kind", "concern")
+	must("tag", "create", "req.b", "--name", "要件B", "--kind", "requirement", "--parent", "subject.core",
+		"--desc", "要件Bの説明。")
+	must("tag", "create", "concern.unused", "--name", "どこからも参照されない関心", "--kind", "concern",
+		"--desc", "参照されない関心の説明。")
 
 	must("tx", "add", "T-a", "--action", "act.submit", "--given", "cond.valid", "--then", "eff.token", "--tags", "req.a")
 	must("tx", "add", "T-b", "--action", "act.submit", "--given", "cond.other", "--then", "eff.token")
@@ -468,6 +475,14 @@ func seedJSONFaceFixture(t *testing.T) (string, fixtureIDs) {
 		"--why", "# 標本用の見出し 2\n\n置き換える側の判断。", "--json"))
 	ids.review = extractJSONID(t, must("review", "add", "--on", "tag:req.a",
 		"--body", "# 提案の見出し\n\n提案の本文。", "--json"))
+	// 🔴 **取り下げられた decision を 1 件作る。** これが無いと「本文を渡す群と、
+	// 存在だけ渡す群に分ける」枝が標本で 1 度も通らず、**畳んだ側を数える変異が
+	// 緑のまま通る**（実見: `spec --json` の照合が素通りした）。
+	must("decide", "--on", "transition:T-a", "--supersedes", ids.decision+":supersede",
+		"--why", "# 標本用の見出し 4\n\n置き換える側の判断（旧を取り下げる）。")
+	// 語彙宛の decision。`show vocab` の人が読む面（decision を切り詰める）と
+	// `--json`（本文ごと渡す）で渡す集合が違うことを、標本の側で成り立たせる。
+	must("decide", "--on", "vocab:act.submit", "--why", "# 標本用の見出し 3\n\n語彙宛の判断。")
 
 	// `refs scan` / `refs rewrite` が拾うソース側の引用。
 	src := "// req.a を参照するコメント\npackage x\n"
@@ -627,7 +642,7 @@ func TestEmitJSONToWritesRenderJSONLine(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	if err := emitJSONTo(&buf, v); err != nil {
+	if err := emitJSONTo(nil, &buf, v); err != nil {
 		t.Fatal(err)
 	}
 	if buf.String() != string(want) {

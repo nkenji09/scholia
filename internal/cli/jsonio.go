@@ -50,18 +50,69 @@ import (
 //
 // **整形しない**（条項1）。欄も、順序も、値も変えない——空白だけが無い。
 func emitJSON(cmd *cobra.Command, v any) error {
-	return emitJSONTo(cmd.OutOrStdout(), v)
+	return emitJSONTo(deliveryLogFrom(cmd), cmd.OutOrStdout(), v)
 }
 
 // emitJSONTo は書き先を直に渡す形。`tag list` のように cobra.Command ではなく
 // io.Writer を持ち回る経路のためにある（同じ 1 つの口を通る）。
-func emitJSONTo(w io.Writer, v any) error {
+//
+// 🔴 **計測の「本文が渡った記録」も、この 1 つの口で積む**
+// （01M09FHFG4PVTGN4CA10N7BQZK）。面ごとに申告させないのは、
+// **新しい `--json` の面が配線を忘れられない**ようにするためである
+// ——口が 1 つである以上、ここを通れば必ず積まれる。
+// d が nil（＝計測オフ）のときは 1 行も余計に走らない。
+func emitJSONTo(d *deliveryLog, w io.Writer, v any) error {
+	noteDeliveredJSON(d, v)
 	if spy := jsonEmitSpy; spy != nil {
 		var seen bytes.Buffer
 		defer func() { spy(seen.Bytes()) }()
 		w = io.MultiWriter(w, &seen)
 	}
 	return json.NewEncoder(w).Encode(v)
+}
+
+// noteDeliveredJSON は `--json` の出力に**本文が本当に出たレコード**だけを積む。
+//
+// ⚠️ **型で拾った候補をそのまま積んではいけない。** Go の値には出るが JSON には
+// 出ない欄がある——外側の欄が埋め込みの同名欄を覆う場合である（`specOutput` は
+// 自分の `Entries` で `render.SpecReport` の `Entries` を覆っており、覆われた側には
+// **畳む前の**（取り下げ分も本文つきの）decision が入っている）。
+// そのまま積むと、**出していない本文を「渡った」と書く。**
+//
+// だからここでは、これから書くバイト列を 1 度だけ作り、候補の本文が
+// **その中に実際に現れるか**を見てから積む。見るのは書式ではなく出たバイトなので、
+// 同じ意味を別の綴りで書かれても答えは変わらない（CLAUDE.md 2）。
+//
+// ⚠️ **本文の欄を持たないレコード（遷移）はこの確かめが効かない**——比べる本文が無い。
+// 覆いの陰に隠れた遷移は候補のまま積まれる。落とせるのは
+// 「機械可読出力から導いた集合との照合」（usage_delivery_test.go）だけである。
+//
+// ⚠️ 計測がオフのとき（d == nil）は候補も作らない。出力の経路に 1 バイトも影響しない。
+func noteDeliveredJSON(d *deliveryLog, v any) {
+	if d == nil {
+		return
+	}
+	candidates := deliveredRecords(v)
+	if len(candidates) == 0 {
+		return
+	}
+	line, err := renderJSONLine(v)
+	if err != nil {
+		return // 書けない値は出力もされない
+	}
+	for _, r := range candidates {
+		if r.body == "" {
+			d.note(r.id)
+			continue
+		}
+		probe, err := json.Marshal(r.body)
+		if err != nil {
+			continue
+		}
+		if bytes.Contains(line, probe) {
+			d.note(r.id)
+		}
+	}
 }
 
 // jsonEmitSpy は「この口が何バイト書いたか」をテストへ渡す唯一の穴（既定 nil・

@@ -27,6 +27,9 @@ func newShowDecisionCmd() *cobra.Command {
 				return emitJSON(cmd, d)
 			}
 
+			// 人が読む面も why を全文で出す（下の "why:\n%s"）。
+			noteDelivered(cmd, d)
+
 			out := cmd.OutOrStdout()
 			fmt.Fprintf(out, "id: %s\n", d.ID)
 			fmt.Fprintf(out, "target: %s:%s\n", d.Target.Type, d.Target.ID)

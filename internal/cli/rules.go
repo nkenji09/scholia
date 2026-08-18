@@ -99,6 +99,10 @@ func newRulesCmd() *cobra.Command {
 					Withdrawn: view.withdrawnOuts(governsDecisions(groups.Withdrawn)),
 				})
 			}
+			// 人が読む面も本文を渡すのは groups.Bodies だけ（畳んだ側は
+			// 存在と引き方しか書かない）。**判断は上の foldRules ただ 1 つで、
+			// ここはその結果を申告するだけ**（01M09FHFG4PVTGN4CA10N7BQZK）。
+			noteDelivered(cmd, governsDecisions(groups.Bodies))
 			writeRulesText(cmd.OutOrStdout(), groups, sortBy, view, rulesAllCommand(tagID, txID, vocabID, facet))
 			return nil
 		},

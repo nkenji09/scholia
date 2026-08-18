@@ -70,6 +70,11 @@ func newShowVocabCmd() *cobra.Command {
 					EstablishedBy: establishedBy, Decisions: decisions})
 			}
 
+			// 人が読む面が本文を全文で出すのは語彙自身の description だけである。
+			// **decisions は切り詰めて出すので数えない**（断片は「渡った」ではない・
+			// printVocabDecisions の truncateOneLine）。`--json` はこの点で違う集合を渡す。
+			noteDelivered(cmd, v)
+
 			out := cmd.OutOrStdout()
 			fmt.Fprintf(out, "id: %s\n", v.ID)
 			fmt.Fprintf(out, "category: %s\n", v.Category)

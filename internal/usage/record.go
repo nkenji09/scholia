@@ -25,6 +25,7 @@ type Observation struct {
 	ToolVersion   string
 	RecordIDs     []string
 	ProjectRoot   string
+	DeliveredIDs  []string
 	FlagValues    map[string]any
 	FreeTextLens  map[string]int
 	StderrBytes   int64
@@ -66,6 +67,8 @@ func (o Observation) value(l Level, f Field) any {
 		return nonNilStrings(o.RecordIDs)
 	case FieldProjectRoot:
 		return o.ProjectRoot
+	case FieldDeliveredIDs:
+		return nonNilStrings(o.DeliveredIDs)
 	case FieldFlagValues:
 		if o.FlagValues == nil {
 			return map[string]any{}

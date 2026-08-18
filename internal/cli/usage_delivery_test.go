@@ -1,0 +1,709 @@
+// usage_delivery_test.go — 計測の「本文が渡った記録」（deliveredIds）の歯止め
+// （01M09FHFG4PVTGN4CA10N7BQZK）。
+//
+// # ここの歯止めが落とす範囲（CLAUDE.md「配線ガードの書き方」6）
+//
+// **落ちる:**
+//   - **読み取りの面を新しく足して、この項目を配線しなかったとき。**
+//     面は cobra の木から数え上げるので、宣言の無い面があれば落ちる
+//     （TestUsage_EveryRunnableSurfaceDeclaresItsDelivery）。**列挙を足したのではない。**
+//   - **配線したが中身が食い違うとき。** `--json` の面を**宣言された bool フラグの
+//     全部分集合**で実際に走らせ、**出たバイト列（機械可読出力）の構造から導いた
+//     「本文つきの記録」の集合**と、記録された deliveredIds が**一致する**ことを値で見る
+//     （TestUsage_DeliveredIDsMatchTheMachineReadableOutput）。
+//     導出は出力の欄の形だけを見て、実装の型・関数名を 1 つも参照しない——
+//     **同じ意味を別の綴りで書き直しても答えは変わらない**（CLAUDE.md 2）。
+//   - **畳んだ出力を「渡った」と数える変異。** `tag list --json`（既定は description を
+//     空にして渡す）と `tag list --all --json` は上の照合で別々の答えになる。
+//     標本は全タグ・全語彙に本文を持たせてあるので、畳み忘れは必ず差になる。
+//   - **人が読む面の配線を忘れる／人が読む面で数えすぎる。**
+//     面ごとに「人が読む面が何を渡すか」を宣言し、実際に走らせて値で照合する
+//     （TestUsage_TextFacesDeliverWhatTheyDeclare）。
+//   - **段の表から外れる変異。** 4 段 × 全項目の既存の検査に自動的に載る
+//     （internal/usage/fields_test.go）。
+//   - **入れ物が起動をまたいで混ざる変異。** 入れ物は 1 起動 1 つで、
+//     並行に積んでも壊れないこと（`-race`）を見る（TestDeliveryLog_*）。
+//
+// **落ちない（射程の外・正直に名乗る）:**
+//   - 🔴 **機械可読出力を持たない面。** `scholia export` は静的な画面を書き出す面で、
+//     `--json` を持たないので上の照合が届かない。**この面は「この項目を持たない」と
+//     宣言してある**（画面経由の閲覧を数えないという正本 条項 5 の帰結・deliverySpecs）。
+//     宣言どおり 1 件も積まないことは走らせて見ているが、
+//     **書き出した HTML の中身が何を渡したかは見ていない。**
+//   - 🔴 **「本文が渡った」の判定そのものが間違っているとき。** 照合は
+//     「機械可読出力に本文の欄が載っているか」を正としている。出力の構造の側で
+//     本文つきと存在だけを取り違えていれば、照合も一緒に間違える。
+//   - 🔴 **人が読む出力と機械可読出力で渡す記録が違う面。** 宣言できるのは
+//     「同じ」「部分集合」「1 件も渡さない」の 3 つまでで、**部分集合の面については
+//     どの記録が欠けるべきかを検査していない**（`spec` は遷移と語彙を、
+//     `show vocab` は decision を、人が読む面では渡さない）。
+//   - 🔴 **画面（`scholia view`）経由の閲覧。** 数えないと決めた面なので歯止めも無い。
+//     配線としては、入れ物が cobra の context にしか無いので HTTP ハンドラから届かない。
+//   - **位置引数・文字列フラグの値で分かれる枝。** 走らせる引き方は面ごとに 1 つ＋
+//     bool フラグの全部分集合で、`jsonio_test.go` が名乗っているのと同じ穴がここにもある。
+//   - **`scholia update` / `scholia view`。** 前者は網の外へ出て、後者は常駐する。
+//     走らせないので、宣言だけがある（deliverySpecs の unrunnable）。
+package cli
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"sync"
+	"testing"
+
+	"github.com/nkenji09/scholia/internal/model"
+	"github.com/nkenji09/scholia/internal/usage"
+)
+
+// ---------------------------------------------------------------------------
+// 面ごとの宣言
+// ---------------------------------------------------------------------------
+
+// textDelivery は「**人が読む面**が本文を渡す記録の集合」を、`--json` の面との
+// 関係で宣言したもの。
+//
+// ⚠️ 機械可読出力の側は宣言しない——あちらは出たバイト列から導いて照合する。
+type textDelivery int
+
+const (
+	// textDeliversNothing: 人が読む面は本文を 1 件も渡さない（索引・断片・書き込みの面）。
+	textDeliversNothing textDelivery = iota
+	// textDeliversSameAsJSON: `--json` と同じ集合を渡す。
+	textDeliversSameAsJSON
+	// textWithholds: `--json` が渡す集合から、**宣言した種類の記録だけ**を落として渡す。
+	// 落とす種類は withholds に書く（例: `spec` の人が読む面は遷移と語彙を渡さない）。
+	textWithholds
+	// textNotCounted: この面はこの項目を持たないと宣言した面。
+	// 🔴 **黙って穴にしないための宣言である**（正本の歯止めの節）。
+	textNotCounted
+)
+
+// deliverySpec は 1 つの面の宣言。
+type deliverySpec struct {
+	text textDelivery
+	// withholds は textWithholds のときに落とす記録の種類（tag/transition/vocab/decision）。
+	withholds []string
+	// why は textDeliversNothing 以外で必須（なぜその関係になるのか）。
+	why string
+	// args は `--json` を持たない面の引き方（持つ面は jsonFaceInvocations から取る）。
+	args []string
+	// unrunnable が空でなければ走らせない（その理由）。
+	unrunnable string
+}
+
+// deliverySpecs は**実行できる全ての面**の宣言。
+//
+// 🔴 **これは「面の一覧」ではない。** 面は cobra の木から数え上げる
+// （usageRunnableSurfaces）。ここに無い面があれば
+// TestUsage_EveryRunnableSurfaceDeclaresItsDelivery が落ちる——
+// **新しい面を足した人は、ここに宣言を書くまで緑にできない。**
+var deliverySpecs = map[string]deliverySpec{
+	// --- 読み取りの面 ---
+	"scholia rules": {text: textDeliversSameAsJSON,
+		why: "人が読む面も `--json` も、本文を渡すのは foldRules が本文側へ分けた群だけ"},
+	"scholia spec": {text: textWithholds, withholds: []string{recordKindTransition, recordKindVocab},
+		why: "人が読む面はタグの description と decision の本文まで。遷移は label へ解決した 1 行、語彙は書かない"},
+	"scholia show tag": {text: textDeliversSameAsJSON,
+		why: "どちらも description を全文で出す"},
+	"scholia show tx": {text: textDeliversSameAsJSON,
+		why: "遷移は自由文の欄を持たず、どちらもレコードの全部を出す"},
+	"scholia show vocab": {text: textWithholds, withholds: []string{recordKindDecision},
+		why: "人が読む面は語彙の description まで。decision は切り詰めるので数えない"},
+	"scholia show decision": {text: textDeliversSameAsJSON,
+		why: "どちらも why を全文で出す"},
+	"scholia decision show": {text: textDeliversSameAsJSON,
+		why: "どちらも why を全文で出す"},
+	"scholia decision list": {text: textDeliversNothing,
+		why: "人が読む面は why を 100 字で切り詰める＝断片（`--json` は全件の本文を渡す）"},
+	"scholia tag list": {text: textDeliversNothing,
+		why: "人が読む面は id と name しか出さない＝索引（`--json --all` だけが本文を渡す）"},
+	"scholia list": {text: textDeliversNothing,
+		why: "人が読む面は遷移 id しか出さない＝索引（`--json` は遷移レコードを渡す）"},
+	"scholia search": {text: textDeliversNothing,
+		why: "抜粋は断片。`--json` も抜粋しか渡さない"},
+	"scholia flow": {text: textDeliversNothing,
+		why: "解析結果は id と数だけで、レコードの本文を渡さない"},
+	"scholia gaps": {text: textDeliversNothing,
+		why: "同上"},
+	"scholia diff": {text: textDeliversNothing,
+		why: "人が読む面は id と欄名だけ（`--json` は差分のレコードを丸ごと渡す）"},
+	"scholia refs scan":    {text: textDeliversNothing},
+	"scholia refs rewrite": {text: textDeliversNothing},
+	"scholia review list": {text: textDeliversNothing,
+		why: "レビューは揮発層のコメントで、`.scholia` の記録（tag/transition/vocab/decision）ではない"},
+	"scholia export": {text: textNotCounted,
+		why: "静的な画面の書き出し。画面経由の閲覧を数えないという正本 条項 5 の帰結で、この面はこの項目を持たない"},
+	"scholia view": {text: textNotCounted,
+		why:        "画面そのもの（正本 条項 5）。入れ物は cobra の context にしかないので HTTP ハンドラからは届かない",
+		unrunnable: "常駐して待ち受けるので、テストから走らせられない"},
+
+	// --- 書き込み・設定・道具の面（記録の本文を人が読む形では渡さない） ---
+	"scholia activity":               {text: textDeliversNothing},
+	"scholia config get":             {text: textDeliversNothing},
+	"scholia config infer-id-policy": {text: textDeliversNothing},
+	"scholia config set":             {text: textDeliversNothing},
+	"scholia decide":                 {text: textDeliversNothing, why: "保存後の表示は allow/advisory だけ（`--json` は保存したレコードを返す）"},
+	"scholia decision add-commit":    {text: textDeliversNothing},
+	"scholia decision link":          {text: textDeliversNothing},
+	"scholia init":                   {text: textDeliversNothing},
+	"scholia kind get":               {text: textDeliversNothing},
+	"scholia kind list":              {text: textDeliversNothing},
+	"scholia kind set":               {text: textDeliversNothing},
+	"scholia lint":                   {text: textDeliversNothing},
+	"scholia lint baseline update":   {text: textDeliversNothing},
+	"scholia retrofit":               {text: textDeliversNothing},
+	"scholia review add":             {text: textDeliversNothing},
+	"scholia review adopt":           {text: textDeliversNothing, why: "昇格した decision を返すのは `--json` だけ"},
+	"scholia review reject":          {text: textDeliversNothing},
+	"scholia review rm":              {text: textDeliversNothing},
+	"scholia skills install":         {text: textDeliversNothing},
+	"scholia skills ls":              {text: textDeliversNothing, why: "配布スキルの一覧で、`.scholia` の記録ではない", args: []string{}},
+	"scholia skills show":            {text: textDeliversNothing, why: "配布スキルの本文で、`.scholia` の記録ではない", args: []string{"scholia"}},
+	"scholia tag create":             {text: textDeliversNothing},
+	"scholia tag edit":               {text: textDeliversNothing},
+	"scholia tag rename":             {text: textDeliversNothing},
+	"scholia tag rm":                 {text: textDeliversNothing},
+	"scholia tx add":                 {text: textDeliversNothing},
+	"scholia tx edit":                {text: textDeliversNothing},
+	"scholia tx merge":               {text: textDeliversNothing},
+	"scholia tx rename":              {text: textDeliversNothing},
+	"scholia tx rm":                  {text: textDeliversNothing},
+	"scholia tx tag":                 {text: textDeliversNothing},
+	"scholia update": {text: textDeliversNothing,
+		why:        "自分自身の版を取り替える面で、記録を 1 件も読まない",
+		unrunnable: "網の外（GitHub）へ出るので、テストから走らせない"},
+	"scholia version":             {text: textDeliversNothing},
+	"scholia vocab add":           {text: textDeliversNothing},
+	"scholia vocab edit":          {text: textDeliversNothing},
+	"scholia vocab owner-migrate": {text: textDeliversNothing},
+	"scholia vocab rename":        {text: textDeliversNothing},
+	"scholia vocab rm":            {text: textDeliversNothing},
+	"scholia vocab tag":           {text: textDeliversNothing},
+}
+
+// TestUsage_EveryRunnableSurfaceDeclaresItsDelivery は、宣言の無い面が無いこと。
+//
+// ⚠️ CLAUDE.md 5「新しく作った面には、ガードを置き忘れる」。
+// 宣言が無いまま面を足すと、その面が本文を渡していても記録が黙って欠ける
+// ——ログを読む側から見れば「引かれていない」と読める。
+func TestUsage_EveryRunnableSurfaceDeclaresItsDelivery(t *testing.T) {
+	surfaces := usageRunnableSurfaces()
+	if len(surfaces) == 0 {
+		t.Fatal("面を 1 つも数え上げられていない（この検査は何も見ていない）")
+	}
+	var undeclared []string
+	present := map[string]bool{}
+	for _, s := range surfaces {
+		present[s] = true
+		if _, ok := deliverySpecs[s]; !ok {
+			undeclared = append(undeclared, s)
+		}
+	}
+	if len(undeclared) > 0 {
+		sort.Strings(undeclared)
+		t.Errorf(`「本文が渡った記録」の宣言が無い面がある: %v
+
+usage_delivery_test.go の deliverySpecs に足すこと。
+人が読む面が本文を 1 件も渡さないなら textDeliversNothing、
+`+"`--json`"+` と同じ集合を渡すなら textDeliversSameAsJSON、
+部分集合なら textDeliversSubset（理由を書く）。
+この項目を持たない面だと決めたなら textNotCounted と理由（黙って穴にしない）。`, undeclared)
+	}
+	for s, spec := range deliverySpecs {
+		if !present[s] {
+			t.Errorf("deliverySpecs に載っている %q は実在しない（改名・削除したなら宣言も直す）", s)
+		}
+		if spec.text != textDeliversNothing && spec.why == "" {
+			t.Errorf("%q の宣言に理由が無い（textDeliversNothing 以外は理由が要る）", s)
+		}
+	}
+	t.Logf("宣言を突き合わせた面: %d 個", len(surfaces))
+}
+
+// ---------------------------------------------------------------------------
+// 走らせて、記録された deliveredIds を取る
+// ---------------------------------------------------------------------------
+
+// runWithDelivery は**計測を有効にした本物の入口**（execute）で 1 回走らせ、
+// 標準出力と、その起動で記録された deliveredIds を返す。
+//
+// ⚠️ executeForTest ではなく execute を通すのは、**入れ物を context に載せる配線ごと**
+// 検査するためである。executeForTest は newRootCmd を直に走らせるので、
+// 入れ物が載らず deliveredIds は必ず空になる。
+func runWithDelivery(t *testing.T, dir string, args ...string) (stdout string, delivered []string, err error) {
+	t.Helper()
+	var out, errb bytes.Buffer
+	var got usage.Observation
+	seen := 0
+	lookup := func(name string) (string, bool) {
+		if name == usage.EnvVar {
+			return "normal", true
+		}
+		return os.LookupEnv(name)
+	}
+	sink := func(_ usage.Level, o usage.Observation) {
+		seen++
+		got = o
+	}
+	err = execute(lookup, sink, append([]string{"--dir", dir}, args...), &out, &errb)
+	if seen != 1 {
+		t.Fatalf("1 起動 1 行のはずが sink が %d 回呼ばれた: %v", seen, args)
+	}
+	return out.String(), got.DeliveredIDs, err
+}
+
+// ---------------------------------------------------------------------------
+// 機械可読出力の構造から「本文つきの記録」を導く
+// ---------------------------------------------------------------------------
+
+// deliveredFromJSON は、出たバイト列の**構造だけ**から本文つきの記録の id を導く。
+//
+// 🔴 **実装の型も関数名も参照しない。** 見るのは「レコードとして完全な形の object が
+// 出ているか」だけである:
+//
+//	decision  … id・target・at を持ち、why が空でない
+//	tag       … id・name を持ち、description が空でない
+//	vocab     … id・category・label を持ち、description が空でない
+//	transition… id・action・given・then を持つ（自由文の欄が無いので、載れば全部が渡っている）
+//
+// 本文の欄を落とした出力形（経由・取り下げ・畳んだタグ）はこの形にならないので、
+// 導出にも入らない。**同じ意味を別の綴りで書き直しても答えは変わらない**（CLAUDE.md 2）。
+//
+// ⚠️ 似た形の object（config の kind 宣言は id・label・description を持つ）を拾わない
+// ように、**レコードごとに必須の欄まで見る**（kind 宣言には name も category も無い）。
+func deliveredFromJSON(t *testing.T, out string) []string {
+	t.Helper()
+	var decoded any
+	if err := json.Unmarshal([]byte(out), &decoded); err != nil {
+		t.Fatalf("`--json` の出力が JSON として読めない: %v\n%s", err, out)
+	}
+	found := map[string]bool{}
+	var walk func(v any)
+	walk = func(v any) {
+		switch x := v.(type) {
+		case map[string]any:
+			if id, ok := recordIDFromJSONObject(x); ok {
+				found[id] = true
+			}
+			for _, sub := range x {
+				walk(sub)
+			}
+		case []any:
+			for _, sub := range x {
+				walk(sub)
+			}
+		}
+	}
+	walk(decoded)
+	ids := make([]string, 0, len(found))
+	for id := range found {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+func recordIDFromJSONObject(o map[string]any) (string, bool) {
+	id, ok := o["id"].(string)
+	if !ok || id == "" {
+		return "", false
+	}
+	nonEmptyString := func(key string) bool {
+		s, ok := o[key].(string)
+		return ok && s != ""
+	}
+	has := func(keys ...string) bool {
+		for _, k := range keys {
+			if _, ok := o[k]; !ok {
+				return false
+			}
+		}
+		return true
+	}
+	switch {
+	case has("target", "at") && nonEmptyString("why"): // decision
+		return id, true
+	case has("name") && nonEmptyString("description"): // tag
+		return id, true
+	case has("category", "label") && nonEmptyString("description"): // vocab
+		return id, true
+	case has("action", "given", "then"): // transition
+		return id, true
+	}
+	return "", false
+}
+
+// ---------------------------------------------------------------------------
+// 照合（機械可読出力）
+// ---------------------------------------------------------------------------
+
+// TestUsage_DeliveredIDsMatchTheMachineReadableOutput は、**数え上げた全ての
+// `--json` の面**を、**その面が宣言している bool フラグの全部分集合**で走らせ、
+// 記録された deliveredIds が「出たバイト列から導いた集合」と一致することを見る。
+//
+// 🔴 **これが正本の言う「配線したが中身が食い違うとき」の歯止めである。**
+// 面を列挙しない（cobra の木から数え上げる）ので、`--json` の面を新しく足せば
+// 自動的に回る。枝も列挙しない（bool フラグの宣言から数え上げる）ので、
+// `--all` のような「畳んだものを開く」枝も自動的に回る。
+func TestUsage_DeliveredIDsMatchTheMachineReadableOutput(t *testing.T) {
+	template, ids := seedJSONFaceFixture(t)
+	t.Setenv("EDITOR", "true")
+	t.Setenv("HOME", t.TempDir())
+
+	ran, rejected := 0, 0
+	for _, face := range discoverJSONFaces(t) {
+		extra, ok := jsonFaceInvocations[face]
+		if !ok {
+			continue // TestEveryJSONFaceIsExercised が別途落とす
+		}
+		t.Run(face, func(t *testing.T) {
+			okRuns := 0
+			for _, combo := range boolFlagSubsets(t, face) {
+				name := "既定"
+				if len(combo) > 0 {
+					name = strings.Join(combo, " ")
+				}
+				t.Run(name, func(t *testing.T) {
+					dir := copyFixture(t, template)
+					t.Chdir(dir)
+
+					args := append(strings.Fields(face), ids.resolve(extra)...)
+					args = append(args, "--json")
+					args = append(args, combo...)
+
+					stdout, delivered, err := runWithDelivery(t, dir, args...)
+					if err != nil || stdout == "" {
+						rejected++
+						t.Logf("この引き方は出力を持たない（検査対象外）: %v (%v)", args, err)
+						return
+					}
+					okRuns++
+					ran++
+					want := deliveredFromJSON(t, stdout)
+					if !equalIDs(delivered, want) {
+						t.Errorf(`記録された deliveredIds が、機械可読出力から導いた集合と違う: %v
+ 記録: %v
+ 出力: %v
+出力に本文が載っているのに記録されていない id は配線漏れ、
+記録されているのに出力に本文が無い id は数えすぎ（畳んだ側を数えている）。`,
+							args, delivered, want)
+					}
+				})
+			}
+			if okRuns == 0 {
+				t.Errorf("この面はどの引き方でも出力を得られなかった（1 度も照合されていない）")
+			}
+		})
+	}
+	t.Logf("照合した起動: %d 通り（成り立たなかった引き方 %d 通り）", ran, rejected)
+	if ran == 0 {
+		t.Fatal("1 つも走っていない（この検査は何も見ていない）")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 人が読む面
+// ---------------------------------------------------------------------------
+
+// TestUsage_TextFacesDeliverWhatTheyDeclare は、人が読む面が宣言どおりの集合を
+// 渡すことを、実際に走らせて値で見る。
+//
+// ⚠️ **人が読む面は機械可読出力を持たないので、集合そのものを導けない。**
+// だから宣言は「`--json` と同じ／その部分集合／1 件も渡さない」の 3 つに限り、
+// **部分集合の面についてどの記録が欠けるべきかは検査していない**（file 冒頭の射程）。
+func TestUsage_TextFacesDeliverWhatTheyDeclare(t *testing.T) {
+	template, ids := seedJSONFaceFixture(t)
+	t.Setenv("EDITOR", "true")
+	t.Setenv("HOME", t.TempDir())
+
+	checked, skipped := 0, 0
+	for _, face := range usageRunnableSurfaces() {
+		spec := deliverySpecs[face]
+		if spec.unrunnable != "" {
+			skipped++
+			t.Logf("%s は走らせない: %s", face, spec.unrunnable)
+			continue
+		}
+		short := strings.TrimPrefix(face, "scholia ")
+		extra, hasJSON := jsonFaceInvocations[short]
+		if !hasJSON {
+			extra = spec.args
+		}
+		t.Run(face, func(t *testing.T) {
+			dir := copyFixture(t, template)
+			t.Chdir(dir)
+			base := append(strings.Fields(short), ids.resolve(extra)...)
+
+			_, gotText, err := runWithDelivery(t, dir, base...)
+			if err != nil {
+				t.Logf("人が読む面が成り立たなかった（%v）。記録は %v", err, gotText)
+			}
+			checked++
+
+			if spec.text == textDeliversNothing || spec.text == textNotCounted {
+				if len(gotText) != 0 {
+					t.Fatalf("この面は本文を 1 件も渡さないと宣言しているのに記録されている: %v", gotText)
+				}
+				return
+			}
+
+			if !hasJSON {
+				t.Fatalf("`--json` を持たない面は textDeliversNothing か textNotCounted しか宣言できない")
+			}
+			dir2 := copyFixture(t, template)
+			t.Chdir(dir2)
+			_, gotJSON, err := runWithDelivery(t, dir2, append(append([]string{}, base...), "--json")...)
+			if err != nil {
+				t.Fatalf("`--json` の面が走らない: %v", err)
+			}
+
+			// 期待値は「`--json` が渡した集合から、宣言した種類を落としたもの」——
+			// **値そのもの**で照合する。部分集合であることだけを見る形は、
+			// 人が読む面の配線を 1 本外す変異を通した（実見）。
+			want := withoutKinds(t, gotJSON, spec.withholds, recordKinds(t, dir2))
+			if len(want) == 0 {
+				t.Fatalf("この面の期待値が空になった（標本が宣言に噛み合っていない）。`--json` 側は %v", gotJSON)
+			}
+			if spec.text == textWithholds && equalIDs(want, gotJSON) {
+				t.Fatalf("落とすと宣言した種類が `--json` の集合に 1 件も無い（宣言か標本が古い）: %v", gotJSON)
+			}
+			if !equalIDs(gotText, want) {
+				t.Errorf(`人が読む面が渡した記録が宣言と違う
+ 記録: %v
+ 期待: %v（`+"`--json`"+` の %v から種類 %v を落としたもの）`, gotText, want, gotJSON, spec.withholds)
+			}
+		})
+	}
+	t.Logf("人が読む面を走らせた: %d 個（走らせなかった %d 個）", checked, skipped)
+	if checked == 0 {
+		t.Fatal("1 つも走っていない（この検査は何も見ていない）")
+	}
+}
+
+// 記録の種類（`.scholia/` の置き場所と 1 対 1）。
+const (
+	recordKindTag        = "tag"
+	recordKindTransition = "transition"
+	recordKindVocab      = "vocab"
+	recordKindDecision   = "decision"
+)
+
+// recordKinds は標本の `.scholia/` を読んで id → 種類の対応を作る。
+//
+// ⚠️ **実装のどの関数も通さない。** 置き場所（ディレクトリ）だけを見るので、
+// 分類の実装を書き換えてもこの対応は変わらない。
+func recordKinds(t *testing.T, dir string) map[string]string {
+	t.Helper()
+	kinds := map[string]string{}
+	for sub, kind := range map[string]string{
+		"tags": recordKindTag, "transitions": recordKindTransition,
+		"vocab": recordKindVocab, "decisions": recordKindDecision,
+	} {
+		entries, err := os.ReadDir(filepath.Join(dir, ".scholia", sub))
+		if err != nil {
+			continue // その種類がまだ 1 件も無い
+		}
+		for _, e := range entries {
+			if name := strings.TrimSuffix(e.Name(), ".json"); name != e.Name() {
+				kinds[name] = kind
+			}
+		}
+	}
+	if len(kinds) == 0 {
+		t.Fatalf("標本の `.scholia` から 1 件も読めていない: %s", dir)
+	}
+	return kinds
+}
+
+// withoutKinds は id の並びから、宣言された種類のものを落とす。
+// 種類の分からない id が来たら落とさずに残す（黙って消さない）。
+func withoutKinds(t *testing.T, ids, withholds []string, kinds map[string]string) []string {
+	t.Helper()
+	drop := make(map[string]bool, len(withholds))
+	for _, k := range withholds {
+		drop[k] = true
+	}
+	out := make([]string, 0, len(ids))
+	for _, id := range ids {
+		kind, known := kinds[id]
+		if !known {
+			t.Logf("⚠️ id %q の種類が標本から分からない（落とさずに残す）", id)
+		}
+		if drop[kind] {
+			continue
+		}
+		out = append(out, id)
+	}
+	return out
+}
+
+func equalIDs(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// ---------------------------------------------------------------------------
+// 判定そのもの（純関数・入力と出力の対・CLAUDE.md 1）
+// ---------------------------------------------------------------------------
+
+// sampleDecision / sampleTag / sampleTransition は判定の検査用の最小レコード。
+func sampleDecision(id, why string) model.Decision {
+	return model.Decision{ID: id, Target: model.DecisionTarget{Type: "tag", ID: "req.a"}, Why: why, At: "2026-01-01T00:00:00Z"}
+}
+
+func sampleTag(id, desc string) model.Tag {
+	return model.Tag{ID: id, Name: "名前", Description: desc}
+}
+
+func sampleTransition(id string) model.Transition {
+	return model.Transition{ID: id, Action: "act.submit", Given: []string{"cond.valid"}, Then: []string{"eff.token"}}
+}
+
+func TestDeliveredRecords_InputOutputPairs(t *testing.T) {
+	withBody := sampleTag("req.a", "本文。")
+	folded := withBody
+	folded.Description = "" // tag list の既定が渡す形
+
+	cases := []struct {
+		name string
+		in   any
+		want []string
+	}{
+		{"nil", nil, nil},
+		{"本文つきのタグ", withBody, []string{"req.a"}},
+		{"畳んだタグ（本文の欄を空にした形）は数えない", folded, nil},
+		{"本文つきの decision", sampleDecision("D1", "本文。"), []string{"D1"}},
+		{"本文の無い decision は数えない", sampleDecision("D1", ""), nil},
+		{"存在だけの出力形（inheritedOut）は数えない",
+			inheritedOut{ID: "D1", Heading: "見出し"}, nil},
+		{"取り下げの出力形（withdrawnOut）は数えない",
+			withdrawnOut{ID: "D1", ReplacedBy: []string{"D2"}}, nil},
+		{"埋め込みの中のレコードも拾う",
+			decisionOut{Decision: sampleDecision("D1", "本文。"), Effect: EffectInForce}, []string{"D1"}},
+		{"スライス・入れ子・重複",
+			[]any{
+				[]decisionOut{{Decision: sampleDecision("D2", "本文。")}, {Decision: sampleDecision("D1", "本文。")}},
+				map[string]any{"x": sampleDecision("D1", "本文。")},
+			}, []string{"D1", "D2"}},
+		{"遷移は本文の欄が無いので、載れば渡ったと数える",
+			sampleTransition("T-a"), []string{"T-a"}},
+		{"nil ポインタ", []*model.Decision{nil}, nil},
+		{"ポインタの先も歩く", &struct {
+			D model.Decision `json:"d"`
+		}{sampleDecision("D1", "本文。")}, []string{"D1"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var got []string
+			for _, r := range deliveredRecords(c.in) {
+				got = append(got, r.id)
+			}
+			if !equalIDs(got, c.want) {
+				t.Errorf("deliveredRecords\n got: %v\nwant: %v", got, c.want)
+			}
+		})
+	}
+}
+
+// TestDeliveredRecords_SkipsFieldsThatNeverReachTheOutput は、JSON に出ない欄
+// （`json:"-"`）を歩かないことを見る。出ない本文を「渡った」と書かないため。
+func TestDeliveredRecords_SkipsFieldsThatNeverReachTheOutput(t *testing.T) {
+	type wrapper struct {
+		Shown  model.Decision `json:"shown"`
+		Hidden model.Decision `json:"-"`
+	}
+	v := wrapper{Shown: sampleDecision("D1", "本文。"), Hidden: sampleDecision("D2", "本文。")}
+	var got []string
+	for _, r := range deliveredRecords(v) {
+		got = append(got, r.id)
+	}
+	if !equalIDs(got, []string{"D1"}) {
+		t.Errorf("JSON に出ない欄まで数えている: %v", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 入れ物
+// ---------------------------------------------------------------------------
+
+// TestDeliveryLog_NilIsANoop は、計測がオフのとき（入れ物が無いとき）に
+// 積む側が何もしないことを見る。**面の側にオフの分岐を書かせないための性質**である。
+func TestDeliveryLog_NilIsANoop(t *testing.T) {
+	var d *deliveryLog
+	d.note("a", "b")
+	if got := d.ids(); len(got) != 0 {
+		t.Errorf("nil の入れ物が値を返した: %v", got)
+	}
+	// 計測を通さない実行経路（オフ）では、cobra の context に入れ物が載らない。
+	root := newPlainRoot([]string{"version"}, &bytes.Buffer{}, &bytes.Buffer{})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("version が走らない: %v", err)
+	}
+	if got := deliveryLogFrom(root); got != nil {
+		t.Errorf("オフの実行経路に入れ物が載っている: %+v", got)
+	}
+}
+
+// TestDeliveryLog_ConcurrentNotes は、同じ起動の中で並行に積んでも壊れないことを見る。
+//
+// 🔴 **`-race` と対で意味を持つ**（CLAUDE.md「検証」）。入れ物をパッケージ変数に置く
+// 変異を入れると、この検査は緑のままでも viewer の共有と組み合わさったときに壊れる
+// ——だから入れ物は 1 起動 1 つで、置き場所そのものを配線で決めてある。
+func TestDeliveryLog_ConcurrentNotes(t *testing.T) {
+	d := &deliveryLog{}
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			for j := 0; j < 32; j++ {
+				d.note(fmt.Sprintf("id-%02d", (i*32+j)%16))
+			}
+		}(i)
+	}
+	wg.Wait()
+	got := d.ids()
+	if len(got) != 16 {
+		t.Fatalf("並行に積んだ結果が %d 件（want 16）: %v", len(got), got)
+	}
+	for i := 1; i < len(got); i++ {
+		if got[i-1] >= got[i] {
+			t.Fatalf("昇順・重複なしになっていない: %v", got)
+		}
+	}
+}
+
+// TestDeliveryLog_IsPerInvocation は、入れ物が起動ごとに別であることを見る
+// （前の起動で渡した記録が次の行に混ざらない）。
+func TestDeliveryLog_IsPerInvocation(t *testing.T) {
+	template, ids := seedJSONFaceFixture(t)
+	dir := copyFixture(t, template)
+	t.Chdir(dir)
+
+	_, first, err := runWithDelivery(t, dir, "show", "decision", ids.decision)
+	if err != nil {
+		t.Fatalf("1 回目が走らない: %v", err)
+	}
+	if len(first) == 0 {
+		t.Fatal("1 回目が何も記録していない（この検査は何も見ていない）")
+	}
+	_, second, err := runWithDelivery(t, dir, "version")
+	if err != nil {
+		t.Fatalf("2 回目が走らない: %v", err)
+	}
+	if len(second) != 0 {
+		t.Errorf("前の起動で渡した記録が次の行に混ざっている: %v", second)
+	}
+}

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -110,23 +111,30 @@ func executeWithUsage(level usage.Level, sink usage.Sink, args []string, stdout,
 	outCounter := usage.NewCountingWriter(stdout)
 	errCounter := usage.NewCountingWriter(stderr)
 
+	// 🔴 **「本文が渡った記録」の入れ物は 1 起動につき 1 つ作る**
+	// （01M09FHFG4PVTGN4CA10N7BQZK・パッケージ変数に置かない理由は usage_delivery.go）。
+	// 計測経路でしか作らないので、**オフの起動では context にも載らない**
+	// ——面の側の note は nil を受けて何もしない（条項 10）。
+	delivered := &deliveryLog{}
+
 	root := newRootCmd()
 	if args != nil {
 		root.SetArgs(args)
 	}
 	root.SetOut(outCounter)
 	root.SetErr(errCounter)
+	root.SetContext(withDeliveryLog(context.Background(), delivered))
 
 	executed, err := root.ExecuteC()
 	elapsed := time.Since(start)
 
 	// ⚠️ ここから先で何が起きても、返すのは cobra の err だけである（条項 11）。
-	sink(level, buildObservation(level, executed, err, elapsed, outCounter, errCounter))
+	sink(level, buildObservation(level, executed, err, elapsed, outCounter, errCounter, delivered))
 	return err
 }
 
 // buildObservation は 1 起動分の観測を組み立てる。段による取捨はしない（usage.Records の仕事）。
-func buildObservation(level usage.Level, executed *cobra.Command, err error, elapsed time.Duration, out, errw *usage.CountingWriter) usage.Observation {
+func buildObservation(level usage.Level, executed *cobra.Command, err error, elapsed time.Duration, out, errw *usage.CountingWriter, delivered *deliveryLog) usage.Observation {
 	exit := 0
 	if err != nil {
 		exit = 1
@@ -153,6 +161,7 @@ func buildObservation(level usage.Level, executed *cobra.Command, err error, ela
 		ToolVersion:   resolveVersionInfo().Version,
 		RecordIDs:     shape.recordIDs,
 		ProjectRoot:   usageProjectRoot,
+		DeliveredIDs:  delivered.ids(),
 		FlagValues:    shape.flagValues,
 		FreeTextLens:  shape.freeTextLens,
 		StderrBytes:   errw.Bytes(),

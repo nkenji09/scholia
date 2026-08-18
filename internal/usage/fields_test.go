@@ -24,8 +24,9 @@ var minLevel = map[Field]Level{
 	FieldSessionID:    Masked,
 	FieldToolVersion:  Masked,
 
-	FieldRecordIDs:   Normal,
-	FieldProjectRoot: Normal,
+	FieldRecordIDs:    Normal,
+	FieldProjectRoot:  Normal,
+	FieldDeliveredIDs: Normal,
 
 	FieldFlagValues:    Detailed,
 	FieldFreeTextLens:  Detailed,
