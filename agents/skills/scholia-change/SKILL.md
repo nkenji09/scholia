@@ -161,7 +161,10 @@ desc に書かない。正典＝[`../_scholia-shared/references/modeling-princip
    `correction` を選ぶと `applied[]` に是正の印が1件付く（A是正の着地はこちら・下の「印を打つ」節）。
    結ぶ commit は保存前に照合される: 形（16 進 7〜64 文字）はどこでも、実在は git 管理下でのみ。
    ⚠️ git 管理下では**完全 hash へ寄せて保存する**ので、短縮 hash で打っても同じ commit は1件に畳まれる。
+   ⚠️ **16 進の名前を持つブランチ/タグは通らない**（git は ref を先に解決するので、そのままだと別の commit が保存される）。
    git 管理外では照合できないので、保存したうえで advisory `commit-unverified` で「照合していない」と出る。
+   ⚠️ **この advisory を `acknowledges` に書かないこと**——有効な rule id ではないので宙吊りになり、
+   `acknowledges[]` は追記専用なので消せない。
    decide 時点で commit のハッシュが既に分かっているなら、手順 7 で `scholia decide --commit <hash>` として
    最初から結んでもよい（9 は省略できる）。未結線の棚卸しは `scholia decision list --unlinked`。
 10. **実装/テスト側へ** — 人が task の diff／コメントをコピーし、scholia の外（コード側）の実装・テスト修正を依頼する。
