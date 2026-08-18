@@ -115,15 +115,18 @@ func newDecideCmd() *cobra.Command {
 			// （store.CreateDecision）で当たる（decision_commitgate.go に理由）。
 			// 面がするのは「照合できなかったことを名乗る」ところだけである。
 			repo := s.CommitRepo()
-			if err := s.CreateDecision(d, store.DecisionCreateOptions{AllowRules: gate.allow}); err != nil {
+			// 🔴 **保存後の値を受け取る。** 口は結ぶ commit を完全 hash へ寄せるので、
+			// 渡した d をそのまま出力すると画面と真実の源がずれる。
+			saved, err := s.CreateDecision(d, store.DecisionCreateOptions{AllowRules: gate.allow})
+			if err != nil {
 				return err
 			}
+			advisories = append(advisories, commitVerifyAdvisories(repo, len(d.Commits))...)
 
 			if asJSON {
-				return emitWriteJSON(cmd, d, advisories, allowed, false)
+				return emitWriteJSON(cmd, saved, advisories, allowed, false)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "decision %s を記録しました（%s:%s）\n", d.ID, targetType, targetID)
-			writeCommitVerifyNotice(cmd, repo, len(d.Commits))
+			fmt.Fprintf(cmd.OutOrStdout(), "decision %s を記録しました（%s:%s）\n", saved.ID, targetType, targetID)
 			printWriteGateText(cmd, allowed, advisories)
 			return nil
 		},

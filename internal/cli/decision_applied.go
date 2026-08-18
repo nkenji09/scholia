@@ -87,10 +87,7 @@ func newDecisionAppliedCmd() *cobra.Command {
 			}
 			d.Applied = append(append([]model.AppliedMark(nil), d.Applied...), added...)
 
-			if err := s.UpdateDecision(d); err != nil {
-				return err
-			}
-			saved, err := s.LoadDecision(id)
+			saved, err := s.UpdateDecision(d)
 			if err != nil {
 				return err
 			}

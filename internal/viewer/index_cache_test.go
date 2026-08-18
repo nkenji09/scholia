@@ -178,11 +178,11 @@ func TestIndexCache_RebuildsOnChange(t *testing.T) {
 		{
 			category: "decision",
 			add: func() error {
-				return s.CreateDecision(model.Decision{
+				return dropDecision(s.CreateDecision(model.Decision{
 					ID:     "01FRESHDECISION000000000001",
 					Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.auth"},
 					Why:    "# 新設の意思決定\n\n本文。\n", At: "2026-02-01T00:00:00Z",
-				}, store.DecisionCreateOptions{})
+				}, store.DecisionCreateOptions{}))
 			},
 			probe: "/api/rules", expect: "01FRESHDECISION000000000001",
 		},
@@ -463,7 +463,7 @@ func seedScaledStoreIn(t *testing.T, dir string, sz scaleSize) (http.Handler, *s
 		default:
 			target = model.DecisionTarget{Type: model.DecisionTargetVocab, ID: fmt.Sprintf("v.scale%04d", i%modVocab)}
 		}
-		if err := s.CreateDecision(model.Decision{
+		if _, err := s.CreateDecision(model.Decision{
 			ID:     fmt.Sprintf("01SCALEDECISION%011d", i),
 			Target: target,
 			Why:    fmt.Sprintf("# 規模の標本 %d\n\n本文。\n", i),

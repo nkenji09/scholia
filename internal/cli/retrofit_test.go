@@ -69,7 +69,7 @@ func setupRetrofitStore(t *testing.T) string {
 		}
 	}
 	// why-file-line＋dangling-id（判断欄位＝acknowledge-only）
-	if err := s.CreateDecision(model.Decision{
+	if _, err := s.CreateDecision(model.Decision{
 		ID:     "01AAAAAAAAAAAAAAAAAAAAAAAA",
 		Target: model.DecisionTarget{Type: model.DecisionTargetTransition, ID: "T-d1"},
 		Why:    "# テスト用の見出し\n\ninternal/a.go:12 を見て T-gone を廃止した",

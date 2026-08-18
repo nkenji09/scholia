@@ -53,7 +53,7 @@ func TestCreateDecisionRejectsUnknownCommit(t *testing.T) {
 
 	d := decision("01D1", headedWhy)
 	d.Commits = []string{"0123456789abcdef0123456789abcdef01234567"}
-	if err := s.CreateDecision(d, DecisionCreateOptions{}); err == nil {
+	if _, err := s.CreateDecision(d, DecisionCreateOptions{}); err == nil {
 		t.Fatal("実在しない commit を結んだ decision は作らせないべき")
 	}
 	if files := decisionFiles(t, s); len(files) != 0 {
@@ -62,7 +62,7 @@ func TestCreateDecisionRejectsUnknownCommit(t *testing.T) {
 
 	// 実測で保存されてしまっていた値（日本語の文字列）。
 	d.Commits = []string{"これはハッシュではない"}
-	err := s.CreateDecision(d, DecisionCreateOptions{})
+	_, err := s.CreateDecision(d, DecisionCreateOptions{})
 	if err == nil {
 		t.Fatal("commit hash の形でない値は保存させないべき")
 	}
@@ -73,7 +73,7 @@ func TestCreateDecisionRejectsUnknownCommit(t *testing.T) {
 
 	// 実在する commit なら通る。
 	d.Commits = []string{head}
-	if err := s.CreateDecision(d, DecisionCreateOptions{}); err != nil {
+	if _, err := s.CreateDecision(d, DecisionCreateOptions{}); err != nil {
 		t.Fatalf("実在する commit は通るべき: %v", err)
 	}
 }
@@ -94,20 +94,20 @@ func TestUpdateDecisionChecksOnlyAdditions(t *testing.T) {
 
 	// 既存の値はそのままに、別の欄だけを書き戻す→通る。
 	legacy.Ref = "PR#1"
-	if err := s.UpdateDecision(legacy); err != nil {
+	if _, err := s.UpdateDecision(legacy); err != nil {
 		t.Fatalf("既存の値は再検査しないはず: %v", err)
 	}
 
 	// 新しく足す hash は検査される。
 	bad := legacy
 	bad.Commits = append(append([]string(nil), legacy.Commits...), "0123456789abcdef0123456789abcdef01234567")
-	if err := s.UpdateDecision(bad); err == nil {
+	if _, err := s.UpdateDecision(bad); err == nil {
 		t.Fatal("新しく足した実在しない commit は止めるべき")
 	}
 
 	good := legacy
 	good.Commits = append(append([]string(nil), legacy.Commits...), head)
-	if err := s.UpdateDecision(good); err != nil {
+	if _, err := s.UpdateDecision(good); err != nil {
 		t.Fatalf("新しく足した実在する commit は通るべき: %v", err)
 	}
 }
@@ -119,25 +119,25 @@ func TestDecisionPortChecksAppliedMarks(t *testing.T) {
 
 	d := decision("01D1", headedWhy)
 	d.Applied = []model.AppliedMark{{Kind: "adopted", At: at}}
-	if err := s.CreateDecision(d, DecisionCreateOptions{}); err == nil {
+	if _, err := s.CreateDecision(d, DecisionCreateOptions{}); err == nil {
 		t.Fatal("3値でない種別は保存させないべき")
 	}
 
 	// 是正の印が持つ commit も実在照合の対象（印だけ偽物を通す抜け道を作らない）。
 	d.Applied = []model.AppliedMark{{Kind: model.AppliedCorrection, At: at, Commit: "0123456789abcdef0123456789abcdef01234567"}}
-	if err := s.CreateDecision(d, DecisionCreateOptions{}); err == nil {
+	if _, err := s.CreateDecision(d, DecisionCreateOptions{}); err == nil {
 		t.Fatal("印が指す実在しない commit も止めるべき")
 	}
 
 	d.Applied = []model.AppliedMark{{Kind: model.AppliedCorrection, At: at, Commit: head}}
-	if err := s.CreateDecision(d, DecisionCreateOptions{}); err != nil {
+	if _, err := s.CreateDecision(d, DecisionCreateOptions{}); err != nil {
 		t.Fatalf("実在する commit を指す是正の印は通るべき: %v", err)
 	}
 
 	// 自分自身を指す印は落ちる。
 	d2 := decision("01D2", headedWhy)
 	d2.Applied = []model.AppliedMark{{Kind: model.AppliedConflict, At: at, Decision: "01D2"}}
-	if err := s.CreateDecision(d2, DecisionCreateOptions{}); err == nil {
+	if _, err := s.CreateDecision(d2, DecisionCreateOptions{}); err == nil {
 		t.Fatal("自分自身を指す印は保存させないべき")
 	}
 }
@@ -152,13 +152,13 @@ func TestDecisionPortOutsideGit(t *testing.T) {
 
 	d := decision("01D1", headedWhy)
 	d.Commits = []string{"0123456789abcdef0123456789abcdef01234567"} // 形は正しい・実在は不明
-	if err := s.CreateDecision(d, DecisionCreateOptions{}); err != nil {
+	if _, err := s.CreateDecision(d, DecisionCreateOptions{}); err != nil {
 		t.Fatalf("照合できないことを理由に止めてはいけない: %v", err)
 	}
 
 	d2 := decision("01D2", headedWhy)
 	d2.Commits = []string{"これはハッシュではない"}
-	if err := s.CreateDecision(d2, DecisionCreateOptions{}); err == nil {
+	if _, err := s.CreateDecision(d2, DecisionCreateOptions{}); err == nil {
 		t.Fatal("git 管理外でも、形が違えば止めるべき")
 	}
 }
@@ -176,4 +176,102 @@ func asCommitReject(err error, target **commitcheck.RejectError) bool {
 		err = u.Unwrap()
 	}
 	return false
+}
+
+// 🔴 **口が保存する値は、同じ commit につき1つの文字列に定まる。**
+//
+// レビュアの再現手順（完全 hash → 短縮 hash の順に是正を打つ）をそのまま置く。
+// 直す前は `commits[]` にも `applied[]` にも2件入り、**是正の件数が上振れした。**
+// applied[] は追記専用なので、打ってしまうと消せない。
+func TestDecisionPortNormalizesShortHash(t *testing.T) {
+	s, head := gitBackedStore(t)
+	const at = "2026-08-18T00:00:00Z"
+	short := head[:8]
+
+	// 1回目: 完全 hash で是正を打つ。
+	d := decision("01D1", headedWhy)
+	d.Commits = []string{head}
+	d.Applied = []model.AppliedMark{{Kind: model.AppliedCorrection, At: at, Commit: head}}
+	saved, err := s.CreateDecision(d, DecisionCreateOptions{})
+	if err != nil {
+		t.Fatalf("1回目: %v", err)
+	}
+
+	// 2回目: 同じ commit を**短縮 hash**で打つ（正当な入力——保存ゲートは
+	// 16 進 7〜64 文字を通す）。
+	next := saved
+	next.Commits = append(append([]string(nil), saved.Commits...), short)
+	next.Applied = append(append([]model.AppliedMark(nil), saved.Applied...),
+		model.AppliedMark{Kind: model.AppliedCorrection, At: at, Commit: short})
+	saved2, err := s.UpdateDecision(next)
+	if err != nil {
+		t.Fatalf("2回目: %v", err)
+	}
+
+	if len(saved2.Commits) != 1 || saved2.Commits[0] != head {
+		t.Errorf("同じ commit は commits[] で1件のはず: %v", saved2.Commits)
+	}
+	if n := model.CountApplied(saved2.Applied, model.AppliedCorrection); n != 1 {
+		t.Errorf("是正は1件のはず（上振れ）: %d 件 %+v", n, saved2.Applied)
+	}
+	// 保存されたファイルの側でも確かめる（返り値だけを見て緑にしない）。
+	onDisk, err := s.LoadDecision("01D1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(onDisk.Commits) != 1 || len(onDisk.Applied) != 1 {
+		t.Errorf("ファイルに書かれた値も1件ずつのはず: commits=%v applied=%+v", onDisk.Commits, onDisk.Applied)
+	}
+}
+
+// 逆順（短縮を先に打ってから完全 hash を打つ）でも1件に畳む。
+func TestDecisionPortNormalizesShortHashReverseOrder(t *testing.T) {
+	s, head := gitBackedStore(t)
+	short := head[:8]
+
+	d := decision("01D1", headedWhy)
+	d.Commits = []string{short}
+	saved, err := s.CreateDecision(d, DecisionCreateOptions{})
+	if err != nil {
+		t.Fatalf("1回目: %v", err)
+	}
+	// ⚠️ 1回目に渡した短縮 hash は**完全 hash へ寄って保存される**。
+	if len(saved.Commits) != 1 || saved.Commits[0] != head {
+		t.Fatalf("新しく足す値は完全 hash へ寄るはず: %v", saved.Commits)
+	}
+
+	next := saved
+	next.Commits = append(append([]string(nil), saved.Commits...), head)
+	saved2, err := s.UpdateDecision(next)
+	if err != nil {
+		t.Fatalf("2回目: %v", err)
+	}
+	if len(saved2.Commits) != 1 {
+		t.Errorf("同じ commit は1件のはず: %v", saved2.Commits)
+	}
+}
+
+// 口が返すのは「実際に保存された値」であること（渡した値ではない）。
+// 面がこれを使わずに渡した側を出力すると、画面と真実の源がずれる。
+func TestDecisionPortReturnsSavedValue(t *testing.T) {
+	s, head := gitBackedStore(t)
+	d := decision("01D1", headedWhy)
+	d.Commits = []string{head[:10]}
+	saved, err := s.CreateDecision(d, DecisionCreateOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Commits[0] != head {
+		t.Fatalf("返り値は保存後の値であるべき: %v", saved.Commits)
+	}
+	if d.Commits[0] != head[:10] {
+		t.Fatalf("呼び出し元に渡した値は書き換わらないはず（値渡し）: %v", d.Commits)
+	}
+	onDisk, err := s.LoadDecision("01D1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if onDisk.Commits[0] != head {
+		t.Fatalf("ファイルの値と返り値が一致するべき: %v", onDisk.Commits)
+	}
 }

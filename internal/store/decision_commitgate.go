@@ -34,6 +34,7 @@ package store
 
 import (
 	"path/filepath"
+	"reflect"
 
 	"github.com/nkenji09/scholia/internal/commitcheck"
 	"github.com/nkenji09/scholia/internal/model"
@@ -49,8 +50,15 @@ func (s *Store) CommitRepo() commitcheck.Repo {
 }
 
 // checkDecisionAdditions は「今回の保存で新しく足された」commit hash と印だけを
-// 検査する。prev が nil のときは全件が新規（＝新規作成）。
-func (s *Store) checkDecisionAdditions(d model.Decision, prev *model.Decision) error {
+// 検査し、**通ったものを完全 hash へ寄せる**（正規化）。prev が nil のときは
+// 全件が新規（＝新規作成）。
+//
+// ⚠️ **d をポインタで受けるのは、保存する値をここで書き換えるからである。**
+// 保存ゲートは 16 進 7〜64 文字を通すので短縮 hash も正当な入力だが、同じ
+// 1 commit が短縮と完全で2つの文字列として保存されると、**完全一致で畳む
+// 仕組み（applied[] の重複判定）が効かない**——実測で是正が2件に上振れした。
+// 正規化も検査と同じく**口**に置く: 面ごとに書くと、新しい面が忘れる。
+func (s *Store) checkDecisionAdditions(d *model.Decision, prev *model.Decision) error {
 	var prevCommits []string
 	var prevMarks []model.AppliedMark
 	if prev != nil {
@@ -71,10 +79,31 @@ func (s *Store) checkDecisionAdditions(d model.Decision, prev *model.Decision) e
 			hashes = append(hashes, m.Commit)
 		}
 	}
-	if len(hashes) == 0 {
+
+	// ⚠️ **「新しい hash がゼロなら何もしない」で早期に抜けてはいけない。**
+	// 同じ値が2回並ぶ形（既に保存済みの完全 hash を、もう一度足す呼び出し）は
+	// 新規 hash ゼロだが**要素は増えている**——ここで抜けると正規化に届かず、
+	// 同じ commit が2件のまま保存された（実測）。抜けてよいのは
+	// **来歴も印も1バイトも変わっていないとき**だけである（改名の追随がこれ）。
+	if len(hashes) == 0 &&
+		reflect.DeepEqual(prevCommits, d.Commits) &&
+		reflect.DeepEqual(prevMarks, d.Applied) {
 		return nil
 	}
-	return s.CommitRepo().Check(hashes)
+
+	repo := s.CommitRepo()
+	if len(hashes) > 0 {
+		if err := repo.Check(hashes); err != nil {
+			return err
+		}
+	}
+	// ここまで来た＝止めるべきものは無い。**通った値だけを寄せる。**
+	// 解決できない値（git 管理外・git 不在）は canon が "" を返すので、
+	// 渡されたままの値が残る（「照合していない」と名乗る領域）。
+	canon := model.Canonicalizer(repo.Canonical)
+	d.Commits = model.NormalizeCommits(prevCommits, d.Commits, canon)
+	d.Applied = model.NormalizeAppliedMarks(prevMarks, d.Applied, canon)
+	return nil
 }
 
 // addedStrings は after のうち before に無い値を返す（順序保存）。

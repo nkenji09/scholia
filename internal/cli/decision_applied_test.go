@@ -2,9 +2,12 @@ package cli
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/nkenji09/scholia/internal/gittest"
 	"github.com/nkenji09/scholia/internal/model"
 )
 
@@ -215,5 +218,198 @@ func TestAddCommit_NamesUnverifiedWhenOutsideGit(t *testing.T) {
 	}
 	if !strings.Contains(out, "照合していません") {
 		t.Fatalf("照合できなかったことを名乗っていない:\n%s", out)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 短縮 hash と完全 hash（クリーンルームレビュー 指摘1）
+// ---------------------------------------------------------------------------
+
+// gitBackedAppliedFixture は **git 管理下**の標本を作り、store の dir と
+// decision id、HEAD の commit hash を返す。
+func gitBackedAppliedFixture(t *testing.T) (dir, drawn, head string) {
+	t.Helper()
+	dir = t.TempDir()
+	gittest.InitRepo(t, dir)
+	if _, err := run(t, dir, "init"); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	if _, err := run(t, dir, "tag", "create", "t1", "--name", "t1", "--kind", "concern"); err != nil {
+		t.Fatalf("tag create: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "f.txt"), []byte("x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gittest.Run(t, dir, "add", "-A")
+	gittest.Run(t, dir, "commit", "-q", "-m", "seed")
+	head = strings.TrimSpace(gittest.Run(t, dir, "rev-parse", "HEAD"))
+	drawn = decideID(t, dir, "# 引かれる側の見出し\n\n過去に決めたこと。")
+	return dir, drawn, head
+}
+
+// 🔴 **同じ commit を完全 hash と短縮 hash で是正と印しても、1件のまま。**
+//
+// レビュアの再現手順そのもの。直す前は `commits[]` も `applied[]` も2件になり、
+// **この単位が存在する理由そのもの——是正の件数——が上振れした。**
+// ⚠️ `applied[]` は追記専用なので、打ってしまうと消せない。
+func TestAddCommit_ShortAndFullHashCountAsOne(t *testing.T) {
+	dir, drawn, head := gitBackedAppliedFixture(t)
+
+	if out, err := run(t, dir, "decision", "add-commit", drawn, head, "--kind", "correction"); err != nil {
+		t.Fatalf("完全 hash: %v\n%s", err, out)
+	}
+	if out, err := run(t, dir, "decision", "add-commit", drawn, head[:8], "--kind", "correction"); err != nil {
+		t.Fatalf("短縮 hash: %v\n%s", err, out)
+	}
+
+	marks := loadApplied(t, dir, drawn)
+	if n := model.CountApplied(marks, model.AppliedCorrection); n != 1 {
+		t.Fatalf("同じ commit の是正は1件のはず（上振れ）: %d 件 %+v", n, marks)
+	}
+	if marks[0].Commit != head {
+		t.Errorf("保存される値は完全 hash に寄るはず: %q", marks[0].Commit)
+	}
+	if got := loadCommits(t, dir, drawn); len(got) != 1 || got[0] != head {
+		t.Errorf("commits[] も1件（完全 hash）のはず: %v", got)
+	}
+
+	// 逆順（短縮を先に打った decision に完全 hash を足す）でも1件のまま。
+	other := decideID(t, dir, "# もう1つの見出し\n\n別の判断。")
+	if out, err := run(t, dir, "decision", "add-commit", other, head[:8], "--kind", "implementation"); err != nil {
+		t.Fatalf("短縮 hash: %v\n%s", err, out)
+	}
+	if out, err := run(t, dir, "decision", "add-commit", other, head, "--kind", "implementation"); err != nil {
+		t.Fatalf("完全 hash: %v\n%s", err, out)
+	}
+	if got := loadCommits(t, dir, other); len(got) != 1 {
+		t.Fatalf("逆順でも1件のはず: %v", got)
+	}
+}
+
+// `decide --commit` も同じ口を通るので、短縮 hash は完全 hash に寄って保存される。
+func TestDecide_ShortHashIsStoredCanonical(t *testing.T) {
+	dir, _, head := gitBackedAppliedFixture(t)
+	id := decideIDWith(t, dir, "# 短縮で結ぶ\n\n本文。", "--commit", head[:7])
+	if got := loadCommits(t, dir, id); len(got) != 1 || got[0] != head {
+		t.Fatalf("保存される値は完全 hash に寄るはず: %v", got)
+	}
+}
+
+// loadCommits は `decision list --json` から commits[] を読む。
+func loadCommits(t *testing.T, dir, id string) []string {
+	t.Helper()
+	out, err := run(t, dir, "decision", "list", "--json")
+	if err != nil {
+		t.Fatalf("decision list --json: %v\n%s", err, out)
+	}
+	var resp struct {
+		Decisions []struct {
+			ID      string   `json:"id"`
+			Commits []string `json:"commits"`
+		} `json:"decisions"`
+	}
+	if err := json.Unmarshal([]byte(out), &resp); err != nil {
+		t.Fatalf("unmarshal: %v\n%s", err, out)
+	}
+	for _, d := range resp.Decisions {
+		if d.ID == id {
+			return d.Commits
+		}
+	}
+	t.Fatalf("decision %s が一覧に無い", id)
+	return nil
+}
+
+func decideIDWith(t *testing.T, dir, why string, extra ...string) string {
+	t.Helper()
+	args := append([]string{"decide", "--on", "tag:t1", "--why", why}, extra...)
+	out, err := run(t, dir, append(args, "--json")...)
+	if err != nil {
+		t.Fatalf("decide: %v\n%s", err, out)
+	}
+	var env struct {
+		Record struct {
+			ID string `json:"id"`
+		} `json:"record"`
+	}
+	if err := json.Unmarshal([]byte(out), &env); err != nil {
+		t.Fatalf("unmarshal: %v\n%s", err, out)
+	}
+	return env.Record.ID
+}
+
+// ---------------------------------------------------------------------------
+// 「照合していない」の名乗り（クリーンルームレビュー 指摘2）
+// ---------------------------------------------------------------------------
+
+// 🔴 **名乗りはテキストの面にも `--json` の面にも出る。**
+//
+// git が使えないとき、この道具は弾かず・素通りせず・名乗ると決めた。だが名乗りを
+// テキスト出力にだけ書いていた間、**`--json` の面では名乗りがどこにも出なかった**
+// ——配布スキルは AI に応答封筒を読ませる作りなので、AI は「保存された＝検査が
+// 走った」と読む。**自分で採らないと決めた「素通り」が `--json` でだけ起きていた。**
+func TestCommitVerifyNoticeAppearsOnBothFaces(t *testing.T) {
+	dir, drawn, _ := appliedFixture(t) // git 管理下ではない標本
+
+	t.Run("テキスト", func(t *testing.T) {
+		out, err := run(t, dir, "decision", "add-commit", drawn, "aaa1111", "--kind", "implementation")
+		if err != nil {
+			t.Fatalf("add-commit: %v\n%s", err, out)
+		}
+		if !strings.Contains(out, "照合していません") {
+			t.Fatalf("テキストの面に名乗りが無い:\n%s", out)
+		}
+	})
+
+	t.Run("--json", func(t *testing.T) {
+		out, err := run(t, dir, "decision", "add-commit", drawn, "bbb2222", "--kind", "implementation", "--json")
+		if err != nil {
+			t.Fatalf("add-commit --json: %v\n%s", err, out)
+		}
+		var env struct {
+			Advisories []struct {
+				Rule    string `json:"rule"`
+				Message string `json:"message"`
+			} `json:"advisories"`
+		}
+		if err := json.Unmarshal([]byte(out), &env); err != nil {
+			t.Fatalf("unmarshal: %v\n%s", err, out)
+		}
+		found := false
+		for _, a := range env.Advisories {
+			if a.Rule == RuleCommitUnverified {
+				found = true
+				if !strings.Contains(a.Message, "照合していません") {
+					t.Errorf("文言が読めない: %q", a.Message)
+				}
+			}
+		}
+		if !found {
+			t.Fatalf("`--json` の封筒に %q の advisory が無い（素通りと見分けがつかない）:\n%s",
+				RuleCommitUnverified, out)
+		}
+	})
+
+	t.Run("decide --commit も同じ", func(t *testing.T) {
+		out, err := run(t, dir, "decide", "--on", "tag:t1",
+			"--why", "# 名乗りの見出し\n\n本文。", "--commit", "ccc3333", "--json")
+		if err != nil {
+			t.Fatalf("decide --json: %v\n%s", err, out)
+		}
+		if !strings.Contains(out, RuleCommitUnverified) {
+			t.Fatalf("decide の `--json` にも名乗りが要る:\n%s", out)
+		}
+	})
+}
+
+// git 管理下では名乗らない（照合できたのだから、言うことは無い）。
+func TestCommitVerifyNoticeSilentUnderGit(t *testing.T) {
+	dir, drawn, head := gitBackedAppliedFixture(t)
+	out, err := run(t, dir, "decision", "add-commit", drawn, head, "--kind", "implementation", "--json")
+	if err != nil {
+		t.Fatalf("add-commit --json: %v\n%s", err, out)
+	}
+	if strings.Contains(out, RuleCommitUnverified) {
+		t.Fatalf("照合できたのに名乗っている（狼少年になる）:\n%s", out)
 	}
 }

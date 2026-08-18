@@ -167,3 +167,126 @@ func TestCountApplied(t *testing.T) {
 		t.Fatalf("却下は0件のはず: %d", got)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// 正規化（短縮 hash と完全 hash を同じ1件に寄せる）
+// ---------------------------------------------------------------------------
+//
+// # ここが落とす範囲（CLAUDE.md「配線ガードの書き方」6）
+//
+// **落ちる:** 新しく足す値が完全 hash へ寄らない／寄せた結果として重複する
+// 要素が落ちない／**既存要素が1バイトでも触られる**（append-only 破れ）。
+//
+// **落ちない:** 解決できない値（git 管理外・git 不在・手元に無い commit）。
+// canon が "" を返すので元の値が残る——これは「照合していない」と名乗る領域である。
+
+// fakeCanon は「先頭一致する完全 hash があればそれへ寄せる」解決器。
+// git を呼ばずに、短縮 hash の解決だけを再現する。
+func fakeCanon(full ...string) Canonicalizer {
+	return func(h string) string {
+		for _, f := range full {
+			if len(h) <= len(f) && f[:len(h)] == h {
+				return f
+			}
+		}
+		return ""
+	}
+}
+
+func TestNormalizeCommits(t *testing.T) {
+	const full = "a0d00a36c865c64a094b86d8363a86c88ffd060e"
+	canon := fakeCanon(full)
+
+	t.Run("完全のあとに短縮を足しても1件のまま", func(t *testing.T) {
+		got := NormalizeCommits([]string{full}, []string{full, full[:8]}, canon)
+		if len(got) != 1 || got[0] != full {
+			t.Fatalf("同じ commit は1件に畳むべき: %v", got)
+		}
+	})
+
+	t.Run("短縮のあとに完全を足しても1件のまま", func(t *testing.T) {
+		// 既存が短縮で保存されている場合も、比較のためだけに解決して畳む
+		//（既存要素そのものは触らない）。
+		got := NormalizeCommits([]string{full[:8]}, []string{full[:8], full}, canon)
+		if len(got) != 1 || got[0] != full[:8] {
+			t.Fatalf("既存要素は触らず、後から来た完全 hash を畳むべき: %v", got)
+		}
+	})
+
+	t.Run("同一呼び出しの中の短縮と完全も畳む", func(t *testing.T) {
+		got := NormalizeCommits(nil, []string{full[:8], full}, canon)
+		if len(got) != 1 || got[0] != full {
+			t.Fatalf("1件（完全 hash）になるべき: %v", got)
+		}
+	})
+
+	t.Run("新しく足す値は完全 hash へ寄る", func(t *testing.T) {
+		got := NormalizeCommits(nil, []string{full[:8]}, canon)
+		if len(got) != 1 || got[0] != full {
+			t.Fatalf("完全 hash へ寄せるべき: %v", got)
+		}
+	})
+
+	t.Run("既存要素は1バイトも触らない（append-only）", func(t *testing.T) {
+		// 既存が短縮でも、寄せ直したら既存要素の改変＝append-only 破れになる。
+		got := NormalizeCommits([]string{full[:8]}, []string{full[:8], "1234567"}, canon)
+		if len(got) != 2 || got[0] != full[:8] {
+			t.Fatalf("既存要素の値も位置も変えてはいけない: %v", got)
+		}
+	})
+
+	t.Run("解決できない値はそのまま残る", func(t *testing.T) {
+		got := NormalizeCommits(nil, []string{"1234567", "89abcde"}, canon)
+		if len(got) != 2 || got[0] != "1234567" || got[1] != "89abcde" {
+			t.Fatalf("解決できない値は渡されたまま: %v", got)
+		}
+	})
+
+	t.Run("canon が nil でも壊れない（git を知らない呼び出し）", func(t *testing.T) {
+		got := NormalizeCommits(nil, []string{"1234567"}, nil)
+		if len(got) != 1 || got[0] != "1234567" {
+			t.Fatalf("nil canon では何も寄せない: %v", got)
+		}
+	})
+}
+
+func TestNormalizeAppliedMarks(t *testing.T) {
+	const full = "a0d00a36c865c64a094b86d8363a86c88ffd060e"
+	const at = "2026-08-18T00:00:00Z"
+	canon := fakeCanon(full)
+	mark := func(h string) AppliedMark {
+		return AppliedMark{Kind: AppliedCorrection, At: at, Commit: h}
+	}
+
+	t.Run("同じ commit を指す是正の印は1件に畳む", func(t *testing.T) {
+		prev := []AppliedMark{mark(full)}
+		got := NormalizeAppliedMarks(prev, append(append([]AppliedMark(nil), prev...), mark(full[:8])), canon)
+		if len(got) != 1 {
+			t.Fatalf("同じ commit の是正は1件のはず: %+v", got)
+		}
+	})
+
+	t.Run("新しい印の commit は完全 hash へ寄る", func(t *testing.T) {
+		got := NormalizeAppliedMarks(nil, []AppliedMark{mark(full[:8])}, canon)
+		if len(got) != 1 || got[0].Commit != full {
+			t.Fatalf("完全 hash へ寄せるべき: %+v", got)
+		}
+	})
+
+	t.Run("既存の印は1バイトも触らない", func(t *testing.T) {
+		prev := []AppliedMark{mark(full[:8])}
+		got := NormalizeAppliedMarks(prev, append(append([]AppliedMark(nil), prev...), mark("1234567")), canon)
+		if len(got) != 2 || got[0].Commit != full[:8] {
+			t.Fatalf("既存の印の値も位置も変えてはいけない: %+v", got)
+		}
+	})
+
+	t.Run("commit を持たない印（矛盾・却下）は素通り", func(t *testing.T) {
+		conflict := AppliedMark{Kind: AppliedConflict, At: at}
+		got := NormalizeAppliedMarks(nil, []AppliedMark{conflict, conflict}, canon)
+		// 指し先の無い矛盾には畳む鍵が無い——2件のまま（既存の仕様どおり）。
+		if len(got) != 2 {
+			t.Fatalf("指し先の無い矛盾は畳めない: %+v", got)
+		}
+	})
+}

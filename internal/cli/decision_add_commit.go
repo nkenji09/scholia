@@ -58,8 +58,11 @@ func newDecisionAddCommitCmd() *cobra.Command {
 				return fmt.Errorf("decision %q を読み込めません: %w", id, err)
 			}
 
+			// before は「今回の呼び出しの前に付いていた印」。口が重複を畳んだ後の
+			// 実数を出すため、保存後との差で数える（渡した候補の数ではない——
+			// 短縮 hash と完全 hash が同じ commit を指していれば口が畳む）。
+			before := d
 			d.Commits = dedupeAppend(d.Commits, hashes)
-			var addedMarks []model.AppliedMark
 			if correction {
 				now := time.Now().UTC().Format(time.RFC3339)
 				candidates := make([]model.AppliedMark, 0, len(hashes))
@@ -68,8 +71,8 @@ func newDecisionAddCommitCmd() *cobra.Command {
 						Kind: model.AppliedCorrection, At: now, Commit: h,
 					})
 				}
-				addedMarks = model.AppendAppliedMarks(d.Applied, candidates)
-				d.Applied = append(append([]model.AppliedMark(nil), d.Applied...), addedMarks...)
+				added := model.AppendAppliedMarks(d.Applied, candidates)
+				d.Applied = append(append([]model.AppliedMark(nil), d.Applied...), added...)
 			}
 
 			// 書き込みゲート二層（#45 U3）: add-commit に reject 規則は無い
@@ -86,25 +89,25 @@ func newDecisionAddCommitCmd() *cobra.Command {
 			// desc 現在形ゲート三点配線の第3点（#45 D7）: 実装結線（add-commit）と
 			// 同一ターンに、対象 desc の鮮度（stale-tense）を advisory で気づかせる。
 			advisories = append(advisories, lint.TargetDescStaleTense(snap, d.Target)...)
-			// 結ぶ commit の実在照合は保存の口（store）で当たる。ここでは
-			// 「照合できたかどうか」だけを先に確かめて、後で名乗るために持つ。
+			// 結ぶ commit の実在照合と完全 hash への正規化は保存の口（store）で
+			// 当たる。ここでは「照合できたかどうか」だけを先に確かめて、
+			// 後で名乗るために持つ。
 			repo := s.CommitRepo()
-			if err := s.UpdateDecision(d); err != nil {
-				return err
-			}
-			saved, err := s.LoadDecision(id)
+			// 🔴 **保存後の値を受け取る。** 口は短縮 hash を完全 hash へ寄せるので、
+			// 渡した d をそのまま出力すると画面と真実の源がずれる。
+			saved, err := s.UpdateDecision(d)
 			if err != nil {
 				return err
 			}
+			advisories = append(advisories, commitVerifyAdvisories(repo, len(hashes))...)
 
 			if asJSON {
 				return emitWriteJSON(cmd, saved, advisories, allowed, false)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "decision %s に commits を追加しました（commits=%d 件）\n", id, len(saved.Commits))
-			if len(addedMarks) > 0 {
-				fmt.Fprintf(cmd.OutOrStdout(), "  是正の印を %d 件足しました（applied=%d 件）\n", len(addedMarks), len(saved.Applied))
+			if n := model.CountApplied(saved.Applied, model.AppliedCorrection) - model.CountApplied(before.Applied, model.AppliedCorrection); n > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "  是正の印を %d 件足しました（applied=%d 件）\n", n, len(saved.Applied))
 			}
-			writeCommitVerifyNotice(cmd, repo, len(hashes))
 			printWriteGateText(cmd, allowed, advisories)
 			return nil
 		},

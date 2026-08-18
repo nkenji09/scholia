@@ -125,7 +125,11 @@ func postDecisionHandler(s *store.Store) http.HandlerFunc {
 		// transition_write.go の先例どおり（エスケープは CLI の --allow --reason
 		// 経由のみ）。422 で返し、ドロワーは入力中の why を保持したままエラーを
 		// 表示する（保存できなかっただけで、書いたものは消えない）。
-		if err := s.CreateDecision(d, store.DecisionCreateOptions{}); err != nil {
+		// 🔴 **保存後の値を受け取る。** 口は結ぶ commit を完全 hash へ寄せる
+		// （短縮 hash と完全 hash が別の出来事として数えられるのを防ぐ）ので、
+		// 渡した d をそのまま応答に載せると画面と真実の源がずれる。
+		saved, err := s.CreateDecision(d, store.DecisionCreateOptions{})
+		if err != nil {
 			var rej *store.DecisionRejectError
 			if errors.As(err, &rej) {
 				writeErrorCode(w, http.StatusUnprocessableEntity, decisionRejectViewerMessage(rej), "reject-"+rej.Rule)
@@ -146,7 +150,7 @@ func postDecisionHandler(s *store.Store) http.HandlerFunc {
 		writeJSON(w, http.StatusCreated, struct {
 			model.Decision
 			Advisories []lint.Finding `json:"advisories,omitempty"`
-		}{Decision: d, Advisories: advisories})
+		}{Decision: saved, Advisories: advisories})
 	}
 }
 

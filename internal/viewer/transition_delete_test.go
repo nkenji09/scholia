@@ -98,7 +98,7 @@ func TestDeleteTransition_InvalidIDRejected(t *testing.T) {
 // survives.
 func TestDeleteTransition_ReferencedByDecisionConflict(t *testing.T) {
 	h, s := newTestHandler(t)
-	if err := s.CreateDecision(model.Decision{
+	if _, err := s.CreateDecision(model.Decision{
 		ID:     "d-tx",
 		Target: model.DecisionTarget{Type: model.DecisionTargetTransition, ID: "T-login"},
 		Why:    "# テスト用の見出し\n\nこの遷移は現行仕様のまま維持する",

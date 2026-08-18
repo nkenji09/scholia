@@ -245,3 +245,120 @@ func CountApplied(marks []AppliedMark, kind string) int {
 	}
 	return n
 }
+
+// ---------------------------------------------------------------------------
+// 保存する値を「同じ commit につき1つの文字列」に寄せる（正規化）
+// ---------------------------------------------------------------------------
+
+// Canonicalizer は hash を完全 hash へ解決する。解決できなければ "" を返す
+// （git が無い・git 管理下でない・その commit が手元に無い）。
+//
+// **関数で受け取る**のは、正規化そのものを純関数として検査できるようにするため
+// （CLAUDE.md「配線ガードの書き方」1）。model は git を知らないままでよい。
+type Canonicalizer func(hash string) string
+
+// NormalizeCommits は next のうち **prev に無い要素（＝今回増える分）** を完全
+// hash へ寄せ、その結果として重複するものを落とす。prev に既に在る要素は
+// **1バイトも触らない**（既存要素の改変は append-only 破れで、`scholia diff` の
+// 欄位分類が違反として落とす）。
+//
+// # なぜ要るか
+//
+// 保存ゲートは 16 進 7〜64 文字を通すので、**短縮 hash も正当な入力**である。
+// 何もしないと、同じ 1 commit が `"a0d00a36c865…"` と `"a0d00a36"` の2つの
+// 文字列として保存され、**完全一致で畳む仕組みが効かない**——実測で是正が
+// 2件に上振れした。決定 01M09FHEQH7PVZ2BTKGXY5YMNN が
+// 「是正は commit hash で…重複を畳める」と書いている性質は、
+// **保存される値が同じ commit につき1つに定まって初めて**成り立つ。
+//
+// # 落ちない範囲（正直に名乗る）
+//
+//   - **prev 側が短縮のまま保存されている場合**も畳む——比較のためだけに prev も
+//     解決する（保存する値は変えない）。ただし **prev の commit がこの clone に
+//     無ければ解決できない**ので、そのときは文字列のまま比べる。
+//   - **git 管理外・git 不在**では canon が "" を返すので、何も寄せられない。
+//     その場で保存される値は渡されたままで、「照合していない」と名乗る領域に入る。
+func NormalizeCommits(prev, next []string, canon Canonicalizer) []string {
+	seen := make(map[string]bool, len(prev)+len(next))
+	for _, c := range prev {
+		seen[canonOr(c, canon)] = true
+	}
+	// ⚠️ **prev は「集合」ではなく「順に消費する列」として見る。** 「値が prev に
+	// 在るか」だけで既存/新規を分けると、next の中に同じ値が2回現れたときに
+	// **2回とも既存と判定してしまう**——実測でそうなった（既に完全 hash で保存
+	// 済みの decision に、同じ完全 hash をもう一度足すと2件並んだ）。
+	// 順序保存包含の消費（diff の commitsAppendOnly と同じ見方）にする。
+	i := 0
+	out := make([]string, 0, len(next))
+	for _, c := range next {
+		if i < len(prev) && prev[i] == c {
+			out = append(out, c) // 既存要素は触らない（位置も値も）
+			i++
+			continue
+		}
+		v := canonOr(c, canon)
+		if seen[v] {
+			continue // 同じ commit を指す値が既に在る（短縮／完全の別綴りを含む）
+		}
+		seen[v] = true
+		out = append(out, v)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// NormalizeAppliedMarks は next のうち prev に無い印の Commit を完全 hash へ
+// 寄せ、その結果として重複する印を落とす（NormalizeCommits の印版）。
+// prev に在る印は 1 バイトも触らない。
+func NormalizeAppliedMarks(prev, next []AppliedMark, canon Canonicalizer) []AppliedMark {
+	seenKey := make(map[string]bool, len(prev)+len(next))
+	for _, m := range prev {
+		if k, ok := appliedDedupeKey(canonMark(m, canon)); ok {
+			seenKey[k] = true
+		}
+	}
+	// prev は順に消費する列として見る（NormalizeCommits と同じ理由）。
+	i := 0
+	out := make([]AppliedMark, 0, len(next))
+	for _, m := range next {
+		if i < len(prev) && prev[i] == m {
+			out = append(out, m) // 既存要素は触らない
+			i++
+			continue
+		}
+		c := canonMark(m, canon)
+		if k, ok := appliedDedupeKey(c); ok {
+			if seenKey[k] {
+				continue // 同じ出来事を指す印が既に在る
+			}
+			seenKey[k] = true
+		}
+		out = append(out, c)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// canonMark は印の Commit だけを完全 hash へ寄せた複製を返す。
+func canonMark(m AppliedMark, canon Canonicalizer) AppliedMark {
+	if m.Commit == "" {
+		return m
+	}
+	m.Commit = canonOr(m.Commit, canon)
+	return m
+}
+
+// canonOr は解決できたら完全 hash を、できなければ元の値を返す。
+func canonOr(hash string, canon Canonicalizer) string {
+	if canon == nil {
+		return hash
+	}
+	if c := canon(hash); c != "" {
+		return c
+	}
+	return hash
+}

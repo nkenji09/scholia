@@ -122,7 +122,9 @@ func (s *Store) RenameVocab(oldID, newID string) (VocabRenameResult, error) {
 			continue
 		}
 		d.Target.ID = newID
-		if err := s.UpdateDecision(d); err != nil {
+		// 改名の追随は target.id だけを変える（commits[]・applied[] は増えない）ので、
+		// 口が返す正規化後の値は使わない。**捨てたことをソースに残す。**
+		if _, err := s.UpdateDecision(d); err != nil {
 			return VocabRenameResult{}, err
 		}
 		updatedDecisions = append(updatedDecisions, d.ID)
@@ -190,7 +192,8 @@ func (s *Store) RenameTransition(oldID, newID string) (TxRenameResult, error) {
 			continue
 		}
 		d.Target.ID = newID
-		if err := s.UpdateDecision(d); err != nil {
+		// 改名の追随は target.id だけを変える（同上）。
+		if _, err := s.UpdateDecision(d); err != nil {
 			return TxRenameResult{}, err
 		}
 		updated = append(updated, d.ID)
@@ -552,7 +555,9 @@ func (tx *fileTxn) saveDecision(s *Store, d model.Decision) error {
 	if err := tx.track(s.decisionPath(d.ID)); err != nil {
 		return err
 	}
-	return s.UpdateDecision(d)
+	// 改名の追随は target.id だけを変える（同上）。
+	_, err := s.UpdateDecision(d)
+	return err
 }
 
 // renameTagFiles moves each renamed tag's file to its new id in three passes —

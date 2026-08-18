@@ -127,6 +127,13 @@ func Classify(hash string, gitManaged, resolved bool) Verdict {
 type Result struct {
 	Hash    string
 	Verdict Verdict
+	// Canonical は git が解決した完全 hash（VerdictExists のときだけ非空）。
+	// **短縮 hash と完全 hash が別の出来事として数えられるのを防ぐため**に返す
+	// ——保存する値をここへ寄せると、後から文字列の完全一致で畳める
+	// （decision 01M09FHEQH7PVZ2BTKGXY5YMNN「落とせない」節が
+	// 「是正は commit hash で…重複を畳める」と書いている性質は、
+	// 保存される値が同じ commit につき1つに定まって初めて成り立つ）。
+	Canonical string
 }
 
 // Repo は照合の相手。「git 管理下か」を1度だけ解決して持つ。
@@ -155,35 +162,58 @@ func Open(projectRoot string) Repo {
 // Managed は git 管理下として解決できたかを返す（false のとき実在は照合しない）。
 func (r Repo) Managed() bool { return r.managed }
 
-// Verify は1つの hash を照合する。
+// Verify は1つの hash を照合し、結論だけを返す。
 func (r Repo) Verify(hash string) Verdict {
+	return r.Resolve(hash).Verdict
+}
+
+// Resolve は1つの hash を照合し、結論と（解決したなら）完全 hash を返す。
+func (r Repo) Resolve(hash string) Result {
 	if !LooksLikeHash(hash) {
-		return VerdictMalformed // git を呼ばずに決まる
+		return Result{Hash: hash, Verdict: VerdictMalformed} // git を呼ばずに決まる
 	}
 	if !r.managed {
-		return VerdictUnverifiable
+		return Result{Hash: hash, Verdict: VerdictUnverifiable}
 	}
-	return Classify(hash, true, r.resolvesToCommit(hash))
+	canonical := r.resolveToCommit(hash)
+	return Result{Hash: hash, Verdict: Classify(hash, true, canonical != ""), Canonical: canonical}
 }
 
 // VerifyAll は hashes を順に照合する。
 func (r Repo) VerifyAll(hashes []string) []Result {
 	out := make([]Result, 0, len(hashes))
 	for _, h := range hashes {
-		out = append(out, Result{Hash: h, Verdict: r.Verify(h)})
+		out = append(out, r.Resolve(h))
 	}
 	return out
 }
 
-// resolvesToCommit は hash が commit オブジェクトとして解決するかを git に聞く。
+// Canonical は hash が指す commit の完全 hash を返す（解決しなければ ""）。
+// **保存する値をここへ寄せるための口**で、model の正規化関数がこれを受け取る。
+func (r Repo) Canonical(hash string) string {
+	return r.Resolve(hash).Canonical
+}
+
+// resolveToCommit は hash が commit オブジェクトとして解決するかを git に聞き、
+// 解決したなら**完全 hash**を返す（解決しなければ ""）。
 //
 // `^{commit}` を付けるのは、tree や blob の hash を通さないため
 // （`cat-file -t` で型を見て自分で比べるより、git 自身に peel させるほうが短い）。
 // `--quiet` は解決しないときの "fatal: ..." を黙らせる——解決しないこと自体は
 // この関数にとって正当な入力である。
-func (r Repo) resolvesToCommit(hash string) bool {
+//
+// ⚠️ **出力を捨てない。** 以前は `cmd.Run()` の成否だけを見ていたが、それだと
+// 短縮 hash を渡したときに「解決した」ことしか分からず、**保存される値が短縮の
+// まま**残った。同じ commit が短縮と完全で2つの文字列として保存されると、
+// 完全一致で畳む仕組み（applied[] の重複判定）が効かない——実測で是正が
+// 2件に上振れした。
+func (r Repo) resolveToCommit(hash string) string {
 	cmd := exec.Command("git", "-C", r.gitRoot, "rev-parse", "--verify", "--quiet", hash+"^{commit}")
-	return cmd.Run() == nil
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 // RejectError は「保存前に止めた」こと。面ごとに文言を書き分けないよう、

@@ -258,7 +258,7 @@ func TestPostDecision_SupersedeErrorsCarryNoULID(t *testing.T) {
 		t.Helper()
 		h, s := newTestHandler(t)
 		old := "01KYHZZZZZZZZZZZZZZZZZZZZZ"
-		if err := s.CreateDecision(model.Decision{
+		if _, err := s.CreateDecision(model.Decision{
 			ID: old, Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.auth"},
 			Why: "# テスト用の見出し\n\n旧", At: "2026-01-01T00:00:00Z",
 		}, store.DecisionCreateOptions{}); err != nil {
