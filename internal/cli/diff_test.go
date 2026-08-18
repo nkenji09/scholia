@@ -30,6 +30,20 @@ func gitCommitAllT(t *testing.T, dir, msg string) {
 	}
 }
 
+// gitHeadT は HEAD の commit hash。`decision add-commit` は結ぶ commit の実在を
+// 照合するので（01M09FHEQH7PVZ2BTKGXY5YMNN）、git 管理下の標本では**実在する
+// hash** を渡さないと正規操作の検査そのものが走らない。
+func gitHeadT(t *testing.T, dir string) string {
+	t.Helper()
+	cmd := exec.Command("git", "rev-parse", "HEAD")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("git rev-parse HEAD: %v", err)
+	}
+	return strings.TrimSpace(string(out))
+}
+
 func TestDiff_NoChanges(t *testing.T) {
 	dir := t.TempDir()
 	gitInitT(t, dir)
@@ -321,7 +335,7 @@ func TestDiffCheck_CommitsAppendIsGreen(t *testing.T) {
 	seedDiffCheckFixture(t, dir)
 
 	// decision add-commit（正規操作）で commits を追記 → --check は緑のまま。
-	if out, err := run(t, dir, "decision", "add-commit", "d1", "bbb222"); err != nil {
+	if out, err := run(t, dir, "decision", "add-commit", "d1", gitHeadT(t, dir), "--kind", "implementation"); err != nil {
 		t.Fatalf("decision add-commit: %v\n%s", err, out)
 	}
 
@@ -420,7 +434,7 @@ func TestDiff_DefaultModeAlsoNormalizes(t *testing.T) {
 	seedDiffCheckFixture(t, dir)
 
 	// 既定 diff にも正規化が適用される: commits 追記は exit 0（従来は撃墜していた）。
-	if out, err := run(t, dir, "decision", "add-commit", "d1", "bbb222"); err != nil {
+	if out, err := run(t, dir, "decision", "add-commit", "d1", gitHeadT(t, dir), "--kind", "implementation"); err != nil {
 		t.Fatalf("decision add-commit: %v\n%s", err, out)
 	}
 	out, err := run(t, dir, "diff")

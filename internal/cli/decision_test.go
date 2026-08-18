@@ -40,7 +40,16 @@ func TestCLI_DecisionCommitsBackwardCompatible(t *testing.T) {
 	}
 }
 
-// `scholia decide --commit a --commit b` で commits=[a,b] の decision が作られる。
+// 標本用の commit hash。**16 進 7 文字以上でなければ保存の口が弾く**
+// （01M09FHEQH7PVZ2BTKGXY5YMNN）。この標本は git 管理下に無いので実在は
+// 照合されない——形だけが効く枝を通る。
+const (
+	commitA = "aaa1111"
+	commitB = "bbb2222"
+	commitZ = "ccc3333"
+)
+
+// `scholia decide --commit <hashA> --commit <hashB>` で commits=[A,B] の decision が作られる。
 func TestCLI_DecideWithCommitFlags(t *testing.T) {
 	dir := t.TempDir()
 	if _, err := run(t, dir, "init"); err != nil {
@@ -50,7 +59,7 @@ func TestCLI_DecideWithCommitFlags(t *testing.T) {
 		t.Fatalf("tag create: %v", err)
 	}
 
-	out, err := run(t, dir, "decide", "--on", "tag:t1", "--why", "# テスト用の見出し\n\n理由", "--commit", "a", "--commit", "b", "--json")
+	out, err := run(t, dir, "decide", "--on", "tag:t1", "--why", "# テスト用の見出し\n\n理由", "--commit", commitA, "--commit", commitB, "--json")
 	if err != nil {
 		t.Fatalf("decide --commit failed: %v\noutput:\n%s", err, out)
 	}
@@ -64,7 +73,7 @@ func TestCLI_DecideWithCommitFlags(t *testing.T) {
 		t.Fatalf("unmarshal: %v\noutput:\n%s", err, out)
 	}
 	d := env.Record
-	if len(d.Commits) != 2 || d.Commits[0] != "a" || d.Commits[1] != "b" {
+	if len(d.Commits) != 2 || d.Commits[0] != commitA || d.Commits[1] != commitB {
 		t.Fatalf("commits が期待通りでない: %+v", d.Commits)
 	}
 }
@@ -90,7 +99,7 @@ func TestCLI_DecisionAddCommit(t *testing.T) {
 	if _, err := run(t, dir, "tag", "create", "t1", "--name", "t1", "--kind", "concern"); err != nil {
 		t.Fatalf("tag create: %v", err)
 	}
-	decideOut, err := run(t, dir, "decide", "--on", "tag:t1", "--why", "# テスト用の見出し\n\n元の理由", "--changed", "元の変更", "--ref", "PR#1", "--commit", "a", "--json")
+	decideOut, err := run(t, dir, "decide", "--on", "tag:t1", "--why", "# テスト用の見出し\n\n元の理由", "--changed", "元の変更", "--ref", "PR#1", "--commit", commitA, "--json")
 	if err != nil {
 		t.Fatalf("decide: %v\noutput:\n%s", err, decideOut)
 	}
@@ -104,12 +113,12 @@ func TestCLI_DecisionAddCommit(t *testing.T) {
 	before := beforeEnv.Record
 
 	// 存在しない id はエラー。
-	if _, err := run(t, dir, "decision", "add-commit", "does-not-exist", "z"); err == nil {
+	if _, err := run(t, dir, "decision", "add-commit", "does-not-exist", commitZ, "--kind", "implementation"); err == nil {
 		t.Fatalf("expected error for nonexistent decision id")
 	}
 
 	// a（既出）・b・b（重複）を追加 → commits=[a,b]（de-dupe）。
-	addOut, err := run(t, dir, "decision", "add-commit", before.ID, "a", "b", "b", "--json")
+	addOut, err := run(t, dir, "decision", "add-commit", before.ID, commitA, commitB, commitB, "--kind", "implementation", "--json")
 	if err != nil {
 		t.Fatalf("add-commit failed: %v\noutput:\n%s", err, addOut)
 	}
@@ -121,7 +130,7 @@ func TestCLI_DecisionAddCommit(t *testing.T) {
 	}
 	after := afterEnv.Record
 
-	if len(after.Commits) != 2 || after.Commits[0] != "a" || after.Commits[1] != "b" {
+	if len(after.Commits) != 2 || after.Commits[0] != commitA || after.Commits[1] != commitB {
 		t.Fatalf("commits が de-dupe/追記で期待通りでない: before=%v after=%v", before.Commits, after.Commits)
 	}
 

@@ -3,9 +3,11 @@
 // append-only とは「decision ファイル完全不変」ではなく「判断欄位の不変＋来歴
 // 欄位の単調追記」である:
 //   - 判断欄位（why / changed / ref / at・target.type）は凍結（不可侵）。
-//   - commits[]・acknowledges[]（#45 D6）・supersedes[]（#45 D7）は追記のみ
-//     許容（既存要素の削除・改変・並べ替えは違反）。supersedes は {id,mode} 単位で
-//     順序保存包含を要求する（mode 改変も既存 link の改変＝違反）。
+//   - commits[]・acknowledges[]（#45 D6）・supersedes[]（#45 D7）・
+//     applied[]（01M09FHEQH7PVZ2BTKGXY5YMNN）は追記のみ許容（既存要素の削除・
+//     改変・並べ替えは違反）。supersedes は {id,mode} 単位で、applied は
+//     {kind,at,commit,decision} 単位で順序保存包含を要求する
+//     （mode や種別の改変も既存要素の改変＝違反）。
 //   - target.id は正本レコード側の rename／merge の機械追随でのみ張替わる——
 //     同一 diff 内のペア照合（旧 id 消滅＋新 id 出現＝rename、旧 transition
 //     消滅＋現存 transition 宛＝merge・決定⑩）が取れる場合のみ許容。
@@ -108,6 +110,22 @@ func classifyDecisionChange(b, a model.Decision, ctx *pairContext) (allowed, vio
 			violated = append(violated, "supersedes")
 		}
 	}
+	// Applied（01M09FHEQH7PVZ2BTKGXY5YMNN）も supersedes と同型の要素単位
+	// 追記専用: 既存の印（種別・時刻・指し先の全欄一致）の順序保存包含のみ許容し、
+	// 削除・改変・並べ替えは違反。
+	//
+	// ⚠️ **分類を書かないと黙認される。** model が Applied を知った瞬間、
+	// reflect.DeepEqual は未知フィールドではなく既知フィールドの差分として
+	// 変更を検出するので、ここに枝が無ければ既存要素の削除・改変が allowed にも
+	// violated にも入らない。supersedes[] の導入で実際にその穴が空いた
+	// （decision の「印の置き場所」節が名指ししている）。
+	if !reflect.DeepEqual(b.Applied, a.Applied) {
+		if appliedAppendOnly(b.Applied, a.Applied) {
+			allowed = append(allowed, fmt.Sprintf("applied(+%d)", len(a.Applied)-len(b.Applied)))
+		} else {
+			violated = append(violated, "applied")
+		}
+	}
 	// Acknowledges（#45 D6）も追記専用: 既存要素を削除すると、過去に畳んで
 	// いた finding が retroactively 蘇る（容認の取り消し＝判断の書き換え）。
 	// commits と同型に、既存⊆新の順序保存包含のみ許容する。
@@ -128,6 +146,19 @@ func supersedesAppendOnly(before, after []model.SupersedeLink) bool {
 	i := 0
 	for _, l := range after {
 		if i < len(before) && before[i] == l {
+			i++
+		}
+	}
+	return i == len(before)
+}
+
+// appliedAppendOnly は before の各印（全欄一致）が after に順序保存で包含される
+// （既存要素の削除・改変・並べ替えなし＝追記のみ）かを返す。
+// AppliedMark は全欄が文字列なので比較可能（== が書ける）。
+func appliedAppendOnly(before, after []model.AppliedMark) bool {
+	i := 0
+	for _, m := range after {
+		if i < len(before) && before[i] == m {
 			i++
 		}
 	}

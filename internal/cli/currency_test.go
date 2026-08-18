@@ -693,6 +693,10 @@ var surfacesNoDecisionBody = []string{
 	"scholia decide",
 	"scholia decision link",
 	"scholia decision add-commit",
+	// 引かれた decision に「記録が結論を決めた」印を1件足すだけ。出すのは
+	// 印の種別・件数・指し先の id で、store にある decision の why/changed は
+	// 一切読まない（01M09FHEQH7PVZ2BTKGXY5YMNN）。
+	"scholia decision applied",
 	"scholia review add",
 	// 提案（まだ decision ではない）の本文を出す面。基準は「store にある他の
 	// **decision** の本文を渡すか」なので、ここは「出さない面」に入る。

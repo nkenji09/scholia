@@ -71,14 +71,14 @@ func TestRenameVocab_FollowsDecisionTargetAndEstablishes(t *testing.T) {
 	if err := s.SaveVocab(model.VocabEntry{ID: "eff.mk", Category: model.CategoryEffect, Label: "mk", Establishes: []string{"cond.old"}}); err != nil {
 		t.Fatalf("SaveVocab: %v", err)
 	}
-	if err := s.CreateDecision(model.Decision{
+	if _, err := s.CreateDecision(model.Decision{
 		ID: "01DV", Target: model.DecisionTarget{Type: model.DecisionTargetVocab, ID: "cond.old"},
 		Why: "# テスト用の見出し\n\nw", At: "2026-01-01T00:00:00Z",
 	}, DecisionCreateOptions{}); err != nil {
 		t.Fatalf("SaveDecision: %v", err)
 	}
 	// Unrelated tag decision must be left untouched.
-	if err := s.CreateDecision(model.Decision{
+	if _, err := s.CreateDecision(model.Decision{
 		ID: "01DT", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.x"},
 		Why: "# テスト用の見出し\n\nw", At: "2026-01-01T00:00:00Z",
 	}, DecisionCreateOptions{}); err != nil {
@@ -151,14 +151,14 @@ func TestRenameTransition_UpdatesDecisionTargetsAndFile(t *testing.T) {
 	if err := s.SaveTransition(model.Transition{ID: "T-old", Action: "act.a", Then: []string{"eff.a"}}); err != nil {
 		t.Fatalf("SaveTransition: %v", err)
 	}
-	if err := s.CreateDecision(model.Decision{
+	if _, err := s.CreateDecision(model.Decision{
 		ID: "01D1", Target: model.DecisionTarget{Type: model.DecisionTargetTransition, ID: "T-old"},
 		Why: "# テスト用の見出し\n\nw", At: "2026-01-01T00:00:00Z",
 	}, DecisionCreateOptions{}); err != nil {
 		t.Fatalf("SaveDecision: %v", err)
 	}
 	// Decision on an unrelated tag must be left untouched.
-	if err := s.CreateDecision(model.Decision{
+	if _, err := s.CreateDecision(model.Decision{
 		ID: "01D2", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.x"},
 		Why: "# テスト用の見出し\n\nw", At: "2026-01-01T00:00:00Z",
 	}, DecisionCreateOptions{}); err != nil {

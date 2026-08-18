@@ -270,7 +270,9 @@ func newReviewDecideCmd(kind reviewDecideKind) *cobra.Command {
 			// 渡さない——review 本文が見出しを満たさないなら、`--why "# …"` で
 			// 見出しを付けて昇格する。落ちても review は消えないので、書いた
 			// 本文は失われない。
-			if err := s.CreateDecision(d, store.DecisionCreateOptions{}); err != nil {
+			// commits[] を渡していないので、口が返す正規化後の値は使わない。
+			// **捨てたことをソースに残す。**
+			if _, err := s.CreateDecision(d, store.DecisionCreateOptions{}); err != nil {
 				return err
 			}
 

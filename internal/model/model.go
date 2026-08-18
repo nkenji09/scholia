@@ -141,6 +141,21 @@ type Decision struct {
 	// `scholia decision link` / `scholia decide --supersedes` で追記でき、判断
 	// 欄位（why/changed/ref/at/target）は不可侵。
 	Supersedes []SupersedeLink `json:"supersedes,omitempty"`
+	// Applied は「この decision を引いた結果、それが結論を決めた」出来事の
+	// 追記専用の印（01M09FHEQH7PVZ2BTKGXY5YMNN・additive/omitempty）。
+	//
+	// **付ける先は「引かれた側の decision」である。** 是正はコミットが残り、
+	// 却下は却下を記録する decision が残り、矛盾は何も残らないことがある——
+	// 「残るもの」の側に置くと3種類がバラバラになるが、引かれた側に置けば
+	// 1つになる（引かれた decision はどの場合にも必ず在る）。Commits が
+	// 既にこの decision に付いているのと同じ置き方である。
+	//
+	// ⚠️ **Commits の要素をオブジェクトに作り変えない。** commits は文字列の
+	// 配列として保存されており、要素をオブジェクトにすると旧バイナリはレコード
+	// 全体の読み込みに失敗する。別フィールドを足す形なら、旧バイナリは未知
+	// フィールドとして無視し、その commit を commits[] の中の普通の実装 commit
+	// として見る——正しい劣化である。
+	Applied []AppliedMark `json:"applied,omitempty"`
 }
 
 func (d Decision) GetID() string { return d.ID }

@@ -88,6 +88,7 @@ var stringFlagSpecs = map[string]argSpec{
 	// --- レコードを指す（通常以上で値を残す） ---
 	"scholia decide --on":                {class: classRecordID, selectorFromPrefix: true},
 	"scholia decide --supersedes":        {class: classRecordID, selector: selDecision},
+	"scholia decision applied --landed":  {class: classRecordID, selector: selDecision},
 	"scholia decision link --supersedes": {class: classRecordID, selector: selDecision},
 	"scholia decision list --on":         {class: classRecordID, selectorFromPrefix: true},
 	"scholia list --tag":                 {class: classRecordID, selector: selTag},
@@ -122,16 +123,22 @@ var stringFlagSpecs = map[string]argSpec{
 	"scholia vocab tag --rm":             {class: classRecordID, selector: selTag},
 
 	// --- 道具の側の閉じた集合（詳細で値を残す） ---
-	"scholia rules --sort":           {class: classToolVocab, values: []string{"chrono", "target"}},
-	"scholia search --type":          {class: classToolVocab, values: []string{"tag", "transition", "vocab", "decision"}},
-	"scholia decide --allow":         {class: classToolVocab, values: lintAllowValues},
-	"scholia tag create --allow":     {class: classToolVocab, values: lintAllowValues},
-	"scholia tag edit --allow":       {class: classToolVocab, values: lintAllowValues},
-	"scholia tag edit --fulfillment": {class: classToolVocab, values: []string{model.FulfillmentTransitions, model.FulfillmentProperty}},
-	"scholia tx add --allow":         {class: classToolVocab, values: lintAllowValues},
-	"scholia tx edit --allow":        {class: classToolVocab, values: lintAllowValues},
-	"scholia vocab add --allow":      {class: classToolVocab, values: lintAllowValues},
-	"scholia vocab rm --category":    {class: classToolVocab, values: categoryValues},
+	// ⚠️ tag/vocab の `--kind` は **config が宣言する集合**なので自由文だが、
+	// この2つの `--kind` は**道具の側が定めた閉じた列挙**である（同じフラグ名でも
+	// 分類が違う——表を (コマンド, フラグ名) の組で引く理由がここにも出ている）。
+	// 列挙は model 側から引く。書き写すと種別を足したときに黙ってずれる。
+	"scholia decision add-commit --kind": {class: classToolVocab, values: []string{addCommitKindImplementation, addCommitKindCorrection}},
+	"scholia decision applied --kind":    {class: classToolVocab, values: appliedPortKinds()},
+	"scholia rules --sort":               {class: classToolVocab, values: []string{"chrono", "target"}},
+	"scholia search --type":              {class: classToolVocab, values: []string{"tag", "transition", "vocab", "decision"}},
+	"scholia decide --allow":             {class: classToolVocab, values: lintAllowValues},
+	"scholia tag create --allow":         {class: classToolVocab, values: lintAllowValues},
+	"scholia tag edit --allow":           {class: classToolVocab, values: lintAllowValues},
+	"scholia tag edit --fulfillment":     {class: classToolVocab, values: []string{model.FulfillmentTransitions, model.FulfillmentProperty}},
+	"scholia tx add --allow":             {class: classToolVocab, values: lintAllowValues},
+	"scholia tx edit --allow":            {class: classToolVocab, values: lintAllowValues},
+	"scholia vocab add --allow":          {class: classToolVocab, values: lintAllowValues},
+	"scholia vocab rm --category":        {class: classToolVocab, values: categoryValues},
 
 	// --- 自由文（詳細で長さだけ） ---
 	// ⚠️ kind / facet / owner は config が宣言する集合＝**プロジェクトが名付けたもの**なので、
@@ -224,6 +231,7 @@ var positionalSpecs = map[string]positionalSpec{
 	"scholia decide":                 {},
 	// 2 つ目以降は commit hash の並び（cobra.MinimumNArgs(2)）。
 	"scholia decision add-commit": {at: []argSpec{{class: classRecordID, selector: selDecision}, {class: classFreeText}}, variadic: true},
+	"scholia decision applied":    {at: []argSpec{{class: classRecordID, selector: selDecision}}},
 	"scholia decision link":       {at: []argSpec{{class: classRecordID, selector: selDecision}}},
 	"scholia decision list":       {},
 	"scholia decision show":       {at: []argSpec{{class: classRecordID, selector: selDecision}}},

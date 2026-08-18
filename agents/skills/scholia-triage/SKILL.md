@@ -71,6 +71,10 @@ description: 既存 spec（scholia の decision／transition）に照らして�
    渡し先: **A**→実装セッション／**B・D**→[scholia-change](../scholia-change/SKILL.md)（下書き decision と合意の重さを着地）／
    **C**→ユーザー／**E**→却下 decision を残す（scholia-change の reject 手順）。
 
+   ⚠️ **A・C・E は「記録があったから結論が変わった」場合である。** 着地したら、引いた decision に印を1件足す
+   ——手順は [scholia-change の「印を打つ」節](../scholia-change/SKILL.md)。**ここでは打たない**（triage は
+   何も変更しない判断層で、判定は覆りうるし、判定だけして着地しなかったものを数えると「検討した回数」になる）。
+
 ## 完了条件
 
 - 該当 spec（支配する decision／transition）を引いてから判定している（勘で分類していない）。

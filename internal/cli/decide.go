@@ -111,14 +111,22 @@ func newDecideCmd() *cobra.Command {
 			// 新規作成の口（store.CreateDecision）。runWriteGate は既に同じ拒否規則を
 			// 当てているが、通す/通さないの最終判断は口の側にある——面ごとの配線が
 			// 抜けても、口を通る限り拒否は効く（01KZ06SYR3APGF3JD4NQRFTEEN 変更3）。
-			if err := s.CreateDecision(d, store.DecisionCreateOptions{AllowRules: gate.allow}); err != nil {
+			// --commit で渡した hash の実在照合は、この面ではなく保存の口
+			// （store.CreateDecision）で当たる（decision_commitgate.go に理由）。
+			// 面がするのは「照合できなかったことを名乗る」ところだけである。
+			repo := s.CommitRepo()
+			// 🔴 **保存後の値を受け取る。** 口は結ぶ commit を完全 hash へ寄せるので、
+			// 渡した d をそのまま出力すると画面と真実の源がずれる。
+			saved, err := s.CreateDecision(d, store.DecisionCreateOptions{AllowRules: gate.allow})
+			if err != nil {
 				return err
 			}
+			advisories = append(advisories, lint.CommitUnverifiedAdvisories(repo.Managed(), len(d.Commits))...)
 
 			if asJSON {
-				return emitWriteJSON(cmd, d, advisories, allowed, false)
+				return emitWriteJSON(cmd, saved, advisories, allowed, false)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "decision %s を記録しました（%s:%s）\n", d.ID, targetType, targetID)
+			fmt.Fprintf(cmd.OutOrStdout(), "decision %s を記録しました（%s:%s）\n", saved.ID, targetType, targetID)
 			printWriteGateText(cmd, allowed, advisories)
 			return nil
 		},

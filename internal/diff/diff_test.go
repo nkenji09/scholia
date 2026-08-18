@@ -536,3 +536,62 @@ func TestSetDiff(t *testing.T) {
 		t.Fatalf("removed = %v, want [a]", removed)
 	}
 }
+
+// --- applied（01M09FHEQH7PVZ2BTKGXY5YMNN）の append-only 分類 ---
+//
+// supersedes[] の導入で実際に開いた穴——**model が知った瞬間に
+// reflect.DeepEqual は差分を検出するので、分類を書かないと既存要素の削除・改変が
+// allowed にも violated にも入らず黙認される**——を applied[] でも作らないための
+// 反証テスト。
+//
+// ⚠️ **変異で red を実見してある**（CLAUDE.md 4）: decision_fields.go の
+// applied 分類の枝をまるごと外すと TestCompute_AppliedRemovalOrEditIsViolation が
+// 落ちる（違反が検出されなくなる）。分類を「常に allowed」に倒す変異でも同じく落ちる。
+
+func appliedMark(kind, at, commit, dec string) model.AppliedMark {
+	return model.AppliedMark{Kind: kind, At: at, Commit: commit, Decision: dec}
+}
+
+func TestCompute_AppliedAppendIsAllowed(t *testing.T) {
+	b := baseDecision()
+	a := baseDecision()
+	a.Applied = []model.AppliedMark{appliedMark(model.AppliedCorrection, "2026-08-18T00:00:00Z", "abc1234", "")}
+	r := compute("HEAD", refSnapshot{Decisions: []model.Decision{b}}, refSnapshot{Decisions: []model.Decision{a}})
+	if len(r.Decisions.Changed) != 1 {
+		t.Fatalf("Decisions.Changed = %+v, want 1", r.Decisions.Changed)
+	}
+	c := r.Decisions.Changed[0]
+	if c.Violation() || r.DecisionViolation() {
+		t.Fatalf("印の追記が違反扱いされた（追記専用フィールドの偽陽性）: %+v", c)
+	}
+	if len(c.AllowedFields) != 1 || c.AllowedFields[0] != "applied(+1)" {
+		t.Fatalf("AllowedFields = %v, want [applied(+1)]", c.AllowedFields)
+	}
+}
+
+func TestCompute_AppliedRemovalOrEditIsViolation(t *testing.T) {
+	at := "2026-08-18T00:00:00Z"
+	before := []model.AppliedMark{
+		appliedMark(model.AppliedCorrection, at, "abc1234", ""),
+		appliedMark(model.AppliedRejection, at, "", "d9"),
+	}
+	for name, after := range map[string][]model.AppliedMark{
+		"削除":     {},
+		"種別の改変":  {appliedMark(model.AppliedConflict, at, "abc1234", ""), before[1]},
+		"時刻の改変":  {appliedMark(model.AppliedCorrection, "2026-01-01T00:00:00Z", "abc1234", ""), before[1]},
+		"指し先の改変": {before[0], appliedMark(model.AppliedRejection, at, "", "dX")},
+		"並べ替え":   {before[1], before[0]},
+	} {
+		b := baseDecision()
+		b.Applied = before
+		a := baseDecision()
+		a.Applied = after
+		r := compute("HEAD", refSnapshot{Decisions: []model.Decision{b}}, refSnapshot{Decisions: []model.Decision{a}})
+		if !r.DecisionViolation() {
+			t.Fatalf("%s: 既存の印の削除・改変・並べ替えは違反のはず（黙認される穴）: %+v", name, r.Decisions.Changed)
+		}
+		if got := r.Decisions.Changed[0].ViolatedFields; len(got) != 1 || got[0] != "applied" {
+			t.Fatalf("%s: ViolatedFields = %v, want [applied]", name, got)
+		}
+	}
+}
