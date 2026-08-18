@@ -216,6 +216,9 @@ type decisionSplitter struct {
 
 func (s decisionSplitter) SplitDecisions(d []model.Decision) ([]model.Decision, []model.Decision) {
 	bodies, withdrawn := s.view.partition(d, s.all)
+	if s.deliver == nil {
+		return bodies, withdrawn // 計測オフ（＝入れ物が無い）ときは 1 行も余計に走らせない
+	}
 	for _, r := range deliveredRecords(bodies) {
 		s.deliver.note(r.id)
 	}

@@ -3,10 +3,19 @@
 //
 // # ここの歯止めが落とす範囲（CLAUDE.md「配線ガードの書き方」6）
 //
+// ⚠️ **この節は差し戻し 1 回目で書き直した。** 前の版は「人が読む面の配線を忘れる／数えすぎる」が
+// 落ちると名乗っていたが、**成り立っていなかった**——レビュアが新しい読み取り面を足し、
+// 宣言を `textDeliversNothing`（当時は iota のゼロ値・理由も不要）にするだけで、
+// **本文を 614,333 バイト渡していても歯止めは全部緑で通った。**
+// いまは (1) ゼロ値を無効値にし、(2) 理由をどの宣言にも必須にし、
+// (3) **出力のバイト列に本文が丸ごと出ていないことを値で確かめる**の 3 つで塞いである。
+//
 // **落ちる:**
 //   - **読み取りの面を新しく足して、この項目を配線しなかったとき。**
 //     面は cobra の木から数え上げるので、宣言の無い面があれば落ちる
 //     （TestUsage_EveryRunnableSurfaceDeclaresItsDelivery）。**列挙を足したのではない。**
+//   - **宣言を書かずに済ませようとしたとき。** `textDelivery` のゼロ値は**無効値**で、
+//     理由（why）も**どの宣言にも**必須である。**最も少ない手数で緑にできる書き方を無くしてある。**
 //   - **配線したが中身が食い違うとき。** `--json` の面を**宣言された bool フラグの
 //     全部分集合**で実際に走らせ、**出たバイト列（機械可読出力）の構造から導いた
 //     「本文つきの記録」の集合**と、記録された deliveredIds が**一致する**ことを値で見る
@@ -16,9 +25,16 @@
 //   - **畳んだ出力を「渡った」と数える変異。** `tag list --json`（既定は description を
 //     空にして渡す）と `tag list --all --json` は上の照合で別々の答えになる。
 //     標本は全タグ・全語彙に本文を持たせてあるので、畳み忘れは必ず差になる。
-//   - **人が読む面の配線を忘れる／人が読む面で数えすぎる。**
-//     面ごとに「人が読む面が何を渡すか」を宣言し、実際に走らせて値で照合する
-//     （TestUsage_TextFacesDeliverWhatTheyDeclare）。
+//   - 🔴 **出力に出ていない本文を「渡った」と数える変異。** 標本には
+//     **本文が 1 文字も違わない decision が 2 件**（片方は取り下げ）あり、
+//     `spec --json` は在効の側の本文しか出さない。**出ていない側まで数えると照合が落ちる。**
+//     （差し戻し 1 回目 FAIL-2 の型。直す前のコードにこの標本を当てて赤を実見した。）
+//   - 🔴 **人が読む面が本文を出しているのに記録しないとき。**
+//     宣言と記録の突き合わせだけでなく、**人が読む出力のバイト列を実際に探す**
+//     ——記録した集合の外にある本文が丸ごと出ていたら落ちる（assertNoUnexpectedBodyInText）。
+//     `textDeliversNothing` と宣言した面にも同じ検査が当たる。
+//   - **人が読む面で数えすぎるとき／落とす種類の宣言と実物がずれるとき。**
+//     期待値は「`--json` の集合から宣言した種類を落としたもの」で、**値そのもの**を照合する。
 //   - **段の表から外れる変異。** 4 段 × 全項目の既存の検査に自動的に載る
 //     （internal/usage/fields_test.go）。
 //   - **入れ物が起動をまたいで混ざる変異。** 入れ物は 1 起動 1 つで、
@@ -28,19 +44,26 @@
 //   - 🔴 **機械可読出力を持たない面。** `scholia export` は静的な画面を書き出す面で、
 //     `--json` を持たないので上の照合が届かない。**この面は「この項目を持たない」と
 //     宣言してある**（画面経由の閲覧を数えないという正本 条項 5 の帰結・deliverySpecs）。
-//     宣言どおり 1 件も積まないことは走らせて見ているが、
-//     **書き出した HTML の中身が何を渡したかは見ていない。**
+//     宣言どおり 1 件も積まないことと、**標準出力に本文が出ていない**ことは走らせて見ているが、
+//     **書き出した HTML の中身は見ていない**——レビュアの実測では `export --html` は 7.5 MB を書き、
+//     標本 60 件のうち 43 件の decision 本文が丸ごと入っていた。**穴の大きさはこれである。**
+//   - 🔴 **短い本文が、要約の面から丸ごと出ること。** 出力のバイト列を探す検査は
+//     **101 字以上の本文しか探さない**（要約の面は 100 字で切り詰めるので、
+//     それ以下は「偶然そのまま出た」と区別できない）。
+//     ⚠️ したがって、**100 字以下の本文しか持たない記録については、この検査は何も言わない。**
+//   - 🔴 **本文が 1 文字も違わない記録が複数あるとき、どれが出たかは言えない。**
+//     バイト列から言えるのは「この本文が出た」までなので、
+//     **持ち主のうち 1 件でも記録されていれば通す**（過小に落とさないため）。
 //   - 🔴 **「本文が渡った」の判定そのものが間違っているとき。** 照合は
 //     「機械可読出力に本文の欄が載っているか」を正としている。出力の構造の側で
 //     本文つきと存在だけを取り違えていれば、照合も一緒に間違える。
-//   - 🔴 **人が読む出力と機械可読出力で渡す記録が違う面。** 宣言できるのは
-//     「同じ」「部分集合」「1 件も渡さない」の 3 つまでで、**部分集合の面については
-//     どの記録が欠けるべきかを検査していない**（`spec` は遷移と語彙を、
-//     `show vocab` は decision を、人が読む面では渡さない）。
 //   - 🔴 **画面（`scholia view`）経由の閲覧。** 数えないと決めた面なので歯止めも無い。
-//     配線としては、入れ物が cobra の context にしか無いので HTTP ハンドラから届かない。
+//     配線としては、入れ物が cobra の context にしか無いので HTTP ハンドラから届かない
+//     （レビュアが実バイナリで確認済み——画面から本文 239KB を返させても行は空）。
 //   - **位置引数・文字列フラグの値で分かれる枝。** 走らせる引き方は面ごとに 1 つ＋
 //     bool フラグの全部分集合で、`jsonio_test.go` が名乗っているのと同じ穴がここにもある。
+//   - **Hidden なコマンド。** 面の数え上げ（usageRunnableSurfaces）が飛ばすので、
+//     宣言も照合も無しに通る。いま Hidden な面は 0 件。
 //   - **`scholia update` / `scholia view`。** 前者は網の外へ出て、後者は常駐する。
 //     走らせないので、宣言だけがある（deliverySpecs の unrunnable）。
 package cli
@@ -71,8 +94,17 @@ import (
 type textDelivery int
 
 const (
+	// textDeliveryUnset は**無効値**である。
+	//
+	// 🔴 **ここに「1 件も渡さない」を置いてはいけない。** 差し戻し 1 回目でレビュアが実測した:
+	// 新しい読み取り面を足し、宣言を `textDeliversNothing` にするだけで、
+	// **本文を 614,333 バイト渡していても歯止めは全部緑で通った。**
+	// `textDeliversNothing` が iota のゼロ値で、理由の記述も要らなかったからである
+	// ——**宣言を書けと迫られた人が、最も少ない手数で緑にできる書き方が、そのまま穴だった。**
+	// ゼロ値を無効値にして、書かなければ落ちるようにしてある。
+	textDeliveryUnset textDelivery = iota
 	// textDeliversNothing: 人が読む面は本文を 1 件も渡さない（索引・断片・書き込みの面）。
-	textDeliversNothing textDelivery = iota
+	textDeliversNothing
 	// textDeliversSameAsJSON: `--json` と同じ集合を渡す。
 	textDeliversSameAsJSON
 	// textWithholds: `--json` が渡す集合から、**宣言した種類の記録だけ**を落として渡す。
@@ -88,13 +120,27 @@ type deliverySpec struct {
 	text textDelivery
 	// withholds は textWithholds のときに落とす記録の種類（tag/transition/vocab/decision）。
 	withholds []string
-	// why は textDeliversNothing 以外で必須（なぜその関係になるのか）。
+	// why は**どの宣言でも必須**（なぜその関係になるのか）。
+	//
+	// 🔴 **「1 件も渡さない」にも理由を書かせる。** 理由の要らない宣言があると、
+	// そこが「考えずに緑にできる出口」になる（差し戻し 1 回目の穴）。
+	// 同じ理由が並ぶ面は下の定数を使う——**書き写しではなく参照にする**ことで、
+	// 理由を変えたときに全部に届く。
 	why string
 	// args は `--json` を持たない面の引き方（持つ面は jsonFaceInvocations から取る）。
 	args []string
 	// unrunnable が空でなければ走らせない（その理由）。
 	unrunnable string
 }
+
+// 面のまとまりごとに共有する理由（書き写さずに参照する）。
+const (
+	whyWriteFace  = "書き込みの面。保存後に人が読む形で出るのは allow / advisory の行だけで、レコードの本文は出ない（`--json` は保存したレコードを返す）"
+	whyToolFace   = "道具・設定の面。`.scholia` の記録を 1 件も出力に組み立てない"
+	whyIndexFace  = "索引・要約の面。人が読む形では id と名前（と切り詰めた要約）しか出さない"
+	whyNotARecord = "出しているのは `.scholia` の記録（tag/transition/vocab/decision）ではない"
+	whyFullInBoth = "人が読む面も `--json` も、同じレコードの本文を全文で出す"
+)
 
 // deliverySpecs は**実行できる全ての面**の宣言。
 //
@@ -109,21 +155,21 @@ var deliverySpecs = map[string]deliverySpec{
 	"scholia spec": {text: textWithholds, withholds: []string{recordKindTransition, recordKindVocab},
 		why: "人が読む面はタグの description と decision の本文まで。遷移は label へ解決した 1 行、語彙は書かない"},
 	"scholia show tag": {text: textDeliversSameAsJSON,
-		why: "どちらも description を全文で出す"},
+		why: whyFullInBoth + "（description）"},
 	"scholia show tx": {text: textDeliversSameAsJSON,
 		why: "遷移は自由文の欄を持たず、どちらもレコードの全部を出す"},
 	"scholia show vocab": {text: textWithholds, withholds: []string{recordKindDecision},
 		why: "人が読む面は語彙の description まで。decision は切り詰めるので数えない"},
 	"scholia show decision": {text: textDeliversSameAsJSON,
-		why: "どちらも why を全文で出す"},
+		why: whyFullInBoth + "（why）"},
 	"scholia decision show": {text: textDeliversSameAsJSON,
-		why: "どちらも why を全文で出す"},
+		why: whyFullInBoth + "（why）"},
 	"scholia decision list": {text: textDeliversNothing,
-		why: "人が読む面は why を 100 字で切り詰める＝断片（`--json` は全件の本文を渡す）"},
+		why: whyIndexFace + "。why は 100 字で切り詰める＝断片（`--json` は全件の本文を渡す）"},
 	"scholia tag list": {text: textDeliversNothing,
-		why: "人が読む面は id と name しか出さない＝索引（`--json --all` だけが本文を渡す）"},
+		why: whyIndexFace + "。`--json --all` だけが本文を渡す"},
 	"scholia list": {text: textDeliversNothing,
-		why: "人が読む面は遷移 id しか出さない＝索引（`--json` は遷移レコードを渡す）"},
+		why: whyIndexFace + "。`--json` は遷移レコードを丸ごと渡す"},
 	"scholia search": {text: textDeliversNothing,
 		why: "抜粋は断片。`--json` も抜粋しか渡さない"},
 	"scholia flow": {text: textDeliversNothing,
@@ -132,8 +178,8 @@ var deliverySpecs = map[string]deliverySpec{
 		why: "同上"},
 	"scholia diff": {text: textDeliversNothing,
 		why: "人が読む面は id と欄名だけ（`--json` は差分のレコードを丸ごと渡す）"},
-	"scholia refs scan":    {text: textDeliversNothing},
-	"scholia refs rewrite": {text: textDeliversNothing},
+	"scholia refs scan":    {text: textDeliversNothing, why: "ソース中の id の出現箇所を出す面。記録の本文は出さない"},
+	"scholia refs rewrite": {text: textDeliversNothing, why: "id の張り替えの面。記録の本文は出さない"},
 	"scholia review list": {text: textDeliversNothing,
 		why: "レビューは揮発層のコメントで、`.scholia` の記録（tag/transition/vocab/decision）ではない"},
 	"scholia export": {text: textNotCounted,
@@ -143,47 +189,47 @@ var deliverySpecs = map[string]deliverySpec{
 		unrunnable: "常駐して待ち受けるので、テストから走らせられない"},
 
 	// --- 書き込み・設定・道具の面（記録の本文を人が読む形では渡さない） ---
-	"scholia activity":               {text: textDeliversNothing},
-	"scholia config get":             {text: textDeliversNothing},
-	"scholia config infer-id-policy": {text: textDeliversNothing},
-	"scholia config set":             {text: textDeliversNothing},
+	"scholia activity":               {text: textDeliversNothing, why: "git から導いた数と日付だけを出す面。記録の本文は出さない"},
+	"scholia config get":             {text: textDeliversNothing, why: whyToolFace},
+	"scholia config infer-id-policy": {text: textDeliversNothing, why: whyToolFace},
+	"scholia config set":             {text: textDeliversNothing, why: whyToolFace},
 	"scholia decide":                 {text: textDeliversNothing, why: "保存後の表示は allow/advisory だけ（`--json` は保存したレコードを返す）"},
-	"scholia decision add-commit":    {text: textDeliversNothing},
-	"scholia decision link":          {text: textDeliversNothing},
-	"scholia init":                   {text: textDeliversNothing},
-	"scholia kind get":               {text: textDeliversNothing},
-	"scholia kind list":              {text: textDeliversNothing},
-	"scholia kind set":               {text: textDeliversNothing},
-	"scholia lint":                   {text: textDeliversNothing},
-	"scholia lint baseline update":   {text: textDeliversNothing},
-	"scholia retrofit":               {text: textDeliversNothing},
-	"scholia review add":             {text: textDeliversNothing},
+	"scholia decision add-commit":    {text: textDeliversNothing, why: whyWriteFace},
+	"scholia decision link":          {text: textDeliversNothing, why: whyWriteFace},
+	"scholia init":                   {text: textDeliversNothing, why: whyToolFace},
+	"scholia kind get":               {text: textDeliversNothing, why: whyToolFace},
+	"scholia kind list":              {text: textDeliversNothing, why: whyToolFace},
+	"scholia kind set":               {text: textDeliversNothing, why: whyToolFace},
+	"scholia lint":                   {text: textDeliversNothing, why: "検査の所見（規則名・id・短い説明）だけを出す面。記録の本文は出さない"},
+	"scholia lint baseline update":   {text: textDeliversNothing, why: whyToolFace},
+	"scholia retrofit":               {text: textDeliversNothing, why: "棚卸しの面。修正候補の断片は出すが、記録の本文は出さない"},
+	"scholia review add":             {text: textDeliversNothing, why: whyWriteFace},
 	"scholia review adopt":           {text: textDeliversNothing, why: "昇格した decision を返すのは `--json` だけ"},
-	"scholia review reject":          {text: textDeliversNothing},
-	"scholia review rm":              {text: textDeliversNothing},
-	"scholia skills install":         {text: textDeliversNothing},
-	"scholia skills ls":              {text: textDeliversNothing, why: "配布スキルの一覧で、`.scholia` の記録ではない", args: []string{}},
-	"scholia skills show":            {text: textDeliversNothing, why: "配布スキルの本文で、`.scholia` の記録ではない", args: []string{"scholia"}},
-	"scholia tag create":             {text: textDeliversNothing},
-	"scholia tag edit":               {text: textDeliversNothing},
-	"scholia tag rename":             {text: textDeliversNothing},
-	"scholia tag rm":                 {text: textDeliversNothing},
-	"scholia tx add":                 {text: textDeliversNothing},
-	"scholia tx edit":                {text: textDeliversNothing},
-	"scholia tx merge":               {text: textDeliversNothing},
-	"scholia tx rename":              {text: textDeliversNothing},
-	"scholia tx rm":                  {text: textDeliversNothing},
-	"scholia tx tag":                 {text: textDeliversNothing},
+	"scholia review reject":          {text: textDeliversNothing, why: whyWriteFace},
+	"scholia review rm":              {text: textDeliversNothing, why: whyWriteFace},
+	"scholia skills install":         {text: textDeliversNothing, why: whyToolFace},
+	"scholia skills ls":              {text: textDeliversNothing, why: whyNotARecord + "（配布スキルの一覧）", args: []string{}},
+	"scholia skills show":            {text: textDeliversNothing, why: whyNotARecord + "（配布スキルの本文）", args: []string{"scholia"}},
+	"scholia tag create":             {text: textDeliversNothing, why: whyWriteFace},
+	"scholia tag edit":               {text: textDeliversNothing, why: whyWriteFace},
+	"scholia tag rename":             {text: textDeliversNothing, why: whyWriteFace},
+	"scholia tag rm":                 {text: textDeliversNothing, why: whyWriteFace},
+	"scholia tx add":                 {text: textDeliversNothing, why: whyWriteFace},
+	"scholia tx edit":                {text: textDeliversNothing, why: whyWriteFace},
+	"scholia tx merge":               {text: textDeliversNothing, why: whyWriteFace},
+	"scholia tx rename":              {text: textDeliversNothing, why: whyWriteFace},
+	"scholia tx rm":                  {text: textDeliversNothing, why: whyWriteFace},
+	"scholia tx tag":                 {text: textDeliversNothing, why: whyWriteFace},
 	"scholia update": {text: textDeliversNothing,
 		why:        "自分自身の版を取り替える面で、記録を 1 件も読まない",
 		unrunnable: "網の外（GitHub）へ出るので、テストから走らせない"},
-	"scholia version":             {text: textDeliversNothing},
-	"scholia vocab add":           {text: textDeliversNothing},
-	"scholia vocab edit":          {text: textDeliversNothing},
-	"scholia vocab owner-migrate": {text: textDeliversNothing},
-	"scholia vocab rename":        {text: textDeliversNothing},
-	"scholia vocab rm":            {text: textDeliversNothing},
-	"scholia vocab tag":           {text: textDeliversNothing},
+	"scholia version":             {text: textDeliversNothing, why: whyToolFace},
+	"scholia vocab add":           {text: textDeliversNothing, why: whyWriteFace},
+	"scholia vocab edit":          {text: textDeliversNothing, why: whyWriteFace},
+	"scholia vocab owner-migrate": {text: textDeliversNothing, why: whyWriteFace},
+	"scholia vocab rename":        {text: textDeliversNothing, why: whyWriteFace},
+	"scholia vocab rm":            {text: textDeliversNothing, why: whyWriteFace},
+	"scholia vocab tag":           {text: textDeliversNothing, why: whyWriteFace},
 }
 
 // TestUsage_EveryRunnableSurfaceDeclaresItsDelivery は、宣言の無い面が無いこと。
@@ -218,8 +264,13 @@ usage_delivery_test.go の deliverySpecs に足すこと。
 		if !present[s] {
 			t.Errorf("deliverySpecs に載っている %q は実在しない（改名・削除したなら宣言も直す）", s)
 		}
-		if spec.text != textDeliversNothing && spec.why == "" {
-			t.Errorf("%q の宣言に理由が無い（textDeliversNothing 以外は理由が要る）", s)
+		if spec.text == textDeliveryUnset {
+			t.Errorf("%q の宣言が未設定（textDelivery のゼロ値）。"+
+				"何を渡す面なのかを宣言すること——**ゼロ値は無効値である**", s)
+		}
+		if spec.why == "" {
+			t.Errorf("%q の宣言に理由が無い。**どの宣言にも理由が要る**"+
+				"（「1 件も渡さない」を理由なしで書けると、そこが考えずに緑にできる出口になる）", s)
 		}
 	}
 	t.Logf("宣言を突き合わせた面: %d 個", len(surfaces))
@@ -439,7 +490,7 @@ func TestUsage_TextFacesDeliverWhatTheyDeclare(t *testing.T) {
 			t.Chdir(dir)
 			base := append(strings.Fields(short), ids.resolve(extra)...)
 
-			_, gotText, err := runWithDelivery(t, dir, base...)
+			stdoutText, gotText, err := runWithDelivery(t, dir, base...)
 			if err != nil {
 				t.Logf("人が読む面が成り立たなかった（%v）。記録は %v", err, gotText)
 			}
@@ -449,6 +500,9 @@ func TestUsage_TextFacesDeliverWhatTheyDeclare(t *testing.T) {
 				if len(gotText) != 0 {
 					t.Fatalf("この面は本文を 1 件も渡さないと宣言しているのに記録されている: %v", gotText)
 				}
+				// 🔴 **記録が空であることは、渡していないことの証明ではない。**
+				// 出したのに記録しなければ、この宣言はいくらでも緑にできる（差し戻し 1 回目の穴）。
+				assertNoUnexpectedBodyInText(t, stdoutText, nil, recordBodies(t, dir))
 				return
 			}
 
@@ -477,11 +531,96 @@ func TestUsage_TextFacesDeliverWhatTheyDeclare(t *testing.T) {
  記録: %v
  期待: %v（`+"`--json`"+` の %v から種類 %v を落としたもの）`, gotText, want, gotJSON, spec.withholds)
 			}
+			// 記録した集合の外にある記録の本文が、人が読む出力に丸ごと出ていないこと。
+			assertNoUnexpectedBodyInText(t, stdoutText, want, recordBodies(t, dir2))
 		})
 	}
 	t.Logf("人が読む面を走らせた: %d 個（走らせなかった %d 個）", checked, skipped)
 	if checked == 0 {
 		t.Fatal("1 つも走っていない（この検査は何も見ていない）")
+	}
+}
+
+// deliveredBodyProbeMinRunes は「人が読む出力に本文が丸ごと出ていないか」を探すときの、
+// 本文の最短の長さ。
+//
+// ⚠️ **要約の面が切り詰める長さ（`decision list` の 100 字）より長いものだけを探す。**
+// これより短い本文は、要約の面が**偶然そのまま全文を出しうる**ので、
+// 「丸ごと出た＝本文を渡した」と読めない。**射程を名乗ってこの線を引いている。**
+const deliveredBodyProbeMinRunes = 101
+
+// recordBodies は標本の `.scholia/` を読んで、**本文 → その本文を持つ記録の id** を返す
+// （`deliveredBodyProbeMinRunes` 以上のものだけ）。
+//
+// ⚠️ **鍵が本文で、値が id の並びなのは、本文が 1 文字も違わない記録が複数ありうるため**である。
+// バイト列から言えるのは「この本文が出た」までで、**どの記録の本文かは言えない**
+// ——初版の `--json` 側の確かめはここを取り違えていた（差し戻し 1 回目 FAIL-2）。
+func recordBodies(t *testing.T, dir string) map[string][]string {
+	t.Helper()
+	out := map[string][]string{}
+	for _, sub := range []string{"tags", "transitions", "vocab", "decisions"} {
+		entries, err := os.ReadDir(filepath.Join(dir, ".scholia", sub))
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			name := strings.TrimSuffix(e.Name(), ".json")
+			if name == e.Name() {
+				continue
+			}
+			raw, err := os.ReadFile(filepath.Join(dir, ".scholia", sub, e.Name()))
+			if err != nil {
+				continue
+			}
+			var rec map[string]any
+			if err := json.Unmarshal(raw, &rec); err != nil {
+				continue
+			}
+			for _, key := range []string{"why", "description"} {
+				body, _ := rec[key].(string)
+				if len([]rune(body)) >= deliveredBodyProbeMinRunes {
+					out[body] = append(out[body], name)
+				}
+			}
+		}
+	}
+	return out
+}
+
+// assertNoUnexpectedBodyInText は、人が読む出力に**丸ごと**現れた本文について、
+// その本文を持つ記録が 1 件でも `delivered` に入っていることを確かめる。
+//
+// 🔴 **これが差し戻し 1 回目（FAIL-1）の直しである。** 宣言と記録だけを突き合わせる形では、
+// 「本文を 614,333 バイト出しているのに 1 件も記録しない面」を
+// `textDeliversNothing` と宣言するだけで緑にできた。**出したかどうかを出力の値で見る。**
+//
+// ⚠️ **「その本文が出た」までしか言えない。** 本文が 1 文字も違わない記録が複数あるとき、
+// どれが出たかはバイト列からは決まらないので、**1 件でも記録されていれば通す**（過小に落とさない）。
+func assertNoUnexpectedBodyInText(t *testing.T, stdout string, delivered []string, bodies map[string][]string) {
+	t.Helper()
+	if len(bodies) == 0 {
+		t.Fatal("標本に、丸ごと出たかを探せる長さの本文が 1 つも無い（この検査は何も見ていない）")
+	}
+	in := make(map[string]bool, len(delivered))
+	for _, id := range delivered {
+		in[id] = true
+	}
+	for body, owners := range bodies {
+		if !strings.Contains(stdout, body) {
+			continue
+		}
+		hit := false
+		for _, id := range owners {
+			if in[id] {
+				hit = true
+				break
+			}
+		}
+		if !hit {
+			t.Errorf(`人が読む出力に、記録していない本文が丸ごと出ている（%d 字・持ち主 %v）
+記録した集合: %v
+——出しているのに記録しないなら、この面の宣言が実物と違う。`, len([]rune(body)), owners, delivered)
+		}
 	}
 }
 
@@ -603,6 +742,73 @@ func TestDeliveredRecords_InputOutputPairs(t *testing.T) {
 		{"ポインタの先も歩く", &struct {
 			D model.Decision `json:"d"`
 		}{sampleDecision("D1", "本文。")}, []string{"D1"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var got []string
+			for _, r := range deliveredRecords(c.in) {
+				got = append(got, r.id)
+			}
+			if !equalIDs(got, c.want) {
+				t.Errorf("deliveredRecords\n got: %v\nwant: %v", got, c.want)
+			}
+		})
+	}
+}
+
+// shadowInner / shadowOuter は `specOutput` と同じ形——**外側の欄が、埋め込みの
+// 同名の欄を覆う**。覆われた側は Go の値には居るが、JSON には 1 バイトも出ない。
+type shadowInner struct {
+	Decisions []model.Decision `json:"decisions"`
+}
+
+type shadowOuter struct {
+	shadowInner
+	Decisions []withdrawnOut `json:"decisions"`
+}
+
+// bodyShadowOuter は**レコードの本文の欄そのもの**を外側が覆う形。
+type bodyShadowOuter struct {
+	model.Decision
+	Why string `json:"why"`
+}
+
+// TestDeliveredRecords_DoesNotWalkShadowedFields は、外側の欄に覆われた埋め込みの欄を
+// 歩かないことを、入力と出力の対で見る（CLAUDE.md 1）。
+//
+// 🔴 **差し戻し 1 回目（FAIL-2）で落ちたのはここである。** 覆われた側を歩いてしまい、
+// **出力に 1 バイトも出ていない本文を「渡った」と書いた。**
+// 初版はそれを「書くバイト列に本文が現れるか」で確かめていたが、
+// **本文が 1 文字も違わない 2 件があると区別できなかった**（下の 3 つ目の場合）。
+func TestDeliveredRecords_DoesNotWalkShadowedFields(t *testing.T) {
+	same := "この 2 件は本文が 1 文字も違わない。"
+	cases := []struct {
+		name string
+		in   any
+		want []string
+	}{
+		{"覆われた埋め込みの欄は歩かない",
+			shadowOuter{
+				shadowInner: shadowInner{Decisions: []model.Decision{sampleDecision("D-hidden", "本文。")}},
+				Decisions:   []withdrawnOut{{ID: "D-hidden"}},
+			}, nil},
+		{"覆っている側は歩く",
+			struct {
+				shadowInner
+				Kept []model.Decision `json:"kept"`
+			}{
+				shadowInner: shadowInner{Decisions: []model.Decision{sampleDecision("D-hidden", "本文。")}},
+				Kept:        []model.Decision{sampleDecision("D-kept", "本文。")},
+			}, []string{"D-hidden", "D-kept"}},
+		{"本文が同じでも、覆われた側は数えない",
+			shadowOuter{
+				shadowInner: shadowInner{Decisions: []model.Decision{
+					sampleDecision("D-old", same), sampleDecision("D-new", same),
+				}},
+				Decisions: []withdrawnOut{{ID: "D-old"}},
+			}, nil},
+		{"本文の欄そのものが覆われていたら数えない",
+			bodyShadowOuter{Decision: sampleDecision("D1", "本文。"), Why: "外側の値"}, nil},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
