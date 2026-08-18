@@ -405,7 +405,9 @@ const ja = {
     adoptConfirm: '採用を確定',
     adoptedBadge: '採用済み',
     adoptedWhyHeading: '採用された why（decision）',
-    adoptedNote: 'この提案は decision として記録されました（commits[] は空）。commit 後は `scholia decision add-commit <id> <hash>` で結線してください。',
+    // ⚠️ ここに書くコマンドは**そのまま打って通る形**であること。`--kind` は
+    // 必須で、省くと落ちる（01M09FHEQH7PVZ2BTKGXY5YMNN）。
+    adoptedNote: 'この提案は decision として記録されました（commits[] は空）。commit 後は `scholia decision add-commit <id> <hash> --kind implementation` で結線してください。',
     // 結線の確認（adopt が supersedes まで束ねる要件・01KYHE08WNA8H1Q1DM2H45Y4TK）:
     // 採用と同時に張る現行性リンクを、Adopt を押す前に見せて一緒に承認させる。
     supersedeHeading: '採用と同時に張る現行性リンク',
@@ -875,7 +877,7 @@ const en: Strings = {
     adoptConfirm: 'Confirm adoption',
     adoptedBadge: 'Adopted',
     adoptedWhyHeading: 'Adopted why (decision)',
-    adoptedNote: 'This proposal was recorded as a decision (commits[] is empty). After committing, link it with `scholia decision add-commit <id> <hash>`.',
+    adoptedNote: 'This proposal was recorded as a decision (commits[] is empty). After committing, link it with `scholia decision add-commit <id> <hash> --kind implementation`.',
     supersedeHeading: 'Currency links applied on adoption',
     supersedeModeLabel: (mode: string) =>
       mode === 'supersede'

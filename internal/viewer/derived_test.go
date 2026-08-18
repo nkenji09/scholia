@@ -81,14 +81,14 @@ func TestGetRules_NoSelectorReturnsAllDecisionsChronologically(t *testing.T) {
 		}
 	}
 	must(s.SaveTag(model.Tag{ID: "subject.auth", Name: "認証", Kind: "subject"}))
-	must(s.CreateDecision(model.Decision{
+	must(dropDecision(s.CreateDecision(model.Decision{
 		ID: "d2", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.auth"},
 		Why: "# テスト用の見出し\n\n後の決定", At: "2026-02-01T00:00:00Z",
-	}, store.DecisionCreateOptions{}))
-	must(s.CreateDecision(model.Decision{
+	}, store.DecisionCreateOptions{})))
+	must(dropDecision(s.CreateDecision(model.Decision{
 		ID: "d1", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.auth"},
 		Why: "# テスト用の見出し\n\n先の決定", At: "2026-01-01T00:00:00Z",
-	}, store.DecisionCreateOptions{}))
+	}, store.DecisionCreateOptions{})))
 	h, err := NewHandler(s)
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)

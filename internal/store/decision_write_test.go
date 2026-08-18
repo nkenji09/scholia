@@ -49,7 +49,7 @@ func decision(id, why string) model.Decision {
 func TestCreateDecisionRejectsMissingHeading(t *testing.T) {
 	s := newDecisionStore(t)
 
-	err := s.CreateDecision(decision("01D1", headlessWhy), DecisionCreateOptions{})
+	_, err := s.CreateDecision(decision("01D1", headlessWhy), DecisionCreateOptions{})
 	if err == nil {
 		t.Fatalf("見出しの無い why は拒むべき")
 	}
@@ -64,7 +64,7 @@ func TestCreateDecisionRejectsMissingHeading(t *testing.T) {
 		t.Fatalf("拒んだのにファイルが残っている: %v", got)
 	}
 
-	if err := s.CreateDecision(decision("01D1", headedWhy), DecisionCreateOptions{}); err != nil {
+	if _, err := s.CreateDecision(decision("01D1", headedWhy), DecisionCreateOptions{}); err != nil {
 		t.Fatalf("見出しのある why は通るべき: %v", err)
 	}
 	if got := decisionFiles(t, s); len(got) != 1 {
@@ -75,12 +75,12 @@ func TestCreateDecisionRejectsMissingHeading(t *testing.T) {
 // 逃し弁は明示に渡したときだけ効く（CLI の --allow・変更4）。
 func TestCreateDecisionAllowRule(t *testing.T) {
 	s := newDecisionStore(t)
-	if err := s.CreateDecision(decision("01D1", headlessWhy),
+	if _, err := s.CreateDecision(decision("01D1", headlessWhy),
 		DecisionCreateOptions{AllowRules: []string{RuleDecisionHeading}}); err != nil {
 		t.Fatalf("--allow 相当を渡したら通るべき: %v", err)
 	}
 	// 別の規則名を渡しても、見出しの拒否は解除されない。
-	if err := s.CreateDecision(decision("01D2", headlessWhy),
+	if _, err := s.CreateDecision(decision("01D2", headlessWhy),
 		DecisionCreateOptions{AllowRules: []string{"id-policy"}}); err == nil {
 		t.Fatalf("別規則の allow で見出しの拒否が解除されてはならない")
 	}
@@ -91,18 +91,18 @@ func TestCreateDecisionAllowRule(t *testing.T) {
 // 作ることができない。**
 func TestDecisionPortsSplitCreateFromUpdate(t *testing.T) {
 	s := newDecisionStore(t)
-	if err := s.CreateDecision(decision("01D1", headedWhy), DecisionCreateOptions{}); err != nil {
+	if _, err := s.CreateDecision(decision("01D1", headedWhy), DecisionCreateOptions{}); err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
 	// 新規作成の口は既存 id を受けない（append-only を新規の顔で踏み潰せない）。
-	if err := s.CreateDecision(decision("01D1", headedWhy), DecisionCreateOptions{}); err == nil {
+	if _, err := s.CreateDecision(decision("01D1", headedWhy), DecisionCreateOptions{}); err == nil {
 		t.Fatalf("既存 id への CreateDecision は拒むべき")
 	}
 
 	// 更新の口は存在しない id を受けない＝この口から新規は作れない。
 	before := decisionFiles(t, s)
-	if err := s.UpdateDecision(decision("01D2", headlessWhy)); err == nil {
+	if _, err := s.UpdateDecision(decision("01D2", headlessWhy)); err == nil {
 		t.Fatalf("存在しない id への UpdateDecision は拒むべき")
 	}
 	if got := decisionFiles(t, s); !reflect.DeepEqual(got, before) {
@@ -112,7 +112,7 @@ func TestDecisionPortsSplitCreateFromUpdate(t *testing.T) {
 	// 既存の更新には見出しの拒否を当てない（既存 173 件を遡って壊さない）。
 	d := decision("01D1", headedWhy)
 	d.Commits = []string{"abc1234"}
-	if err := s.UpdateDecision(d); err != nil {
+	if _, err := s.UpdateDecision(d); err != nil {
 		t.Fatalf("既存の書き戻しは通るべき: %v", err)
 	}
 	got, err := s.LoadDecision("01D1")
@@ -189,7 +189,7 @@ func asDecisionReject(err error, target **DecisionRejectError) bool {
 // 保存できない理由が分からないまま append-only の欄の前で止まる）。
 func TestCreateDecisionRejectMessageStatesTheForm(t *testing.T) {
 	s := newDecisionStore(t)
-	err := s.CreateDecision(decision("01D1", headlessWhy), DecisionCreateOptions{})
+	_, err := s.CreateDecision(decision("01D1", headlessWhy), DecisionCreateOptions{})
 	if err == nil {
 		t.Fatal("拒むべき")
 	}

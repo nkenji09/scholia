@@ -81,17 +81,17 @@ func (e *DecisionRejectError) Error() string { return e.Message }
 //
 // ⚠️ **既存 decision の更新には効かない**（UpdateDecision は通らない）。
 // `why` は append-only で保存後に直せないので、遡って課す手段がそもそも無い。
-func (s *Store) CreateDecision(d model.Decision, opts DecisionCreateOptions) error {
+func (s *Store) CreateDecision(d model.Decision, opts DecisionCreateOptions) (model.Decision, error) {
 	path := s.decisionPath(d.ID)
 	if _, err := os.Stat(path); err == nil {
-		return fmt.Errorf("decision %s は既に存在します（新規作成の口では既存レコードを書き換えられません。更新は UpdateDecision）", d.ID)
+		return model.Decision{}, fmt.Errorf("decision %s は既に存在します（新規作成の口では既存レコードを書き換えられません。更新は UpdateDecision）", d.ID)
 	} else if !os.IsNotExist(err) {
-		return &RecordWriteError{Category: "decision", Err: err}
+		return model.Decision{}, &RecordWriteError{Category: "decision", Err: err}
 	}
 
 	if !opts.allows(RuleDecisionHeading) {
 		if r := model.CheckDecisionHeading(d.Why); !r.OK {
-			return &DecisionRejectError{
+			return model.Decision{}, &DecisionRejectError{
 				Rule:   RuleDecisionHeading,
 				Reason: r.Reason,
 				Message: fmt.Sprintf(
@@ -103,7 +103,17 @@ func (s *Store) CreateDecision(d model.Decision, opts DecisionCreateOptions) err
 		}
 	}
 
-	return s.writeDecision(d)
+	// 結ぶ commit の実在照合・印（applied[]）の形の検査・完全 hash への正規化は、
+	// 面ではなくこの口で当てる（decision_commitgate.go に理由）。新規作成なので
+	// commits[]・applied[] は全件が新規＝全件を見る。
+	if err := s.checkDecisionAdditions(&d, nil); err != nil {
+		return model.Decision{}, err
+	}
+
+	if err := s.writeDecision(d); err != nil {
+		return model.Decision{}, err
+	}
+	return d, nil
 }
 
 // UpdateDecision は既存 decision を書き戻す口（`decision add-commit` の追記・
@@ -112,14 +122,34 @@ func (s *Store) CreateDecision(d model.Decision, opts DecisionCreateOptions) err
 // その id のファイルが無ければ落ちる——**この口から新規を作らせない**のが、
 // CreateDecision を唯一の新規作成口に保つ仕掛けの片側である。
 //
-// 保存時の拒否規則は当てない。`why` を作っていない書き戻しだからで、
+// 見出しの拒否規則は当てない。`why` を作っていない書き戻しだからで、
 // 既存 173 件の書き方を遡って壊さないための境界でもある。
-func (s *Store) UpdateDecision(d model.Decision) error {
+//
+// ⚠️ **commit の実在照合と印の形の検査だけは、この口でも当てる。** ただし
+// 「今回増えた分」に限る——既存の値まで見ると、改名の追随（target 張替え）の
+// ような無関係の更新が、昔から入っている形の合わない hash で落ちる。
+//
+// 🔴 **返すのは「実際に保存された decision」である。** 口は増えた commit hash を
+// 完全 hash へ寄せる（正規化）ので、**渡した値と保存された値は同じとは限らない。**
+// 面が渡した側を出力に使うと、画面と真実の源がずれる——だから口が保存後の値を
+// 返し、面はそれを使う。捨てるなら `_, err :=` と書くことになり、捨てたことが
+// ソースに残る（DecisionCreateOptions を省略できなくしてあるのと同じ思想）。
+func (s *Store) UpdateDecision(d model.Decision) (model.Decision, error) {
 	if _, err := os.Stat(s.decisionPath(d.ID)); err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("decision %s は存在しません（更新の口では新規に作れません。新規作成は CreateDecision）", d.ID)
+			return model.Decision{}, fmt.Errorf("decision %s は存在しません（更新の口では新規に作れません。新規作成は CreateDecision）", d.ID)
 		}
-		return &RecordWriteError{Category: "decision", Err: err}
+		return model.Decision{}, &RecordWriteError{Category: "decision", Err: err}
 	}
-	return s.writeDecision(d)
+	prev, err := s.LoadDecision(d.ID)
+	if err != nil {
+		return model.Decision{}, err
+	}
+	if err := s.checkDecisionAdditions(&d, &prev); err != nil {
+		return model.Decision{}, err
+	}
+	if err := s.writeDecision(d); err != nil {
+		return model.Decision{}, err
+	}
+	return d, nil
 }

@@ -125,7 +125,13 @@ func postDecisionHandler(s *store.Store) http.HandlerFunc {
 		// transition_write.go の先例どおり（エスケープは CLI の --allow --reason
 		// 経由のみ）。422 で返し、ドロワーは入力中の why を保持したままエラーを
 		// 表示する（保存できなかっただけで、書いたものは消えない）。
-		if err := s.CreateDecision(d, store.DecisionCreateOptions{}); err != nil {
+		// 照合できたかどうかは保存の前に確かめておく（後で名乗るため）。
+		commitRepo := s.CommitRepo()
+		// 🔴 **保存後の値を受け取る。** 口は結ぶ commit を完全 hash へ寄せる
+		// （短縮 hash と完全 hash が別の出来事として数えられるのを防ぐ）ので、
+		// 渡した d をそのまま応答に載せると画面と真実の源がずれる。
+		saved, err := s.CreateDecision(d, store.DecisionCreateOptions{})
+		if err != nil {
 			var rej *store.DecisionRejectError
 			if errors.As(err, &rej) {
 				writeErrorCode(w, http.StatusUnprocessableEntity, decisionRejectViewerMessage(rej), "reject-"+rej.Rule)
@@ -143,10 +149,15 @@ func postDecisionHandler(s *store.Store) http.HandlerFunc {
 		if snap, err := s.LoadAll(); err == nil {
 			advisories = lint.TargetUnlinkedSupersede(withoutDecision(snap, d.ID), d.Target, d.Supersedes)
 		}
+		// 「結ぶ commit の実在を照合していない」の名乗り（01M09FHEQH7PVZ2BTKGXY5YMNN）。
+		// ⚠️ **この面にも載せる。** body は commits を受け取れるので、載せないと
+		// 「advisory を運ぶ封筒を持っているのに名乗らない面」が1つ残る
+		// ——判定を1つの関数に寄せた意味が消える（クリーンルームレビュー 指摘③）。
+		advisories = append(advisories, lint.CommitUnverifiedAdvisories(commitRepo.Managed(), len(saved.Commits))...)
 		writeJSON(w, http.StatusCreated, struct {
 			model.Decision
 			Advisories []lint.Finding `json:"advisories,omitempty"`
-		}{Decision: d, Advisories: advisories})
+		}{Decision: saved, Advisories: advisories})
 	}
 }
 

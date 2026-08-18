@@ -50,10 +50,10 @@ func seedExportStore(t *testing.T) *store.Store {
 	must(s.SaveTransition(model.Transition{
 		ID: "T-login", Action: "act.user.login", Then: []string{"eff.session.issue"}, Tags: []string{"req.auth-happy"},
 	}))
-	must(s.CreateDecision(model.Decision{
+	must(dropDecision(s.CreateDecision(model.Decision{
 		ID: "d1", Target: model.DecisionTarget{Type: model.DecisionTargetTag, ID: "subject.auth"},
 		Why: "# 認証は httpOnly cookie で発行\n\n提案の本文", Ref: "PR#1", At: "2026-01-01T00:00:00Z",
-	}, store.DecisionCreateOptions{}))
+	}, store.DecisionCreateOptions{})))
 
 	return s
 }
@@ -212,3 +212,8 @@ func TestExportHTML_CreatesTargetDir(t *testing.T) {
 		t.Fatalf("index.html not created under nested dir: %v", err)
 	}
 }
+
+// dropDecision は「保存した decision」を捨てて error だけにする。
+// 口は保存後の値（結ぶ commit を完全 hash へ寄せたもの）を返すが、
+// この標本は commits[] を持たないので捨ててよい——**捨てたことがここに残る。**
+func dropDecision(_ model.Decision, err error) error { return err }
