@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/nkenji09/scholia/internal/commitcheck"
 	"github.com/nkenji09/scholia/internal/review"
 	"github.com/nkenji09/scholia/internal/store"
 )
@@ -78,6 +79,16 @@ func writeStoreError(w http.ResponseWriter, err error) {
 		writeErrorCode(w, http.StatusInternalServerError,
 			unreadableRecordMessage(".scholia/reviews/", "scholia review list", revErr.Parse),
 			"record-file-unreadable")
+		return
+	}
+	// 結ぶ commit が実在しない／形が hash でない（01M09FHEQH7PVZ2BTKGXY5YMNN）。
+	// **保存の口（store）が返す**——viewer にこの検査を配線したからではなく、
+	// 口を通る限り面を問わず落ちるからである。送った側の入力が悪いので 500 では
+	// なく 422 を返す。文言に出るのは呼び手が送った commit hash だけで、
+	// レコード id は含まない（01KYCC2TF3NW3JRSSRK9ZHN078）。
+	var commitErr *commitcheck.RejectError
+	if errors.As(err, &commitErr) {
+		writeErrorCode(w, http.StatusUnprocessableEntity, commitErr.Error(), "reject-commit-missing")
 		return
 	}
 	writeError(w, http.StatusInternalServerError, err.Error())

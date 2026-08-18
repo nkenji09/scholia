@@ -103,6 +103,13 @@ func (s *Store) CreateDecision(d model.Decision, opts DecisionCreateOptions) err
 		}
 	}
 
+	// 結ぶ commit の実在照合と印（applied[]）の形の検査は、面ではなくこの口で
+	// 当てる（decision_commitgate.go に理由）。新規作成なので commits[]・
+	// applied[] は全件が新規＝全件を見る。
+	if err := s.checkDecisionAdditions(d, nil); err != nil {
+		return err
+	}
+
 	return s.writeDecision(d)
 }
 
@@ -112,14 +119,25 @@ func (s *Store) CreateDecision(d model.Decision, opts DecisionCreateOptions) err
 // その id のファイルが無ければ落ちる——**この口から新規を作らせない**のが、
 // CreateDecision を唯一の新規作成口に保つ仕掛けの片側である。
 //
-// 保存時の拒否規則は当てない。`why` を作っていない書き戻しだからで、
+// 見出しの拒否規則は当てない。`why` を作っていない書き戻しだからで、
 // 既存 173 件の書き方を遡って壊さないための境界でもある。
+//
+// ⚠️ **commit の実在照合と印の形の検査だけは、この口でも当てる。** ただし
+// 「今回増えた分」に限る——既存の値まで見ると、改名の追随（target 張替え）の
+// ような無関係の更新が、昔から入っている形の合わない hash で落ちる。
 func (s *Store) UpdateDecision(d model.Decision) error {
 	if _, err := os.Stat(s.decisionPath(d.ID)); err != nil {
 		if os.IsNotExist(err) {
 			return fmt.Errorf("decision %s は存在しません（更新の口では新規に作れません。新規作成は CreateDecision）", d.ID)
 		}
 		return &RecordWriteError{Category: "decision", Err: err}
+	}
+	prev, err := s.LoadDecision(d.ID)
+	if err != nil {
+		return err
+	}
+	if err := s.checkDecisionAdditions(d, &prev); err != nil {
+		return err
 	}
 	return s.writeDecision(d)
 }

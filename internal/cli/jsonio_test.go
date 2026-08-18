@@ -124,6 +124,10 @@ const (
 	placeholderDecisionID    = "<decision-id>"
 	placeholderOldDecisionID = "<old-decision-id>"
 	placeholderReviewID      = "<review-id>"
+	// 標本は git 履歴を持つ（seedGitHistory）ので、結ぶ commit の実在照合が
+	// 実際に効く。**架空の hash を書くとこの面は 1 度も走らなくなる**
+	// （01M09FHEQH7PVZ2BTKGXY5YMNN）——標本が作った HEAD に差し替える。
+	placeholderHeadHash = "<head-hash>"
 )
 
 // jsonFaceInvocations は面ごとの引き方（コマンド列と `--json` は含まない）。
@@ -138,7 +142,7 @@ var jsonFaceInvocations = map[string][]string{
 	"config infer-id-policy": {},
 	"config set":             {"tagKinds", "requirement,concern,subject,axis"},
 	"decide":                 {"--on", "tag:req.b", "--why", "# 見出し\n\n本文。"},
-	"decision add-commit":    {placeholderDecisionID, "0123456789abcdef0123456789abcdef01234567"},
+	"decision add-commit":    {placeholderDecisionID, placeholderHeadHash, "--kind", "implementation"},
 	"decision link":          {placeholderDecisionID, "--supersedes", placeholderOldDecisionID},
 	"decision list":          {},
 	"decision show":          {placeholderDecisionID},
@@ -405,6 +409,7 @@ type fixtureIDs struct {
 	decision    string
 	oldDecision string
 	review      string
+	headHash    string
 }
 
 func (ids fixtureIDs) resolve(args []string) []string {
@@ -417,6 +422,8 @@ func (ids fixtureIDs) resolve(args []string) []string {
 			out[i] = ids.oldDecision
 		case placeholderReviewID:
 			out[i] = ids.review
+		case placeholderHeadHash:
+			out[i] = ids.headHash
 		default:
 			out[i] = a
 		}
@@ -473,7 +480,7 @@ func seedJSONFaceFixture(t *testing.T) (string, fixtureIDs) {
 		t.Fatal(err)
 	}
 
-	seedGitHistory(t, dir)
+	ids.headHash = seedGitHistory(t, dir)
 	return dir, ids
 }
 
@@ -482,7 +489,10 @@ func seedJSONFaceFixture(t *testing.T) (string, fixtureIDs) {
 // ⚠️ **git が無ければ skip ではなく fail させる。** skip は「素通り」と見分けが
 // つかない（CLAUDE.md の趣旨）。`diff --json` はこの repo の CI ゲートでもあるので、
 // 検査しないまま緑にはしない。
-func seedGitHistory(t *testing.T, dir string) {
+//
+// 返すのは作った HEAD の commit hash。`decision add-commit` は結ぶ commit の
+// 実在を照合するので、**実在する hash がここから要る**。
+func seedGitHistory(t *testing.T, dir string) string {
 	t.Helper()
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Fatalf("この歯止めは git を要る（`diff --json` を走らせるため）: %v", err)
@@ -500,6 +510,13 @@ func seedGitHistory(t *testing.T, dir string) {
 			t.Fatalf("git %v: %v\n%s", args, err, out)
 		}
 	}
+	head := exec.Command("git", "rev-parse", "HEAD")
+	head.Dir = dir
+	out, err := head.Output()
+	if err != nil {
+		t.Fatalf("git rev-parse HEAD: %v", err)
+	}
+	return strings.TrimSpace(string(out))
 }
 
 // copyFixture は標本を丸ごと複製する（面ごとに書き込みが混ざらないように）。
