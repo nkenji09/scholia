@@ -221,7 +221,11 @@ lint は二層で、**error＝記録の自己矛盾**（保存拒否・CI fail �
     **種別の指定は必須**（既定値は無い・01M09FHEQH7PVZ2BTKGXY5YMNN）。`implementation`＝この decision の判断を実装した commit、
     `correction`＝この decision に書いてあるとおりに実装されていなかったのを直した commit で、後者は `applied[]` に是正の印が1件付く。
   - **結ぶ commit は保存前に照合される**: 形（16 進 7〜64 文字）はどこでも、実在（`git rev-parse` が commit として解決すること）は
-    git 管理下でのみ検査する。git 管理外では実在を照合できないので、保存したうえで「照合していない」と出す。
+    git 管理下でのみ検査する。git 管理外では実在を照合できないので、保存したうえで **advisory `commit-unverified`** で
+    「照合していない」と出す（テキストの面と `--json` の封筒の両方に出る）。
+  - ⚠️ **git 管理下では、新しく足す hash を完全 hash へ寄せてから保存する**（正規化）。短縮 hash も正当な入力なので、
+    寄せないと**同じ 1 commit が短縮と完全の2つの文字列として保存され、`applied[]` の重複判定（完全一致）が効かない**
+    ——実測で是正の件数が2件に上振れした。既存の要素は1バイトも触らない（触れば append-only 破れ）。
   - **append-only の精緻化（欄位単位・#45 U4→D7）**: decision の append-only とは「ファイル不変」ではなく
     「**判断欄位の不変＋来歴/リンク欄位の単調追記**」である。判断（`why` / `changed` / `ref` / `at`・`target.type`）は
     凍結され、**来歴（`commits[]`）＋現行性リンク（`supersedes[]`・link 経由）＋容認（`acknowledges[]`）＋
@@ -555,7 +559,7 @@ scholia tx rm <id> --why <理由> --force                      # 破壊的（dec
 
 # 意思決定（transition か tag に付く）
 scholia decide --on <transition|tag|vocab>:<id> --why <見出し＋本文> [--changed <s>] [--ref <s>] [--commit <hash>…] [--acknowledges <ruleId,…>] [--supersedes <ulid>[:<mode>]…] [--allow <rule> --reason <t>]  # vocab は #45 D5。why の1行目は見出し必須（`# ` ＋1〜80 rune・2行目以降に本文・満たさないと保存拒否 decision-heading・01KZ06SYR3APGF3JD4NQRFTEEN）。acknowledges=容認する finding の rule id（実在照合・#45 D6）／supersedes=置き換える旧 decision（mode=supersede|amend|exception・既定 amend・#45 D7）
-scholia decision add-commit <decisionId> <hash> [<hash>...] --kind implementation|correction [--json]  # 既存 decision の commits[] に追記専用（§3.5）。--kind は必須（既定値なし）。correction は applied[] に是正の印を1件足す。結ぶ commit は形を必ず、実在は git 管理下でのみ照合する（01M09FHEQH7PVZ2BTKGXY5YMNN）
+scholia decision add-commit <decisionId> <hash> [<hash>...] --kind implementation|correction [--json]  # 既存 decision の commits[] に追記専用（§3.5）。--kind は必須（既定値なし）。correction は applied[] に是正の印を1件足す。結ぶ commit は形を必ず、実在は git 管理下でのみ照合し、git 管理下では完全 hash へ寄せて保存する（01M09FHEQH7PVZ2BTKGXY5YMNN）
 scholia decision applied <decisionId> --kind conflict|rejection [--landed <decisionId>] [--json]  # 引かれた decision に「記録が結論を決めた」印を1件足す（矛盾・却下）。decision をどう作ったかに依存しない口。rejection は --landed 必須／conflict は任意（何も着地しない矛盾がある）。是正は add-commit --kind correction に相乗りする（01M09FHEQH7PVZ2BTKGXY5YMNN）
 scholia decision link <newId> --supersedes <oldUlid>[:<mode>] [--json]  # 現行性リンクの後付け backfill・追記専用・id実在/自己参照禁止/循環禁止（#45 D7）
 scholia decision list [--on <transition|tag|vocab>:<id>] [--unlinked] [--current] [--json]  # decision をフラット一覧（--on は完全一致・祖先展開なし。rules=対象別集約とは別）。--unlinked=commits未結線の棚卸し／--current=失効(mode=supersede)を畳んで現行のみ（#45 D7）

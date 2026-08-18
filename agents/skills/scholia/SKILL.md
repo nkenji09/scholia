@@ -221,6 +221,7 @@ scholia decide … --supersedes <old>[:<mode>]                          # 旧 de
 scholia decision add-commit <decisionId> <hash> [...] --kind implementation   # 既存 decision の commits[] に追記専用。**--kind は必須**（既定値なし）
 scholia decision add-commit <decisionId> <hash> --kind correction      # 書いてあるとおりに実装されていなかったのを直した commit。applied[] に是正の印が1件付く
                                                                       # 結ぶ commit は形（16進7〜64字）を必ず、実在は git 管理下でのみ照合する
+                                                                      # git 管理下では完全 hash へ寄せて保存する（短縮で打っても同じ commit は1件に畳まれる）
 scholia decision applied <decisionId> --kind conflict [--landed <id>]  # 記録と衝突したので止めた。何も着地しなければ --landed なし
 scholia decision applied <decisionId> --kind rejection --landed <id>   # 記録が既に決めていたので採らなかった（--landed は必須）
 scholia decision link <new> --supersedes <old>[:<mode>]               # 現行性リンクの後付け結線（追記専用・#45 D7）
