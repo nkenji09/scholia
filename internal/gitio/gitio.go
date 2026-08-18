@@ -70,6 +70,30 @@ func Installed() bool {
 	return err == nil
 }
 
+// HasAnyCommit は HEAD が指す commit が存在するかを返す（`git init` 直後の
+// unborn HEAD を検出する）。
+//
+// 🔴 **「導出が落ちた」と「見るものが無い」を分けるために要る。** git は
+// 「repo でない」も「repo だが読めない」も「commit がまだ無い」も、**同じ
+// exit 128 の fatal** で返す。終了状態だけを見る限り、この3つは必ず混ざる
+// ——分けるには「走査する対象がそもそも存在するか」を**別の問いとして先に立てる**
+// （decision 01M0APXCFF70MBZCQT98MNQMW8）。
+//
+// `-q` は失敗時の "fatal: ..." を黙らせる——存在しないこと自体は異常ではなく、
+// 呼び出し元が「commit ゼロ」として扱う正当な入力だから。ExitError 以外
+// （git 未導入等）は素通りさせて呼び出し元にエラーとして伝える。
+func HasAnyCommit(dir string) (bool, error) {
+	cmd := exec.Command("git", "-C", dir, "rev-parse", "--verify", "-q", "HEAD")
+	if err := cmd.Run(); err != nil {
+		var ee *exec.ExitError
+		if errors.As(err, &ee) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 // ResolveContext は git 管理下かどうかを解決し、リポジトリ根と、そこから見た
 // dir の相対位置を返す。
 //

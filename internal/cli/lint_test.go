@@ -370,6 +370,11 @@ func TestCLILintRequireGitDerivation(t *testing.T) {
 	if !strings.Contains(out, lint.RuleGitDerivationFailed) {
 		t.Fatalf("既定の画面に「検査していない」ことが出ていない:\n%s", out)
 	}
+	// 🔴 **理由まで届いているかを見る。** 「終了状態の語が在るか」だけを見る形は、
+	// 標準エラーの埋め込みを外す変異を素通りさせる（クリーンルームレビュー M-O）。
+	if i := strings.Index(out, "exit status"); i < 0 || len(out[i:]) <= len("exit status 128") {
+		t.Fatalf("git が書いた理由が画面に届いていない（終了状態だけ）:\n%s", out)
+	}
 	if strings.Contains(out, "問題は見つかりませんでした") {
 		t.Fatalf("検査できていないのに「問題は見つかりませんでした」と出ている:\n%s", out)
 	}
@@ -446,7 +451,52 @@ func breakHeadTreeObject(t *testing.T, dir string) {
 	}
 	obj := strings.TrimSpace(string(out))
 	p := filepath.Join(dir, ".git", "objects", obj[:2], obj[2:])
+	// 🔴 削れなかったら黙って skip しない（internal/lint の breakHeadTree と同じ理由）。
 	if err := os.Remove(p); err != nil {
-		t.Skipf("tree オブジェクトが loose でないため壊せない（pack 済み）: %v", err)
+		t.Fatalf("tree オブジェクトを壊せなかった（pack 済みなら別の壊し方に変えること。"+
+			"このまま skip すると、この歯止めは黙って緑になる）: %v", err)
+	}
+}
+
+// TestCLILintSilentOnRepoWithNoCommits は、**commit が1件も無いリポジトリ**での
+// 初回体験を、`--require-git-derivation` を立てた場合まで含めて見る。
+//
+// README のクイックスタートも初期設定スキルも、**記録を作ってから `git commit` を
+// 1度も挟まずに `scholia lint` を打たせる**形になっている。ここで新しく警告が出ると、
+// 初めて使う人が最初に見る画面に出る（差し戻し1回目で実際にそうなっていた・
+// 01M0APXCFF70MBZCQT98MNQMW8）。
+func TestCLILintSilentOnRepoWithNoCommits(t *testing.T) {
+	dir := t.TempDir()
+	gitInitT(t, dir) // git init だけ。commit はまだ1件も無い
+	if out, err := run(t, dir, "init"); err != nil {
+		t.Fatalf("init: %v\n%s", err, out)
+	}
+	if out, err := run(t, dir, "tag", "create", "subject.x", "--name", "主題", "--kind", "subject"); err != nil {
+		t.Fatalf("tag create: %v\n%s", err, out)
+	}
+
+	out, err := run(t, dir, "lint")
+	if err != nil {
+		t.Fatalf("commit ゼロで exit 1 にしてはいけない: %v\n%s", err, out)
+	}
+	if strings.Contains(out, lint.RuleGitDerivationFailed) {
+		t.Fatalf("commit が1件も無いだけで「検査していません」と名乗ってはいけない:\n%s", out)
+	}
+	if !strings.Contains(out, "問題は見つかりませんでした") {
+		t.Fatalf("走査する対象がゼロなら「問題なし」が正しい答えである:\n%s", out)
+	}
+
+	// フラグを立てた利用者も、commit ゼロで落ちてはいけない。
+	if out, err := run(t, dir, "lint", "--require-git-derivation"); err != nil {
+		t.Fatalf("--require-git-derivation でも commit ゼロで落ちてはいけない: %v\n%s", err, out)
+	}
+
+	// retrofit の面にも出ない（別掲の行が先頭に出ていた）。
+	out, err = run(t, dir, "retrofit")
+	if err != nil {
+		t.Fatalf("retrofit: %v\n%s", err, out)
+	}
+	if strings.Contains(out, lint.RuleGitDerivationFailed) {
+		t.Fatalf("retrofit の面にも出してはいけない:\n%s", out)
 	}
 }

@@ -13,19 +13,35 @@
 // は git の rename 検出（R status）で除外する。Snapshot.Root が空（手組み
 // snapshot・テスト fixture）のときは検査しない（dead-doc-ref と同型）。
 //
-// # 導出が落ちたときに何を報告するか（01M0AJDYJSEVCSYEV0HDPSTWFZ）
+// # 導出が落ちたときに何を報告するか（01M0AJDYJSEVCSYEV0HDPSTWFZ・
+// 追補 01M0APXCFF70MBZCQT98MNQMW8）
 //
-// 失敗を3段に分け、**名乗るのは第3段だけ**である。
+// 失敗を4段に分け、**名乗るのは最後の段だけ**である。
 //
 //  1. git を起動できない → 黙る（既決の範囲）
 //  2. git 管理下でない → 黙る（既決の範囲・01M09FHDJCV2WWFC7Z8331B0YQ）
-//  3. **git 管理下なのに導出そのものが落ちた** → git-derivation-failed を1件出す
+//  3. **commit が1件も無い（unborn HEAD）** → 黙る。走査する対象がゼロで、
+//     「導出できなかった」ではなく「見るものが無い」——異常ではない
+//     （01M0APXCFF70MBZCQT98MNQMW8）。
+//  4. **git 管理下で commit もあるのに導出そのものが落ちた** →
+//     git-derivation-failed を1件出す
 //
-// 🔴 **落ちない範囲を名乗る**: `rev-parse --show-toplevel` 自体が落ちる形の失敗
-// （所有者が違うディレクトリの安全確認など）は**第2段に寄って黙る**。git は
-// 「git repo でない」と「repo だが読めない」を同じ exit 128 の fatal で返すため、
-// 文言を照合する以外に分ける手が無く、文言照合は綴りが変われば外れるので採らない。
-// git が exit 0 のまま部分的に間違った出力を返す形も落ちない。
+// 🔴 **段を分けるのに終了状態を使わない。** git は「repo でない」も「repo だが
+// 読めない」も「commit がまだ無い」も**同じ exit 128 の fatal** で返す。
+// 終了状態だけを見ると「失敗した」と「見るものが無い」は必ず混ざる——実際に
+// 混ざり、`git init` 直後のストアに警告が出ていた。分けるには「走査する対象が
+// そもそも存在するか」を**別の問いとして先に立てる**（第3段）。
+//
+// # 落ちない範囲（正直に名乗る）
+//
+//   - `rev-parse --show-toplevel` 自体が落ちる形の失敗（所有者が違うディレクトリの
+//     安全確認など）は**第2段に寄って黙る**。文言を照合する以外に分ける手が無く、
+//     文言照合は綴りが変われば外れるので採らない。
+//   - git が exit 0 のまま部分的に間違った出力を返す形。
+//   - 🔴 **第1段は、観測できる振る舞いとしては第2段と区別が付かない。** git が
+//     無ければ第2段のリポジトリ根の解決も落ちるので、**第1段の分岐を丸ごと消しても
+//     何も変わらない**（実測。クリーンルームレビューが変異で確かめ、緑のまま通った）。
+//     段として書いてあるのは読み手に構造を示すためで、**検査には支えられていない。**
 package lint
 
 import (
@@ -135,8 +151,9 @@ type staleCommit struct {
 // 「既存レコードを M（変更）したが decision を A（追加）していない」commit を
 // 返す。rename（R）は除外。
 //
-// failure が非 nil なら「git 管理下なのに導出が落ちた」——第1・2段（git が無い／
-// git 管理下でない）は commits も failure も返さずに黙る（package doc の3段）。
+// failure が非 nil なら「git 管理下で commit もあるのに導出が落ちた」——第1〜3段
+// （git が無い／git 管理下でない／commit が1件も無い）は commits も failure も
+// 返さずに黙る（package doc の4段）。
 func recordModifyingCommits(projectRoot string) (commits []staleCommit, failure error) {
 	if !gitio.Installed() {
 		return nil, nil // 第1段: git が起動できない
@@ -145,13 +162,19 @@ func recordModifyingCommits(projectRoot string) (commits []staleCommit, failure 
 	if err != nil {
 		return nil, nil // 第2段: git 管理下でない
 	}
+	// 第3段: commit が1件も無い（`git init` した直後）。走査する対象がゼロで、
+	// 「導出できなかった」ではなく「見るものが無い」——黙る。
+	// err は「git を起動すらできなかった」＝第1段と同じ扱いで黙る。
+	if has, err := gitio.HasAnyCommit(gitRoot); err != nil || !has {
+		return nil, nil
+	}
 	// ⚠️ 走査する commit 集合は変えない（リポジトリ直近 decisionStaleScanLimit 件）。
 	// pathspec で絞ると窓の届く先が変わる——それは検知の穴を塞ぐことと別の判断である。
 	out, err := gitio.Run(gitRoot, "log",
 		fmt.Sprintf("-n%d", decisionStaleScanLimit),
 		"-M", "--name-status", "-z", gitio.LogFormatArg)
 	if err != nil {
-		return nil, err // 第3段: 導出が落ちた
+		return nil, err // 第4段: 導出が落ちた
 	}
 	parsed, err := gitio.ParseNameStatusZ(out)
 	if err != nil {

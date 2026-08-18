@@ -353,8 +353,17 @@ func TestDecisionStaleNamesGitDerivationFailure(t *testing.T) {
 	}
 	// ⚠️ git の文言そのものは照合しない（版と locale で変わる）。見るのは
 	// 「素の exit status より長い＝git が書いた理由が本文に載っている」ことである。
-	if !strings.Contains(f.Message, "exit status") {
+	//
+	// 🔴 **ここは以前 `Contains(…, "exit status")` だけを見ていた。** それだと
+	// 標準エラーの埋め込みを外す変異で本文から理由が消えても green のまま通る
+	// （クリーンルームレビュー M-O が実見）。決定の条項3 は「git が標準エラーへ
+	// 書いた理由を本文に載せる」と決めているので、**理由が載っているところまで**見る。
+	i := strings.Index(f.Message, "exit status")
+	if i < 0 {
 		t.Fatalf("git の終了状態が本文に載っていない: %s", f.Message)
+	}
+	if len(f.Message[i:]) <= len("exit status 128") {
+		t.Fatalf("git が書いた理由が本文に載っていない（終了状態だけ残っている）: %s", f.Message)
 	}
 	if !strings.Contains(f.Message, "検査していません") {
 		t.Fatalf("「検査していない」ことが本文に出ていない: %s", f.Message)
@@ -476,7 +485,31 @@ func breakHeadTree(r *staleRepo) {
 	}
 	obj := strings.TrimSpace(string(out))
 	p := filepath.Join(r.dir, ".git", "objects", obj[:2], obj[2:])
+	// 🔴 **削れなかったら黙って skip しない。** skip すると、将来 git が commit 時に
+	// pack するようになった日に、穴1 の歯止めは**黙って緑**になる（CLAUDE.md が
+	// 嫌う形・クリーンルームレビュー 軽微-5）。落として気づかせる。
 	if err := os.Remove(p); err != nil {
-		r.t.Skipf("tree オブジェクトが loose でないため壊せない（pack 済み）: %v", err)
+		r.t.Fatalf("tree オブジェクトを壊せなかった（pack 済みなら別の壊し方に変えること。"+
+			"このまま skip すると、この歯止めは黙って緑になる）: %v", err)
+	}
+}
+
+// TestDecisionStaleSilentWhenRepoHasNoCommits は、**commit が1件も無いリポジトリ**
+// （`git init` した直後）で黙ることを見る。
+//
+// 走査する対象がゼロなのだから「問題なし」が正しい答えであって、
+// 「導出できませんでした」ではない。差し戻し1回目で実際にここが名乗っていた
+// ——`git init` → `scholia init` → `scholia lint` は最も普通の初回の順番で、
+// README のクイックスタートもその形である（01M0APXCFF70MBZCQT98MNQMW8）。
+//
+// 落ちない範囲: ここは「commit ゼロ」だけを見る。git 管理下でない場合は
+// TestDecisionStaleSilentWhenNotGitManaged、導出そのものの失敗は
+// TestDecisionStaleNamesGitDerivationFailure が持つ。
+func TestDecisionStaleSilentWhenRepoHasNoCommits(t *testing.T) {
+	r := newStaleRepo(t) // git init だけ済んでいて commit はまだ1件も無い
+	r.writeTagFile("subject.ascii.json", "subject.ascii", "名前")
+
+	if got := r.findings(); len(got) != 0 {
+		t.Fatalf("commit が1件も無いリポジトリでは何も出さないはず: %+v", got)
 	}
 }

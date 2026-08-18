@@ -10,7 +10,6 @@ package activity
 import (
 	"bytes"
 	"fmt"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -208,19 +207,16 @@ func runGit(gitRoot string, args ...string) ([]byte, error) {
 }
 
 // hasAnyCommit は HEAD が指す commit が存在するかを見る（`git init` 直後の
-// unborn HEAD を検出する）。`-q` は失敗時の "fatal: ..." を黙らせる——存在
-// しないこと自体は異常ではなく、Compute が「commit ゼロ」として扱う正当な
-// 入力だから（FAIL-2）。ExitError 以外（git 未導入等）は素通りさせて呼び出し
-// 元にエラーとして伝える。
+// unborn HEAD を検出する）。存在しないこと自体は異常ではなく、Compute が
+// 「commit ゼロ」として扱う正当な入力である（FAIL-2）。
+//
+// 判定の本体は internal/gitio が持ち、ここはそこへ委譲する——**git を起動する
+// 入口を1つにするため**（01M0AJDYP9524AKXFN6J3FXBYJ 変更6・
+// 01M0APXCFF70MBZCQT98MNQMW8 変更3）。同じ判定を lint 側も要る:
+// 名乗り始めた面が commit ゼロを「導出の失敗」と読んで、正当な初期状態に
+// 警告を出していた。
 func hasAnyCommit(gitRoot string) (bool, error) {
-	cmd := exec.Command("git", "-C", gitRoot, "rev-parse", "--verify", "-q", "HEAD")
-	if err := cmd.Run(); err != nil {
-		if _, ok := err.(*exec.ExitError); ok {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
+	return gitio.HasAnyCommit(gitRoot)
 }
 
 func isShallow(gitRoot string) (bool, error) {

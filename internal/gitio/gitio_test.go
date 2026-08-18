@@ -220,3 +220,35 @@ func equalCommits(a, b []Commit) bool {
 	}
 	return true
 }
+
+// TestHasAnyCommit は「commit が1件でもあるか」の判定を、unborn HEAD と
+// commit のある repo の対で見る。
+//
+// この判定は「導出が落ちた」と「見るものが無い」を分けるために要る——git は
+// どちらも同じ exit 128 の fatal で返すので、終了状態だけを見ると必ず混ざる。
+func TestHasAnyCommit(t *testing.T) {
+	dir := t.TempDir()
+	gittest.InitRepo(t, dir) // git init 直後＝unborn HEAD
+
+	has, err := HasAnyCommit(dir)
+	if err != nil {
+		t.Fatalf("unborn HEAD は異常ではない（error にしてはいけない）: %v", err)
+	}
+	if has {
+		t.Fatal("commit が1件も無いのに has=true")
+	}
+
+	writeFile(t, dir, "a.txt", "x\n")
+	gittest.Run(t, dir, "add", "-A")
+	gittest.Run(t, dir, "commit", "-q", "-m", "first")
+
+	if has, err = HasAnyCommit(dir); err != nil || !has {
+		t.Fatalf("commit があるのに has=%v err=%v", has, err)
+	}
+
+	// git 管理下でないディレクトリも「commit ゼロ」に写る（呼び出し元は
+	// どちらでも黙るので、ここで分ける必要は無い）。
+	if has, err = HasAnyCommit(t.TempDir()); err != nil || has {
+		t.Fatalf("git 管理下でないディレクトリ: has=%v err=%v", has, err)
+	}
+}
