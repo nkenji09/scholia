@@ -372,9 +372,10 @@ func TestCLILintRequireGitDerivation(t *testing.T) {
 	}
 	// 🔴 **理由まで届いているかを見る。** 「終了状態の語が在るか」だけを見る形は、
 	// 標準エラーの埋め込みを外す変異を素通りさせる（クリーンルームレビュー M-O）。
-	if i := strings.Index(out, "exit status"); i < 0 || len(out[i:]) <= len("exit status 128") {
-		t.Fatalf("git が書いた理由が画面に届いていない（終了状態だけ）:\n%s", out)
-	}
+	// ⚠️ **見る範囲を finding の1行に閉じる。** 出力全体で見ると、後続の行が
+	// 長さを稼いでしまい、理由が消えても通ってしまう（実測。最初にそう書いて
+	// 変異が素通りした）。
+	assertReasonReachedTheLine(t, out, lint.RuleGitDerivationFailed)
 	if strings.Contains(out, "問題は見つかりませんでした") {
 		t.Fatalf("検査できていないのに「問題は見つかりませんでした」と出ている:\n%s", out)
 	}
@@ -499,4 +500,25 @@ func TestCLILintSilentOnRepoWithNoCommits(t *testing.T) {
 	if strings.Contains(out, lint.RuleGitDerivationFailed) {
 		t.Fatalf("retrofit の面にも出してはいけない:\n%s", out)
 	}
+}
+
+// assertReasonReachedTheLine は、rule の finding の**その1行**に git が書いた理由が
+// 載っていることを見る。git の文言は照合しない（版と locale で変わる）——見るのは
+// 「素の終了状態より長い」ことである。
+func assertReasonReachedTheLine(t *testing.T, out, rule string) {
+	t.Helper()
+	for _, line := range strings.Split(out, "\n") {
+		if !strings.Contains(line, rule) {
+			continue
+		}
+		i := strings.Index(line, "exit status")
+		if i < 0 {
+			t.Fatalf("git の終了状態が %s の行に載っていない: %s", rule, line)
+		}
+		if len(line[i:]) <= len("exit status 128") {
+			t.Fatalf("git が書いた理由が %s の行に載っていない（終了状態だけ）: %s", rule, line)
+		}
+		return
+	}
+	t.Fatalf("%s の行が見つからない:\n%s", rule, out)
 }
