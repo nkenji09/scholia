@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"sort"
 	"testing"
+
+	"github.com/nkenji09/scholia/internal/gittest"
 )
 
 func writeFile(t *testing.T, root, rel, content string) {
@@ -45,9 +47,7 @@ func TestEnumerateFiles_GitLsFilesHonorsGitignore(t *testing.T) {
 		t.Skip("git not installed")
 	}
 	root := t.TempDir()
-	runGitT(t, root, "init", "-q")
-	runGitT(t, root, "config", "user.email", "test@example.com")
-	runGitT(t, root, "config", "user.name", "test")
+	gittest.InitRepo(t, root)
 	writeFile(t, root, ".gitignore", "ignored.txt\n")
 	writeFile(t, root, "tracked.go", "package main\n")
 	writeFile(t, root, "ignored.txt", "should not appear\n")

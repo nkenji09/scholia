@@ -77,6 +77,8 @@ import (
 
 	"github.com/spf13/cobra"
 	pflag "github.com/spf13/pflag"
+
+	"github.com/nkenji09/scholia/internal/gittest"
 )
 
 // jsonExitFile は package cli の中で `encoding/json` に触れてよい唯一の非テスト file。
@@ -487,10 +489,8 @@ func seedGitHistory(t *testing.T, dir string) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Fatalf("この歯止めは git を要る（`diff --json` を走らせるため）: %v", err)
 	}
+	gittest.InitRepo(t, dir)
 	for _, args := range [][]string{
-		{"init", "-q"},
-		{"config", "user.email", "guard@example.invalid"},
-		{"config", "user.name", "guard"},
 		{"add", "-A"},
 		{"commit", "-q", "-m", "seed"},
 	} {

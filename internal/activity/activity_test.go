@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/nkenji09/scholia/internal/gittest"
 )
 
 // ---------------------------------------------------------------------------
@@ -148,9 +150,7 @@ func newActRepo(t *testing.T) *actRepo {
 		t.Skip("git not installed")
 	}
 	r := &actRepo{t: t, dir: t.TempDir()}
-	r.git("init", "-q")
-	r.git("config", "user.email", "test@example.com")
-	r.git("config", "user.name", "test")
+	gittest.InitRepo(t, r.dir)
 	return r
 }
 
