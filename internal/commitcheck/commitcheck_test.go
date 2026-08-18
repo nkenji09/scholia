@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/nkenji09/scholia/internal/gittest"
 )
 
 // 形の判定は git を要らない純関数（CLAUDE.md「配線ガードの書き方」1）。
@@ -79,15 +81,12 @@ func TestVerdictRejects(t *testing.T) {
 	}
 }
 
+// gitT は使い捨て repo への git 呼び出しの唯一の入口（internal/gittest）を通す。
+// **ここに自前の exec.Command を書かない**——background maintenance を止める設定は
+// この package のどこかが gittest を import していないと効かない（gittest の doc）。
 func gitT(t *testing.T, dir string, args ...string) string {
 	t.Helper()
-	cmd := exec.Command("git", args...)
-	cmd.Dir = dir
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("git %v: %v\n%s", args, err, out)
-	}
-	return strings.TrimSpace(string(out))
+	return strings.TrimSpace(gittest.Run(t, dir, args...))
 }
 
 // seedRepo は commit を1つ持つ git リポジトリを作り、その hash を返す。
@@ -97,9 +96,7 @@ func seedRepo(t *testing.T) (dir, head string) {
 		t.Fatalf("この検査は git を要る（実在照合そのものを見るため。skip は素通りと見分けがつかない）: %v", err)
 	}
 	dir = t.TempDir()
-	gitT(t, dir, "init", "-q")
-	gitT(t, dir, "config", "user.email", "guard@example.invalid")
-	gitT(t, dir, "config", "user.name", "guard")
+	gittest.InitRepo(t, dir)
 	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("a\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nkenji09/scholia/internal/gittest"
 	"github.com/nkenji09/scholia/internal/model"
 	"github.com/nkenji09/scholia/internal/store"
 )
@@ -33,21 +34,16 @@ func newCorrectionRepo(t *testing.T) *correctionRepo {
 		t.Fatalf("この歯止めは git を要る（commit の中身を見るため。skip は素通りと見分けがつかない）: %v", err)
 	}
 	r := &correctionRepo{t: t, dir: t.TempDir()}
-	r.git("init", "-q")
-	r.git("config", "user.email", "guard@example.invalid")
-	r.git("config", "user.name", "guard")
+	gittest.InitRepo(t, r.dir)
 	return r
 }
 
+// git は使い捨て repo への git 呼び出しの唯一の入口（internal/gittest）を通す。
+// **ここに自前の exec.Command を書かない**——background maintenance を止める設定は
+// この package のどこかが gittest を import していないと効かない（gittest の doc）。
 func (r *correctionRepo) git(args ...string) string {
 	r.t.Helper()
-	cmd := exec.Command("git", args...)
-	cmd.Dir = r.dir
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		r.t.Fatalf("git %v: %v\n%s", args, err, out)
-	}
-	return strings.TrimSpace(string(out))
+	return strings.TrimSpace(gittest.Run(r.t, r.dir, args...))
 }
 
 func (r *correctionRepo) write(relPath, body string) {

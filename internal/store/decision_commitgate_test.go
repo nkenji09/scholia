@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/nkenji09/scholia/internal/commitcheck"
+	"github.com/nkenji09/scholia/internal/gittest"
 	"github.com/nkenji09/scholia/internal/model"
 )
 
@@ -18,15 +19,12 @@ import (
 // 口そのもの——面を数える形にすると、4面目を足した誰かが配線を忘れたときに何も
 // 落ちない（この repo が繰り返し落としてきた型）。
 
+// gitT は使い捨て repo への git 呼び出しの唯一の入口（internal/gittest）を通す。
+// **ここに自前の exec.Command を書かない**——background maintenance を止める設定は
+// この package のどこかが gittest を import していないと効かない（gittest の doc）。
 func gitT(t *testing.T, dir string, args ...string) string {
 	t.Helper()
-	cmd := exec.Command("git", args...)
-	cmd.Dir = dir
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("git %v: %v\n%s", args, err, out)
-	}
-	return strings.TrimSpace(string(out))
+	return strings.TrimSpace(gittest.Run(t, dir, args...))
 }
 
 // gitBackedStore は git 管理下の store と、その HEAD の commit hash を返す。
@@ -36,9 +34,7 @@ func gitBackedStore(t *testing.T) (*Store, string) {
 		t.Fatalf("この歯止めは git を要る（実在照合そのものを見るため。skip は素通りと見分けがつかない）: %v", err)
 	}
 	dir := t.TempDir()
-	gitT(t, dir, "init", "-q")
-	gitT(t, dir, "config", "user.email", "guard@example.invalid")
-	gitT(t, dir, "config", "user.name", "guard")
+	gittest.InitRepo(t, dir)
 	s, err := Init(dir)
 	if err != nil {
 		t.Fatalf("init: %v", err)
