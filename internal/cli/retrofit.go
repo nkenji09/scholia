@@ -57,7 +57,11 @@ func newRetrofitCmd() *cobra.Command {
 				findings = []lint.Finding{}
 			}
 
-			fixable, ackOnly := splitAcknowledgeOnly(findings)
+			// git-derivation-failed は「是正候補」でも「容認で畳む対象」でもない
+			// ——記録を編集しても解けない（実行環境の問題）。どちらの区分にも混ぜず、
+			// 別掲する。混ぜると「是正候補 1 件」という直せない棚卸しが出る。
+			scoped, unavailable := splitGitDerivationFailed(findings)
+			fixable, ackOnly := splitAcknowledgeOnly(scoped)
 			names := advisoryRuleNames(rules)
 			fixStats := partitionStats(fixable, names)
 			ackStats := partitionStats(ackOnly, names)
@@ -68,11 +72,12 @@ func newRetrofitCmd() *cobra.Command {
 					Findings        []lint.Finding `json:"findings"`
 					Fixable         retrofitStats  `json:"fixable"`
 					AcknowledgeOnly retrofitStats  `json:"acknowledgeOnly"`
-				}{Rules: names, Findings: findings, Fixable: fixStats, AcknowledgeOnly: ackStats}
+					Unavailable     []lint.Finding `json:"unavailable,omitempty"`
+				}{Rules: names, Findings: findings, Fixable: fixStats, AcknowledgeOnly: ackStats, Unavailable: unavailable}
 				return emitJSON(cmd, out)
 			}
 
-			printRetrofitText(cmd, names, fixable, ackOnly, fixStats, ackStats)
+			printRetrofitText(cmd, names, fixable, ackOnly, unavailable, fixStats, ackStats)
 			return nil
 		},
 	}
@@ -97,6 +102,20 @@ func advisoryRuleNames(rules []lint.Rule) []string {
 		names[i] = r.Name
 	}
 	return names
+}
+
+// splitGitDerivationFailed は「検査が走らなかった」ことの申告を、是正の棚卸しから
+// 分ける。記録を編集しても解けないので fixable ではなく、acknowledges で畳めない
+// （rule id が ValidRuleIDs に無い）ので acknowledge-only でもない。
+func splitGitDerivationFailed(findings []lint.Finding) (rest, unavailable []lint.Finding) {
+	for _, f := range findings {
+		if f.Rule == lint.RuleGitDerivationFailed {
+			unavailable = append(unavailable, f)
+			continue
+		}
+		rest = append(rest, f)
+	}
+	return
 }
 
 func splitAcknowledgeOnly(findings []lint.Finding) (fixable, ackOnly []lint.Finding) {
@@ -130,9 +149,14 @@ func partitionStats(findings []lint.Finding, ruleNames []string) retrofitStats {
 	return retrofitStats{FindingCount: len(findings), RecordCount: len(records), ByRule: byRule}
 }
 
-func printRetrofitText(cmd *cobra.Command, ruleNames []string, fixable, ackOnly []lint.Finding, fixStats, ackStats retrofitStats) {
+func printRetrofitText(cmd *cobra.Command, ruleNames []string, fixable, ackOnly, unavailable []lint.Finding, fixStats, ackStats retrofitStats) {
 	out := cmd.OutOrStdout()
 	fmt.Fprintf(out, "retrofit: advisory %d 規則で走査（read-only・是正は提案フローで行う）\n\n", len(ruleNames))
+
+	// 走らなかった検査を先に出す——後ろの「なし」を「問題なし」と読ませないため。
+	for _, f := range unavailable {
+		fmt.Fprintf(out, "⚠️ %s: %s\n\n", f.Rule, f.Message)
+	}
 
 	printOne := func(f lint.Finding) {
 		loc := f.TargetType + " " + f.Target

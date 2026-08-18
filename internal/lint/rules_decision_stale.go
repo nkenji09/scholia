@@ -1,4 +1,6 @@
-// rules_decision_stale.go — decision-stale（info・#45 D7）。
+// rules_decision_stale.go — decision-stale（info・#45 D7）と、その導出が
+// 落ちたことを名乗る git-derivation-failed（info・decision
+// 01M0AJDYJSEVCSYEV0HDPSTWFZ）。
 //
 // staleness の半分は decide イベントの外で生まれる——レコードの desc/内容は
 // 後続の実装・decision で古くなるのに、それを検知する配線が decide 経路にしか
@@ -10,14 +12,28 @@
 // 残るため、error/warn にはせず acknowledges で容認可能にする。rename 一括 commit
 // は git の rename 検出（R status）で除外する。Snapshot.Root が空（手組み
 // snapshot・テスト fixture）のときは検査しない（dead-doc-ref と同型）。
+//
+// # 導出が落ちたときに何を報告するか（01M0AJDYJSEVCSYEV0HDPSTWFZ）
+//
+// 失敗を3段に分け、**名乗るのは第3段だけ**である。
+//
+//  1. git を起動できない → 黙る（既決の範囲）
+//  2. git 管理下でない → 黙る（既決の範囲・01M09FHDJCV2WWFC7Z8331B0YQ）
+//  3. **git 管理下なのに導出そのものが落ちた** → git-derivation-failed を1件出す
+//
+// 🔴 **落ちない範囲を名乗る**: `rev-parse --show-toplevel` 自体が落ちる形の失敗
+// （所有者が違うディレクトリの安全確認など）は**第2段に寄って黙る**。git は
+// 「git repo でない」と「repo だが読めない」を同じ exit 128 の fatal で返すため、
+// 文言を照合する以外に分ける手が無く、文言照合は綴りが変われば外れるので採らない。
+// git が exit 0 のまま部分的に間違った出力を返す形も落ちない。
 package lint
 
 import (
 	"fmt"
-	"os/exec"
 	"sort"
 	"strings"
 
+	"github.com/nkenji09/scholia/internal/gitio"
 	"github.com/nkenji09/scholia/internal/model"
 	"github.com/nkenji09/scholia/internal/store"
 )
@@ -27,17 +43,39 @@ import (
 // 直近窓で十分）。
 const decisionStaleScanLimit = 200
 
-// recordDirs は「レコード変更」とみなすディレクトリ（.scholia 相対）。
+// RuleGitDerivationFailed は「git 管理下なのに git からの導出が落ちた」ことを
+// 名乗る advisory の rule id。
+//
+// ⚠️ **Rules には登録しない**（commit-unverified と同型）。ValidRuleIDs は Rules
+// から作られるので、この id は `acknowledges` に書けない——書くと
+// dangling-acknowledges が出て、acknowledges[] は追記専用なので永久に消えない。
+// 🔴 **それが狙いである。** これは記録の問題ではなく実行環境の問題で、
+// レコード宛ての容認で消してよいものではない。**容認で黙らせる手段を作らない。**
+// Finding に AcknowledgeOnly を立てないのも同じ理由（この repo では
+// AcknowledgeOnly は「acknowledges で畳む対象」の意味で使われる）。その結果、
+// この finding は既定のテキスト出力で件数に畳まれず明細が出る
+// （畳まれるのは容認でしか解けない区分だけ・01KZ5AC0EJBXK3A4NYK2DJJM7P）。
+const RuleGitDerivationFailed = "git-derivation-failed"
+
+// recordSubdirs は「レコード変更」とみなすストア内のディレクトリ。
 // decisions は「同伴すべき側」なので含めない。
-var recordDirs = []string{".scholia/transitions/", ".scholia/tags/", ".scholia/vocab/"}
+var recordSubdirs = []string{"transitions/", "tags/", "vocab/"}
+
+const decisionsSubdir = "decisions/"
 
 func checkDecisionStale(snap store.Snapshot) []Finding {
 	if snap.Root == "" {
 		return nil // 手組み snapshot は git 履歴を持たない（dead-doc-ref と同型）
 	}
-	commits, ok := recordModifyingCommits(snap.Root)
-	if !ok {
-		return nil // git が使えない store では検査しない
+	commits, failure := recordModifyingCommits(snap.Root)
+	if failure != nil {
+		return []Finding{{
+			Rule:     RuleGitDerivationFailed,
+			Severity: SeverityInfo,
+			Tier:     TierAdvisory,
+			Message: "git 管理下のストアですが、git からの導出に失敗したため decision-stale は検査していません" +
+				"（この検査は走っていません——「問題なし」ではありません）: " + failure.Error(),
+		}}
 	}
 	// 機械マイグレーション型の偽陽性を容認する経路（#45 D7）: いずれかの decision
 	// が acknowledges で decision-stale を名指ししていれば、その decision の target
@@ -95,86 +133,75 @@ type staleCommit struct {
 
 // recordModifyingCommits は直近 decisionStaleScanLimit commit のうち
 // 「既存レコードを M（変更）したが decision を A（追加）していない」commit を
-// 返す。rename（R）は除外。git が使えなければ ok=false。
-func recordModifyingCommits(root string) (commits []staleCommit, ok bool) {
-	// --name-status -M で各 commit の変更ファイルと status を取る。
-	// フォーマット: commit 行（%H で始まる）＋ status\tpath 行群。
-	cmd := exec.Command("git", "-C", root, "log",
-		fmt.Sprintf("-n%d", decisionStaleScanLimit),
-		"-M", "--name-status", "--format=%H")
-	outBytes, err := cmd.Output()
+// 返す。rename（R）は除外。
+//
+// failure が非 nil なら「git 管理下なのに導出が落ちた」——第1・2段（git が無い／
+// git 管理下でない）は commits も failure も返さずに黙る（package doc の3段）。
+func recordModifyingCommits(projectRoot string) (commits []staleCommit, failure error) {
+	if !gitio.Installed() {
+		return nil, nil // 第1段: git が起動できない
+	}
+	gitRoot, relPrefix, err := gitio.ResolveContext(projectRoot)
 	if err != nil {
-		return nil, false
+		return nil, nil // 第2段: git 管理下でない
 	}
-	lines := strings.Split(string(outBytes), "\n")
-
-	var curHash string
-	var modifiedRecords []string
-	var addedDecision bool
-	flush := func() {
-		if curHash == "" {
-			return
-		}
-		if len(modifiedRecords) > 0 && !addedDecision {
-			sort.Strings(modifiedRecords)
-			commits = append(commits, staleCommit{hash: curHash, records: modifiedRecords})
-		}
-		modifiedRecords = nil
-		addedDecision = false
+	// ⚠️ 走査する commit 集合は変えない（リポジトリ直近 decisionStaleScanLimit 件）。
+	// pathspec で絞ると窓の届く先が変わる——それは検知の穴を塞ぐことと別の判断である。
+	out, err := gitio.Run(gitRoot, "log",
+		fmt.Sprintf("-n%d", decisionStaleScanLimit),
+		"-M", "--name-status", "-z", gitio.LogFormatArg)
+	if err != nil {
+		return nil, err // 第3段: 導出が落ちた
 	}
-
-	for _, line := range lines {
-		if line == "" {
-			continue
-		}
-		// commit ハッシュ行（40 hex・タブなし）。
-		if !strings.ContainsRune(line, '\t') && len(line) >= 7 && isHexLine(line) {
-			flush()
-			curHash = line
-			continue
-		}
-		// status\tpath[\tpath2]（R は "R100\told\tnew"）。
-		fields := strings.Split(line, "\t")
-		if len(fields) < 2 {
-			continue
-		}
-		status := fields[0]
-		path := fields[len(fields)-1] // rename は新パスを見る
-
-		if strings.HasPrefix(path, ".scholia/decisions/") && strings.HasPrefix(status, "A") {
-			addedDecision = true
-			continue
-		}
-		// rename（R…）は除外——レコードの実質変更ではない機械追随。
-		if strings.HasPrefix(status, "R") {
-			continue
-		}
-		// 既存レコードの変更（M）のみ数える（A=新規レコードは decision-coverage の
-		// 領分・D=削除は staleness ではない）。
-		if strings.HasPrefix(status, "M") && isRecordPath(path) {
-			modifiedRecords = append(modifiedRecords, baseName(path))
-		}
+	parsed, err := gitio.ParseNameStatusZ(out)
+	if err != nil {
+		return nil, err // 読めない出力も「導出できなかった」
 	}
-	flush()
-	return commits, true
+	return staleCommits(parsed, storePathspec(relPrefix, store.DirName)), nil
 }
 
-func isRecordPath(path string) bool {
-	for _, d := range recordDirs {
-		if strings.HasPrefix(path, d) {
+// staleCommits は「既存レコードを M したが decision を A していない」commit を
+// 選ぶ純関数（git を呼ばない・入力と出力の対で検査できる）。
+func staleCommits(commits []gitio.Commit, storePrefix string) []staleCommit {
+	var out []staleCommit
+	for _, c := range commits {
+		var modified []string
+		addedDecision := false
+		for _, ch := range c.Changes {
+			rel, inStore := strings.CutPrefix(ch.Path, storePrefix+"/")
+			if !inStore {
+				continue
+			}
+			if strings.HasPrefix(rel, decisionsSubdir) && strings.HasPrefix(ch.Status, "A") {
+				addedDecision = true
+				continue
+			}
+			// rename（R…）は除外——レコードの実質変更ではない機械追随。
+			if strings.HasPrefix(ch.Status, "R") {
+				continue
+			}
+			// 既存レコードの変更（M）のみ数える（A=新規レコードは decision-coverage の
+			// 領分・D=削除は staleness ではない）。
+			if strings.HasPrefix(ch.Status, "M") && isRecordSubpath(rel) {
+				modified = append(modified, baseName(rel))
+			}
+		}
+		if len(modified) > 0 && !addedDecision {
+			sort.Strings(modified)
+			out = append(out, staleCommit{hash: c.Hash, records: modified})
+		}
+	}
+	return out
+}
+
+// isRecordSubpath はストア相対のパスがレコードかを返す。
+func isRecordSubpath(rel string) bool {
+	for _, d := range recordSubdirs {
+		if strings.HasPrefix(rel, d) {
 			return true
 		}
 	}
 	return false
-}
-
-func isHexLine(s string) bool {
-	for _, c := range s {
-		if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
-			return false
-		}
-	}
-	return true
 }
 
 func shortHash(h string) string {

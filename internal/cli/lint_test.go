@@ -2,6 +2,9 @@ package cli
 
 import (
 	"encoding/json"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -324,5 +327,126 @@ func TestLintBaseline_ExcludesAcknowledgedWarns(t *testing.T) {
 	}
 	if !strings.Contains(out, "baseline 0 件・stale 0 件") {
 		t.Fatalf("容認済み warn が baseline に載った（AcknowledgedBy フィルタ漏れ）:\n%s", out)
+	}
+}
+
+// --- --require-git-derivation（decision 01M0AJDYJSEVCSYEV0HDPSTWFZ）---
+
+// TestCLILintRequireGitDerivation は、「git 導出が落ちた」ことの扱いを
+// **既定**と**フラグを立てたとき**の対で検査する。
+//
+//   - 既定: 明細は出るが exit 0。記録を1バイトも変えていない利用者の CI を、
+//     実行環境の変化だけで赤くしない（01KXS68HCNQ0H9QKNYFQ869J19 の理由と同型）。
+//   - `--require-git-derivation`: 1件でもあれば exit 1。
+//
+// 落ちない範囲: ここが見るのは exit code と本文の有無だけである。3段のどれで
+// 落ちたか（git が無い／管理下でない／導出が落ちた）は internal/lint の
+// TestDecisionStaleNamesGitDerivationFailure と
+// TestDecisionStaleSilentWhenNotGitManaged が持つ。
+func TestCLILintRequireGitDerivation(t *testing.T) {
+	dir := t.TempDir()
+	gitInitT(t, dir)
+	if out, err := run(t, dir, "init"); err != nil {
+		t.Fatalf("init: %v\n%s", err, out)
+	}
+	if out, err := run(t, dir, "tag", "create", "subject.x", "--name", "主題", "--kind", "subject"); err != nil {
+		t.Fatalf("tag create: %v\n%s", err, out)
+	}
+	gitCommitAllT(t, dir, "seed store")
+
+	// (1) 導出が生きているうちは、フラグを立てても緑（フラグ自体が偽陽性を出さない）。
+	if out, err := run(t, dir, "lint", "--require-git-derivation"); err != nil {
+		t.Fatalf("導出できているのに落ちた: %v\n%s", err, out)
+	}
+
+	// (2) git 管理下のまま `git log` だけを落とす。
+	breakHeadTreeObject(t, dir)
+
+	// 既定は exit 0 のまま。ただし**黙らない**——本文が出る。
+	out, err := run(t, dir, "lint")
+	if err != nil {
+		t.Fatalf("既定では exit 0 のままにする: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, lint.RuleGitDerivationFailed) {
+		t.Fatalf("既定の画面に「検査していない」ことが出ていない:\n%s", out)
+	}
+	if strings.Contains(out, "問題は見つかりませんでした") {
+		t.Fatalf("検査できていないのに「問題は見つかりませんでした」と出ている:\n%s", out)
+	}
+
+	// --ci でも既定は赤くしない（ratchet には載せない）。
+	if out, err := run(t, dir, "lint", "--ci"); err != nil {
+		t.Fatalf("--ci 単体では赤くしない: %v\n%s", err, out)
+	}
+
+	// (3) フラグを立てたときだけ exit 1。
+	if out, err := run(t, dir, "lint", "--require-git-derivation"); err == nil {
+		t.Fatalf("--require-git-derivation を立てたら exit 1 にするはず:\n%s", out)
+	}
+	if out, err := run(t, dir, "lint", "--ci", "--require-git-derivation"); err == nil {
+		t.Fatalf("--ci と併用しても exit 1 にするはず:\n%s", out)
+	}
+}
+
+// TestCLIRetrofitSeparatesUnavailableFromFixable は、「検査が走らなかった」申告が
+// **是正候補に混ざらない**ことを見る。混ざると、retrofit が「記録を直せば消える」
+// と読める棚卸しを出す——実際には記録を直しても消えない。
+func TestCLIRetrofitSeparatesUnavailableFromFixable(t *testing.T) {
+	dir := t.TempDir()
+	gitInitT(t, dir)
+	if out, err := run(t, dir, "init"); err != nil {
+		t.Fatalf("init: %v\n%s", err, out)
+	}
+	if out, err := run(t, dir, "tag", "create", "subject.x", "--name", "主題", "--kind", "subject"); err != nil {
+		t.Fatalf("tag create: %v\n%s", err, out)
+	}
+	gitCommitAllT(t, dir, "seed store")
+	breakHeadTreeObject(t, dir)
+
+	out, err := run(t, dir, "retrofit", "--json")
+	if err != nil {
+		t.Fatalf("retrofit --json: %v\n%s", err, out)
+	}
+	var payload struct {
+		Fixable struct {
+			FindingCount int `json:"findingCount"`
+		} `json:"fixable"`
+		AcknowledgeOnly struct {
+			FindingCount int `json:"findingCount"`
+		} `json:"acknowledgeOnly"`
+		Unavailable []struct {
+			Rule string `json:"rule"`
+		} `json:"unavailable"`
+	}
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("decode: %v\n%s", err, out)
+	}
+	if len(payload.Unavailable) != 1 || payload.Unavailable[0].Rule != lint.RuleGitDerivationFailed {
+		t.Fatalf("走らなかった検査が別掲されていない: %+v\n%s", payload.Unavailable, out)
+	}
+	if payload.Fixable.FindingCount != 0 {
+		t.Fatalf("是正候補に混ざった（記録を直しても消えないものを fixable に数えている）: %d\n%s",
+			payload.Fixable.FindingCount, out)
+	}
+	if payload.AcknowledgeOnly.FindingCount != 0 {
+		t.Fatalf("acknowledge-only に混ざった（acknowledges で畳めないのに畳める区分に入っている）: %d\n%s",
+			payload.AcknowledgeOnly.FindingCount, out)
+	}
+}
+
+// breakHeadTreeObject は HEAD の tree オブジェクトを消す。git 管理下であることは
+// 変わらないまま、`git log --name-status` だけが落ちる状態を作る。
+func breakHeadTreeObject(t *testing.T, dir string) {
+	t.Helper()
+	cmd := exec.Command("git", "rev-parse", "HEAD^{tree}")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("git rev-parse HEAD^{tree}: %v", err)
+	}
+	obj := strings.TrimSpace(string(out))
+	p := filepath.Join(dir, ".git", "objects", obj[:2], obj[2:])
+	if err := os.Remove(p); err != nil {
+		t.Skipf("tree オブジェクトが loose でないため壊せない（pack 済み）: %v", err)
 	}
 }

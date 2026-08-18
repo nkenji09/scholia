@@ -27,7 +27,7 @@ func dogfoodSnapshot(t *testing.T) store.Snapshot {
 	return snap
 }
 
-// dangling-id: 真ヒット 2 件（偽陽性ゼロ）。素朴実装は偽陽性が多発する実データ
+// dangling-id: 真ヒット 3 件（偽陽性ゼロ）。素朴実装は偽陽性が多発する実データ
 // （族 glob `T-comment-*`・プレースホルダ `req.foobar`・kind 族 `eff.log`）を、
 // 除外3種 (E1)(E2)(E3) が全て畳むことを固定する。
 //
@@ -47,6 +47,10 @@ func dogfoodSnapshot(t *testing.T) store.Snapshot {
 // 引っかかる。これは append-only の判断欄位に元から書かれたコード断片で是正
 // 不能ゆえ acknowledge-only の真ヒット扱い（コメント冒頭の「retrofit で実測が
 // 変わったら追随する」方針どおり更新した実測値）。
+// 3件目は decision 01M0AJDYP9524AKXFN6J3FXBYJ（decision-stale の検知射程の是正）の
+// why で、対照実験に使った使い捨てストアのタグ名 `subject.ascii` を実測表に引用した
+// もの。この repo のレコードではないので解決しない——2件目（架空例 `req.foo.1-1`）と
+// 同じ「説明のための例」の形で、why は append-only ゆえ是正不能。
 func TestDogfoodDanglingIDHasZeroFalsePositives(t *testing.T) {
 	snap := dogfoodSnapshot(t)
 	findings := checkDanglingID(snap)
@@ -69,8 +73,8 @@ func TestDogfoodDanglingIDHasZeroFalsePositives(t *testing.T) {
 		}
 	}
 
-	if len(findings) != 2 {
-		t.Fatalf("真ヒット 2 件（偽陽性ゼロ）のはずが %d 件: %+v", len(findings), findings)
+	if len(findings) != 3 {
+		t.Fatalf("真ヒット 3 件（偽陽性ゼロ）のはずが %d 件: %+v", len(findings), findings)
 	}
 	sort.Slice(findings, func(i, j int) bool { return findings[i].Target < findings[j].Target })
 	f := findings[0]
@@ -82,6 +86,11 @@ func TestDogfoodDanglingIDHasZeroFalsePositives(t *testing.T) {
 	if f2.Target != "01KY1VDJWZF7M23K4X1J62QYXV" || f2.TargetType != "decision" ||
 		f2.Field != "why" || f2.Quote != "req.foo.1-1" || !f2.AcknowledgeOnly {
 		t.Fatalf("真ヒット2件目の内容が想定と違う: %+v", f2)
+	}
+	f3 := findings[2]
+	if f3.Target != "01M0AJDYP9524AKXFN6J3FXBYJ" || f3.TargetType != "decision" ||
+		f3.Field != "why" || f3.Quote != "subject.ascii・subject.ascii.json" || !f3.AcknowledgeOnly {
+		t.Fatalf("真ヒット3件目の内容が想定と違う: %+v", f3)
 	}
 }
 
@@ -145,7 +154,7 @@ func TestDogfoodAdvisoryRuleCounts(t *testing.T) {
 		"why-file-line":         5, // 4→5: decision 01KZ7V637RNMPXJMVACYV6V1AS の why が、証拠として web/src の2箇所を file:line で引用した（append-only ゆえ是正不能・容認の理由は internal/cli の dogfoodKnownAckOnly）
 		"axis-without-decision": 0,
 		"duplicate-atom":        0, // フェーズ2 の duplicate merge（決定⑩）で 5グループ13遷移→5 に統合済み
-		"dangling-id":           2, // decision 01KY1VDJWZF7M23K4X1J62QYXV の why 例示 `req.foo.1-1` が新規真ヒット
+		"dangling-id":           3, // 2→3: decision 01M0AJDYP9524AKXFN6J3FXBYJ の why が、実測の対照実験で使った使い捨てストアのタグ名 `subject.ascii` を引用した（append-only ゆえ是正不能・容認の理由は internal/cli の dogfoodKnownAckOnly）
 		"dead-doc-ref":          8, // 増分2.3a で tag/vocab desc の design-options 参照 11 を除去し 19→8（残 8 は decision 判断欄位＝append-only）
 	}
 	for rule, n := range want {
