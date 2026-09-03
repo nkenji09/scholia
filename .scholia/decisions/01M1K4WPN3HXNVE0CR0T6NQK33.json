@@ -8,6 +8,9 @@
   "changed": "1. Decision に refs []string（additive・omitempty・追記専用・凍結しない）を追加。\n2. scholia decision add-ref \u003cid\u003e \u003curl\u003e... と scholia decide --refs \u003curl\u003e（繰り返し可）を追加。\n3. internal/diff の欄位分類に refs を追記専用（既存⊆新・順序保存）として追加。\n4. decide --commit / decision add-commit に非推奨 advisory を追加（保存は止めない）。\n5. commit-unreachable の判定に「refs が空であること」を追加。\n6. decision list --unlinked を「commits も refs も空」へ変更。\n7. decision show / rules / viewer / --json が refs を出す。\n8. DESIGN §3.5 と配布スキルの推奨手順を refs 優先へ改訂。",
   "ref": "https://github.com/nkenji09/scholia/issues/3",
   "at": "2026-09-03T08:06:46Z",
+  "refs": [
+    "https://github.com/nkenji09/scholia/issues/3"
+  ],
   "supersedes": [
     {
       "id": "01M1JY0APWXHFZ1TKWST7VPS9N",
