@@ -1,0 +1,20 @@
+{
+  "id": "01M1KA9HPH30W46ZADCTE60ZW6",
+  "target": {
+    "type": "tag",
+    "id": "req.record-decisions"
+  },
+  "why": "# 非推奨にしたのは「hash で辿ること」で、是正の印ではない — 種別で分ける\n\n`01M1K4WPN3HXNVE0CR0T6NQK33` 変更4 は「`decide --commit` / `decision add-commit` に非推奨 advisory を足す」\nとしか書いておらず、**種別で分けていなかった。** 実装のときに 2 点を決めたので、後から記録する（後追い）。\n\n## 結論\n\n1. **非推奨の名乗りは `--kind implementation` と `decide --commit` に限る。`--kind correction` では名乗らない。**\n2. **名乗る場所は保存前プレビュー**（`decide --dry-run`）であって、保存後ではない。\n\n## なぜ 1 — 是正には代わりの口が無い\n\n⚠️ **`decision add-commit \u003cid\u003e \u003chash\u003e --kind correction` は、`applied[]` に是正の印を打つ唯一の入口である**（**実測**）。\n`decision applied` は `conflict` / `rejection` しか受けず、そのヘルプ自身が\n「是正（correction）はこの口では受けない——結ぶ commit があるので `add-commit --kind correction` に相乗りする」と書いている。\n\nここで非推奨と名乗ると、**代わりの口が無いのに乗り換えろと言うことになる。**\n是正は `01M09FHEQH7PVZ2BTKGXY5YMNN` が「この道具の存在意義がいちばん素直に現れる」と書いた3種類\n（是正・矛盾・却下）の1つで、**黙って痩せさせてよいものではない。**\n\n非推奨にしたのは「**実装来歴を hash で辿ること**」であって、**是正という出来事の記録ではない。**\n`applied[]` の是正は「この commit で直した」という出来事で、辿るための正本ではない。\n\n## なぜ 2 — 保存してからでは、もう直せない\n\ndecision は append-only である。保存してから「hash ではなく refs を使え」と言われても**書き換えられない。**\n**保存前プレビューが、この助言の効く唯一の場所である**——`#45 U3` が `--dry-run` を推奨手順にしたのと同じ理由。\n\n**実測**: 移す前は `scholia decide --dry-run --on tag:… --commit \u003chash\u003e` が\n「advisory: なし（このまま decide してよい）」と出ていた。名乗りが保存の後ろに置かれていたためで、\n**助言が届くのは、もう直せなくなってからだった。**\n\n## 落ちない範囲（この決定が塞がないもの）\n\n- 🔴 **`--kind correction` で結んだ hash も、取り込みで辿れなくなる。** `applied[].commit` と\n  `correction-changes-records` は `commits[]` とまったく同じ壊れ方をする。**ここは塞がない**\n  ——是正の印は「辿るための正本」ではないので `refs[]` では代われず、代わりの形をまだ決めていない。\n- **`--kind correction` を、実装来歴を結ぶ目的で打つこと。** 種別の申告は自己申告で、\n  機械は「本当に是正か」を確かめられない（`01M09FHEQH7PVZ2BTKGXY5YMNN` が既に名乗っている穴）。\n  非推奨を避けるために correction と名乗る抜け道は、この決定では捕まらない。\n\n## 観測可能な振る舞いの変化\n\n| | 変更前（`01M1K4WPN3HXNVE0CR0T6NQK33` の字面どおりなら） | 変更後（実装） |\n| --- | --- | --- |\n| `add-commit --kind implementation` | 非推奨と名乗る | 変わらず名乗る |\n| `add-commit --kind correction` | 非推奨と名乗る | **名乗らない** |\n| `decide --commit` の名乗り | 保存後に出る | **`--dry-run` のプレビューに出る**（保存前） |\n| `decide --refs` のみ | — | 何も出ない |\n\n## 変更\n\n1. `add-commit` は `--kind correction` のとき `commit-link-deprecated` を出さない。\n2. `decide` の非推奨 advisory を、保存の後ろから `--dry-run` の手前へ移す。\n3. `--kind` のヘルプに「implementation は非推奨・correction は非推奨ではない」を書く。\n4. 配布スキルの走査ガードも `--kind correction` を意図的に通す。",
+  "changed": "1. add-commit は --kind correction のとき commit-link-deprecated を出さない。\n2. decide の非推奨 advisory を保存の後ろから --dry-run の手前へ移す。\n3. --kind のヘルプに implementation は非推奨・correction は非推奨ではないと書く。\n4. 配布スキルの走査ガードも --kind correction を意図的に通す。",
+  "ref": "https://github.com/nkenji09/scholia/issues/3",
+  "at": "2026-09-03T09:41:09Z",
+  "refs": [
+    "https://github.com/nkenji09/scholia/commit/ee3bb24b"
+  ],
+  "supersedes": [
+    {
+      "id": "01M1K4WPN3HXNVE0CR0T6NQK33",
+      "mode": "amend"
+    }
+  ]
+}
