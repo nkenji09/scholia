@@ -224,6 +224,8 @@ var deliverySpecs = map[string]deliverySpec{
 		why: whyFullInBoth + "（why）"},
 	"scholia decision list": {text: textDeliversNothing,
 		why: whyIndexFace + "。why は 100 字で切り詰める＝断片（`--json` は全件の本文を渡す）"},
+	"scholia decision relink-commits": {text: textDeliversNothing,
+		why: "出すのは decision の id・commit hash・git の見出しだけで、`--json` も同じ——decision の本文はどちらにも渡さない"},
 	"scholia tag list": {text: textDeliversNothing,
 		why: whyIndexFace + "。`--json --all` だけが本文を渡す"},
 	"scholia list": {text: textDeliversNothing,

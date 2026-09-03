@@ -230,11 +230,12 @@ var positionalSpecs = map[string]positionalSpec{
 	"scholia config set":             {at: []argSpec{{class: classFreeText}, {class: classFreeText}}},
 	"scholia decide":                 {},
 	// 2 つ目以降は commit hash の並び（cobra.MinimumNArgs(2)）。
-	"scholia decision add-commit": {at: []argSpec{{class: classRecordID, selector: selDecision}, {class: classFreeText}}, variadic: true},
-	"scholia decision applied":    {at: []argSpec{{class: classRecordID, selector: selDecision}}},
-	"scholia decision link":       {at: []argSpec{{class: classRecordID, selector: selDecision}}},
-	"scholia decision list":       {},
-	"scholia decision show":       {at: []argSpec{{class: classRecordID, selector: selDecision}}},
+	"scholia decision add-commit":     {at: []argSpec{{class: classRecordID, selector: selDecision}, {class: classFreeText}}, variadic: true},
+	"scholia decision applied":        {at: []argSpec{{class: classRecordID, selector: selDecision}}},
+	"scholia decision link":           {at: []argSpec{{class: classRecordID, selector: selDecision}}},
+	"scholia decision list":           {},
+	"scholia decision relink-commits": {},
+	"scholia decision show":           {at: []argSpec{{class: classRecordID, selector: selDecision}}},
 	// git の ref を 2 つまで（cobra.MaximumNArgs(2)）。**位置ごとに書く**——可変長ではない。
 	"scholia diff":                 {at: []argSpec{{class: classFreeText}, {class: classFreeText}}},
 	"scholia export":               {},
