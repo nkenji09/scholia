@@ -8,6 +8,7 @@
   "changed": "#/flow のタグ AND＝選択した全タグが action の実効タグ集合に含まれること。実効タグ集合＝その action を持つ全 transition の own タグ union の祖先クロージャ（parentIds ロールアップ）。kind facet＝実効タグの kind。フリーワードは action の label/id 部分一致で不変。",
   "at": "2026-07-20T11:04:16Z",
   "commits": [
-    "5f2609c"
+    "5f2609c",
+    "64235cefaa98fd95cd922a21325a0d8a923d567c"
   ]
 }

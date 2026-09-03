@@ -9,6 +9,7 @@
   "ref": "#45 フェーズ2 増分2.3a・D4-d retrofit 適用",
   "at": "2026-07-18T00:37:26Z",
   "commits": [
-    "a8865be"
+    "a8865be",
+    "0c26ae25834debb32c90d2c7563da6dc2d55405f"
   ]
 }

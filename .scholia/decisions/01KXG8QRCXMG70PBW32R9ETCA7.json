@@ -8,6 +8,7 @@
   "changed": "関連カードリンクを scroll-if-present-else-navigate 化（親/子タグの no-op 是正）",
   "at": "2026-07-14T12:13:27Z",
   "commits": [
-    "d327d4c"
+    "d327d4c",
+    "131d97204d0f4307445cafe04b7d4d9ee808bd50"
   ]
 }

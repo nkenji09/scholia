@@ -8,7 +8,8 @@
   "changed": "req.skill-distribution の運用方針を改訂: plugin.json version はスキル変更を含むリリースでは release tag に揃える（旧: CLI リリース版と独立管理）。README.md/README.ja.md の記述、RELEASING.md 新設、plugin.json 0.1.0→0.1.2 が対応する変更。",
   "at": "2026-07-16T12:48:36Z",
   "commits": [
-    "f15fcda8bf114bce7743bb6aca068cd56552a2ae"
+    "f15fcda8bf114bce7743bb6aca068cd56552a2ae",
+    "fe288ac2d7956b29cd06c7500144b2716d962806"
   ],
   "supersedes": [
     {
