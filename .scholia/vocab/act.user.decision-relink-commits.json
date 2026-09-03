@@ -1,0 +1,6 @@
+{
+  "id": "act.user.decision-relink-commits",
+  "category": "action",
+  "label": "scholia decision relink-commits を実行",
+  "kind": "user"
+}

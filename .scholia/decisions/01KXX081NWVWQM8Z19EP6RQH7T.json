@@ -8,6 +8,7 @@
   "changed": "1. newLintBaselineUpdateCmd の台帳生成ループに AcknowledgedBy != \"\" スキップを追加（evaluateCI と同じフィルタ）。\n2. 逆検証テスト TestLintBaseline_ExcludesAcknowledgedWarns を追加（フィルタを外すと baseline に容認済み warn が載り落ちる）。\n3. dogfood baseline を update で 10→7 に縮小（req.write-gate・req.authoring-advisory は Step3 のタグ付けで遷移充足・req.standalone は typed 容認＝いずれも歯止め対象外）。",
   "at": "2026-07-19T10:55:12Z",
   "commits": [
-    "bb6880e"
+    "bb6880e",
+    "ec4427feb0a98d97f2e1671e17a67ef20199f65c"
   ]
 }

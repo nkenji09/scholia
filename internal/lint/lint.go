@@ -124,6 +124,10 @@ var Rules = []Rule{
 	// 付いた commit が記録（.scholia/）も変更していたら気づかせる（是正なら
 	// spec は変わらないはずである）。git 導出・保存ゼロ。
 	{Name: RuleCorrectionChangesRecords, Severity: SeverityInfo, Tier: TierAdvisory, Check: checkCorrectionChangesRecords},
+	// commit-unreachable（01M1JY0APWXHFZ1TKWST7VPS9N）: 結んだ commit のどれも
+	// HEAD から辿れない decision を info で出す（squash merge・rebase で祖先から
+	// 外れた結線）。git 導出・保存ゼロ。
+	{Name: RuleCommitUnreachable, Severity: SeverityInfo, Tier: TierAdvisory, Check: checkCommitUnreachable},
 	// dangling-acknowledges（#45 D6）は init() で追加する（下記）。checkDanglingAcknowledges
 	// が ValidRuleIDs 経由で Rules を参照するため、静的初期化子に直書きすると
 	// Go の初期化サイクル検出に引っかかる。実行時（init 後）に append する。

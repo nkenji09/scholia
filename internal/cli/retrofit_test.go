@@ -120,10 +120,11 @@ func TestRetrofitJSONCarriesCountsAndTier(t *testing.T) {
 	}
 	// #45 D6 で dangling-acknowledges・D7 で decision-stale（両 TierAdvisory）を
 	// 追加したため 8→10。01M09FHEQH7PVZ2BTKGXY5YMNN で
-	// correction-changes-records を追加して 11。retrofit は TierAdvisory 規則を
+	// correction-changes-records を追加して 11。01M1JY0APWXHFZ1TKWST7VPS9N で
+	// commit-unreachable を追加して 12。retrofit は TierAdvisory 規則を
 	// 動的に拾うので、新 advisory 規則が正しく走査対象に入っていることの確認でもある。
-	if len(resp.Rules) != 11 {
-		t.Fatalf("advisory 11 規則のはず: %v", resp.Rules)
+	if len(resp.Rules) != 12 {
+		t.Fatalf("advisory 12 規則のはず: %v", resp.Rules)
 	}
 	for _, f := range resp.Findings {
 		if f.Tier != lint.TierAdvisory || f.Severity != lint.SeverityInfo {

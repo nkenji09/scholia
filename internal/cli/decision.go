@@ -11,9 +11,11 @@ func newDecisionCmd() *cobra.Command {
 		Short: "既存の意思決定（decision）レコードを操作する",
 	}
 	cmd.AddCommand(newDecisionAddCommitCmd())
+	cmd.AddCommand(newDecisionAddRefCmd())
 	cmd.AddCommand(newDecisionAppliedCmd())
 	cmd.AddCommand(newDecisionListCmd())
 	cmd.AddCommand(newDecisionLinkCmd())
+	cmd.AddCommand(newDecisionRelinkCommitsCmd())
 	cmd.AddCommand(newDecisionShowCmd())
 	return cmd
 }

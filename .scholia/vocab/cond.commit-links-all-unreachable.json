@@ -1,0 +1,7 @@
+{
+  "id": "cond.commit-links-all-unreachable",
+  "category": "condition",
+  "label": "decision が結んだ commit の、どれも HEAD から辿れないとき",
+  "kind": "derived",
+  "description": "commits[] が空でなく、その要素のどれも HEAD の系譜に無い状態。1 つでも辿れるものがあれば当たらない。"
+}

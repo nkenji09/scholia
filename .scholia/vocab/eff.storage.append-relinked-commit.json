@@ -1,0 +1,8 @@
+{
+  "id": "eff.storage.append-relinked-commit",
+  "category": "effect",
+  "label": "候補が 1 件に定まった commit を commits[] へ追記する",
+  "kind": "storage",
+  "owner": "subject.cli",
+  "description": "種別は実装（implementation）。付け替えは是正ではないので applied[] に印は付けない。"
+}

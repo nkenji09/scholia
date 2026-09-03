@@ -74,7 +74,7 @@ adopt/reject できることが目的。深リンクの route 一覧は [scholia
 4. この decision が **prospective（変更を先導する）** か **retrospective（既に landing 済みの実装を
    後から記録する）** かを確認する。
    - retrospective なら、Case 1/2 の提案→レビュー→adopt の踊りは不要。
-     `scholia decide --on <対象> --why "<見出し＋本文>" --ref <landing commit>`（または `--commit <hash>`）で直行してよい。
+     `scholia decide --on <対象> --why "<見出し＋本文>" --refs <PR/issue の URL>` で直行してよい。
    - 完了ゲートも軽量にする: **landing commit を結線**（`decide --commit` または `decision add-commit … --kind implementation`）＋
      **`scholia rules --all` で矛盾する既存 decision が無いか 1 回照合**するだけでよい。波及検索・兄弟ゲートは
      省略できる（後から波及に気づいたら、そのときは改めて Case 1/2 の手順で対応する）。
@@ -351,7 +351,7 @@ triage の5つの方針のうち、**A是正・C矛盾・E却下の3つは「記
   判定基準の本体は [`../_scholia-shared/references/evaluating-changes.md`](../_scholia-shared/references/evaluating-changes.md)。
 - 判定材料・日々の読み書きコマンドは [scholia スキル](../scholia/SKILL.md)（変更評価フロー節）。
 - 新規プロジェクトの初回セットアップは [scholia-config-setup スキル](../scholia-config-setup/SKILL.md)（本スキルの範囲外）。
-- decision の `commits[]` ／ append-only の精緻化（判断は不変・`commits[]` のみ追記専用）は `DESIGN.md` §3.5 が正本。
+- decision の `refs[]` ／ `commits[]` ／ append-only の精緻化（判断は不変・来歴欄位のみ追記専用）は `DESIGN.md` §3.5 が正本。
 - `scholia diff` の ref 対 ref 拡張・`scholia review`・CLI 全体は `DESIGN.md` §6 が正本（`scholia <cmd> --help` も真値）。
 - 評価コックピット（viewer のインライン評価・提案＝コメント・語彙ピッカー手直し・Adopt・AI コメント配送）は
   `DESIGN.md` §7・§8.4 が正本。

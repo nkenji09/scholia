@@ -1,0 +1,15 @@
+{
+  "id": "tx.lint.commit-unreachable",
+  "action": "act.user.lint-run",
+  "given": [
+    "cond.commit-links-all-unreachable"
+  ],
+  "then": [
+    "eff.log.commit-unreachable-report"
+  ],
+  "tags": [
+    "subject.lint",
+    "req.self-consistency-lint",
+    "req.record-decisions"
+  ]
+}

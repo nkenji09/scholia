@@ -1,0 +1,16 @@
+{
+  "id": "tx.decision.relink-apply",
+  "action": "act.user.decision-relink-commits",
+  "given": [
+    "cond.commit-links-all-unreachable",
+    "cond.relink-apply-requested"
+  ],
+  "then": [
+    "eff.emit.relink-candidates",
+    "eff.storage.append-relinked-commit"
+  ],
+  "tags": [
+    "subject.cli",
+    "req.record-decisions"
+  ]
+}

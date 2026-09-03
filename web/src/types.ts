@@ -76,6 +76,10 @@ export interface Decision {
   ref?: string;
   at: string;
   commits?: string[];
+  /** 実装来歴の外部参照（PR・issue・チケットの URL）。判断欄位の ref（1 個・凍結）
+      とは別で、着地後に `scholia decision add-ref` で何件でも足せる
+      （01M1K4WPN3HXNVE0CR0T6NQK33）。commits[] は非推奨で、こちらが来歴の正本。 */
+  refs?: string[];
   /** 意図的に容認する finding の rule id 集合（#45 D6）。 */
   acknowledges?: string[];
   /** 置き換え/改訂/例外化する旧 decision へのリンク（#45 D7）。 */

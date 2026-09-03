@@ -693,6 +693,13 @@ var surfacesNoDecisionBody = []string{
 	"scholia decide",
 	"scholia decision link",
 	"scholia decision add-commit",
+	// 出すのは追記後の refs の件数だけで、store にある decision の why/changed は
+	// 一切読まない（add-commit と同型・01M1K4WPN3HXNVE0CR0T6NQK33）。
+	"scholia decision add-ref",
+	// 出すのは decision の id・commit hash・見出し（git 由来）だけで、store に
+	// ある decision の why/changed は一切読まない（01M1JY0APWXHFZ1TKWST7VPS9N）。
+	// runnableSurfaces には入れない——git の履歴が無いと導出そのものが立たない。
+	"scholia decision relink-commits",
 	// 引かれた decision に「記録が結論を決めた」印を1件足すだけ。出すのは
 	// 印の種別・件数・指し先の id で、store にある decision の why/changed は
 	// 一切読まない（01M09FHEQH7PVZ2BTKGXY5YMNN）。

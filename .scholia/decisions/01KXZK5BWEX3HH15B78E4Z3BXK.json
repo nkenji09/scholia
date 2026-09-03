@@ -8,6 +8,7 @@
   "changed": "#/decisions タグ絞り込みの一致判定＝選択した全タグが decision の実効タグ集合に含まれること。実効タグ集合＝target の own タグ（tag は自身・vocab/transition はそれぞれの own タグ）の祖先クロージャ（parentIds ロールアップ）。AND 複数選択に対応。transition の実効タグは own＋祖先の近似で vocab 派生タグは非包含。",
   "at": "2026-07-20T11:04:16Z",
   "commits": [
-    "5f2609c"
+    "5f2609c",
+    "64235cefaa98fd95cd922a21325a0d8a923d567c"
   ]
 }

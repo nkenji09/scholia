@@ -407,7 +407,7 @@ const ja = {
     adoptedWhyHeading: '採用された why（decision）',
     // ⚠️ ここに書くコマンドは**そのまま打って通る形**であること。`--kind` は
     // 必須で、省くと落ちる（01M09FHEQH7PVZ2BTKGXY5YMNN）。
-    adoptedNote: 'この提案は decision として記録されました（commits[] は空）。commit 後は `scholia decision add-commit <id> <hash> --kind implementation` で結線してください。',
+    adoptedNote: 'この提案は decision として記録されました（来歴は空）。着地後は `scholia decision add-ref <id> <PR/issue の URL>` で結線してください（commit hash を結ぶ add-commit は非推奨——取り込みで辿れなくなります）。',
     // 結線の確認（adopt が supersedes まで束ねる要件・01KYHE08WNA8H1Q1DM2H45Y4TK）:
     // 採用と同時に張る現行性リンクを、Adopt を押す前に見せて一緒に承認させる。
     supersedeHeading: '採用と同時に張る現行性リンク',
@@ -504,6 +504,7 @@ const ja = {
     changedHeading: '変更内容',
     targetHeading: '対象',
     commitsHeading: 'commit',
+    refsHeading: '実装来歴（参照）',
     refHeading: '参照',
     acknowledgesHeading: '容認する finding',
     supersedesHeading: '置き換え/改訂する意思決定',
@@ -877,7 +878,7 @@ const en: Strings = {
     adoptConfirm: 'Confirm adoption',
     adoptedBadge: 'Adopted',
     adoptedWhyHeading: 'Adopted why (decision)',
-    adoptedNote: 'This proposal was recorded as a decision (commits[] is empty). After committing, link it with `scholia decision add-commit <id> <hash> --kind implementation`.',
+    adoptedNote: 'This proposal was recorded as a decision (no implementation refs yet). After landing, link it with `scholia decision add-ref <id> <PR/issue URL>` (linking commit hashes via add-commit is deprecated — they become unreachable when merged).',
     supersedeHeading: 'Currency links applied on adoption',
     supersedeModeLabel: (mode: string) =>
       mode === 'supersede'
@@ -965,6 +966,7 @@ const en: Strings = {
     changedHeading: 'Changed',
     targetHeading: 'Target',
     commitsHeading: 'Commits',
+    refsHeading: 'Implementation refs',
     refHeading: 'Ref',
     acknowledgesHeading: 'Acknowledged findings',
     supersedesHeading: 'Supersedes / amends',
