@@ -14,7 +14,7 @@ import (
 
 func newDecideCmd() *cobra.Command {
 	var on, why, changed, ref string
-	var commits, acknowledges, supersedes []string
+	var commits, refs, acknowledges, supersedes []string
 	var asJSON, dryRun bool
 	var gate *gateFlags
 	cmd := &cobra.Command{
@@ -80,6 +80,7 @@ func newDecideCmd() *cobra.Command {
 				Ref:          ref,
 				At:           time.Now().UTC().Format(time.RFC3339),
 				Commits:      dedupeAppend(nil, commits),
+				Refs:         dedupeAppend(nil, refs),
 				Acknowledges: dedupeAppend(nil, acknowledges),
 				Supersedes:   links,
 			}
@@ -95,6 +96,11 @@ func newDecideCmd() *cobra.Command {
 			// 保存前プレビューで advisory 返す（decision は append-only なので保存後に
 			// 対象 desc を直す動線を今ここで気づかせる）。
 			advisories = append(advisories, lint.TargetDescStaleTense(snap, d.Target)...)
+			// 🔴 **非推奨の名乗りは dry-run の側に置く**（01M1K4WPN3HXNVE0CR0T6NQK33）。
+			// decision は append-only で、保存してから「hash ではなく refs を使え」と
+			// 言われても**もう直せない**。保存前プレビューこそがこの助言の効く唯一の
+			// 場所である（#45 U3 が --dry-run を推奨手順にしたのと同じ理由）。
+			advisories = append(advisories, lint.CommitLinkDeprecatedAdvisories(len(d.Commits))...)
 
 			if dryRun {
 				if asJSON {
@@ -135,7 +141,8 @@ func newDecideCmd() *cobra.Command {
 	cmd.Flags().StringVar(&why, "why", "", "なぜそうしたか（必須）")
 	cmd.Flags().StringVar(&changed, "changed", "", "何を変更したか（任意）")
 	cmd.Flags().StringVar(&ref, "ref", "", "参照。URL・commit hash 推奨（file:line は lint ref-freshness で警告）")
-	cmd.Flags().StringArrayVar(&commits, "commit", nil, "実装した commit hash（複数指定可・繰り返し可。着地後に結ぶ場合は `scholia decision add-commit` を使う）")
+	cmd.Flags().StringArrayVar(&commits, "commit", nil, "実装した commit hash（複数指定可・繰り返し可・**非推奨**。取り込みで祖先から外れて辿れなくなるので --refs を使う・01M1K4WPN3HXNVE0CR0T6NQK33）")
+	cmd.Flags().StringArrayVar(&refs, "refs", nil, "実装来歴の外部参照（PR・issue・チケットの URL・繰り返し可）。判断欄位の --ref と違い凍結されず、着地後に `scholia decision add-ref` で何件でも足せる")
 	cmd.Flags().StringSliceVar(&acknowledges, "acknowledges", nil, "意図的に容認する finding の rule id（カンマ区切り or 繰り返し・#45 D6）。有効な rule id に解決しないと保存前に弾かれる")
 	cmd.Flags().StringArrayVar(&supersedes, "supersedes", nil, "置き換える旧 decision <ulid>[:<mode>]（mode=supersede|amend|exception・既定 amend・繰り返し可・#45 D7）")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "作成したレコードを応答封筒 { record, advisories } の JSON で出力する")

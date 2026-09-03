@@ -150,6 +150,7 @@ var stringFlagSpecs = map[string]argSpec{
 	"scholia decide --changed":               {class: classFreeText},
 	"scholia decide --commit":                {class: classFreeText},
 	"scholia decide --ref":                   {class: classFreeText},
+	"scholia decide --refs":                  {class: classFreeText},
 	"scholia decide --why":                   {class: classFreeText},
 	"scholia diff --allow-decision-retrofit": {class: classFreeText},
 	"scholia export --html":                  {class: classFreeText},
@@ -230,7 +231,9 @@ var positionalSpecs = map[string]positionalSpec{
 	"scholia config set":             {at: []argSpec{{class: classFreeText}, {class: classFreeText}}},
 	"scholia decide":                 {},
 	// 2 つ目以降は commit hash の並び（cobra.MinimumNArgs(2)）。
-	"scholia decision add-commit":     {at: []argSpec{{class: classRecordID, selector: selDecision}, {class: classFreeText}}, variadic: true},
+	"scholia decision add-commit": {at: []argSpec{{class: classRecordID, selector: selDecision}, {class: classFreeText}}, variadic: true},
+	// 2 つ目以降は URL・issue 番号・チケット id の並び（cobra.MinimumNArgs(2)）。
+	"scholia decision add-ref":        {at: []argSpec{{class: classRecordID, selector: selDecision}, {class: classFreeText}}, variadic: true},
 	"scholia decision applied":        {at: []argSpec{{class: classRecordID, selector: selDecision}}},
 	"scholia decision link":           {at: []argSpec{{class: classRecordID, selector: selDecision}}},
 	"scholia decision list":           {},

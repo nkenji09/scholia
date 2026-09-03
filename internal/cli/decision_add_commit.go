@@ -34,7 +34,7 @@ func newDecisionAddCommitCmd() *cobra.Command {
 	var kind string
 	cmd := &cobra.Command{
 		Use:   "add-commit <decisionId> <hash> [<hash>...] --kind implementation|correction",
-		Short: "decision に実装コミットを追記する（追加専用・判断フィールドは不変・§3.5）",
+		Short: "decision に実装コミットを追記する（追加専用・判断フィールドは不変・§3.5・--kind implementation は非推奨）",
 		Long: "decision に実装コミットを追記する（追加専用・判断フィールドは不変・§3.5）。\n\n" +
 			"--kind は必須。implementation はこの decision の判断を実装した commit、\n" +
 			"correction はこの decision に書いてあるとおりに実装されていなかったのを\n" +
@@ -100,6 +100,18 @@ func newDecisionAddCommitCmd() *cobra.Command {
 				return err
 			}
 			advisories = append(advisories, lint.CommitUnverifiedAdvisories(repo.Managed(), len(hashes))...)
+			// 非推奨の名乗り（01M1K4WPN3HXNVE0CR0T6NQK33）。保存は止めない
+			// ——hash にはオフラインで diff を読める利点がある。
+			//
+			// 🔴 **是正（--kind correction）では名乗らない。** 非推奨にしたのは
+			// 「実装来歴を hash で辿ること」であって、**是正の印そのものではない。**
+			// applied[] の是正は「この commit で直した」という出来事の記録で、
+			// この口が唯一の入口である（`decision applied` は矛盾・却下しか受けない）。
+			// ここで非推奨と名乗ると、代わりの口が無いのに乗り換えろと言うことになり、
+			// 是正の観測（01M09FHEQH7PVZ2BTKGXY5YMNN）が黙って痩せる。
+			if !correction {
+				advisories = append(advisories, lint.CommitLinkDeprecatedAdvisories(len(saved.Commits)-len(before.Commits))...)
+			}
 
 			if asJSON {
 				return emitWriteJSON(cmd, saved, advisories, allowed, false)
@@ -113,7 +125,8 @@ func newDecisionAddCommitCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, "更新後のレコードを応答封筒 { record, advisories } の JSON で出力する")
-	cmd.Flags().StringVar(&kind, "kind", "", "commit の種別（必須）。"+addCommitKindHelp())
+	cmd.Flags().StringVar(&kind, "kind", "", "commit の種別（必須）。"+addCommitKindHelp()+
+		"。implementation は非推奨（取り込みで hash が辿れなくなる・`scholia decision add-ref` を使う）。correction は非推奨ではない——是正の印を打つ唯一の口である")
 	return cmd
 }
 

@@ -255,6 +255,7 @@ var deliverySpecs = map[string]deliverySpec{
 	"scholia config set":             {text: textDeliversNothing, why: whyToolFace},
 	"scholia decide":                 {text: textDeliversNothing, why: "保存後の表示は allow/advisory だけ（`--json` は保存したレコードを返す）"},
 	"scholia decision add-commit":    {text: textDeliversNothing, why: whyWriteFace},
+	"scholia decision add-ref":       {text: textDeliversNothing, why: whyWriteFace},
 	// ⚠️ **`decision applied` は `decision add-commit` と同じ形である**（実測: 人が読む面は
 	// 要約 1 行だけ・`--json` は更新後のレコードを封筒で返す）。同じ理由の定数を参照して揃える。
 	"scholia decision applied":     {text: textDeliversNothing, why: whyWriteFace},

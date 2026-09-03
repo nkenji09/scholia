@@ -150,6 +150,7 @@ var jsonFaceInvocations = map[string][]string{
 	"config set":              {"tagKinds", "requirement,concern,subject,axis"},
 	"decide":                  {"--on", "tag:req.b", "--why", "# 見出し\n\n本文。", "--commit", placeholderShortHash},
 	"decision add-commit":     {placeholderDecisionID, placeholderShortHash, "--kind", "implementation"},
+	"decision add-ref":        {placeholderDecisionID, "https://example.test/pull/1"},
 	"decision applied":        {placeholderDecisionID, "--kind", "conflict"},
 	"decision link":           {placeholderDecisionID, "--supersedes", placeholderOldDecisionID},
 	"decision list":           {},
