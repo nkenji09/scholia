@@ -62,8 +62,13 @@ func newDecisionListCmd() *cobra.Command {
 				if on != "" && (d.Target.Type != targetType || d.Target.ID != targetID) {
 					continue
 				}
-				if unlinked && len(d.Commits) != 0 {
-					continue // --unlinked: commits 空（未結線）のみ
+				// --unlinked: commits も refs も空（どこからも実装に辿り着けない）
+				// のみ。refs だけを持つ decision は結線済みである
+				// （01M1K4WPN3HXNVE0CR0T6NQK33——来歴の正本が refs へ移ったので、
+				// commits の有無だけを見ると refs へ移した decision が全部
+				// 「未結線」に見える）。
+				if unlinked && (len(d.Commits) != 0 || len(d.Refs) != 0) {
+					continue
 				}
 				if current && superseded[d.ID] {
 					continue // --current: 失効（supersede された）を除く
@@ -104,8 +109,11 @@ func printDecisionList(cmd *cobra.Command, decisions []model.Decision, supersede
 		}
 		fmt.Fprintf(out, "[%s] %s %s:%s%s\n", d.At, d.ID, d.Target.Type, d.Target.ID, status)
 		fmt.Fprintf(out, "  why: %s\n", truncateOneLine(d.Why, 100))
-		if len(d.Commits) == 0 {
-			fmt.Fprintln(out, "  commits: 未結線")
+		if len(d.Commits) == 0 && len(d.Refs) == 0 {
+			fmt.Fprintln(out, "  来歴: 未結線")
+		}
+		if len(d.Refs) > 0 {
+			fmt.Fprintf(out, "  refs: %s\n", strings.Join(d.Refs, " "))
 		}
 		if d.Ref != "" {
 			fmt.Fprintf(out, "  ref: %s\n", d.Ref)

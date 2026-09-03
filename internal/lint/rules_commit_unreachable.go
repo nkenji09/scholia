@@ -9,6 +9,17 @@
 // 作業ブランチの作り直し（rebase）でも機序は違うが結果は同じで、実測では
 // この repo 自身のユニークハッシュ 234 件のうち 91 件が HEAD から辿れなかった。
 //
+// # 何のときに出すのか（01M1K4WPN3HXNVE0CR0T6NQK33 で条件が1つ増えた）
+//
+// 出すのは「**commits がどれも辿れず、かつ `refs` も空**」のときだけである。
+// 来歴の正本は `refs[]`（URL・取り込みで壊れない）へ移り、`commits[]` は非推奨に
+// なった——**壊れない辿り先が別にあるなら、切れた hash が残っていること自体は
+// 実害ではない。** `commits[]` は追記専用で消せないので、ここで黙らないと
+// 「refs へ移したのに永久に鳴り続ける」finding になる。移行が進むほど静かになる。
+//
+// 残るのは「この判断が、どの変更で実装されたのかを辿る手立てが1つも無い」場合で、
+// これは非推奨のあとも意味を持つ。
+//
 // # なぜ「1つも辿れない」で判定するのか
 //
 // `commits[]` は追記専用で、**切れたハッシュは永久に消せない**
@@ -82,6 +93,14 @@ func commitUnreachableFindings(decisions []model.Decision, reachable gitio.Reach
 		if len(d.Commits) == 0 {
 			continue
 		}
+		// refs[] を持つ decision では出さない（01M1K4WPN3HXNVE0CR0T6NQK33）。
+		// 来歴の正本は refs へ移り、commits は非推奨になった——**壊れない辿り先が
+		// 別にあるなら、切れた hash が残っていること自体は実害ではない。**
+		// commits[] は追記専用で消せないので、ここで黙らないと「refs へ移したのに
+		// 永久に鳴り続ける」finding になる。移行が進むほど静かになる形にする。
+		if len(d.Refs) > 0 {
+			continue
+		}
 		var unreachable []string
 		for _, h := range d.Commits {
 			if !reachable.Contains(h) {
@@ -105,8 +124,8 @@ func commitUnreachableFindings(decisions []model.Decision, reachable gitio.Reach
 			TargetType: "decision",
 			Field:      "commits",
 			Quote:      strings.Join(short, "・"),
-			Suggestion: "scholia decision relink-commits で着地先の候補を探し、--apply で結び直す",
-			Message: fmt.Sprintf("decision %s: 結んだ commit %d 件のいずれも HEAD から辿れません（%s）。squash merge や作業ブランチの作り直しで祖先から外れた可能性があります——新しく clone した人はこの変更に辿り着けません",
+			Suggestion: "scholia decision add-ref <id> <PR/issue の URL> で壊れない辿り先を結ぶ（または scholia decision relink-commits で着地先の候補を探す）",
+			Message: fmt.Sprintf("decision %s: 結んだ commit %d 件のいずれも HEAD から辿れず、refs も空です（%s）。この判断が、どの変更で実装されたのかを辿る手立てがありません",
 				d.ID, len(unreachable), strings.Join(short, "・")),
 		})
 	}
@@ -114,9 +133,16 @@ func commitUnreachableFindings(decisions []model.Decision, reachable gitio.Reach
 	return out
 }
 
+// anyDecisionHasCommits は「git を呼ぶ価値があるか」の早期打ち切り。
+//
+// ⚠️ **ここを緩めても答えは変わらない**（実測: `&& len(d.Refs) == 0` を外す変異を
+// 入れてもテストは緑のまま）。緩めれば git を無駄に呼ぶだけで、finding は下の
+// ループが同じ条件で絞る。**値で落ちる検査が当たらない範囲**なので、そう名乗る
+// （CLAUDE.md「配線ガードの書き方」2）。逆向き——不当に false を返して黙る——は
+// 起きない。commits を持ち refs も持つ decision は、どのみちループでも飛ばされる。
 func anyDecisionHasCommits(decisions []model.Decision) bool {
 	for _, d := range decisions {
-		if len(d.Commits) > 0 {
+		if len(d.Commits) > 0 && len(d.Refs) == 0 {
 			return true
 		}
 	}

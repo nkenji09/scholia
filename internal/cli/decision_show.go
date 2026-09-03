@@ -78,10 +78,16 @@ func newDecisionShowCmd() *cobra.Command {
 			if d.Ref != "" {
 				fmt.Fprintf(out, "ref: %s\n", d.Ref)
 			}
+			if len(d.Refs) > 0 {
+				fmt.Fprintf(out, "refs: %s\n", strings.Join(d.Refs, " "))
+			}
 			if len(d.Commits) > 0 {
 				fmt.Fprintf(out, "commits: %s\n", strings.Join(d.Commits, " "))
-			} else {
-				fmt.Fprintln(out, "commits: 未結線")
+			}
+			// ⚠️ 「未結線」は commits と refs の**両方**が空のときだけ言う。
+			// commits だけを見ると、refs へ移した decision が未結線に見える。
+			if len(d.Commits) == 0 && len(d.Refs) == 0 {
+				fmt.Fprintln(out, "来歴: 未結線")
 			}
 			if len(d.Acknowledges) > 0 {
 				fmt.Fprintf(out, "acknowledges: %s\n", strings.Join(d.Acknowledges, ", "))

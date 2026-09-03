@@ -123,9 +123,15 @@ type relinkTarget struct {
 // relinkTargets は「commits[] に載っているどのハッシュも HEAD から辿れない」
 // decision を集める純関数（git を呼ばない）。
 //
-// ⚠️ **判定は lint の commit-unreachable と同じ「1つも辿れない」でなければならない。**
-// ここだけ「1件でも辿れない」にすると、finding が出ていない decision まで書き換える
-// 口になる——**気づかせる範囲と直す範囲がずれる。**
+// ⚠️ **「1件でも辿れる decision は対象にしない」は lint と同じ。**
+// ここだけ「1件でも辿れない」にすると、直す必要のない decision まで書き換える
+// 口になる。
+//
+// 🔴 **ただし `refs` の有無は見ない——ここは lint と意図的に射程が違う。**
+// lint は refs を持つ decision で黙る（壊れない辿り先が別にあるので実害が無い）。
+// この口は**直しに来た人が明示的に打つ**ものなので、直せるものは全部見せる
+// ——`--apply` を付けない限り1バイトも書かないので、範囲が広いこと自体は害にならない
+// （01M1K4WPN3HXNVE0CR0T6NQK33）。
 func relinkTargets(decisions []model.Decision, reachable gitio.ReachableSet) []relinkTarget {
 	var out []relinkTarget
 	for _, d := range decisions {

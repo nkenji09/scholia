@@ -28,6 +28,11 @@ func decisionWith(id string, commits ...string) model.Decision {
 	}
 }
 
+func withRefs(d model.Decision, refs ...string) model.Decision {
+	d.Refs = refs
+	return d
+}
+
 func TestCommitUnreachableFindings(t *testing.T) {
 	reachable := gitio.NewReachableSet([]string{hashA})
 
@@ -57,6 +62,19 @@ func TestCommitUnreachableFindings(t *testing.T) {
 			name:    "1つも辿れないなら出す",
 			input:   []model.Decision{decisionWith("01D3", hashB, hashC)},
 			wantIDs: []string{"01D3"},
+		},
+		{
+			// 🔴 refs を持つなら黙る（01M1K4WPN3HXNVE0CR0T6NQK33）。commits は
+			// 追記専用で消せないので、ここで黙らないと refs へ移した decision が
+			// 永久に鳴り続ける。
+			name:    "refs があるなら、commits が全部辿れなくても出さない",
+			input:   []model.Decision{withRefs(decisionWith("01D6", hashB, hashC), "https://example.test/pull/1")},
+			wantIDs: nil,
+		},
+		{
+			name:    "refs が空文字だけでも、要素があるなら出さない",
+			input:   []model.Decision{withRefs(decisionWith("01D7", hashB), "#123")},
+			wantIDs: nil,
 		},
 		{
 			name: "decision id の昇順で返す",
