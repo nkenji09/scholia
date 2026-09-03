@@ -16,7 +16,7 @@ decision 下書きを出す判断層。本スキルはその先、**方針が出
 **2 つのフローが使える**（landed した評価コックピット・DESIGN §7）:
 
 - **CLI フロー**: 端末でコメントを集め、**コピーして本スキルを AI に貼り付ける**。以降は既存 CLI
-  （`diff`/`rules`/`list`/`decide`/`decision add-commit`/`decision applied`/`review`）とコメントの copy-paste で完結する。
+  （`diff`/`rules`/`list`/`decide`/`decision add-ref`/`decision applied`/`review`）とコメントの copy-paste で完結する。
 - **viewer インライン評価フロー**: `scholia view` のコメントドロワーで、pending diff（作業ツリー vs `main`）を
   **差分カード付きの提案**として見ながら評価する。**提案＝変更を持つレコードのコメント・本文＝why**。
   AI は変更本体と対で `scholia review add` で**提案コメントを配送**（`.scholia/reviews/`・read-only オーバーレイ）、
@@ -54,7 +54,7 @@ adopt/reject できることが目的。深リンクの route 一覧は [scholia
 （強制ではない）。
 
 - task はコード上の概念ではなく、**このスキルのセッション内で人と AI が共有する作業のまとまり**。
-- 1 decision に複数コミットを許すのは自然（`scholia decision add-commit <id> <hash> --kind implementation` で足す。**種別の指定は必須**）。
+- 1 decision に複数の着地先を許すのは自然（`scholia decision add-ref <id> <PR/issue の URL>` で足す）。
 - **実装ミス直し（判断は変わらない）は decision を増やさず、既存 decision に commit を足す。**
   別の判断が入ったときだけ新しい decision を足す（`scholia decide`）。decision の無駄な増殖は見づらさに直結するため
   避ける（DESIGN §3.5）。
@@ -75,7 +75,7 @@ adopt/reject できることが目的。深リンクの route 一覧は [scholia
    後から記録する）** かを確認する。
    - retrospective なら、Case 1/2 の提案→レビュー→adopt の踊りは不要。
      `scholia decide --on <対象> --why "<見出し＋本文>" --refs <PR/issue の URL>` で直行してよい。
-   - 完了ゲートも軽量にする: **landing commit を結線**（`decide --commit` または `decision add-commit … --kind implementation`）＋
+   - 完了ゲートも軽量にする: **着地先を結線**（`decide --refs` または `decision add-ref`）＋
      **`scholia rules --all` で矛盾する既存 decision が無いか 1 回照合**するだけでよい。波及検索・兄弟ゲートは
      省略できる（後から波及に気づいたら、そのときは改めて Case 1/2 の手順で対応する）。
    - 後追いは特定のプロジェクトや用途に限った例外ではなく、scholia-change の一般的なルートの 1 つ。
@@ -151,22 +151,20 @@ desc に書かない。正典＝[`../_scholia-shared/references/modeling-princip
    - **意図的に残す gap/finding があるなら型付き容認**（#45 D6）: `--acknowledges <rule>`（rule 全列挙）。性質型要件は
      `scholia tag edit <id> --fulfillment property` も併せる。
 8. **commit（意味単位）** — `.scholia/` の変更を 1 つの意味単位コミットにまとめる。
-9. **decision に着地 commit を結ぶ（完了ゲート・必須）** — レコードを変更した commit には decision が同伴していること
+9. **decision に着地先を結ぶ（完了ゲート・必須）** — レコードを変更した commit には decision が同伴していること
    （非同伴は lint `decision-stale` が検出する）:
    ```
-   scholia decision add-commit <decisionId> <hash> --kind implementation
+   scholia decision add-ref <decisionId> <PR/issue の URL>
    ```
-   **`--kind` は必須**（既定値は無い）。この decision の判断を実装した commit なら `implementation`、
-   この decision に書いてあるとおりに実装されていなかったのを直した commit なら `correction`——
-   `correction` を選ぶと `applied[]` に是正の印が1件付く（A是正の着地はこちら・下の「印を打つ」節）。
-   結ぶ commit は保存前に照合される: 形（16 進 7〜64 文字）はどこでも、実在は git 管理下でのみ。
-   ⚠️ git 管理下では**完全 hash へ寄せて保存する**ので、短縮 hash で打っても同じ commit は1件に畳まれる。
-   ⚠️ **16 進の名前を持つブランチ/タグは通らない**（git は ref を先に解決するので、そのままだと別の commit が保存される）。
-   git 管理外では照合できないので、保存したうえで advisory `commit-unverified` で「照合していない」と出る。
-   ⚠️ **この advisory を `acknowledges` に書かないこと**——有効な rule id ではないので宙吊りになり、
-   `acknowledges[]` は追記専用なので消せない。
-   decide 時点で commit のハッシュが既に分かっているなら、手順 7 で `scholia decide --commit <hash>` として
-   最初から結んでもよい（9 は省略できる）。未結線の棚卸しは `scholia decision list --unlinked`。
+   🔴 **commit hash を結ぶ `add-commit --kind implementation` は非推奨**（01M1K4WPN3HXNVE0CR0T6NQK33）。
+   squash merge や作業ブランチの作り直しで、その hash は取り込み先の祖先から外れて**辿れなくなる**
+   ——新しく clone した人には存在しない。URL は git のオブジェクトではないので壊れない。
+   decide 時点で URL が分かっているなら、手順 7 で `scholia decide --refs <url>` として
+   最初から結んでもよい（9 は省略できる）。
+   どこからも辿れない decision の棚卸しは `scholia decision list --unlinked`
+   （commits も refs も空のものが出る）。切れた hash の付け替えは `scholia decision relink-commits`。
+   ⚠️ **是正（A是正）だけは `add-commit <id> <hash> --kind correction` を使う**——`applied[]` に是正の印を
+   打つ唯一の口で、**こちらは非推奨ではない**（下の「印を打つ」節）。
 10. **実装/テスト側へ** — 人が task の diff／コメントをコピーし、scholia の外（コード側）の実装・テスト修正を依頼する。
 
 ## Case 2: Transition の修正
@@ -205,7 +203,7 @@ desc に書かない。正典＝[`../_scholia-shared/references/modeling-princip
    ```
 8. **commit → 結線**:
    ```
-   scholia decision add-commit <decisionId> <hash> --kind implementation
+   scholia decision add-ref <decisionId> <PR/issue の URL>
    ```
 9. **実装/テスト側へ** — 人が task のコンテキストをコピーし、実装・テスト修正を依頼する。
 
@@ -339,9 +337,10 @@ triage の5つの方針のうち、**A是正・C矛盾・E却下の3つは「記
 - Case 3: 波及検索・兄弟ゲートは課さず、`scholia rules --all` で矛盾する既存 decision が無いことだけ確認している。
 - 後追い（retrospective）: landing commit を結線し、`scholia rules --all` で矛盾する既存 decision が無いか
   1 回照合している（波及検索・兄弟ゲートは省略可）。
-- adopt/reject いずれも decision を why 付きで記録し、着地 commit が `commits[]` に結ばれている
-  （`decide --commit` または `decision add-commit … --kind implementation`）。
-- 実装ミス直しで decision を無駄に増やしていない（`add-commit` で足りるケースは増やさず足りている）。
+- adopt/reject いずれも decision を why 付きで記録し、着地先が `refs[]` に結ばれている
+  （`decide --refs` または `decision add-ref`）。**`commits[]` への hash 結線は非推奨**
+  （01M1K4WPN3HXNVE0CR0T6NQK33）。
+- 実装ミス直しで decision を無駄に増やしていない（`add-ref` で足りるケースは増やさず足りている）。
 - **A是正・C矛盾・E却下だったなら、引いた decision に印を打っている**（上の「印を打つ」節）。
 - 人が task の diff／コメントをコピーし、scholia の外（実装/テスト）の修正依頼まで橋渡ししている。
 

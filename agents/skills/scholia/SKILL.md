@@ -37,7 +37,7 @@ scholia init                                    # .scholia/ を作成
 scholia vocab add <condition|action|effect> <id> --label <l>   # 語彙を先に登録
 scholia tag create <id> --name <n> [--parent <tagId>…]         # 主題・要件などのタグ
 scholia tx add <id> --action <a> [--given <c,…>] --then <e,…> [--tags <t,…>]
-scholia decide --on <transition|tag>:<id> --why <見出し＋本文> [--commit <hash>…]   # なぜそうしたかを残す（実装 commit も結べる）
+scholia decide --on <transition|tag>:<id> --why <見出し＋本文> [--refs <PR/issue の URL>…]   # なぜそうしたかを残す（実装来歴も結べる）
 scholia lint                                     # 記録の自己矛盾チェック（緑＝網羅の証明ではない）
 ```
 
@@ -98,7 +98,7 @@ decision は **append-only**（過去を消す提案＝取り込み拒否の最�
 上記の判定材料をもとに、input（修正指示・要望・レビューコメント）を spec に照らして**対応方針を選別する**
 （A是正／B精緻化／C矛盾／D新規／E却下 に分類し、方針＋WHY を出す判断層）は
 [scholia-triage スキル](../scholia-triage/SKILL.md) へ。方針が出た後、decision に着地するまでの具体的な手順
-（波及検索・兄弟 transition との整合・`commits[]` の結線）は [scholia-change スキル](../scholia-change/SKILL.md) へ。
+（波及検索・兄弟 transition との整合・`refs[]` の結線）は [scholia-change スキル](../scholia-change/SKILL.md) へ。
 
 ## 良い記録の書き方（DESIGN §8）— CLI の how より what で価値が決まる
 
@@ -134,7 +134,7 @@ decision は **append-only**（過去を消す提案＝取り込み拒否の最�
 1. **アクションの網羅** — 対象の外部 IF（入口）から機械的に洗い出す。ここで漏らすと以降すべて漏れる。
 2. **条件(given)の網羅** — 決定表で。排他的な原因群は畳まず別遷移に。
 3. **効果(then)を妄想で書かない** — 実際に起きることだけ。全 emit/効果が then に現れるか逆引きする。
-4. **完了ゲート（必須・typed 容認前提・#45 D6）** — 主題タグ単位で: マトリクス空白ゼロ／`decision.commits[]` が指す commit 経由でテスト・実装を辿る／
+4. **完了ゲート（必須・typed 容認前提・#45 D6）** — 主題タグ単位で: マトリクス空白ゼロ／`decision.refs[]` が指す PR 経由でテスト・実装を辿る（`commits[]` は非推奨・01M1K4WPN3HXNVE0CR0T6NQK33）／
    穴探し 1 周（`scholia spec <subjectTag>` の兄弟整合）。**残ってよい `requirement-gap`/flow finding は「当該 target 宛てで `--acknowledges <rule>` を付けた decision があるもの」だけ**（祖先 decision では畳まれない）。性質型要件は `--fulfillment property`＋`--acknowledges requirement-gap` decision を要する。**`scholia lint` が緑でも網羅の証明にはならない** — 完了ゲートは手動の突合として別に行う。
    （`tests` フィールドは廃止済み。実テストとの結び付けは commit 履歴が担う・DESIGN §8・§3.2）
 5. **decision の質** — 後から矛盾に気づける why を書く（`file:line` のような不変でない参照は避ける）。
@@ -175,7 +175,7 @@ decision は append-only ゆえ「今どれが正か」は `supersedes` リン�
 - **部分改訂か？**（除外条項の精緻化等・旧は生きたまま）→ `--supersedes <old>:amend`（既定）。
 - **一般則への意識的例外か？**（旧は生きたまま）→ `--supersedes <old>:exception`。
 
-既定 amend は「失効させ忘れ」を避けるための保守側。derive（`rules`/`spec` の既定・`decision list --current`・viewer 現行フィルタ）は **mode=supersede のみ**失効扱いにする。取り下げられた decision は `rules`/`spec` の既定では本文が出ず、存在と行き先だけ出る（全文は `--all`）。`search` は畳まず印を付ける。新規時は `scholia decide --supersedes`、後付けは `scholia decision link <new> --supersedes <old>[:<mode>]`（追記専用・自己参照/循環/既存 link の mode 改変は拒否）。未結線の実装来歴は `scholia decision list --unlinked` で棚卸しし `decision add-commit <id> <hash> --kind implementation` で結ぶ（**種別の指定は必須**）。詳細は `scholia decision show <id>`（supersedes/superseded-by/acknowledges 込み）。
+既定 amend は「失効させ忘れ」を避けるための保守側。derive（`rules`/`spec` の既定・`decision list --current`・viewer 現行フィルタ）は **mode=supersede のみ**失効扱いにする。取り下げられた decision は `rules`/`spec` の既定では本文が出ず、存在と行き先だけ出る（全文は `--all`）。`search` は畳まず印を付ける。新規時は `scholia decide --supersedes`、後付けは `scholia decision link <new> --supersedes <old>[:<mode>]`（追記専用・自己参照/循環/既存 link の mode 改変は拒否）。未結線の実装来歴は `scholia decision list --unlinked` で棚卸しし `decision add-ref <id> <PR/issue の URL>` で結ぶ（**commit hash を結ぶ `add-commit --kind implementation` は非推奨**——取り込みで辿れなくなる・01M1K4WPN3HXNVE0CR0T6NQK33）。詳細は `scholia decision show <id>`（supersedes/superseded-by/acknowledges 込み）。
 
 ## 規約を変えたら手本も掃除する（retrofit）
 
@@ -218,15 +218,16 @@ scholia decide --on <transition|tag|vocab>:<id> --why <見出し＋本文> [--ch
                                                                       # ⚠️ --why の1行目は見出し必須（`# ` ＋1〜80字・2行目以降に本文）。満たさないと保存されない
 scholia decide … --acknowledges <rule>[,<rule>…]                      # finding を型付き容認（#45 D6・rule 実在照合）
 scholia decide … --supersedes <old>[:<mode>]                          # 旧 decision を置換/改訂/例外化（mode=supersede|amend|exception・既定 amend・#45 D7）
-scholia decision add-commit <decisionId> <hash> [...] --kind implementation   # 既存 decision の commits[] に追記専用。**--kind は必須**（既定値なし）
-scholia decision add-commit <decisionId> <hash> --kind correction      # 書いてあるとおりに実装されていなかったのを直した commit。applied[] に是正の印が1件付く
+scholia decision add-ref <decisionId> <ref> [...]                             # 既存 decision の refs[] に追記専用（**これを使う**）。URL は squash merge で壊れない
+scholia decision add-commit <decisionId> <hash> [...] --kind implementation   # commits[] に追記専用。**非推奨**（取り込みで hash が辿れなくなる・01M1K4WPN3HXNVE0CR0T6NQK33）
+scholia decision add-commit <decisionId> <hash> --kind correction      # 書いてあるとおりに実装されていなかったのを直した commit。applied[] に是正の印が1件付く（**こちらは非推奨ではない**——是正の印を打つ唯一の口）
                                                                       # 結ぶ commit は形（16進7〜64字）を必ず、実在は git 管理下でのみ照合する
                                                                       # git 管理下では完全 hash へ寄せて保存する（短縮で打っても同じ commit は1件に畳まれる）
                                                                       # ⚠️ 16進の名前のブランチ/タグは通らない（git が ref を先に解決するため）
 scholia decision applied <decisionId> --kind conflict [--landed <id>]  # 記録と衝突したので止めた。何も着地しなければ --landed なし
 scholia decision applied <decisionId> --kind rejection --landed <id>   # 記録が既に決めていたので採らなかった（--landed は必須）
 scholia decision link <new> --supersedes <old>[:<mode>]               # 現行性リンクの後付け結線（追記専用・#45 D7）
-scholia decision list [--on <対象>] [--unlinked] [--current] [--json] # 棚卸し（--unlinked=commits 空・--current=失効畳み）
+scholia decision list [--on <対象>] [--unlinked] [--current] [--json] # 棚卸し（--unlinked=commits も refs も空・--current=失効畳み）
 scholia decision show <id> [--json]                                   # 詳細（supersedes/superseded-by/acknowledges 込み・#45 D7）
 scholia tag edit <id> --fulfillment property|transitions              # 性質型要件の宣言（#45 D6・property は decision 必須）
 
