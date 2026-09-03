@@ -75,7 +75,7 @@ scholia diff [<ref1> [<ref2>]]  # 現在 vs <ref1>（既定 HEAD）＝pending di
                               # <ref1> vs <ref2>（両方 git ref）は landed 監査用（例: <commit>^ <commit>）
                               # semantic diff（語彙± / 遷移± / then 順序 / decisions±）
 scholia rules --tag <id>        # その提案が触るタグの過去 decisions（守る規則）と照合。既定はそのタグ自身への分の本文だけ（経由分・取り下げは存在と引き方・全文は --all）
-scholia decide --on transition:<id> --ref <PR/URL> [--commit <hash>…] \
+scholia decide --on transition:<id> --ref <PR/URL> [--refs <PR/issue の URL>…] \
   --why "# 評価: 取り込まない — <結論を1行で>
 
 <なぜ取り込まないか。矛盾する既決があるならその id を引用する>"
@@ -214,7 +214,7 @@ scholia tx rm <id> --why <理由> --force
 
 # 意思決定
 scholia decide --on <transition|tag|vocab>:<id> --why <見出し＋本文> --dry-run    # 保存せず advisory をプレビュー（decide の前に必ず打つ）
-scholia decide --on <transition|tag|vocab>:<id> --why <見出し＋本文> [--changed <s>] [--ref <s>] [--commit <hash>…]   # vocab は #45 D5
+scholia decide --on <transition|tag|vocab>:<id> --why <見出し＋本文> [--changed <s>] [--ref <s>] [--refs <url>…]   # vocab は #45 D5。--commit は非推奨（01M1K4WPN3HXNVE0CR0T6NQK33）
                                                                       # ⚠️ --why の1行目は見出し必須（`# ` ＋1〜80字・2行目以降に本文）。満たさないと保存されない
 scholia decide … --acknowledges <rule>[,<rule>…]                      # finding を型付き容認（#45 D6・rule 実在照合）
 scholia decide … --supersedes <old>[:<mode>]                          # 旧 decision を置換/改訂/例外化（mode=supersede|amend|exception・既定 amend・#45 D7）

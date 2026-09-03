@@ -94,6 +94,7 @@ export function DecisionRowFull({ d, defaultOpen, onOpenDecision, byId }: Props)
   const supersededBy = currencyIndex.supersededByMap.get(d.id) || [];
   const supersedes = d.supersedes || [];
   const commits = d.commits || [];
+  const refs = d.refs || [];
   const acknowledges = d.acknowledges || [];
 
   return (
@@ -137,6 +138,25 @@ export function DecisionRowFull({ d, defaultOpen, onOpenDecision, byId }: Props)
               ) : (
                 <p class="decision-detail-ref">{d.ref}</p>
               )}
+            </section>
+          )}
+
+          {refs.length > 0 && (
+            <section class="decision-detail-section">
+              <h3 class="decision-detail-heading">{t.decisions.refsHeading}</h3>
+              <ul class="decision-detail-refs">
+                {refs.map((r) =>
+                  isUrl(r) ? (
+                    <li key={r}>
+                      <a class="decision-detail-ref-link" href={r} target="_blank" rel="noopener noreferrer">
+                        {r} <Icon name="external-link" size={12} />
+                      </a>
+                    </li>
+                  ) : (
+                    <li key={r} class="decision-detail-ref">{r}</li>
+                  ),
+                )}
+              </ul>
             </section>
           )}
 

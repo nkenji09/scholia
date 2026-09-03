@@ -42,6 +42,10 @@ type decisionPostBody struct {
 	Changed string   `json:"changed,omitempty"`
 	Ref     string   `json:"ref,omitempty"`
 	Commits []string `json:"commits,omitempty"`
+	// Refs は実装来歴の外部参照（01M1K4WPN3HXNVE0CR0T6NQK33）。採用時点では
+	// 空である——着地する先（PR の URL）がまだ無い。着地後に
+	// `scholia decision add-ref` で足す。
+	Refs []string `json:"refs,omitempty"`
 	// Supersedes は提案が宣言した現行性リンク（adopt が結線まで束ねる要件・
 	// 01KYHE08WNA8H1Q1DM2H45Y4TK）。デコーダが DisallowUnknownFields を立てて
 	// いるので、型に持たない限りフロントが送ると 400 になる——ドロワーの Adopt
@@ -118,6 +122,7 @@ func postDecisionHandler(s *store.Store) http.HandlerFunc {
 			Ref:        body.Ref,
 			At:         time.Now().UTC().Format(time.RFC3339),
 			Commits:    dedupeAppend(body.Commits),
+			Refs:       dedupeAppend(body.Refs),
 			Supersedes: links,
 		}
 		// 新規作成の口を通す（01KZ06SYR3APGF3JD4NQRFTEEN 変更3）。

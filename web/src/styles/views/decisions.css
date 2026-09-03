@@ -258,6 +258,13 @@
   line-height: 1.8;
 }
 
+.decision-detail-refs {
+  margin: 0;
+  padding-left: 1.1em;
+  display: grid;
+  gap: 2px;
+}
+
 .decision-detail-ref {
   margin: 0;
   font-size: var(--fs-sm);
