@@ -120,11 +120,34 @@ type Decision struct {
 	Changed string         `json:"changed,omitempty"`
 	Ref     string         `json:"ref,omitempty"`
 	At      string         `json:"at"` // RFC3339
+	// Refs は実装来歴の外部参照（PR・issue・チケットの URL 等）。
+	// **判断欄位である `Ref` とは別物で、こちらは凍結しない**——追記専用・
+	// 単調増加で、`scholia decision add-ref` により後から何件でも足せる
+	// （01M1K4WPN3HXNVE0CR0T6NQK33）。
+	//
+	// 🔴 **これが `commits[]` を非推奨にできる理由である。** 判断を記録する
+	// 時点で PR はまだ存在しない——PR はその後に作る。`Ref` は判断欄位として
+	// 凍結されているので、**後から PR の URL を入れることが原理的にできない。**
+	// 「後から辿り先を足せる欄が commits しか無かった」ことが、hash を来歴の
+	// 正本にしていた理由だった。ここが空くと、その制約そのものが消える。
+	//
+	// ⚠️ **要素をオブジェクトに作り変えない**（Commits と同じ理由——旧バイナリが
+	// レコード全体の読み込みに失敗する）。PR か issue かチケットかは URL を
+	// 見れば分かるので、保存しなくても導出できる。
+	Refs []string `json:"refs,omitempty"`
 	// Commits は実装来歴（git hash の集合）。判断フィールド（Target/Why/
 	// Changed/Ref/At）は不変のまま、Commits だけ `scholia decision
 	// add-commit` で追記できる（追加専用・単調増加・§3.5 append-only の
 	// 精緻化）。omitempty により commits の無い旧 decision ファイルも無改修
 	// で読める。
+	//
+	// ⚠️ **非推奨**（01M1K4WPN3HXNVE0CR0T6NQK33）。取り込み（squash merge・
+	// 作業ブランチの作り直し）で hash は取り込み先の祖先から外れ、結線が切れる。
+	// 新しく結ぶなら Refs（URL・git のオブジェクトではないので壊れない）を使う。
+	// **禁止ではない**——hash には URL に無い取り柄が1つある。外部サービスに
+	// 依存せず、オフラインで diff が読める。
+	// **消せない**——追記専用なので、既に書かれた要素は永久に残る。
+	// だから「今後は書かなくてよい」までが、この非推奨の意味である。
 	Commits []string `json:"commits,omitempty"`
 	// Acknowledges は「この decision が意図的に容認する finding の rule id 集合」
 	// （#45 D6・additive/omitempty）。decide 時に rule id を実在照合し（typo は

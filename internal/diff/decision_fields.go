@@ -126,6 +126,23 @@ func classifyDecisionChange(b, a model.Decision, ctx *pairContext) (allowed, vio
 			violated = append(violated, "applied")
 		}
 	}
+	// Refs（01M1K4WPN3HXNVE0CR0T6NQK33）も commits と同型の追記専用。
+	//
+	// ⚠️ **判断欄位の `Ref` とは別物である。** `Ref`（単数）は上で violated に
+	// 分類される凍結欄で、`Refs`（複数）は後から足せる来歴欄——**この非対称が
+	// この決定の本体**なので、ここで取り違えると決定そのものが無効になる。
+	//
+	// ⚠️ **分類を書かないと黙認される**（applied[] の注記と同じ穴）。model が
+	// Refs を知った瞬間、reflect.DeepEqual は未知フィールドではなく既知
+	// フィールドの差分として検出するので、ここに枝が無ければ既存要素の削除が
+	// allowed にも violated にも入らない。
+	if !reflect.DeepEqual(b.Refs, a.Refs) {
+		if commitsAppendOnly(b.Refs, a.Refs) {
+			allowed = append(allowed, fmt.Sprintf("refs(+%d)", len(a.Refs)-len(b.Refs)))
+		} else {
+			violated = append(violated, "refs")
+		}
+	}
 	// Acknowledges（#45 D6）も追記専用: 既存要素を削除すると、過去に畳んで
 	// いた finding が retroactively 蘇る（容認の取り消し＝判断の書き換え）。
 	// commits と同型に、既存⊆新の順序保存包含のみ許容する。
