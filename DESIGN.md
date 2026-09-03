@@ -228,6 +228,23 @@ lint は二層で、**error＝記録の自己矛盾**（保存拒否・CI fail �
   - ⚠️ **git 管理下では、新しく足す hash を完全 hash へ寄せてから保存する**（正規化）。短縮 hash も正当な入力なので、
     寄せないと**同じ 1 commit が短縮と完全の2つの文字列として保存され、`applied[]` の重複判定（完全一致）が効かない**
     ——実測で是正の件数が2件に上振れした。既存の要素は1バイトも触らない（触れば append-only 破れ）。
+  - 🔴 **作業ブランチ上の hash は、取り込みで祖先から外れる**（01M1JY0APWXHFZ1TKWST7VPS9N）。
+    squash merge は PR の commit を 1 個に潰すので、記録した hash は取り込み先の祖先でなくなる。
+    保存時の実在照合はこれを見ない——**手元のオブジェクトデータベースに在るか**しか問うていないので、
+    ブランチのオブジェクトが残っている限り「実在する」と答える。**新しく clone した人には存在しない**のに、である。
+    作業ブランチの作り直し（rebase）でも機序は違うが結果は同じで、実測ではこの repo 自身の
+    ユニーク hash 234 件のうち 91 件が HEAD から辿れなかった（2026-09-03）。
+    - **見つける**: `scholia lint` の **`commit-unreachable`（info）**。判定は「`commits[]` が空でなく、
+      **HEAD から辿れるものが 1 つも無い**」——`commits[]` は追記専用で切れた hash を消せないため、
+      「1 件でも辿れない」で出すと着地 hash を足しても finding が消えず、`acknowledges`（これも追記専用）
+      でしか畳めなくなる。浅い clone・git 管理外・commit が 1 件も無いときは何も出さず、
+      導出そのものが落ちたときだけ `git-derivation-failed` で名乗る。
+    - **直す**: **`scholia decision relink-commits`**。手元に残っている commit の見出しを読み、
+      同じ見出しを持つ commit を HEAD の系譜から探して候補として見せる（squash 後の本文には潰した
+      commit の見出しが並ぶ）。**既定では 1 バイトも書かない**——見出しが偶然一致した別 commit を結ぶ事故は
+      追記専用ゆえ取り消せないため、人が納得してから `--apply` で確定する。追記する種別は `implementation`。
+    - 🔴 **手元にオブジェクトが残っていなければ救済できない**（新しく clone した後・GC の後は見出しすら読めない）。
+      だから 2 つは対で置いてある——**本体は「切れてから直す」ではなく「切れたその場で気づく」ことである。**
   - **append-only の精緻化（欄位単位・#45 U4→D7）**: decision の append-only とは「ファイル不変」ではなく
     「**判断欄位の不変＋来歴/リンク欄位の単調追記**」である。判断（`why` / `changed` / `ref` / `at`・`target.type`）は
     凍結され、**来歴（`commits[]`）＋現行性リンク（`supersedes[]`・link 経由）＋容認（`acknowledges[]`）＋
@@ -562,6 +579,7 @@ scholia tx rm <id> --why <理由> --force                      # 破壊的（dec
 # 意思決定（transition か tag に付く）
 scholia decide --on <transition|tag|vocab>:<id> --why <見出し＋本文> [--changed <s>] [--ref <s>] [--commit <hash>…] [--acknowledges <ruleId,…>] [--supersedes <ulid>[:<mode>]…] [--allow <rule> --reason <t>]  # vocab は #45 D5。why の1行目は見出し必須（`# ` ＋1〜80 rune・2行目以降に本文・満たさないと保存拒否 decision-heading・01KZ06SYR3APGF3JD4NQRFTEEN）。acknowledges=容認する finding の rule id（実在照合・#45 D6）／supersedes=置き換える旧 decision（mode=supersede|amend|exception・既定 amend・#45 D7）
 scholia decision add-commit <decisionId> <hash> [<hash>...] --kind implementation|correction [--json]  # 既存 decision の commits[] に追記専用（§3.5）。--kind は必須（既定値なし）。correction は applied[] に是正の印を1件足す。結ぶ commit は形を必ず、実在は git 管理下でのみ照合し、git 管理下では完全 hash へ寄せて保存する（01M09FHEQH7PVZ2BTKGXY5YMNN）
+scholia decision relink-commits [--apply] [--json]  # 取り込み（squash merge・rebase）で祖先から外れた commits[] の結線を、同じ見出しを持つ着地先の候補へ結び直す。既定は候補の提示のみ（無変更）・--apply で追記（01M1JY0APWXHFZ1TKWST7VPS9N）
 scholia decision applied <decisionId> --kind conflict|rejection [--landed <decisionId>] [--json]  # 引かれた decision に「記録が結論を決めた」印を1件足す（矛盾・却下）。decision をどう作ったかに依存しない口。rejection は --landed 必須／conflict は任意（何も着地しない矛盾がある）。是正は add-commit --kind correction に相乗りする（01M09FHEQH7PVZ2BTKGXY5YMNN）
 scholia decision link <newId> --supersedes <oldUlid>[:<mode>] [--json]  # 現行性リンクの後付け backfill・追記専用・id実在/自己参照禁止/循環禁止（#45 D7）
 scholia decision list [--on <transition|tag|vocab>:<id>] [--unlinked] [--current] [--json]  # decision をフラット一覧（--on は完全一致・祖先展開なし。rules=対象別集約とは別）。--unlinked=commits未結線の棚卸し／--current=失効(mode=supersede)を畳んで現行のみ（#45 D7）

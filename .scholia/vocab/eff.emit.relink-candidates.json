@@ -1,0 +1,8 @@
+{
+  "id": "eff.emit.relink-candidates",
+  "category": "effect",
+  "label": "辿れない結線と、同じ見出しを持つ着地先の候補を並べる",
+  "kind": "emit",
+  "owner": "subject.cli",
+  "description": "候補が 1 件に定まらないものは、定まらなかった理由とともに「特定できず」に並べる。"
+}

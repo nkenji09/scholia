@@ -1,0 +1,6 @@
+{
+  "id": "cond.relink-apply-requested",
+  "category": "condition",
+  "label": "--apply が指定されているとき",
+  "kind": "input"
+}

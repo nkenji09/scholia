@@ -1,0 +1,7 @@
+{
+  "id": "eff.log.commit-unreachable-report",
+  "category": "effect",
+  "label": "結線が切れている decision を info で名乗る",
+  "kind": "log",
+  "owner": "subject.lint"
+}
