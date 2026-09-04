@@ -154,9 +154,36 @@ desc に書かない。正典＝[`../_scholia-shared/references/modeling-princip
 9. **decision に着地先を結ぶ（完了ゲート・必須）** — レコードを変更した commit には decision が同伴していること
    （非同伴は lint `decision-stale` が検出する）。
    ⚠️ **レコードの改稿と decision の追加を別の commit に分けるなら**、レコードを変えた側の commit メッセージに
-   **`Scholia-Decision: <ulid>`** を書く（繰り返し可・01M1N02SRH9BAMT82B7GMTGQJH）。申告した id は実在と対象の
-   両方が検査されるので、**その decision がそのレコードを支配していること**（実効タグ経由でよい）が要る。
-   分割のたびに `acknowledges:[decision-stale]` を積む必要はもう無い:
+   **`Scholia-Decision: <ulid>`** を書く（繰り返し可・01M1N02SRH9BAMT82B7GMTGQJH）。
+   分割のたびに `acknowledges:[decision-stale]` を積む必要はもう無い。**打つ順番と置き場所に決まりがある**:
+
+   ```sh
+   # ① 先に decide する（トレーラに書く id が要るため。まだ commit しない）
+   scholia decide --on vocab:<id> --why "# …"     # → 01M1N8GP5H9BGG60CQC2XKTXAK
+   # ② レコードの改稿だけを commit（本文の**最後の段落**にトレーラ）
+   git add .scholia/vocab && git commit
+   # ③ decision を後から commit
+   git add -A && git commit -m "spec: 上の判断を記録する"
+   ```
+
+   ```
+   spec(vocab): 説明文から条件を追い出す（2件）
+
+   Scholia-Decision: 01M1N8GP5H9BGG60CQC2XKTXAK
+   ```
+
+   - **申告した id は実在と対象の両方が検査される。** その decision が**そのレコードを支配していること**が要る
+     （実効タグ経由でよい／変えたレコードの**どれか1つ**を支配していれば通る）。
+     ⚠️ **踏みやすい**: タグ宛ての decision は、**そのタグを持たない語彙を支配しない**——語彙の desc を直すなら
+     `--on vocab:<id>` のように、変えるレコード自身を対象にした decision が要る。効かなかった申告は
+     finding の本文に理由が出る（黙って落ちない）。
+   - **②の時点で decision はまだ commit されていなくてよい。** 検査が見るのは「いまストアに在るか」である。
+   - 🔴 **トレーラは本文の最後の段落に置く。** git のトレーラは最後の段落にしか成立しない（**実測**）。
+   - 🔴 **squash merge ではトレーラは失われる**（既定の連結メッセージだと途中の段落になるため・**実測**）。
+     **ただし同時に問題も消える**——squash はレコードの改稿と decision の追加を1つの commit に戻すので、
+     もともとの経路（同じ commit に decision がある）で黙る。**トレーラの仕事はマージ前だけである。**
+     ⚠️ **例外**: その PR がレコードだけを変え、対応する decision は**別の PR**で入れた場合は、squash 後に
+     警告が出る。マージ時にメッセージを編集し、**トレーラを最後の段落へ移す**。
    ```
    scholia decision add-ref <decisionId> <PR/issue の URL>
    ```

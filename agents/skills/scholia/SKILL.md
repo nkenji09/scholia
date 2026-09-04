@@ -125,8 +125,13 @@ decision は **append-only**（過去を消す提案＝取り込み拒否の最�
 
 1. 書き込みコマンドの出力（`--json` は応答封筒 `{ record, advisories }`）を読む。
 2. **advisory がゼロになるまで是正する**（是正が正。容認は理由必須で稀な例外）。
-3. `decide` は**必ず `--dry-run` を先に打つ**（decision は append-only。**取り込み先に載ったあとの why は直せない**——載る前なら `scholia decision edit <id> --why …`・`scholia decision rm <id>` で直せる）。
-4. 保存拒否（reject）を `--allow <rule> --reason <理由>` で破るのは、**稀な例外だけ**。規則の一覧は書き写さない——`--allow` に渡せる名前はエラー文言が列挙する（実装が正）。**--allow の使用例を手本（few-shot）として他レコードに写さない**。
+3. **レコードの改稿と decision を別 commit に分けるなら**、レコードを変えた側の commit メッセージの
+   **最後の段落**に `Scholia-Decision: <ulid>`（繰り返し可）を書く（01M1N02SRH9BAMT82B7GMTGQJH）。
+   申告は実在と対象を検査する——その decision が**そのレコードを支配していること**が要る（実効タグ経由でよい）。
+   squash merge ではトレーラは失われるが、同時に問題も消える（1つの commit に戻るため）。手順の全体は
+   [scholia-change スキル](../scholia-change/SKILL.md) Case 1 手順 9。
+4. `decide` は**必ず `--dry-run` を先に打つ**（decision は append-only。**取り込み先に載ったあとの why は直せない**——載る前なら `scholia decision edit <id> --why …`・`scholia decision rm <id>` で直せる）。
+5. 保存拒否（reject）を `--allow <rule> --reason <理由>` で破るのは、**稀な例外だけ**。規則の一覧は書き写さない——`--allow` に渡せる名前はエラー文言が列挙する（実装が正）。**--allow の使用例を手本（few-shot）として他レコードに写さない**。
    - 拒否には**機械判定できる不変条件**（矛盾する given・kind 不一致など）と、**保存後に是正できない欄の形式要件**（`decide --why` の見出し）の両方が入る。後者は「あとで直す」ができないので、警告ではなく拒否になっている。是正は `--allow` ではなく **why の側を直す**。
 
 以下はその上での網羅の勘所:

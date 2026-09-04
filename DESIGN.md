@@ -317,6 +317,15 @@ lint は二層で、**error＝記録の自己矛盾**（保存拒否・CI fail �
     任せ、本文を自前で解析しない。
   - ⚠️ **時刻の前後は一切見ない**（「レコードを変えたあとに decision が積まれたか」で判定する形は却下済み・
     01KXWPQDGMDB01V86KZ91M0BPQ ／ 01M09FHDJCV2WWFC7Z8331B0YQ）。
+  - **トレーラの運用**（いずれも実測）:
+    トレーラは**本文の最後の段落**にしか成立しない（git の仕様）。申告は**繰り返し可**で、変えたレコードの
+    **どれか1つ**を支配していれば通る。申告した decision は commit 時点でまだ commit されていなくてよい
+    ——検査が見るのは「いまストアに在るか」である。
+    🔴 **squash merge ではトレーラは失われる**（既定の連結メッセージだと途中の段落になるため）。
+    **ただし同時に問題も消える**——squash はレコードの改稿と decision の追加を1つの commit に戻すので、
+    経路 (1) で黙る。**トレーラの仕事はマージ前だけである。**
+    ⚠️ **例外**: レコードだけを変えた PR で、対応する decision が別の PR にある場合は squash 後に警告が出る。
+    マージ時にメッセージを編集し、トレーラを最後の段落へ移す。
 - **容認の型付き宣言（#45 D6）**: 「意図的に残す gap」を機械可読に宣言する2系統。(a) `Decision.acknowledges[]` は容認する
   finding の **rule id を指名**（decide 時に有効 rule id〔lint.Rules 名＋flow の subset-shadow/total-gap/overlap〕へ実在
   照合・typo は同一ターン error＋候補提示・rule 改名で宙吊りになった acknowledges は lint `dangling-acknowledges` が警告）。
