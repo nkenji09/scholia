@@ -128,7 +128,8 @@ decision は **append-only**（過去を消す提案＝取り込み拒否の最�
 3. **レコードの改稿と decision を別 commit に分けるなら**、レコードを変えた側の commit メッセージの
    **最後の段落**に `Scholia-Decision: <ulid>`（繰り返し可）を書く（01M1N02SRH9BAMT82B7GMTGQJH）。
    申告は実在と対象を検査する——その decision が**そのレコードを支配していること**が要る（実効タグ経由でよい）。
-   squash merge ではトレーラは失われるが、同時に問題も消える（1つの commit に戻るため）。手順の全体は
+   merge commit・rebase merge では取り込んだあとも効き続ける。squash merge では失われるが、同時に問題も消える
+   （1つの commit に戻るため）。手順の全体は
    [scholia-change スキル](../scholia-change/SKILL.md) Case 1 手順 9。
 4. `decide` は**必ず `--dry-run` を先に打つ**（decision は append-only。**取り込み先に載ったあとの why は直せない**——載る前なら `scholia decision edit <id> --why …`・`scholia decision rm <id>` で直せる）。
 5. 保存拒否（reject）を `--allow <rule> --reason <理由>` で破るのは、**稀な例外だけ**。規則の一覧は書き写さない——`--allow` に渡せる名前はエラー文言が列挙する（実装が正）。**--allow の使用例を手本（few-shot）として他レコードに写さない**。

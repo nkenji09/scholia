@@ -321,11 +321,15 @@ lint は二層で、**error＝記録の自己矛盾**（保存拒否・CI fail �
     トレーラは**本文の最後の段落**にしか成立しない（git の仕様）。申告は**繰り返し可**で、変えたレコードの
     **どれか1つ**を支配していれば通る。申告した decision は commit 時点でまだ commit されていなくてよい
     ——検査が見るのは「いまストアに在るか」である。
-    🔴 **squash merge ではトレーラは失われる**（既定の連結メッセージだと途中の段落になるため）。
-    **ただし同時に問題も消える**——squash はレコードの改稿と decision の追加を1つの commit に戻すので、
-    経路 (1) で黙る。**トレーラの仕事はマージ前だけである。**
-    ⚠️ **例外**: レコードだけを変えた PR で、対応する decision が別の PR にある場合は squash 後に警告が出る。
-    マージ時にメッセージを編集し、トレーラを最後の段落へ移す。
+    **取り込み方で効き方が変わる**（いずれも実測）:
+    - **merge commit（`--no-ff`）・rebase merge**: レコードを変えた commit がそのまま main に残るので、
+      **トレーラも残り、取り込んだあとも効き続ける**（実測: merge commit 運用でトレーラを外すと 1 件出て、
+      付けると 0 件になる。rebase merge はメッセージが複製されるので同じはずだが**未実測**）。
+    - **squash merge**: 潰した本文は途中の段落になるので **git はトレーラとして読まない**（実測）。
+      **ただし同時に問題も消える**——squash はレコードの改稿と decision の追加を1つの commit に戻すので、
+      経路 (1) で黙る。
+      ⚠️ **例外**: レコードだけを変えた PR で、対応する decision が別の PR にある場合は squash 後に警告が出る。
+      マージ時にメッセージを編集し、トレーラを最後の段落へ移す。
 - **容認の型付き宣言（#45 D6）**: 「意図的に残す gap」を機械可読に宣言する2系統。(a) `Decision.acknowledges[]` は容認する
   finding の **rule id を指名**（decide 時に有効 rule id〔lint.Rules 名＋flow の subset-shadow/total-gap/overlap〕へ実在
   照合・typo は同一ターン error＋候補提示・rule 改名で宙吊りになった acknowledges は lint `dangling-acknowledges` が警告）。
