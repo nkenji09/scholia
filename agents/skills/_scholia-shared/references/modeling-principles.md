@@ -110,10 +110,18 @@ vocab と tag は形が近い（id・label・kind）が役割が直交する。*
   - ※ **軸(`kind="axis"` タグ)の scope は vocab と非対称**——vocab は owner-scope が既定だが、axis は単一 consumer なら概念scope維持でよく、独立実装が複数コンポを跨ぐときだけ per-component 分割する（§3「独立実装を跨ぐ軸」）。命名規則を axis に機械適用しない。
 - **label**：action（きっかけ）は **「〜したとき」のトリガー表現**（例 `API setValue() を実行したとき`）。メソッドシグネチャの羅列にしない — `spec` の `WHEN 〜 THEN 〜` が読めなくなる。effect（結果）は**起きる事実**（`終了入力へフォーカスを送る`）。
   - ※ label は `vocab edit --label` で、kind は `--kind` で、owner（effect のみ）は `--owner` で変更できる。
-- **きっかけ・前提・結果を書き分ける（action / condition / effect のカテゴリ分離）**：一つの事柄を書く前に「これは *きっかけ*（action・WHEN で発火するトリガー）／*前提*（condition・GIVEN で真の状態）／*結果*（effect・THEN で起きること）のどれか」を決め、その一つの欄にだけ書く。とくに **condition の label には「そのとき成り立っている事実・状態」だけ**を書き、**結果（何が起きるか）は transition の `then`（effect）の責務**なので condition に埋め込まない。同じ 1 つの事柄を condition と effect の両方に書かない。
+- **きっかけ・前提・結果を書き分ける（action / condition / effect のカテゴリ分離）**：一つの事柄を書く前に「これは *きっかけ*（action・WHEN で発火するトリガー）／*前提*（condition・GIVEN で真の状態）／*結果*（effect・THEN で起きること）のどれか」を決め、その一つの欄にだけ書く。とくに **condition の label には「そのとき成り立っている事実・状態」だけ**を書き、**結果（何が起きるか）は transition の `then`（effect）の責務**なので condition に埋め込まない。**逆も同じで、action / effect の label・desc に「いつ発火するか」を書かない**——発火条件は transition の `given`（condition）の責務である。同じ 1 つの事柄を condition と effect の両方に書かない。
   - ❌ `--force が指定されている（既存を上書き）` — 「既存を上書き」は結果（effect）であり、前提（condition）に混ぜてはいけない。
   - ✅ `--force が指定されている` — 結果は `then` 側の effect vocab（例 `既存を上書きする`）が表す。
+  - ❌ `通知を送らない（利用者が通知をオフにしている場合、および夜間は）` — 「〜場合」「〜は」は前提（condition）であり、結果（effect）に混ぜてはいけない。
+    ⚠️ **こちらの向きは、書いた時点では嘘になっていない**ので気づきにくい。上の例も、その効果を `then` に持つ遷移が
+    その 2 本しか無いうちは「和」として真である。**3 本目が増えた瞬間に、静かに偽になる。**
+  - ✅ `通知を送らない` — いつ送らないかは、その効果を `then` に持つ各 transition の `given` が持つ。
   - **WHY**：condition は **`scholia flow` が読む状態次元の軸**として扱われる。結果を混ぜると given 集合が汚れ、subset-shadow（given 集合の包含関係）・L-total（軸の抜け）の読みが濁って分析が嘘の given を見る。しかも結果は transition の `then`／effect に既にあるので**二重書き**になり、**`then` を変えたときに condition の label／desc だけが古い結果を語り続けて嘘になる（drift）**。
+    🔴 **この drift は鏡像でも起きる**（issue #2）: action / effect の desc に発火条件を書くと、
+    **その語彙を使う transition が 1 本増えた瞬間に、desc だけが古い条件を語り続けて嘘になる**。
+    ⚠️ **増えた瞬間に静かに偽になる**——書いた本人は 1 本目しか見ていないので、気づく機会が無い。
+    **発火条件を書いてよいのは `given` だけである。**
 - **label は観測可能に書く（ファジー語回避）**：特に effect の label は、**曖昧語を避け何が起きるかを具体的に**書く。読み手（人・AI・実装者）が実装を推測できる粒度にする。「温存する」「よしなに」「適切に処理する」「ハンドリングする」「ガード」等の**観測できない/解釈が揺れる**表現は避け、**何を出力/変更/返すか**を述べる。spec は人と AI が読み合わせる契約であり、曖昧語は解釈が分かれて実装とレビューがすれ違う。観測可能な記述なら実装の合否が spec だけで判定できる。
   - ❌ `既存の利用者ファイルを上書きせず温存する（ガード）`
   - ✅ `既存の利用者ファイルを上書きせず、スキップした旨の警告を出力する`
