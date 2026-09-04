@@ -8,6 +8,9 @@
   "changed": "1. decision-stale の同伴判定に、コミットメッセージのトレーラ Scholia-Decision: \u003culid\u003e（繰り返し可）を足す。\n2. 申告の検査を2つ足す: id が実在すること・その decision の対象がそのコミットで変えたレコードのいずれか（実効タグ経由を含む）であること。\n3. 満たさない申告があるときは decision-stale の本文に理由を書く。規則は増やさない。\n4. トレーラの切り出しは git の %(trailers:key=…) に任せ、自前で本文を解析しない。\n5. 判定は git を呼ばない純関数に置く。\n6. 配布スキルの着地手順にトレーラを載せる。\n7. DESIGN.md の decision-stale の記述を同伴の2経路へ改める。",
   "ref": "https://github.com/nkenji09/scholia/issues/4",
   "at": "2026-09-04T01:21:12Z",
+  "refs": [
+    "https://github.com/nkenji09/scholia/issues/4"
+  ],
   "supersedes": [
     {
       "id": "01KXWPQDGMDB01V86KZ91M0BPQ",
