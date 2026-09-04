@@ -12,6 +12,8 @@ func newDecisionCmd() *cobra.Command {
 	}
 	cmd.AddCommand(newDecisionAddCommitCmd())
 	cmd.AddCommand(newDecisionAddRefCmd())
+	cmd.AddCommand(newDecisionEditCmd())
+	cmd.AddCommand(newDecisionRmCmd())
 	cmd.AddCommand(newDecisionAppliedCmd())
 	cmd.AddCommand(newDecisionListCmd())
 	cmd.AddCommand(newDecisionLinkCmd())

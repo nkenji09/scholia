@@ -22,7 +22,7 @@ The viewer for browsing them ships as a single binary, so no extra runtime or da
 - **Store only atoms; derive structure.** The only thing stored is the transition — an atom. Specs, hierarchies, and groupings are all derived from tags and queries.
 - **Classify along three axes.** Category (fixed), kind (declared per project), and tag (free-form, nestable, cross-cutting classification) — nothing more.
 - **Let git be the database.** One record, one text file. History, diffs, and review all run on plain git — no dedicated database needed.
-- **Decisions are append-only.** A decision is never deleted or edited; a correction is added as a new entry, optionally marked as superseding, amending, or an exception to the one it corrects (`supersedes`), so "what's current" stays machine-checkable. Frozen judgments become the baseline against which future changes are evaluated.
+- **Decisions are append-only once they land.** A decision is never deleted or edited **after it reaches the branch you merge into**; a correction is added as a new entry, optionally marked as superseding, amending, or an exception to the one it corrects (`supersedes`), so "what's current" stays machine-checkable. Frozen judgments become the baseline against which future changes are evaluated.
 - **Vocabulary and tags are orthogonal.** Vocabulary (vocab) composes behavior; tags classify it (tags classify; vocab composes).
 
 The diagram below shows the relationship between the atoms that get stored and the derived views built from them.

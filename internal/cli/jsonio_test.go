@@ -135,6 +135,8 @@ const (
 	// 食い違う。** 完全 hash しか渡さないと、面が保存前の値を出す変異を
 	// TestJSONWriteFacesEmitTheSavedDecision が検出できない（実測で緑のまま通った）。
 	placeholderShortHash = "<head-short>"
+	// placeholderUnlandedDecisionID は HEAD に載っていない decision の id。
+	placeholderUnlandedDecisionID = "<unlanded-decision-id>"
 )
 
 // jsonFaceInvocations は面ごとの引き方（コマンド列と `--json` は含まない）。
@@ -420,6 +422,12 @@ type fixtureIDs struct {
 	oldDecision string
 	review      string
 	headHash    string
+	// unlandedDecision は **HEAD に載っていない** decision（seedGitHistory の後に作る）。
+	// `decision edit` / `decision rm` は「取り込み先に載っていないこと」を関門にするので、
+	// **載っている decision しか無い標本では、その面を一度も走らせられない**
+	// （01M1N5YPTRSYAJWH3W7GK4FP64）。unrunnableSurfaces へ逃がすと宣言が
+	// 誰にも検査されなくなるので、標本の側に走らせられる材料を置く。
+	unlandedDecision string
 }
 
 func (ids fixtureIDs) resolve(args []string) []string {
@@ -430,6 +438,8 @@ func (ids fixtureIDs) resolve(args []string) []string {
 			out[i] = ids.decision
 		case placeholderOldDecisionID:
 			out[i] = ids.oldDecision
+		case placeholderUnlandedDecisionID:
+			out[i] = ids.unlandedDecision
 		case placeholderReviewID:
 			out[i] = ids.review
 		case placeholderHeadHash:
@@ -529,6 +539,10 @@ func seedJSONFaceFixture(t *testing.T) (string, fixtureIDs) {
 	}
 
 	ids.headHash = seedGitHistory(t, dir)
+	// 🔴 **git 履歴を作った「あと」に1件足す。** これが HEAD に載っていない
+	// decision で、`decision edit` / `decision rm` を実際に走らせる材料になる。
+	ids.unlandedDecision = extractJSONID(t, must("decide", "--on", "tag:req.b",
+		"--why", "# 標本用の見出し 4\n\nHEAD に載っていない判断。", "--json"))
 	return dir, ids
 }
 

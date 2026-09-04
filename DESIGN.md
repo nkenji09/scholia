@@ -211,7 +211,12 @@ lint は二層で、**error＝記録の自己矛盾**（保存拒否・CI fail �
   "ref": "PR#57", "at": "2026-07-11T00:00:00Z" }
 ```
 
-- `Decision { id, target: {type: "transition"|"tag"|"vocab", id}, why, changed?, ref?, commits?[], acknowledges?[], supersedes?[{id, mode}], at }` — **append-only**（消さない・直さない。訂正は新しい 1 件を足す）。`acknowledges` は #45 D6・`supersedes` は #45 D7 の追加フィールド（いずれも additive/omitempty・既存レコードは無改修）。
+- `Decision { id, target: {type: "transition"|"tag"|"vocab", id}, why, changed?, ref?, commits?[], acknowledges?[], supersedes?[{id, mode}], at }` — **append-only**（**取り込み先に載ったら**消さない・直さない。訂正は新しい 1 件を足す）。
+  🔴 **凍るのは「作った瞬間」ではなく「取り込み先（base）に載った時点」である**（01M1N5YPTRSYAJWH3W7GK4FP64）。
+  歯止め（`diff --check <base>`）は最初からそう動いており、CI も `origin/<base_ref>` と比べる——ブランチの中だけに在る decision は
+  「増えた 1 件」でしかない。載る前は `scholia decision edit <id> [--why|--changed|--ref]` と `scholia decision rm <id>` で直せる
+  （どちらも **base に既に在れば拒否**し、**base を決められなければ拒否**する＝fail closed。`target`／`at` は直せない）。
+  ⚠️ **push 済みの共有ブランチでの書き換えは止められない**——見ているのは「base に在るか」だけである。`acknowledges` は #45 D6・`supersedes` は #45 D7 の追加フィールド（いずれも additive/omitempty・既存レコードは無改修）。
 - **vocab への意思決定（#45 D5）**: 語彙自身の why（新設理由・想定・状態連鎖の意図）を語彙に付けられる。desc は「これは何か」1行に痩せさせ、経緯・想定は vocab-target decision へ移す（`scholia decide --on vocab:<id>`）。review が vocab を対象にできるのに decision 昇格で拒否される非対称を解消する。`vocab rename` は vocab-target decision の `target.id` を追随張替えし、`vocab rm` は decision-target を宙吊りにしないよう削除を拒否する（tag/transition と同型のガード）。
 - **1 件 1 ファイル**にすることで、append が**衝突しない**（配列 JSON だと末尾追記が git で衝突する）。
 - **`refs[]`（外部参照の集合・任意・追記専用）が実装来歴の正本**（01M1K4WPN3HXNVE0CR0T6NQK33）。
@@ -612,6 +617,8 @@ scholia tx rm <id> --why <理由> --force                      # 破壊的（dec
 scholia decide --on <transition|tag|vocab>:<id> --why <見出し＋本文> [--changed <s>] [--ref <s>] [--commit <hash>…] [--acknowledges <ruleId,…>] [--supersedes <ulid>[:<mode>]…] [--allow <rule> --reason <t>]  # vocab は #45 D5。why の1行目は見出し必須（`# ` ＋1〜80 rune・2行目以降に本文・満たさないと保存拒否 decision-heading・01KZ06SYR3APGF3JD4NQRFTEEN）。acknowledges=容認する finding の rule id（実在照合・#45 D6）／supersedes=置き換える旧 decision（mode=supersede|amend|exception・既定 amend・#45 D7）
 scholia decision add-commit <decisionId> <hash> [<hash>...] --kind implementation|correction [--json]  # 既存 decision の commits[] に追記専用（§3.5）。--kind は必須（既定値なし）。correction は applied[] に是正の印を1件足す。結ぶ commit は形を必ず、実在は git 管理下でのみ照合し、git 管理下では完全 hash へ寄せて保存する（01M09FHEQH7PVZ2BTKGXY5YMNN）
 scholia decision relink-commits [--apply] [--json]  # 取り込み（squash merge・rebase）で祖先から外れた commits[] の結線を、同じ見出しを持つ着地先の候補へ結び直す。既定は候補の提示のみ（無変更）・--apply で追記（01M1JY0APWXHFZ1TKWST7VPS9N）
+scholia decision edit <decisionId> [--why|--changed|--ref] [--base <ref>]  # 取り込み先に載っていない decision の判断を直す。base に在れば拒否・base を決められなければ拒否（01M1N5YPTRSYAJWH3W7GK4FP64）
+scholia decision rm <decisionId> [--base <ref>]                           # 同上の条件で decision を消す
 scholia decision add-ref <decisionId> <ref> [<ref>...] [--json]  # 既存 decision の refs[] に追記専用。判断欄位の ref（1 個・凍結）とは別で、着地後に何件でも足せる。URL は squash merge で壊れない（01M1K4WPN3HXNVE0CR0T6NQK33）
 scholia decision applied <decisionId> --kind conflict|rejection [--landed <decisionId>] [--json]  # 引かれた decision に「記録が結論を決めた」印を1件足す（矛盾・却下）。decision をどう作ったかに依存しない口。rejection は --landed 必須／conflict は任意（何も着地しない矛盾がある）。是正は add-commit --kind correction に相乗りする（01M09FHEQH7PVZ2BTKGXY5YMNN）
 scholia decision link <newId> --supersedes <oldUlid>[:<mode>] [--json]  # 現行性リンクの後付け backfill・追記専用・id実在/自己参照禁止/循環禁止（#45 D7）

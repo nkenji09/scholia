@@ -43,7 +43,7 @@ scholia lint                                     # 記録の自己矛盾チェ�
 
 ### ⚠️ `--why` の 1 行目は見出しにする（満たさないと保存されない）
 
-保存時に拒否される（`decision-heading`）。`why` は append-only で保存後に直せないので、警告ではなく拒否である。
+保存時に拒否される（`decision-heading`）。`why` は**取り込み先に載ったら**直せないので、警告ではなく拒否である（載る前なら `scholia decision edit` で直せる・01M1N5YPTRSYAJWH3W7GK4FP64）。
 
 1. 1 行目が `#` で始まる
 2. `#` と空白を除いた本体が **1 字以上 80 字以内**
@@ -125,7 +125,7 @@ decision は **append-only**（過去を消す提案＝取り込み拒否の最�
 
 1. 書き込みコマンドの出力（`--json` は応答封筒 `{ record, advisories }`）を読む。
 2. **advisory がゼロになるまで是正する**（是正が正。容認は理由必須で稀な例外）。
-3. `decide` は**必ず `--dry-run` を先に打つ**（decision は append-only・保存後の why は直せない）。
+3. `decide` は**必ず `--dry-run` を先に打つ**（decision は append-only。**取り込み先に載ったあとの why は直せない**——載る前なら `scholia decision edit <id> --why …`・`scholia decision rm <id>` で直せる）。
 4. 保存拒否（reject）を `--allow <rule> --reason <理由>` で破るのは、**稀な例外だけ**。規則の一覧は書き写さない——`--allow` に渡せる名前はエラー文言が列挙する（実装が正）。**--allow の使用例を手本（few-shot）として他レコードに写さない**。
    - 拒否には**機械判定できる不変条件**（矛盾する given・kind 不一致など）と、**保存後に是正できない欄の形式要件**（`decide --why` の見出し）の両方が入る。後者は「あとで直す」ができないので、警告ではなく拒否になっている。是正は `--allow` ではなく **why の側を直す**。
 
@@ -165,7 +165,7 @@ decision は **append-only**（過去を消す提案＝取り込み拒否の最�
 
 - **finding を容認するときは rule 名を acknowledges に書く** — `scholia decide --on <対象> --acknowledges <rule>[,<rule>…] --why "<見出し＋本文>"`（形は上記「`--why` の 1 行目は見出しにする」）。有効 rule id は lint 規則名（`requirement-gap` 等）と flow finding 名（`subset-shadow`・`total-gap`・`overlap`）。typo は同一ターンで弾かれる。畳むのは**当該 target 宛て**の decision だけ（祖先では畳まない）。**同じ穴が複数 rule で出る場合は出る rule を全列挙**する。
 - **性質型要件（遷移で充足されない非機能要件）は `fulfillment=property`＋decision 必須** — `scholia tag edit <id> --fulfillment property` で宣言し、**かつ** `scholia decide --on tag:<id> --acknowledges requirement-gap --why "<見出し＋本文>"`（形は上記「`--why` の 1 行目は見出しにする」）を足す。**property 宣言だけでは畳まない**（宣言のみ・decision 無しは warn のまま）。
-- rule を改名すると acknowledges が宙吊りになる（`dangling-acknowledges` info が警告）。decision は append-only なので直せない——新しい decision で正しい rule 名を acknowledge し直す。
+- rule を改名すると acknowledges が宙吊りになる（`dangling-acknowledges` info が警告）。取り込み先に載った decision は直せない——新しい decision で正しい rule 名を acknowledge し直す。
 
 ### 現行性リンク（#45 D7・supersedes）— decide 時に「全文置換か？」を必ず1問
 
@@ -218,6 +218,8 @@ scholia decide --on <transition|tag|vocab>:<id> --why <見出し＋本文> [--ch
                                                                       # ⚠️ --why の1行目は見出し必須（`# ` ＋1〜80字・2行目以降に本文）。満たさないと保存されない
 scholia decide … --acknowledges <rule>[,<rule>…]                      # finding を型付き容認（#45 D6・rule 実在照合）
 scholia decide … --supersedes <old>[:<mode>]                          # 旧 decision を置換/改訂/例外化（mode=supersede|amend|exception・既定 amend・#45 D7）
+scholia decision edit <decisionId> [--why|--changed|--ref] [--base <ref>]  # 取り込み先に載っていない decision を直す（載っていれば拒否・01M1N5YPTRSYAJWH3W7GK4FP64）
+scholia decision rm <decisionId> [--base <ref>]                           # 同上の条件で消す
 scholia decision add-ref <decisionId> <ref> [...]                             # 既存 decision の refs[] に追記専用（**これを使う**）。URL は squash merge で壊れない
 scholia decision add-commit <decisionId> <hash> [...] --kind implementation   # commits[] に追記専用。**非推奨**（取り込みで hash が辿れなくなる・01M1K4WPN3HXNVE0CR0T6NQK33）
 scholia decision add-commit <decisionId> <hash> --kind correction      # 書いてあるとおりに実装されていなかったのを直した commit。applied[] に是正の印が1件付く（**こちらは非推奨ではない**——是正の印を打つ唯一の口）
