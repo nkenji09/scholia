@@ -152,7 +152,11 @@ desc に書かない。正典＝[`../_scholia-shared/references/modeling-princip
      `scholia tag edit <id> --fulfillment property` も併せる。
 8. **commit（意味単位）** — `.scholia/` の変更を 1 つの意味単位コミットにまとめる。
 9. **decision に着地先を結ぶ（完了ゲート・必須）** — レコードを変更した commit には decision が同伴していること
-   （非同伴は lint `decision-stale` が検出する）:
+   （非同伴は lint `decision-stale` が検出する）。
+   ⚠️ **レコードの改稿と decision の追加を別の commit に分けるなら**、レコードを変えた側の commit メッセージに
+   **`Scholia-Decision: <ulid>`** を書く（繰り返し可・01M1N02SRH9BAMT82B7GMTGQJH）。申告した id は実在と対象の
+   両方が検査されるので、**その decision がそのレコードを支配していること**（実効タグ経由でよい）が要る。
+   分割のたびに `acknowledges:[decision-stale]` を積む必要はもう無い:
    ```
    scholia decision add-ref <decisionId> <PR/issue の URL>
    ```

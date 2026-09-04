@@ -50,3 +50,49 @@ func TestReachableSetEmpty(t *testing.T) {
 		t.Error("空集合が hashA を含むと答えた")
 	}
 }
+
+// トレーラを運ぶ見出しを、NUL の構造を壊さずに読めること
+// （01M1N02SRH9BAMT82B7GMTGQJH）。
+//
+// ⚠️ ここは**値で検査する**——実際の git 出力の形（番兵＋NUL 区切り）をそのまま
+// 組んで、返る Commit を突き合わせる。git を起こす検査より安く、同じ穴を見る。
+func TestParseNameStatusZCarriesTrailers(t *testing.T) {
+	// <mark>hash<tmark>id1<sep>id2 \0 "\nM" \0 path \0
+	out := CommitMark + "abc123" + TrailerMark + "01AAA\x1f01BBB" + "\x00" +
+		"\nM" + "\x00" + ".scholia/tags/req.x.json" + "\x00" +
+		CommitMark + "def456" + TrailerMark + "" + "\x00" +
+		"\nM" + "\x00" + ".scholia/vocab/cond.y.json" + "\x00"
+
+	commits, err := ParseNameStatusZ([]byte(out))
+	if err != nil {
+		t.Fatalf("読めません: %v", err)
+	}
+	if len(commits) != 2 {
+		t.Fatalf("commit 数 = %d, want 2", len(commits))
+	}
+	if commits[0].Hash != "abc123" {
+		t.Errorf("hash = %q, want abc123（トレーラが hash に混ざっている）", commits[0].Hash)
+	}
+	if len(commits[0].Trailers) != 2 || commits[0].Trailers[0] != "01AAA" || commits[0].Trailers[1] != "01BBB" {
+		t.Errorf("trailers = %v, want [01AAA 01BBB]", commits[0].Trailers)
+	}
+	// 🔴 パスの読み取りが壊れていないこと（見出しを広げた副作用を捕まえる）。
+	if len(commits[0].Changes) != 1 || commits[0].Changes[0].Path != ".scholia/tags/req.x.json" {
+		t.Errorf("changes = %+v（見出しを広げてパスの位置がずれた）", commits[0].Changes)
+	}
+	if len(commits[1].Trailers) != 0 {
+		t.Errorf("トレーラ無しが %v になった（空文字を1件と数えている）", commits[1].Trailers)
+	}
+}
+
+// 番兵が無い（トレーラを要求していない）出力も、これまでどおり読めること。
+func TestParseNameStatusZWithoutTrailerMark(t *testing.T) {
+	out := CommitMark + "abc123" + "\x00" + "\nM" + "\x00" + ".scholia/tags/req.x.json" + "\x00"
+	commits, err := ParseNameStatusZ([]byte(out))
+	if err != nil {
+		t.Fatalf("読めません: %v", err)
+	}
+	if len(commits) != 1 || commits[0].Hash != "abc123" || len(commits[0].Trailers) != 0 {
+		t.Fatalf("後方互換が壊れている: %+v", commits)
+	}
+}

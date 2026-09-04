@@ -11,6 +11,7 @@ import (
 
 	"github.com/nkenji09/scholia/internal/gitio"
 	"github.com/nkenji09/scholia/internal/gittest"
+	"github.com/nkenji09/scholia/internal/model"
 	"github.com/nkenji09/scholia/internal/store"
 )
 
@@ -447,7 +448,7 @@ func TestStaleCommitsJudgesFromValues(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := staleCommits([]gitio.Commit{tc.commit}, tc.storePrefix)
+			got := staleCommits([]gitio.Commit{tc.commit}, tc.storePrefix, governance{})
 			if len(tc.want) == 0 {
 				if len(got) != 0 {
 					t.Fatalf("挙げないはずが挙がった: %+v", got)
@@ -511,5 +512,82 @@ func TestDecisionStaleSilentWhenRepoHasNoCommits(t *testing.T) {
 
 	if got := r.findings(); len(got) != 0 {
 		t.Fatalf("commit が1件も無いリポジトリでは何も出さないはず: %+v", got)
+	}
+}
+
+// 同伴の第2経路（commit メッセージのトレーラ・01M1N02SRH9BAMT82B7GMTGQJH）。
+//
+// ⚠️ 判断は純関数 governance / staleCommits に切り出してあるので、**入力と出力の対**で
+// 検査する（CLAUDE.md「配線ガードの書き方」1）。git も画面も起こさない。
+func TestStaleCommitsTrailerDeclaration(t *testing.T) {
+	// req.parent ⊃ req.child、tx.a は req.child を実効タグに持つ、という形。
+	gov := governance{
+		target: map[string]model.DecisionTarget{
+			"01ONTX":      {Type: model.DecisionTargetTransition, ID: "tx.a"},
+			"01ONCHILD":   {Type: model.DecisionTargetTag, ID: "req.child"},
+			"01ONPARENT":  {Type: model.DecisionTargetTag, ID: "req.parent"},
+			"01ELSEWHERE": {Type: model.DecisionTargetTag, ID: "req.other"},
+		},
+		tags: map[string]map[string]bool{
+			"tx.a": {"req.child": true, "req.parent": true},
+		},
+	}
+	changed := gitio.Commit{Hash: "h", Changes: []gitio.Change{
+		{Status: "M", Path: ".scholia/transitions/tx.a.json"},
+	}}
+
+	tests := []struct {
+		name      string
+		trailers  []string
+		wantStale bool
+		wantWhy   string // finding 本文に含まれてほしい語（空なら見ない）
+	}{
+		{name: "申告が無ければ、いままでどおり挙がる", trailers: nil, wantStale: true},
+		{name: "対象そのものへの decision を申告すれば挙がらない", trailers: []string{"01ONTX"}},
+		{name: "実効タグ経由でも認める", trailers: []string{"01ONCHILD"}},
+		{name: "祖先タグ経由でも認める", trailers: []string{"01ONPARENT"}},
+		{
+			name:     "実在しない id は認めず、理由を出す",
+			trailers: []string{"01NOSUCH"}, wantStale: true, wantWhy: "実在しません",
+		},
+		{
+			// 🔴 ここが「緩める変更ではない」の要。対象が合わない申告は通さない。
+			name:     "対象が合わない decision は認めず、理由を出す",
+			trailers: []string{"01ELSEWHERE"}, wantStale: true, wantWhy: "支配していません",
+		},
+		{
+			name:     "複数申告のうち1つでも当たれば認める",
+			trailers: []string{"01ELSEWHERE", "01ONTX"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			c := changed
+			c.Trailers = tc.trailers
+			got := staleCommits([]gitio.Commit{c}, ".scholia", gov)
+			if !tc.wantStale {
+				if len(got) != 0 {
+					t.Fatalf("同伴と認めるはずが挙がった: %+v", got)
+				}
+				return
+			}
+			if len(got) != 1 {
+				t.Fatalf("1件挙がるはずが %d 件: %+v", len(got), got)
+			}
+			if tc.wantWhy == "" {
+				return
+			}
+			msg := declinedSuffix(got[0].declined)
+			if !strings.Contains(msg, tc.wantWhy) {
+				t.Errorf("理由に %q が出ていない: %q", tc.wantWhy, msg)
+			}
+		})
+	}
+}
+
+// 申告が無いときは本文に1文字も足さない（理由が無いのに「理由:」と出さない）。
+func TestDeclinedSuffixEmpty(t *testing.T) {
+	if s := declinedSuffix(nil); s != "" {
+		t.Errorf("申告が無いのに本文が足された: %q", s)
 	}
 }

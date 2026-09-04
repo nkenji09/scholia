@@ -128,6 +128,27 @@ const CommitMark = "\x01"
 // LogFormatArg は `git log` に渡す `--format`（番兵つき）。
 const LogFormatArg = "--format=" + CommitMark + "%H"
 
+// TrailerMark は commit 見出しの中で hash とトレーラを区切る番兵。
+//
+// ⚠️ **NUL の並びを崩さない位置に置く。** トレーラを別のフィールドにすると
+// `--name-status -z` の「status とパスを位置で決める」読み方が狂う——見出しの
+// 内側で区切れば、外側の構造は1バイトも変わらない。
+const TrailerMark = "\x02"
+
+// trailerSep はトレーラが複数あるときの区切り（git に渡す separator）。
+const trailerSep = "\x1f"
+
+// LogFormatWithTrailers は、指定したキーのトレーラも運ぶ `--format` を返す。
+//
+// 🔴 **トレーラの切り出しは git 自身にさせる**（01M1N02SRH9BAMT82B7GMTGQJH）。
+// この package は「自前の解釈をやめる」ために作られたもので、本文を行分割して
+// `Key:` を探す実装は、折り返し・大小・空白の扱いを1つずつ数え上げることになる
+// ——`-z` で引用の解釈をやめたのと同じ判断である。
+func LogFormatWithTrailers(key string) string {
+	return LogFormatArg + TrailerMark +
+		"%(trailers:key=" + key + ",valueonly,separator=" + trailerSep + ")"
+}
+
 // Change は 1 commit の中の 1 つの変更。
 type Change struct {
 	// Status は git の status 文字列（"M"・"A"・"D"・"R100" など）。
@@ -140,6 +161,9 @@ type Change struct {
 type Commit struct {
 	Hash    string
 	Changes []Change
+	// Trailers は LogFormatWithTrailers で要求したキーの値（宣言順）。
+	// 要求していなければ常に空。
+	Trailers []string
 }
 
 // ParseNameStatusZ は `git log LogFormatArg --name-status -z` の出力を解釈する。
@@ -166,7 +190,12 @@ func ParseNameStatusZ(out []byte) ([]Commit, error) {
 			continue
 		}
 		if strings.HasPrefix(f, CommitMark) {
-			commits = append(commits, Commit{Hash: strings.TrimPrefix(f, CommitMark)})
+			head := strings.TrimPrefix(f, CommitMark)
+			hash, rawTrailers, _ := strings.Cut(head, TrailerMark)
+			commits = append(commits, Commit{
+				Hash:     hash,
+				Trailers: splitTrailers(rawTrailers),
+			})
 			i++
 			continue
 		}
@@ -186,4 +215,20 @@ func ParseNameStatusZ(out []byte) ([]Commit, error) {
 		i += paths + 1
 	}
 	return commits, nil
+}
+
+// splitTrailers は git が separator で連結したトレーラ値を分ける。
+// 空文字（トレーラ無し）は空スライスにする——0 件と「空文字1件」を区別する。
+func splitTrailers(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	var out []string
+	for _, v := range strings.Split(raw, trailerSep) {
+		if v = strings.TrimSpace(v); v != "" {
+			out = append(out, v)
+		}
+	}
+	return out
 }

@@ -297,9 +297,21 @@ lint は二層で、**error＝記録の自己矛盾**（保存拒否・CI fail �
   decision で古びる）。時刻比較型の鮮度検査は spec-first では実装 commit が常に desc より新しく効かないため採らない。
   代わりに (1) decide 保存前プレビュー・(2) viewer review adopt 応答・(3) `decision add-commit` 同一ターンの三点で、
   対象 decision の tag/vocab desc に stale-tense advisory を返す（検査本体は既存 stale-tense コア）。加えて lint
-  `decision-stale`（info・git 導出・保存ゼロ）が「既存レコードを変更した commit に decision 追加が同伴しない」場合のみ
+  `decision-stale`（info・git 導出・保存ゼロ）が「既存レコードを変更した commit に decision が同伴しない」場合のみ
   「要再確認」を出す（rename は git の R 検出で除外・機械マイグレーション型の偽陽性が残るため info 級＋対象レコード宛て
   `acknowledges:[decision-stale]` で容認可）。
+  - **同伴の示し方は2つある**（01M1N02SRH9BAMT82B7GMTGQJH）。(1) **同じ commit に decision ファイルが増えている**、
+    (2) **commit メッセージのトレーラ `Scholia-Decision: <ulid>`**（繰り返し可）。
+    2 を足したのは、レコードの改稿と decision の追加を**別の commit に分ける運用**（レビュー粒度を合わせるための分割）が
+    必ず警告になっていたため。
+  - ⚠️ **2 は緩める経路ではない。** 申告した id は**実在**と**対象**の両方を検査する——その decision が、その commit で
+    変えたレコードを支配していなければ同伴と認めない（実効タグ経由は認める）。**1 のほうは対象を一切見ていない**ので、
+    無関係な decision を同じ commit に入れれば黙る。**2 のほうが厳しい。**
+  - 🔴 **効かなかった申告は黙らせない。** 実在しない id・対象の合わない id を書いたときは、finding の本文に理由を書く
+    （規則 id は増やさない——増やすと容認の対象がもう1つ増える）。トレーラの切り出しは git 自身（`%(trailers:key=…)`）に
+    任せ、本文を自前で解析しない。
+  - ⚠️ **時刻の前後は一切見ない**（「レコードを変えたあとに decision が積まれたか」で判定する形は却下済み・
+    01KXWPQDGMDB01V86KZ91M0BPQ ／ 01M09FHDJCV2WWFC7Z8331B0YQ）。
 - **容認の型付き宣言（#45 D6）**: 「意図的に残す gap」を機械可読に宣言する2系統。(a) `Decision.acknowledges[]` は容認する
   finding の **rule id を指名**（decide 時に有効 rule id〔lint.Rules 名＋flow の subset-shadow/total-gap/overlap〕へ実在
   照合・typo は同一ターン error＋候補提示・rule 改名で宙吊りになった acknowledges は lint `dangling-acknowledges` が警告）。
