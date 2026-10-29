@@ -10,12 +10,16 @@ import (
 	"github.com/nkenji09/scholia/internal/lint"
 	"github.com/nkenji09/scholia/internal/model"
 	"github.com/nkenji09/scholia/internal/store"
+	"github.com/nkenji09/scholia/internal/textcheck"
 )
+
+// decideTextCheckKey は、まだ id を持たない decision を読み手に渡すときの key。
+const decideTextCheckKey = "new"
 
 func newDecideCmd() *cobra.Command {
 	var on, why, changed, ref string
 	var commits, refs, acknowledges, supersedes []string
-	var asJSON, dryRun bool
+	var asJSON, dryRun, acceptTextCandidates bool
 	var gate *gateFlags
 	cmd := &cobra.Command{
 		Use:   "decide",
@@ -103,15 +107,38 @@ func newDecideCmd() *cobra.Command {
 			advisories = append(advisories, lint.CommitLinkDeprecatedAdvisories(len(d.Commits))...)
 
 			if dryRun {
+				// 書き手が経緯を知っているために見落とす言葉を、保存前に拾う（decision は保存後に直せない）。
+				// 読み手の指定が無ければ何も起きない。読み手が失敗しても、dry-run の終了コードは変えない。
+				check, err := decideTextCheck(cmd, s, d, acceptTextCandidates)
+				if err != nil {
+					return err
+				}
 				if asJSON {
-					return emitWriteJSON(cmd, d, advisories, allowed, true)
+					var tc *textCheckJSON
+					if !check.Result.NoReader {
+						tc = check.json()
+					}
+					return emitWriteJSONWithTextCheck(cmd, d, advisories, allowed, true, tc)
 				}
 				fmt.Fprintf(cmd.OutOrStdout(), "dry-run: decision は保存していません（%s:%s への advisory プレビュー）\n", targetType, targetID)
 				if len(advisories) == 0 {
 					fmt.Fprintln(cmd.OutOrStdout(), "advisory: なし（このまま decide してよい）")
 				}
 				printWriteGateText(cmd, allowed, advisories)
+				for _, l := range check.lines() {
+					fmt.Fprintln(cmd.OutOrStdout(), l)
+				}
 				return nil
+			}
+
+			// 保存の前に文を読ませる（telos の approve と同じ形）。候補があれば保存せず止め、
+			// 読み手が失敗したときは止めずに保存する。保存後は直せないので、確かめの場所はここである。
+			check, err := decideTextCheck(cmd, s, d, acceptTextCandidates)
+			if err != nil {
+				return err
+			}
+			if err := textCheckBlockError(cmd, check); err != nil {
+				return err
 			}
 
 			// 新規作成の口（store.CreateDecision）。runWriteGate は既に同じ拒否規則を
@@ -134,6 +161,9 @@ func newDecideCmd() *cobra.Command {
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "decision %s を記録しました（%s:%s）\n", saved.ID, targetType, targetID)
 			printWriteGateText(cmd, allowed, advisories)
+			for _, l := range check.lines() {
+				fmt.Fprintln(cmd.OutOrStdout(), l)
+			}
 			return nil
 		},
 	}
@@ -146,7 +176,8 @@ func newDecideCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&acknowledges, "acknowledges", nil, "意図的に容認する finding の rule id（カンマ区切り or 繰り返し・#45 D6）。有効な rule id に解決しないと保存前に弾かれる")
 	cmd.Flags().StringArrayVar(&supersedes, "supersedes", nil, "置き換える旧 decision <ulid>[:<mode>]（mode=supersede|amend|exception・既定 amend・繰り返し可・#45 D7）")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "作成したレコードを応答封筒 { record, advisories } の JSON で出力する")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "保存せず advisory だけプレビューする（decision は append-only・保存後の why は直せない。decide の前に必ず打つ）")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "保存せず advisory と、読み手の確かめ（指定があるとき）だけをプレビューする（decision は append-only・保存後の why は直せない。decide の前に必ず打つ）")
+	cmd.Flags().BoolVar(&acceptTextCandidates, textCheckAcceptFlag, false, "読み手（環境変数 "+textcheck.Variable+"）を呼ばずに保存する。候補が出て止まったあと、直すと決めた所だけ直して打ち直すときに付ける")
 	// 逃し弁 --allow/--reason（01KZ06SYR3APGF3JD4NQRFTEEN 変更4）。
 	// ⚠️ 以前は「decide には付けない——フラグの常在は --allow の常用化を招く」と
 	// 判断していたが、decide に効く拒否規則（decision-heading）を足した以上、

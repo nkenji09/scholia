@@ -159,6 +159,7 @@ var jsonFaceInvocations = map[string][]string{
 	"decision relink-commits": {},
 	"decision show":           {placeholderDecisionID},
 	"diff":                    {},
+	"text-check":              {"tag:req.b"},
 	"flow":                    {"act.submit"},
 	"gaps":                    {"act.submit"},
 	"init":                    {},
@@ -316,6 +317,7 @@ func TestEveryJSONFaceGoesThroughTheSingleExit(t *testing.T) {
 	//     HOME を temp へ向けて逃がす。
 	t.Setenv("EDITOR", "true")
 	t.Setenv("HOME", t.TempDir())
+	useQuietReader(t)
 
 	ran, rejected := 0, 0
 	for _, face := range discoverJSONFaces(t) {

@@ -217,11 +217,16 @@ func (s *Store) TransitionExists(id string) bool {
 
 func (s *Store) LoadConfig() (model.Config, error) {
 	var c model.Config
-	err := readJSON(filepath.Join(s.Dir, configFile), &c)
-	return c, err
+	if err := readJSON(filepath.Join(s.Dir, configFile), &c); err != nil {
+		return c, err
+	}
+	return c, model.ValidateReaderQuestion(c.ReaderQuestion)
 }
 
 func (s *Store) SaveConfig(c model.Config) error {
+	if err := model.ValidateReaderQuestion(c.ReaderQuestion); err != nil {
+		return err
+	}
 	return writeJSONAtomic(filepath.Join(s.Dir, configFile), c)
 }
 

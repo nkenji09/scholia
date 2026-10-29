@@ -59,6 +59,7 @@ func TestJSONWriteFacesEmitTheSavedDecision(t *testing.T) {
 	template, ids := seedJSONFaceFixture(t)
 	t.Setenv("EDITOR", "true")
 	t.Setenv("HOME", t.TempDir())
+	useQuietReader(t)
 
 	writeFaces, checked, noRecord := 0, 0, 0
 	for _, face := range discoverJSONFaces(t) {

@@ -238,6 +238,8 @@ var deliverySpecs = map[string]deliverySpec{
 		why: "同上"},
 	"scholia diff": {text: textDeliversNothing,
 		why: "人が読む面は id と欄名だけ（`--json` は差分のレコードを丸ごと渡す）"},
+	"scholia text-check": {text: textDeliversNothing,
+		why: "人が読む面は、記録の id と、読み手が挙げた言葉・理由だけを出す。記録の本文は出さない"},
 	"scholia refs scan":    {text: textDeliversNothing, why: "ソース中の id の出現箇所を出す面。記録の本文は出さない"},
 	"scholia refs rewrite": {text: textDeliversNothing, why: "id の張り替えの面。記録の本文は出さない"},
 	"scholia review list": {text: textDeliversNothing,
@@ -525,6 +527,7 @@ func TestUsage_DeliveredIDsMatchTheMachineReadableOutput(t *testing.T) {
 	template, ids := seedJSONFaceFixture(t)
 	t.Setenv("EDITOR", "true")
 	t.Setenv("HOME", t.TempDir())
+	useQuietReader(t)
 
 	ran, rejected := 0, 0
 	for _, face := range discoverJSONFaces(t) {
@@ -591,6 +594,7 @@ func TestUsage_TextFacesDeliverWhatTheyDeclare(t *testing.T) {
 	template, ids := seedJSONFaceFixture(t)
 	t.Setenv("EDITOR", "true")
 	t.Setenv("HOME", t.TempDir())
+	useQuietReader(t)
 
 	checked, skipped := 0, 0
 	for _, face := range usageRunnableSurfaces() {

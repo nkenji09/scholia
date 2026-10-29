@@ -35,6 +35,7 @@ const (
 	configKeyRoots             = "roots"
 	configKeyTagKindLabels     = "tagKindLabels"
 	configKeyTimezone          = "timezone"
+	configKeyReaderQuestion    = "readerQuestion"
 )
 
 func configKeyValue(cfg model.Config, key string) (any, error) {
@@ -53,6 +54,8 @@ func configKeyValue(cfg model.Config, key string) (any, error) {
 		return cfg.TagKindLabels, nil
 	case configKeyTimezone:
 		return cfg.Timezone, nil
+	case configKeyReaderQuestion:
+		return cfg.ReaderQuestion, nil
 	default:
 		return nil, fmt.Errorf("未知の config キーです: %q", key)
 	}

@@ -132,6 +132,14 @@ decision は **append-only**（過去を消す提案＝取り込み拒否の最�
    （1つの commit に戻るため）。手順の全体は
    [scholia-change スキル](../scholia-change/SKILL.md) Case 1 手順 9。
 4. `decide` は**必ず `--dry-run` を先に打つ**（decision は append-only。**取り込み先に載ったあとの why は直せない**——載る前なら `scholia decision edit <id> --why …`・`scholia decision rm <id>` で直せる）。
+   - **環境変数 `SCHOLIA_TEXT_READER` に読み手の実行ファイルが指定されていれば、`decide` は保存の前に why・changed を読み手に読ませる**
+     （経緯を知らない読み手の AI が、読む人によって意味が分かれうると見た言葉の候補。01M62GCNYSRWY49JT86FEXXWS5）。
+     候補があれば**保存せずに止まり**（終了コード 1）、`確かめ:` の行に候補を出す。`--dry-run` も同じ行を出す（止めない）。
+     **候補ごとに、言い換えるか残すかを書いた側が決める。機械的に言い換えない。**
+     直すと決めた所だけ直し、`--accept-text-candidates` を付けて `decide` を打ち直す（読み手は言い換えるたびに別の候補を出すので、読ませ直さない）。
+     残した言葉は、理由を添えて adopt 前の対話（持ち主への報告）に書く。**記録には確かめの跡を残さない。**
+     読み手が失敗した（時間切れ・起動できない等）ときは止まらずに保存され、`確かめ: 行われなかった（…）` が出る。
+     記録済みの文や ref 以後の差分は `scholia text-check <kind>:<id>…`・`scholia text-check --base <ref>` で読ませる（確かめが行われなければ終了コード 1）。
 5. 保存拒否（reject）を `--allow <rule> --reason <理由>` で破るのは、**稀な例外だけ**。規則の一覧は書き写さない——`--allow` に渡せる名前はエラー文言が列挙する（実装が正）。**--allow の使用例を手本（few-shot）として他レコードに写さない**。
    - 拒否には**機械判定できる不変条件**（矛盾する given・kind 不一致など）と、**保存後に是正できない欄の形式要件**（`decide --why` の見出し）の両方が入る。後者は「あとで直す」ができないので、警告ではなく拒否になっている。是正は `--allow` ではなく **why の側を直す**。
 
@@ -223,7 +231,9 @@ scholia decide --on <transition|tag|vocab>:<id> --why <見出し＋本文> --dry
 scholia decide --on <transition|tag|vocab>:<id> --why <見出し＋本文> [--changed <s>] [--ref <s>] [--refs <url>…]   # vocab は #45 D5。--commit は非推奨（01M1K4WPN3HXNVE0CR0T6NQK33）
                                                                       # ⚠️ --why の1行目は見出し必須（`# ` ＋1〜80字・2行目以降に本文）。満たさないと保存されない
 scholia decide … --acknowledges <rule>[,<rule>…]                      # finding を型付き容認（#45 D6・rule 実在照合）
+scholia decide … --accept-text-candidates                              # 読み手（SCHOLIA_TEXT_READER）を呼ばずに保存（候補を見て直した後に付ける）
 scholia decide … --supersedes <old>[:<mode>]                          # 旧 decision を置換/改訂/例外化（mode=supersede|amend|exception・既定 amend・#45 D7）
+scholia text-check <decision|tx|tag|vocab>:<id>… | --base <ref>   # 記録の文を SCHOLIA_TEXT_READER の読み手へ読ませ、確かめ: の行を出す（確かめが行われなければ exit 1）
 scholia decision edit <decisionId> [--why|--changed|--ref] [--base <ref>]  # 取り込み先に載っていない decision を直す（載っていれば拒否・01M1N5YPTRSYAJWH3W7GK4FP64）
 scholia decision rm <decisionId> [--base <ref>]                           # 同上の条件で消す
 scholia decision add-ref <decisionId> <ref> [...]                             # 既存 decision の refs[] に追記専用（**これを使う**）。URL は squash merge で壊れない
