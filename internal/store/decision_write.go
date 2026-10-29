@@ -41,6 +41,9 @@ type DecisionCreateOptions struct {
 	// AllowRules は保存時拒否規則を明示に破る指定（CLI の `--allow <rule>`）。
 	// 理由の必須・記録は CLI 層（internal/cli/write_gate.go）が担う。
 	AllowRules []string
+	// CheckOnly は、保存せずに、保存の前に当てる拒みだけを当てる（遅い処理の前に、口が必ず拒む入力を落とすため）。
+	// 返す decision は、結ぶ commit を完全 hash へ寄せたもので、ファイルは書かない。
+	CheckOnly bool
 }
 
 func (o DecisionCreateOptions) allows(rule string) bool {
@@ -70,9 +73,7 @@ type DecisionRejectError struct {
 
 func (e *DecisionRejectError) Error() string { return e.Message }
 
-// CheckDecisionCreate は、CreateDecision が保存の前に当てる拒み（既存 id・見出し・commit の実在と形）だけを、
-// 保存せずに当てる。結ぶ commit を完全 hash へ寄せた decision を返す。遅い処理（読み手の起動など）の前に、保存の口が必ず拒む入力を落とすために使う。
-func (s *Store) CheckDecisionCreate(d model.Decision, opts DecisionCreateOptions) (model.Decision, error) {
+func (s *Store) checkDecisionCreate(d model.Decision, opts DecisionCreateOptions) (model.Decision, error) {
 	path := s.decisionPath(d.ID)
 	if _, err := os.Stat(path); err == nil {
 		return model.Decision{}, fmt.Errorf("decision %s は既に存在します（新規作成の口では既存レコードを書き換えられません。更新は UpdateDecision）", d.ID)
@@ -115,9 +116,12 @@ func (s *Store) CheckDecisionCreate(d model.Decision, opts DecisionCreateOptions
 // ⚠️ **既存 decision の更新には効かない**（UpdateDecision は通らない）。
 // `why` は append-only で保存後に直せないので、遡って課す手段がそもそも無い。
 func (s *Store) CreateDecision(d model.Decision, opts DecisionCreateOptions) (model.Decision, error) {
-	d, err := s.CheckDecisionCreate(d, opts)
+	d, err := s.checkDecisionCreate(d, opts)
 	if err != nil {
 		return model.Decision{}, err
+	}
+	if opts.CheckOnly {
+		return d, nil
 	}
 	if err := s.writeDecision(d); err != nil {
 		return model.Decision{}, err

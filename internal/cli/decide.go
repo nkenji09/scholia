@@ -126,7 +126,7 @@ func newDecideCmd() *cobra.Command {
 			}
 
 			// 保存の口が必ず拒む入力（存在しない commit など）は、遅い読み手を呼ぶ前に、その拒みで終える。
-			if _, err := s.CheckDecisionCreate(d, store.DecisionCreateOptions{AllowRules: gate.allow}); err != nil {
+			if _, err := s.CreateDecision(d, store.DecisionCreateOptions{AllowRules: gate.allow, CheckOnly: true}); err != nil {
 				return err
 			}
 			// 保存の前に文を読ませる（telos の approve と同じ形）。候補があれば保存せず止め、
