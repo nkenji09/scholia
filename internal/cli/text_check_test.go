@@ -185,12 +185,11 @@ func TestTextCheck_DecideDryRunExitCodeIsUnchanged(t *testing.T) {
 	}
 }
 
-// 受け入れ 2: 指定ありの本番 decide・tx add/edit・tag edit・vocab edit は読み手を呼ばない。
+// 受け入れ 2: 指定ありの tx add/edit・tag edit・vocab edit は読み手を呼ばない（本番の decide は読み手を呼ぶ。下の Decide 系）。
 func TestTextCheck_WritesDoNotCallTheReader(t *testing.T) {
 	dir, _ := seedTextStore(t)
 	f := fakeReader(t, noCandidates, 0)
 	steps := [][]string{
-		{"decide", "--on", "tag:t1", "--why", "# 本番\n\n新しい方を開く"},
 		{"tx", "add", "T-2", "--action", "act.a", "--then", "eff.a"},
 		{"tx", "edit", "T-2", "--given", "cond.a"},
 		{"tag", "edit", "t1", "--desc", "新しい方を開く（直した）"},
@@ -447,7 +446,7 @@ func TestTextCheck_JSONFieldOnlyOnTheTwoCommands(t *testing.T) {
 	for _, s := range [][]string{
 		{"tx", "add", "T-3", "--action", "act.a", "--then", "eff.a", "--json"},
 		{"tag", "edit", "t1", "--desc", "変えた", "--json"},
-		{"decide", "--on", "tag:t1", "--why", "# 本番\n\n理由", "--json"},
+		{"decide", "--on", "tag:t1", "--why", "# 本番\n\n理由", "--accept-text-candidates", "--json"},
 	} {
 		out, err := run(t, dir, s...)
 		if err != nil {
@@ -489,5 +488,103 @@ func TestTextCheck_RelativeReaderIsNotLaunched(t *testing.T) {
 	}
 	if _, err := os.Stat(mark); err == nil {
 		t.Error("相対パスの指定は起動しないはず")
+	}
+}
+
+func realDecideArgs(extra ...string) []string {
+	return append([]string{"decide", "--on", "tag:t1", "--why", dryArgsWhy, "--changed", "検索を撃つ"}, extra...)
+}
+
+// 受け入れ 2: 指定ありの本番 decide は読み手を 1 回呼び、候補があれば保存せず終了コード 1。拒みの文に候補と打ち直しの手順を載せる。
+func TestTextCheck_DecideBlocksOnCandidates(t *testing.T) {
+	dir, _ := seedTextStore(t)
+	before := savedDecisionCount(t, dir)
+	f := fakeReader(t, `{"candidates":[{"key":"new","phrase":"新しい方","reason":"何と比べるか不明"},{"key":"new","phrase":"検索を撃つ","reason":"比喩"}]}`, 0)
+	for _, extra := range [][]string{nil, {"--json"}} {
+		out, err := run(t, dir, realDecideArgs(extra...)...)
+		if err == nil {
+			t.Fatalf("候補があれば止まる（1）はず:\n%s", out)
+		}
+		for _, want := range []string{"text-check-decide-blocked", "new 「新しい方」 何と比べるか不明", "new 「検索を撃つ」 比喩",
+			"直すと決めた所だけ直し、直した後は --accept-text-candidates を付けて decide を打ち直す。直した文をもう一度読ませない（読み手は言い換えるたびに別の候補を出すため）"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("%v: 拒みに %q が無い:\n%s", extra, want, out)
+			}
+		}
+		if savedDecisionCount(t, dir) != before {
+			t.Error("止めたときは保存しないはず")
+		}
+	}
+	if n := f.callCount(t); n != 2 {
+		t.Errorf("1 回の decide で 1 回読むはずが合計 %d 回", n)
+	}
+}
+
+// 候補が無ければそのまま保存し、「候補は無い」を出す。
+func TestTextCheck_DecideSavesWhenThereAreNoCandidates(t *testing.T) {
+	dir, _ := seedTextStore(t)
+	before := savedDecisionCount(t, dir)
+	f := fakeReader(t, noCandidates, 0)
+	out, err := run(t, dir, realDecideArgs()...)
+	if err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	if !strings.Contains(out, "確かめ: わかりにくい表現の候補は無い") || !strings.Contains(out, "を記録しました") {
+		t.Errorf("出力:\n%s", out)
+	}
+	if savedDecisionCount(t, dir) != before+1 || f.callCount(t) != 1 {
+		t.Error("保存され、読み手は 1 回だけ呼ばれるはず")
+	}
+	_, recs := f.sent(t)
+	if len(recs) != 1 || recs[0].Key != "new" || len(recs[0].Texts) != 2 {
+		t.Errorf("why と changed を key=new で渡すはず: %+v", recs)
+	}
+}
+
+// 読み手が失敗したときは止めずに保存し、行われなかった行を出す。
+func TestTextCheck_DecideSavesWhenTheReaderFails(t *testing.T) {
+	dir, _ := seedTextStore(t)
+	before := savedDecisionCount(t, dir)
+	fakeReader(t, "", 3)
+	out, err := run(t, dir, realDecideArgs()...)
+	if err != nil || !strings.Contains(out, "確かめ: 行われなかった（終了コード 3 で終わった） new") {
+		t.Fatalf("止めずに保存するはず: %v\n%s", err, out)
+	}
+	t.Setenv(readerVar, "./relative-reader")
+	out, err = run(t, dir, realDecideArgs()...)
+	if err != nil || !strings.Contains(out, "確かめ: 行われなかった（読み手の指定が名前か絶対パスでないので起動しなかった） new") {
+		t.Fatalf("相対パスでも止めずに保存するはず: %v\n%s", err, out)
+	}
+	if savedDecisionCount(t, dir) != before+2 {
+		t.Error("2 件とも保存されるはず")
+	}
+}
+
+// --accept-text-candidates は読み手を呼ばずに保存する。dry-run に付ければ読み手を呼ばずに下見する。
+func TestTextCheck_AcceptFlagSkipsTheReader(t *testing.T) {
+	dir, _ := seedTextStore(t)
+	before := savedDecisionCount(t, dir)
+	f := fakeReader(t, `{"candidates":[{"key":"new","phrase":"x","reason":"y"}]}`, 0)
+	const line = "確かめ: 候補を受け入れて読み手を呼ばなかった"
+	out, err := run(t, dir, realDecideArgs("--accept-text-candidates")...)
+	if err != nil || !strings.Contains(out, line) || savedDecisionCount(t, dir) != before+1 {
+		t.Fatalf("読み手を呼ばずに保存するはず: %v\n%s", err, out)
+	}
+	out, err = run(t, dir, dryRunArgs("--accept-text-candidates")...)
+	if err != nil || !strings.Contains(out, line) || savedDecisionCount(t, dir) != before+1 {
+		t.Fatalf("dry-run に付けても読み手を呼ばず、保存しないはず: %v\n%s", err, out)
+	}
+	if f.callCount(t) != 0 {
+		t.Error("読み手は呼ばれないはず")
+	}
+}
+
+// 指定が無ければ、本番の decide も今と同じ（確かめの行を出さず、止めない）。
+func TestTextCheck_DecideWithoutReaderIsUnchanged(t *testing.T) {
+	dir, _ := seedTextStore(t)
+	t.Setenv(readerVar, "")
+	out, err := run(t, dir, realDecideArgs()...)
+	if err != nil || strings.Contains(out, "確かめ") || !strings.Contains(out, "を記録しました") {
+		t.Errorf("今と同じはず: %v\n%s", err, out)
 	}
 }
