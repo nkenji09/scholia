@@ -201,7 +201,7 @@ func TestLinesWording(t *testing.T) {
 	}
 }
 
-func TestDefaultQuestionIsTelosWording(t *testing.T) {
+func TestDefaultQuestionWording(t *testing.T) {
 	for _, want := range []string{"何も知らない読み手", "「検査を撃つ」「読む口」", "「新しい方」", "「古ければ拒む」", "reason は 15 字以内"} {
 		if !strings.Contains(DefaultQuestion, want) {
 			t.Errorf("既定の問いは %q を含むはず", want)

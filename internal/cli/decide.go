@@ -129,7 +129,7 @@ func newDecideCmd() *cobra.Command {
 			if _, err := s.CreateDecision(d, store.DecisionCreateOptions{AllowRules: gate.allow, CheckOnly: true}); err != nil {
 				return err
 			}
-			// 保存の前に文を読ませる（telos の approve と同じ形）。候補があれば保存せず止め、
+			// 保存の前に文を読ませる。候補があれば保存せず止め、
 			// 読み手が失敗したときは止めずに保存する。保存後は直せないので、確かめの場所はここである。
 			check, err := decideTextCheck(cmd, s, d, acceptTextCandidates)
 			if err != nil {
