@@ -147,6 +147,7 @@ var stringFlagSpecs = map[string]argSpec{
 	"scholia activity --since":               {class: classFreeText},
 	"scholia activity --until":               {class: classFreeText},
 	"scholia decide --acknowledges":          {class: classFreeText},
+	"scholia text-check --base":              {class: classFreeText},
 	"scholia decide --changed":               {class: classFreeText},
 	"scholia decide --commit":                {class: classFreeText},
 	"scholia decide --ref":                   {class: classFreeText},
@@ -247,7 +248,9 @@ var positionalSpecs = map[string]positionalSpec{
 	"scholia decision relink-commits": {},
 	"scholia decision show":           {at: []argSpec{{class: classRecordID, selector: selDecision}}},
 	// git の ref を 2 つまで（cobra.MaximumNArgs(2)）。**位置ごとに書く**——可変長ではない。
-	"scholia diff":                 {at: []argSpec{{class: classFreeText}, {class: classFreeText}}},
+	"scholia diff": {at: []argSpec{{class: classFreeText}, {class: classFreeText}}},
+	// 記録の指定 <kind>:<id> を可変長で取る。kind が decision・tx・tag・vocab と分かれるので、選択子は 1 つに決まらない（自由文として扱う）。
+	"scholia text-check":           {at: []argSpec{{class: classFreeText}}, variadic: true},
 	"scholia export":               {},
 	"scholia flow":                 {at: []argSpec{{class: classRecordID, selector: selVocab}}},
 	"scholia gaps":                 {at: []argSpec{{class: classRecordID, selector: selVocab}}},

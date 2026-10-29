@@ -217,11 +217,16 @@ func (s *Store) TransitionExists(id string) bool {
 
 func (s *Store) LoadConfig() (model.Config, error) {
 	var c model.Config
+	// readerQuestion の空白だけの値は、ここでは拒まない（拒むと、ほぼ全部のコマンドが止まる）。
+	// 読み手を呼ぶ所が、確かめが行われなかったものとして扱う。書く側（SaveConfig）は拒む。
 	err := readJSON(filepath.Join(s.Dir, configFile), &c)
 	return c, err
 }
 
 func (s *Store) SaveConfig(c model.Config) error {
+	if err := model.ValidateReaderQuestion(c.ReaderQuestion); err != nil {
+		return err
+	}
 	return writeJSONAtomic(filepath.Join(s.Dir, configFile), c)
 }
 

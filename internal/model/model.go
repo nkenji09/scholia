@@ -4,6 +4,7 @@ package model
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -371,6 +372,18 @@ type Config struct {
 	IDPolicy *IDPolicy `json:"idPolicy,omitempty"`
 	// Lint is additive (#45 U2): tuning knobs for advisory lint rules.
 	Lint *LintConfig `json:"lint,omitempty"`
+	// ReaderQuestion は、記録の文を読み手の AI に読ませるときの問いの上書き（空は組み込みの既定の問い）。
+	// 空白だけの値は書けない（ValidateReaderQuestion）。
+	ReaderQuestion string `json:"readerQuestion,omitempty"`
+}
+
+// ValidateReaderQuestion は、空白だけの問いを拒む。空は「上書きしない」なので通す。
+// config を保存する口と、読み込んだ値の検査の両方が使う。
+func ValidateReaderQuestion(q string) error {
+	if q != "" && strings.TrimSpace(q) == "" {
+		return fmt.Errorf("readerQuestion が空白だけです（上書きしないなら空にしてください）")
+	}
+	return nil
 }
 
 // SourceRefs scopes where `scholia refs scan|rewrite` and rename's implicit

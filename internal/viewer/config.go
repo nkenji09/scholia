@@ -101,6 +101,11 @@ func putLocalConfigHandler(s *store.Store) http.HandlerFunc {
 // PUT body that omits tagKindLabels/display/timezone clears them, same as
 // any other field here; ConfigView.tsx always round-trips the full draft it
 // loaded, so a normal save never does this by accident.
+//
+// readerQuestion (the question handed to the text reader) is deliberately NOT
+// here: it is settable only through `scholia config set readerQuestion`. It is
+// text a local reader process receives, and this write path has no
+// authentication, so the viewer must not be able to change it.
 type configPatch struct {
 	// TagKinds は #45 D9 で []model.KindDecl（union 型）に移行。object 宣言
 	// （label/description/behaviors）を round-trip で保全し、port だけ変えた PUT で

@@ -16,7 +16,7 @@ func newConfigSetCmd() *cobra.Command {
 	var asJSON, local bool
 	cmd := &cobra.Command{
 		Use: "set <key> <value>",
-		Short: "config の値を更新する（tagKinds/facetKinds/traceabilityKinds/tagKindLabels/viewer.port/roots/timezone）。" +
+		Short: "config の値を更新する（tagKinds/facetKinds/traceabilityKinds/tagKindLabels/viewer.port/roots/timezone/readerQuestion）。" +
 			"tagKindLabels の value は kind=label のカンマ区切り（例: requirement=要件,concern=関心事）。" +
 			"--local で viewer.port/timezone だけをこの端末専用の上書き（.scholia/config.local.json・gitignore 対象）に書く",
 		Args: cobra.ExactArgs(2),
@@ -81,6 +81,8 @@ func newConfigSetCmd() *cobra.Command {
 					}
 				}
 				cfg.Timezone = value
+			case configKeyReaderQuestion:
+				cfg.ReaderQuestion = value
 			default:
 				return fmt.Errorf("未知の config キーです: %q", key)
 			}

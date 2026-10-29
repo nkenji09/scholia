@@ -41,6 +41,9 @@ type DecisionCreateOptions struct {
 	// AllowRules は保存時拒否規則を明示に破る指定（CLI の `--allow <rule>`）。
 	// 理由の必須・記録は CLI 層（internal/cli/write_gate.go）が担う。
 	AllowRules []string
+	// CheckOnly は、保存せずに、保存の前に当てる拒みだけを当てる（遅い処理の前に、口が必ず拒む入力を落とすため）。
+	// 返す decision は、結ぶ commit を完全 hash へ寄せたもので、ファイルは書かない。
+	CheckOnly bool
 }
 
 func (o DecisionCreateOptions) allows(rule string) bool {
@@ -70,18 +73,7 @@ type DecisionRejectError struct {
 
 func (e *DecisionRejectError) Error() string { return e.Message }
 
-// CreateDecision は decision を新規に 1 件作る**唯一の口**。
-//
-// その id のファイルが既に在れば落ちる（append-only の decision を、新規作成の
-// 顔をして踏み潰すことはできない）。そのうえで保存時の拒否規則を当てる。
-//
-// 拒否規則（01KZ06SYR3APGF3JD4NQRFTEEN 変更1）:
-//   - decision-heading — `why` の 1 行目が見出しでない（判定は
-//     model.CheckDecisionHeading・3 条件）
-//
-// ⚠️ **既存 decision の更新には効かない**（UpdateDecision は通らない）。
-// `why` は append-only で保存後に直せないので、遡って課す手段がそもそも無い。
-func (s *Store) CreateDecision(d model.Decision, opts DecisionCreateOptions) (model.Decision, error) {
+func (s *Store) checkDecisionCreate(d model.Decision, opts DecisionCreateOptions) (model.Decision, error) {
 	path := s.decisionPath(d.ID)
 	if _, err := os.Stat(path); err == nil {
 		return model.Decision{}, fmt.Errorf("decision %s は既に存在します（新規作成の口では既存レコードを書き換えられません。更新は UpdateDecision）", d.ID)
@@ -109,7 +101,28 @@ func (s *Store) CreateDecision(d model.Decision, opts DecisionCreateOptions) (mo
 	if err := s.checkDecisionAdditions(&d, nil); err != nil {
 		return model.Decision{}, err
 	}
+	return d, nil
+}
 
+// CreateDecision は decision を新規に 1 件作る**唯一の口**。
+//
+// その id のファイルが既に在れば落ちる（append-only の decision を、新規作成の
+// 顔をして踏み潰すことはできない）。そのうえで保存時の拒否規則を当てる。
+//
+// 拒否規則（01KZ06SYR3APGF3JD4NQRFTEEN 変更1）:
+//   - decision-heading — `why` の 1 行目が見出しでない（判定は
+//     model.CheckDecisionHeading・3 条件）
+//
+// ⚠️ **既存 decision の更新には効かない**（UpdateDecision は通らない）。
+// `why` は append-only で保存後に直せないので、遡って課す手段がそもそも無い。
+func (s *Store) CreateDecision(d model.Decision, opts DecisionCreateOptions) (model.Decision, error) {
+	d, err := s.checkDecisionCreate(d, opts)
+	if err != nil {
+		return model.Decision{}, err
+	}
+	if opts.CheckOnly {
+		return d, nil
+	}
 	if err := s.writeDecision(d); err != nil {
 		return model.Decision{}, err
 	}

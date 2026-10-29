@@ -30,6 +30,7 @@ func newRootCmd() *cobra.Command {
 	cmd.AddCommand(newShowCmd())
 	cmd.AddCommand(newLintCmd())
 	cmd.AddCommand(newDecideCmd())
+	cmd.AddCommand(newTextCheckCmd())
 	cmd.AddCommand(newDecisionCmd())
 	cmd.AddCommand(newReviewCmd())
 	cmd.AddCommand(newRulesCmd())

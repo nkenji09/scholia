@@ -123,11 +123,17 @@ type writeEnvelope struct {
 	Advisories []lint.Finding  `json:"advisories"`
 	Allowed    []allowedReject `json:"allowed,omitempty"`
 	DryRun     bool            `json:"dryRun,omitempty"`
+	// TextCheck は decide --dry-run だけが足す（読み手の指定があるときだけ）。ほかの書き込みコマンドの形は変えない。
+	TextCheck *textCheckJSON `json:"textCheck,omitempty"`
 }
 
 func emitWriteJSON(cmd *cobra.Command, record any, advisories []lint.Finding, allowed []allowedReject, dryRun bool) error {
+	return emitWriteJSONWithTextCheck(cmd, record, advisories, allowed, dryRun, nil)
+}
+
+func emitWriteJSONWithTextCheck(cmd *cobra.Command, record any, advisories []lint.Finding, allowed []allowedReject, dryRun bool, textCheck *textCheckJSON) error {
 	if advisories == nil {
 		advisories = []lint.Finding{}
 	}
-	return emitJSON(cmd, writeEnvelope{Record: record, Advisories: advisories, Allowed: allowed, DryRun: dryRun})
+	return emitJSON(cmd, writeEnvelope{Record: record, Advisories: advisories, Allowed: allowed, DryRun: dryRun, TextCheck: textCheck})
 }
