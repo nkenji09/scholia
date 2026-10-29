@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -21,9 +22,11 @@ const (
 // textCheckJSON は、--json の textCheck の欄（decide --dry-run と text-check だけが持つ）。
 type textCheckJSON struct {
 	// Checked は、読み手が答えを返して確かめが終わったことを表す。
-	Checked    bool                   `json:"checked"`
-	NoReader   bool                   `json:"noReader,omitempty"`
-	Accepted   bool                   `json:"accepted,omitempty"`
+	Checked  bool `json:"checked"`
+	NoReader bool `json:"noReader,omitempty"`
+	Accepted bool `json:"accepted,omitempty"`
+	// Reason は、読ませる文が無く読み手を呼ばなかったときの理由。
+	Reason     string                 `json:"reason,omitempty"`
 	Question   string                 `json:"question,omitempty"`
 	Candidates []textcheck.Candidate  `json:"candidates"`
 	NotChecked []textcheck.NotChecked `json:"notChecked"`
@@ -36,6 +39,8 @@ type textCheckOutcome struct {
 	Ran    bool
 	// Accepted は、--accept-text-candidates で読み手を呼ばずに通したことを表す。
 	Accepted bool
+	// NoTexts は、読ませる文が 1 つも無く、読み手を呼ばなかったことを表す。
+	NoTexts bool
 }
 
 const textCheckAcceptedLine = "確かめ: 候補を受け入れて読み手を呼ばなかった"
@@ -43,8 +48,9 @@ const textCheckAcceptFlag = "accept-text-candidates"
 
 func (o textCheckOutcome) json() *textCheckJSON {
 	j := &textCheckJSON{
-		Checked:    o.Result.Checked() && !o.Accepted,
+		Checked:    o.Result.Checked() && !o.Accepted && !o.NoTexts,
 		Accepted:   o.Accepted,
+		Reason:     o.noTextsReason(),
 		NoReader:   o.Result.NoReader,
 		Candidates: o.Result.Candidates,
 		NotChecked: o.Result.NotChecked,
@@ -61,9 +67,29 @@ func (o textCheckOutcome) json() *textCheckJSON {
 	return j
 }
 
+// jsonIfAny は、読み手の指定が無かったときは nil（textCheck の欄を出さない）、あれば textCheck の欄を返す。
+func (o textCheckOutcome) jsonIfAny() *textCheckJSON {
+	if o.Result.NoReader {
+		return nil
+	}
+	return o.json()
+}
+
 // lines は、人向けの行。読み手が走ったときは、最初に問いの出どころの行を足す
 // （config の名前の打ち間違いで、上書きが効いていないことに気づけるようにするため）。
+const noTextsLine = "確かめ: 読ませる文が無い（読み手は呼んでいない）"
+
+func (o textCheckOutcome) noTextsReason() string {
+	if o.NoTexts {
+		return "読ませる文が無い"
+	}
+	return ""
+}
+
 func (o textCheckOutcome) lines() []string {
+	if o.NoTexts {
+		return []string{noTextsLine}
+	}
 	if o.Accepted {
 		return []string{textCheckAcceptedLine}
 	}
@@ -85,18 +111,26 @@ func runTextCheck(cmd *cobra.Command, s *store.Store, records []textcheck.Record
 	if err != nil {
 		return textCheckOutcome{}, err
 	}
-	question, source := textcheck.DefaultQuestion, questionSourceDefault
-	if cfg.ReaderQuestion != "" {
-		question, source = cfg.ReaderQuestion, questionSourceConfig
-	}
 	var withTexts []textcheck.Record
 	for _, r := range records {
 		if len(r.Texts) > 0 {
 			withTexts = append(withTexts, r)
 		}
 	}
+	// 読み手を起動できない指定は、読ませる文の有無より先に見る。
+	if reason := reader.Precheck(); reason != "" {
+		return textCheckOutcome{Result: textcheck.NotCheckedAll(withTexts, reason)}, nil
+	}
 	if len(withTexts) == 0 {
-		return textCheckOutcome{}, nil
+		return textCheckOutcome{NoTexts: true}, nil
+	}
+	// 読み込んだ値が空白だけ（手で書かれた config）なら、読み手を呼ばず、確かめが行われなかったとして扱う。
+	if err := model.ValidateReaderQuestion(cfg.ReaderQuestion); err != nil {
+		return textCheckOutcome{Result: textcheck.NotCheckedAll(withTexts, "readerQuestion が空白だけ")}, nil
+	}
+	question, source := textcheck.DefaultQuestion, questionSourceDefault
+	if cfg.ReaderQuestion != "" {
+		question, source = cfg.ReaderQuestion, questionSourceConfig
 	}
 	return textCheckOutcome{Result: reader.Read(question, withTexts), Source: source, Ran: true}, nil
 }
@@ -254,7 +288,7 @@ func changedTextTargets(res diff.Result) []textTarget {
 		add("decision", d.ID, decisionTexts(d))
 	}
 	for _, c := range res.Decisions.Changed {
-		if !sameTexts(decisionTexts(c.Before), decisionTexts(c.After)) {
+		if !slices.Equal(decisionTexts(c.Before), decisionTexts(c.After)) {
 			add("decision", c.ID, decisionTexts(c.After))
 		}
 	}
@@ -262,7 +296,7 @@ func changedTextTargets(res diff.Result) []textTarget {
 		add("tag", t.ID, tagTexts(t))
 	}
 	for _, c := range res.Tags.Changed {
-		if !sameTexts(tagTexts(c.Before), tagTexts(c.After)) {
+		if !slices.Equal(tagTexts(c.Before), tagTexts(c.After)) {
 			add("tag", c.ID, tagTexts(c.After))
 		}
 	}
@@ -270,43 +304,34 @@ func changedTextTargets(res diff.Result) []textTarget {
 		add("vocab", v.ID, vocabTexts(v))
 	}
 	for _, c := range res.Vocab.Changed {
-		if !sameTexts(vocabTexts(c.Before), vocabTexts(c.After)) {
+		if !slices.Equal(vocabTexts(c.Before), vocabTexts(c.After)) {
 			add("vocab", c.ID, vocabTexts(c.After))
 		}
 	}
 	return targets
 }
 
-func sameTexts(a, b []textcheck.Text) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
-// textRecords は、読み手に渡す記録にする。同じ id が kind をまたいで重なるときだけ、key を kind:id にする
+// textRecords は、読み手に渡す記録にする。対象を kind と id の組で重複なしにそろえてから、同じ id が kind をまたいで重なるときだけ、key を kind:id にする
 // （読み手が返す key で、どの記録かを一意に決めるため）。
 func textRecords(targets []textTarget) []textcheck.Record {
-	count := map[string]int{}
+	var unique []textTarget
+	seenTarget := map[string]bool{}
 	for _, t := range targets {
+		if !seenTarget[t.kind+":"+t.id] {
+			seenTarget[t.kind+":"+t.id] = true
+			unique = append(unique, t)
+		}
+	}
+	count := map[string]int{}
+	for _, t := range unique {
 		count[t.id]++
 	}
-	records := make([]textcheck.Record, 0, len(targets))
-	seen := map[string]bool{}
-	for _, t := range targets {
+	records := make([]textcheck.Record, 0, len(unique))
+	for _, t := range unique {
 		key := t.id
 		if count[t.id] > 1 {
 			key = t.kind + ":" + t.id
 		}
-		if seen[key] {
-			continue
-		}
-		seen[key] = true
 		records = append(records, textcheck.Record{ID: key, Texts: t.texts})
 	}
 	return records
@@ -334,3 +359,14 @@ func textCheckBlockError(cmd *cobra.Command, o textCheckOutcome) error {
 }
 
 const textCheckDecideBlocked = "text-check-decide-blocked"
+
+// printTextCheckLines は、確かめの行を出す。--json のときは標準出力が JSON なので、標準エラーへ出す。
+func printTextCheckLines(cmd *cobra.Command, o textCheckOutcome, asJSON bool) {
+	w := cmd.OutOrStdout()
+	if asJSON {
+		w = cmd.ErrOrStderr()
+	}
+	for _, l := range o.lines() {
+		fmt.Fprintln(w, l)
+	}
+}

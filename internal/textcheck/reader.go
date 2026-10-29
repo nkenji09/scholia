@@ -90,6 +90,19 @@ type requestRecord struct {
 	Texts []Text `json:"texts"`
 }
 
+// Precheck は、指定された読み手が起動できない形なら、その理由を返す（起動できる形なら空）。
+// 相対パスは撃った場所から解かれ、開いたリポジトリの中のファイルが走るので、起動しない。
+func (r Reader) Precheck() string {
+	command := r.Named()
+	if strings.ContainsAny(command, "/"+string(filepath.Separator)) && !filepath.IsAbs(command) {
+		return "読み手の指定が名前か絶対パスでないので起動しなかった"
+	}
+	return ""
+}
+
+// NotCheckedAll は、渡す全件の ID をその部分とする、確かめが行われなかった結果を作る（読み手を起動せずに終えるときに使う）。
+func NotCheckedAll(records []Record, reason string) Result { return notChecked(records, reason) }
+
 // Read は、問いと記録の文を読み手の標準入力に渡し、標準出力の候補を受け取る。
 // 読み手には、Variable だけを抜いた環境を引き継ぐ。失敗は誤りにせず、当たった理由を 1 つ言う、確かめが行われなかった結果で答える。
 func (r Reader) Read(question string, records []Record) Result {
@@ -97,9 +110,8 @@ func (r Reader) Read(question string, records []Record) Result {
 	if command == "" {
 		return Result{NoReader: true}
 	}
-	// 相対パスは撃った場所から解かれ、開いたリポジトリの中のファイルが走るので、起動しない。
-	if strings.ContainsAny(command, "/"+string(filepath.Separator)) && !filepath.IsAbs(command) {
-		return notChecked(records, "読み手の指定が名前か絶対パスでないので起動しなかった")
+	if reason := r.Precheck(); reason != "" {
+		return notChecked(records, reason)
 	}
 	req := request{Question: question, AnswerFormat: AnswerFormat, Records: make([]requestRecord, 0, len(records))}
 	for _, rec := range records {
@@ -126,6 +138,8 @@ func (r Reader) Read(question string, records []Record) Result {
 		// 上限で読み手を止めた後も握り続け、呼んだ側がその終わりを待つため。
 		cmd.Stderr = writerOnly{r.Stderr}
 	}
+	// 読み手を新しいプロセスグループで起こし、時間切れのときはグループごと止める（読み手が起こした子が残らないように）。
+	isolateProcessGroup(cmd)
 	// 上限か読み手の終わりから 1 秒で管を閉じ、読み手が起こしたプロセスを待たない。
 	cmd.WaitDelay = time.Second
 	err = cmd.Run()

@@ -239,7 +239,7 @@ var deliverySpecs = map[string]deliverySpec{
 	"scholia diff": {text: textDeliversNothing,
 		why: "人が読む面は id と欄名だけ（`--json` は差分のレコードを丸ごと渡す）"},
 	"scholia text-check": {text: textDeliversNothing,
-		why: "人が読む面は、記録の id と、読み手が挙げた言葉・理由だけを出す。記録の本文は出さない"},
+		why: "人が読む面が出すのは、記録の id と、読み手が返した言葉・理由。読み手が挙げる言葉は記録の文の引用でありうるが、面が記録の本文を選んで渡すことはしない"},
 	"scholia refs scan":    {text: textDeliversNothing, why: "ソース中の id の出現箇所を出す面。記録の本文は出さない"},
 	"scholia refs rewrite": {text: textDeliversNothing, why: "id の張り替えの面。記録の本文は出さない"},
 	"scholia review list": {text: textDeliversNothing,

@@ -13,7 +13,7 @@ import (
 func newConfigCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
-		Short: "config（tagKinds/facetKinds/traceabilityKinds/tagKindLabels/viewer.port/roots/timezone）を操作する",
+		Short: "config（tagKinds/facetKinds/traceabilityKinds/tagKindLabels/viewer.port/roots/timezone/readerQuestion）を操作する",
 	}
 	cmd.AddCommand(newConfigGetCmd())
 	cmd.AddCommand(newConfigSetCmd())

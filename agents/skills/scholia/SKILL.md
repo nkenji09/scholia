@@ -132,11 +132,11 @@ decision は **append-only**（過去を消す提案＝取り込み拒否の最�
    （1つの commit に戻るため）。手順の全体は
    [scholia-change スキル](../scholia-change/SKILL.md) Case 1 手順 9。
 4. `decide` は**必ず `--dry-run` を先に打つ**（decision は append-only。**取り込み先に載ったあとの why は直せない**——載る前なら `scholia decision edit <id> --why …`・`scholia decision rm <id>` で直せる）。
-   - **環境変数 `SCHOLIA_TEXT_READER` に読み手の実行ファイルが指定されていれば、`decide` は保存の前に why・changed を読み手に読ませる**
-     （経緯を知らない読み手の AI が、読む人によって意味が分かれうると見た言葉の候補。01M62GCNYSRWY49JT86FEXXWS5）。
-     候補があれば**保存せずに止まり**（終了コード 1）、`確かめ:` の行に候補を出す。`--dry-run` も同じ行を出す（止めない）。
+   - **環境変数 `SCHOLIA_TEXT_READER` に読み手の実行ファイルが指定されていれば、`--dry-run` は advisory の後に `確かめ:` の行を出す**
+     （経緯を知らない読み手の AI が、読む人によって意味が分かれうると見た言葉の候補。01M62GCNYSRWY49JT86FEXXWS5）。止めない。
      **候補ごとに、言い換えるか残すかを書いた側が決める。機械的に言い換えない。**
-     直すと決めた所だけ直し、`--accept-text-candidates` を付けて `decide` を打ち直す（読み手は言い換えるたびに別の候補を出すので、読ませ直さない）。
+     決めた後の本番は `--accept-text-candidates` を付けて打つ（同じ文を読み手に 2 回読ませない。読み手は言い換えるたびに別の候補を出す）。
+     本番の `decide` でも確かめが走り、候補があれば保存せずに止まるのは、dry-run を打ち忘れたときの歯止めである。
      残した言葉は、理由を添えて adopt 前の対話（持ち主への報告）に書く。**記録には確かめの跡を残さない。**
      読み手が失敗した（時間切れ・起動できない等）ときは止まらずに保存され、`確かめ: 行われなかった（…）` が出る。
      記録済みの文や ref 以後の差分は `scholia text-check <kind>:<id>…`・`scholia text-check --base <ref>` で読ませる（確かめが行われなければ終了コード 1）。

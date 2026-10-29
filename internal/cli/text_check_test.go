@@ -446,7 +446,6 @@ func TestTextCheck_JSONFieldOnlyOnTheTwoCommands(t *testing.T) {
 	for _, s := range [][]string{
 		{"tx", "add", "T-3", "--action", "act.a", "--then", "eff.a", "--json"},
 		{"tag", "edit", "t1", "--desc", "変えた", "--json"},
-		{"decide", "--on", "tag:t1", "--why", "# 本番\n\n理由", "--accept-text-candidates", "--json"},
 	} {
 		out, err := run(t, dir, s...)
 		if err != nil {

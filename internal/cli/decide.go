@@ -114,23 +114,21 @@ func newDecideCmd() *cobra.Command {
 					return err
 				}
 				if asJSON {
-					var tc *textCheckJSON
-					if !check.Result.NoReader {
-						tc = check.json()
-					}
-					return emitWriteJSONWithTextCheck(cmd, d, advisories, allowed, true, tc)
+					return emitWriteJSONWithTextCheck(cmd, d, advisories, allowed, true, check.jsonIfAny())
 				}
 				fmt.Fprintf(cmd.OutOrStdout(), "dry-run: decision は保存していません（%s:%s への advisory プレビュー）\n", targetType, targetID)
 				if len(advisories) == 0 {
 					fmt.Fprintln(cmd.OutOrStdout(), "advisory: なし（このまま decide してよい）")
 				}
 				printWriteGateText(cmd, allowed, advisories)
-				for _, l := range check.lines() {
-					fmt.Fprintln(cmd.OutOrStdout(), l)
-				}
+				printTextCheckLines(cmd, check, false)
 				return nil
 			}
 
+			// 保存の口が必ず拒む入力（存在しない commit など）は、遅い読み手を呼ぶ前に、その拒みで終える。
+			if _, err := s.CheckDecisionCreate(d, store.DecisionCreateOptions{AllowRules: gate.allow}); err != nil {
+				return err
+			}
 			// 保存の前に文を読ませる（telos の approve と同じ形）。候補があれば保存せず止め、
 			// 読み手が失敗したときは止めずに保存する。保存後は直せないので、確かめの場所はここである。
 			check, err := decideTextCheck(cmd, s, d, acceptTextCandidates)
@@ -157,13 +155,12 @@ func newDecideCmd() *cobra.Command {
 			advisories = append(advisories, lint.CommitUnverifiedAdvisories(repo.Managed(), len(d.Commits))...)
 
 			if asJSON {
-				return emitWriteJSON(cmd, saved, advisories, allowed, false)
+				printTextCheckLines(cmd, check, true)
+				return emitWriteJSONWithTextCheck(cmd, saved, advisories, allowed, false, check.jsonIfAny())
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "decision %s を記録しました（%s:%s）\n", saved.ID, targetType, targetID)
 			printWriteGateText(cmd, allowed, advisories)
-			for _, l := range check.lines() {
-				fmt.Fprintln(cmd.OutOrStdout(), l)
-			}
+			printTextCheckLines(cmd, check, false)
 			return nil
 		},
 	}

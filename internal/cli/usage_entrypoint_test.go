@@ -146,6 +146,8 @@ var usageEntrypointRan = map[string]int{}
 //     ここは `cmd/scholia/main.go` と同じことをする——⚠️ **写しであって、main の検査ではない。**
 //  2. そうでなければ通常どおりテストを走らせ、**入口の検査が表のとおり走ったか**を突き合わせる。
 func TestMain(m *testing.M) {
+	// 利用者のシェルの読み手の指定を持ち込まない。読み手を使う検査は、各自で t.Setenv する。
+	os.Unsetenv("SCHOLIA_TEXT_READER")
 	if arg, depth := usageEntrypointSignals(); arg && depth {
 		// 合図を取り除いてから渡す。Execute は cobra の既定で os.Args[1:] を読む。
 		os.Args = append(os.Args[:1], os.Args[2:]...)
